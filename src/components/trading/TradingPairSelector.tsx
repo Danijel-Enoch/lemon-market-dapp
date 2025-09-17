@@ -63,7 +63,7 @@ export function TradingPairSelector() {
 			</div>
 
 			{/* Filters Section */}
-			<div className="flex items-center bg-[#141623] border border-[#0f101d] rounded-lg p-2 space-x-3">
+			<div className="flex items-center bg-[#141623] border border-[#0f101d] rounded p-2 space-x-3">
 				<Select value={selectedChain} onValueChange={setSelectedChain}>
 					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 py-3 w-32">
 						<span className="text-[#bebec1] text-[11px] font-bold">

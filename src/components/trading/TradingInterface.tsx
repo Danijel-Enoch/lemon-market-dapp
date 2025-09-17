@@ -1,10 +1,10 @@
 "use client";
 
+import { Header } from "../layout/Header";
 import { ChartSection } from "./ChartSection";
 import { PositionsTable } from "./PositionsTable";
 import { TradingPairSelector } from "./TradingPairSelector";
 import { TradingPanel } from "./TradingPanel";
-import { Header } from "../layout/Header";
 
 export function TradingInterface() {
 	return (

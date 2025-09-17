@@ -16,31 +16,49 @@ export function Header() {
 					{/* Trading Section */}
 					<div className="flex items-center space-x-6">
 						<div className="relative">
-							<button type="button" className="text-gray-400 hover:text-gray-300 font-bold text-sm transition-colors">
+							<button
+								type="button"
+								className="text-gray-400 hover:text-gray-300 font-bold text-sm transition-colors"
+							>
 								Advanced
 							</button>
 							{/* New Badge */}
-							<span className="absolute -top-2 -right-8 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-light text-teal-500 bg-slate-900 border border-teal-600">
+							<span className="absolute -top-2 -right-8 inline-flex items-center px-2 py-0.5 rounded text-xs font-light text-teal-500 bg-slate-900 border border-teal-600">
 								New
 							</span>
 						</div>
-						<button type="button" className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors">
+						<button
+							type="button"
+							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						>
 							Simplified
 						</button>
 					</div>
 
 					{/* Main Navigation */}
 					<div className="flex items-center space-x-6">
-						<button type="button" className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors">
+						<button
+							type="button"
+							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						>
 							Staking
 						</button>
-						<button type="button" className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors">
+						<button
+							type="button"
+							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						>
 							oTango
 						</button>
-						<button type="button" className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors">
+						<button
+							type="button"
+							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						>
 							Profile
 						</button>
-						<button type="button" className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors">
+						<button
+							type="button"
+							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						>
 							Airdrop
 						</button>
 					</div>
@@ -49,7 +67,10 @@ export function Header() {
 				{/* Right Section */}
 				<div className="flex items-center space-x-6">
 					{/* Resources */}
-					<button type="button" className="text-gray-600 hover:text-gray-500 font-bold text-sm transition-colors">
+					<button
+						type="button"
+						className="text-gray-600 hover:text-gray-500 font-bold text-sm transition-colors"
+					>
 						Resources
 					</button>
 
@@ -60,7 +81,10 @@ export function Header() {
 					</div>
 
 					{/* Connect Wallet Button */}
-					<button type="button" className="flex items-center px-4 py-2 bg-slate-900 border border-slate-700 rounded-md text-gray-300 hover:text-white hover:border-slate-600 font-bold text-sm transition-all">
+					<button
+						type="button"
+						className="flex items-center px-4 py-2 bg-slate-900 border border-slate-700 rounded text-gray-300 hover:text-white hover:border-slate-600 font-bold text-sm transition-all"
+					>
 						Connect Wallet
 					</button>
 				</div>

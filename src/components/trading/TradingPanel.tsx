@@ -1,9 +1,9 @@
 "use client";
 
+import { ArrowUpDown } from "lucide-react";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Select,
 	SelectContent,
@@ -11,7 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { ArrowUpDown } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 
@@ -53,8 +53,13 @@ export function TradingPanel() {
 	};
 
 	return (
-		<div className="w-[380px] bg-[#0a0b17] rounded-lg p-6">
-			<Tabs defaultValue="buy" value={activeTab} onValueChange={setActiveTab} className="w-full">
+		<div className="w-[380px] bg-[#0a0b17] rounded p-6">
+			<Tabs
+				defaultValue="buy"
+				value={activeTab}
+				onValueChange={setActiveTab}
+				className="w-full"
+			>
 				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto mb-8">
 					<TabsTrigger
@@ -73,11 +78,12 @@ export function TradingPanel() {
 
 				<TabsContent value="buy" className="space-y-4">
 					{/* Token Input Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You pay</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance: {tokens.find(t => t.symbol === inputToken)?.balance || "0.00"}
+								Balance:{" "}
+								{tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -90,7 +96,9 @@ export function TradingPanel() {
 							<Select value={inputToken} onValueChange={setInputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">{tokens.find(t => t.symbol === inputToken)?.icon}</span>
+										<span className="text-[14px]">
+											{tokens.find((t) => t.symbol === inputToken)?.icon}
+										</span>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -104,8 +112,12 @@ export function TradingPanel() {
 											<div className="flex items-center gap-2">
 												<span>{token.icon}</span>
 												<div>
-													<div className="text-[13px] font-medium">{token.symbol}</div>
-													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
+													<div className="text-[13px] font-medium">
+														{token.symbol}
+													</div>
+													<div className="text-[10px] text-[#8a8d91]">
+														{token.name}
+													</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -114,7 +126,12 @@ export function TradingPanel() {
 							</Select>
 							<Button
 								size="sm"
-								onClick={() => setInputAmount(tokens.find(t => t.symbol === inputToken)?.balance || "0.00")}
+								onClick={() =>
+									setInputAmount(
+										tokens.find((t) => t.symbol === inputToken)?.balance ||
+											"0.00",
+									)
+								}
 								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2 hover:bg-[#3a3d4a]"
 							>
 								Max
@@ -134,11 +151,13 @@ export function TradingPanel() {
 					</div>
 
 					{/* Token Output Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You receive</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance: {tokens.find(t => t.symbol === outputToken)?.balance || "0.00"}
+								Balance:{" "}
+								{tokens.find((t) => t.symbol === outputToken)?.balance ||
+									"0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -151,7 +170,9 @@ export function TradingPanel() {
 							<Select value={outputToken} onValueChange={setOutputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">{tokens.find(t => t.symbol === outputToken)?.icon}</span>
+										<span className="text-[14px]">
+											{tokens.find((t) => t.symbol === outputToken)?.icon}
+										</span>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -165,8 +186,12 @@ export function TradingPanel() {
 											<div className="flex items-center gap-2">
 												<span>{token.icon}</span>
 												<div>
-													<div className="text-[13px] font-medium">{token.symbol}</div>
-													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
+													<div className="text-[13px] font-medium">
+														{token.symbol}
+													</div>
+													<div className="text-[10px] text-[#8a8d91]">
+														{token.name}
+													</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -182,7 +207,7 @@ export function TradingPanel() {
 					</Button>
 
 					{/* Leverage Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-4">
 							<span className="text-[#bbbbbe] text-[12px] font-medium">
 								Leverage
@@ -199,9 +224,9 @@ export function TradingPanel() {
 								min="1"
 								max="10"
 								step="1"
-								value={parseInt(selectedLeverage.replace('x', ''))}
+								value={parseInt(selectedLeverage.replace("x", ""))}
 								onChange={(e) => setSelectedLeverage(`${e.target.value}x`)}
-								className="w-full h-1 bg-[#2a2d3a] rounded-lg appearance-none cursor-pointer slider"
+								className="w-full h-1 bg-[#2a2d3a] rounded appearance-none cursor-pointer slider"
 							/>
 							<div className="flex justify-between text-[#8a8d91] text-[9px]">
 								{leverageOptions.map((option) => (
@@ -212,7 +237,7 @@ export function TradingPanel() {
 					</div>
 
 					{/* Chain & Market Selection */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-3">
 							<span className="text-[#bbbbbe] text-[12px] font-medium">
 								Chain & Market
@@ -225,7 +250,7 @@ export function TradingPanel() {
 							{chainMarkets.slice(0, 3).map((item) => (
 								<div
 									key={`${item.chain}-${item.market}`}
-									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded-md hover:bg-[#1a1b27] cursor-pointer transition-colors"
+									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer transition-colors"
 								>
 									<div className="flex items-center">
 										<span className="mr-2 text-[12px]">{item.icon}</span>
@@ -233,11 +258,16 @@ export function TradingPanel() {
 											{item.chain} / {item.market}
 										</span>
 									</div>
-									<span className="text-[#ef5350] text-[10px] font-medium">{item.roe}</span>
+									<span className="text-[#ef5350] text-[10px] font-medium">
+										{item.roe}
+									</span>
 								</div>
 							))}
 							<div className="text-center pt-1">
-								<button type="button" className="text-[#8a8d91] text-[9px] hover:text-[#bbbbbe] transition-colors">
+								<button
+									type="button"
+									className="text-[#8a8d91] text-[9px] hover:text-[#bbbbbe] transition-colors"
+								>
 									View all markets
 								</button>
 							</div>
@@ -247,11 +277,12 @@ export function TradingPanel() {
 
 				<TabsContent value="sell" className="space-y-4">
 					{/* Token Input Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You pay</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance: {tokens.find(t => t.symbol === inputToken)?.balance || "0.00"}
+								Balance:{" "}
+								{tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -262,9 +293,11 @@ export function TradingPanel() {
 								placeholder="0.00"
 							/>
 							<Select value={inputToken} onValueChange={setInputToken}>
-								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
+								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">{tokens.find(t => t.symbol === inputToken)?.icon}</span>
+										<span className="text-[14px]">
+											{tokens.find((t) => t.symbol === inputToken)?.icon}
+										</span>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -278,8 +311,12 @@ export function TradingPanel() {
 											<div className="flex items-center gap-2">
 												<span>{token.icon}</span>
 												<div>
-													<div className="text-[13px] font-medium">{token.symbol}</div>
-													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
+													<div className="text-[13px] font-medium">
+														{token.symbol}
+													</div>
+													<div className="text-[10px] text-[#8a8d91]">
+														{token.name}
+													</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -288,7 +325,12 @@ export function TradingPanel() {
 							</Select>
 							<Button
 								size="sm"
-								onClick={() => setInputAmount(tokens.find(t => t.symbol === inputToken)?.balance || "0.00")}
+								onClick={() =>
+									setInputAmount(
+										tokens.find((t) => t.symbol === inputToken)?.balance ||
+											"0.00",
+									)
+								}
 								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2 hover:bg-[#3a3d4a]"
 							>
 								Max
@@ -308,11 +350,13 @@ export function TradingPanel() {
 					</div>
 
 					{/* Token Output Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You receive</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance: {tokens.find(t => t.symbol === outputToken)?.balance || "0.00"}
+								Balance:{" "}
+								{tokens.find((t) => t.symbol === outputToken)?.balance ||
+									"0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -323,9 +367,11 @@ export function TradingPanel() {
 								placeholder="0.00"
 							/>
 							<Select value={outputToken} onValueChange={setOutputToken}>
-								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
+								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">{tokens.find(t => t.symbol === outputToken)?.icon}</span>
+										<span className="text-[14px]">
+											{tokens.find((t) => t.symbol === outputToken)?.icon}
+										</span>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -339,8 +385,12 @@ export function TradingPanel() {
 											<div className="flex items-center gap-2">
 												<span>{token.icon}</span>
 												<div>
-													<div className="text-[13px] font-medium">{token.symbol}</div>
-													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
+													<div className="text-[13px] font-medium">
+														{token.symbol}
+													</div>
+													<div className="text-[10px] text-[#8a8d91]">
+														{token.name}
+													</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -356,7 +406,7 @@ export function TradingPanel() {
 					</Button>
 
 					{/* Leverage Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-4">
 							<span className="text-[#bbbbbe] text-[12px] font-medium">
 								Leverage
@@ -373,9 +423,9 @@ export function TradingPanel() {
 								min="1"
 								max="10"
 								step="1"
-								value={parseInt(selectedLeverage.replace('x', ''))}
+								value={parseInt(selectedLeverage.replace("x", ""))}
 								onChange={(e) => setSelectedLeverage(`${e.target.value}x`)}
-								className="w-full h-1 bg-[#2a2d3a] rounded-lg appearance-none cursor-pointer slider"
+								className="w-full h-1 bg-[#2a2d3a] rounded appearance-none cursor-pointer slider"
 							/>
 							<div className="flex justify-between text-[#8a8d91] text-[9px]">
 								{leverageOptions.map((option) => (
@@ -386,7 +436,7 @@ export function TradingPanel() {
 					</div>
 
 					{/* Chain & Market Selection */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-3">
 							<span className="text-[#bbbbbe] text-[12px] font-medium">
 								Chain & Market
@@ -399,7 +449,7 @@ export function TradingPanel() {
 							{chainMarkets.slice(0, 3).map((item) => (
 								<div
 									key={`${item.chain}-${item.market}`}
-									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded-md hover:bg-[#1a1b27] cursor-pointer transition-colors"
+									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer transition-colors"
 								>
 									<div className="flex items-center">
 										<span className="mr-2 text-[12px]">{item.icon}</span>
@@ -407,11 +457,16 @@ export function TradingPanel() {
 											{item.chain} / {item.market}
 										</span>
 									</div>
-									<span className="text-[#ef5350] text-[10px] font-medium">{item.roe}</span>
+									<span className="text-[#ef5350] text-[10px] font-medium">
+										{item.roe}
+									</span>
 								</div>
 							))}
 							<div className="text-center pt-1">
-								<button type="button" className="text-[#8a8d91] text-[9px] hover:text-[#bbbbbe] transition-colors">
+								<button
+									type="button"
+									className="text-[#8a8d91] text-[9px] hover:text-[#bbbbbe] transition-colors"
+								>
 									View all markets
 								</button>
 							</div>

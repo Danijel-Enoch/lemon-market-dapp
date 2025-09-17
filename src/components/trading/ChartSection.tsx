@@ -64,7 +64,7 @@ export function ChartSection() {
 	}, []);
 
 	return (
-		<div className="bg-[#0a0b17] rounded-lg p-6 flex-1">
+		<div className="bg-[#0a0b17] rounded p-6 flex-1">
 			{/* Timeframe Controls */}
 			<div className="flex items-center justify-between gap-4 mb-6">
 				<div className="flex space-x-8">

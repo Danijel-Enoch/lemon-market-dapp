@@ -17,7 +17,7 @@ const tableHeaders = [
 
 export function PositionsTable() {
 	return (
-		<div className="bg-[#0a0b17] rounded-lg p-6">
+		<div className="bg-[#0a0b17] rounded p-6">
 			<Tabs defaultValue="positions" className="w-full">
 				<TabsList className="bg-transparent border-b border-[#282b3c] rounded-none p-0 h-auto">
 					<TabsTrigger
