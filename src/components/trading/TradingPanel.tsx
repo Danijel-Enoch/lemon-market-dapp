@@ -1,0 +1,148 @@
+"use client";
+
+import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
+
+const chainMarkets = [
+	{ chain: "OP Mainnet", market: "Aave V3", roe: "-4.46%", icon: "🔴" },
+	{ chain: "Gnosis", market: "Aave V3", roe: "-3.59%", icon: "🟢" },
+	{ chain: "Gnosis", market: "SparkSky", roe: "-6.8%", icon: "🟢" },
+	{ chain: "Polygon", market: "Aave V3", roe: "-8.12%", icon: "🟣" },
+	{ chain: "Polygon", market: "Compound III", roe: "-4.07%", icon: "🟣" },
+	{ chain: "Arbitrum", market: "Aave V3", roe: "-3.69%", icon: "🔵" },
+	{ chain: "Arbitrum", market: "Compound III", roe: "-4.21%", icon: "🔵" },
+	{ chain: "Arbitrum", market: "Silo", roe: "-7.16%", icon: "🔵" },
+];
+
+export function TradingPanel() {
+	const [selectedLeverage, setSelectedLeverage] = useState("2x");
+	const [marginAmount, setMarginAmount] = useState("0.00");
+
+	return (
+		<div className="w-[353px] bg-[#0a0b17] rounded-lg p-4">
+			<Tabs defaultValue="buy" className="w-full">
+				{/* Buy/Sell Tabs */}
+				<TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto mb-6">
+					<TabsTrigger 
+						value="buy" 
+						className="bg-[#4c82f7] text-white text-[13px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91]"
+					>
+						Buy / Long
+					</TabsTrigger>
+					<TabsTrigger 
+						value="sell" 
+						className="bg-[#2a2d3a] text-[#8a8d91] text-[13px] font-bold rounded-r-md data-[state=active]:bg-[#ef5350] data-[state=active]:text-white data-[state=inactive]:bg-[#2a2d3a]"
+					>
+						Sell / Short
+					</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value="buy" className="space-y-4">
+					{/* Margin Section */}
+					<div className="bg-[#141623] rounded-lg p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Margin</span>
+							<Button size="sm" className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2">
+								Max
+							</Button>
+						</div>
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-[#8a8d91] text-[10px]">Balance:</span>
+							<span className="text-[#8a8d91] text-[10px]">USDC.e</span>
+						</div>
+						<div className="flex items-center">
+							<Input 
+								value={marginAmount}
+								onChange={(e) => setMarginAmount(e.target.value)}
+								className="bg-transparent border-none text-[#bbbbbe] text-right flex-1 p-0"
+								placeholder="0.00"
+							/>
+							<ChevronDown className="w-4 h-4 text-gray-400 ml-2" />
+						</div>
+					</div>
+
+					{/* Size Section */}
+					<div className="bg-[#141623] rounded-lg p-4">
+						<div className="flex items-center justify-between">
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Size</span>
+							<span className="text-[#bbbbbe] text-[12px]">ETH</span>
+						</div>
+					</div>
+
+					{/* Read Only Button */}
+					<Button className="w-full bg-[#2a2d3a] text-[#8a8d91] text-[12px] font-medium hover:bg-[#3a3d4a]">
+						Read Only
+					</Button>
+
+					{/* Leverage Section */}
+					<div className="bg-[#141623] rounded-lg p-4">
+						<div className="flex items-center justify-between mb-4">
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Leverage</span>
+							<span className="text-[#bbbbbe] text-[12px] font-bold">{selectedLeverage}</span>
+						</div>
+						
+						{/* Leverage Slider */}
+						<div className="relative mb-4">
+							<div className="w-full h-2 bg-[#2a2d3a] rounded-full">
+								<div className="w-1/4 h-full bg-[#4c82f7] rounded-full"></div>
+							</div>
+							<div className="absolute top-0 left-1/4 w-4 h-4 bg-[#4c82f7] rounded-full -mt-1 transform -translate-x-1/2"></div>
+						</div>
+
+						{/* Leverage Options */}
+						<div className="flex justify-between">
+							{leverageOptions.map((option) => (
+								<button
+									key={option}
+									onClick={() => setSelectedLeverage(option)}
+									className={`text-[10px] px-2 py-1 rounded ${
+										selectedLeverage === option 
+											? 'text-[#4c82f7] bg-[#2a2d3a]' 
+											: 'text-[#8a8d91] hover:text-[#bbbbbe]'
+									}`}
+								>
+									{option}
+								</button>
+							))}
+						</div>
+					</div>
+
+					{/* Chain & Market Selection */}
+					<div className="bg-[#141623] rounded-lg p-4">
+						<div className="flex items-center justify-between mb-4">
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Select Chain & Market</span>
+							<span className="text-[#8a8d91] text-[10px]">ROE</span>
+						</div>
+
+						{/* Chain/Market List */}
+						<div className="space-y-2 max-h-48 overflow-y-auto">
+							{chainMarkets.map((item, index) => (
+								<div key={index} className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer">
+									<div className="flex items-center">
+										<span className="mr-2">{item.icon}</span>
+										<span className="text-[#bbbbbe] text-[10px]">
+											{item.chain} / {item.market}
+										</span>
+									</div>
+									<span className="text-[#ef5350] text-[10px]">{item.roe}</span>
+								</div>
+							))}
+						</div>
+					</div>
+				</TabsContent>
+
+				<TabsContent value="sell" className="space-y-4">
+					{/* Same content as buy but with sell styling */}
+					<div className="text-center py-8">
+						<span className="text-[#8a8d91] text-[12px]">Sell/Short interface would be similar to Buy/Long</span>
+					</div>
+				</TabsContent>
+			</Tabs>
+		</div>
+	);
+}

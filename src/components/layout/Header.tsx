@@ -1,8 +1,6 @@
 "use client";
 
-import { Bell, Settings, User, Wallet } from "lucide-react";
 import React from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/contexts/AppContext";
 

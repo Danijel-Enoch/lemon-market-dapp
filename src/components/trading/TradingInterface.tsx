@@ -1,18 +1,34 @@
 "use client";
 
 import React from "react";
-import { TradingPairsList } from "./TradingPairsList";
+import { TradingHeader } from "../layout/TradingHeader";
+import { TradingPairSelector } from "./TradingPairSelector";
+import { ChartSection } from "./ChartSection";
+import { PositionsTable } from "./PositionsTable";
+import { TradingPanel } from "./TradingPanel";
 
 export function TradingInterface() {
 	return (
-		<div className="h-full flex flex-col">
-			<div className="p-6 border-b border-gray-800">
-				<h1 className="text-2xl font-bold text-white mb-2">Advanced Trading</h1>
-				<p className="text-gray-400">Select a trading pair to get started</p>
-			</div>
+		<div className="h-screen bg-[#0a0b17] flex flex-col">
+			{/* Header */}
+			<TradingHeader />
 
-			<div className="flex-1 p-6">
-				<TradingPairsList />
+			{/* Trading Pair Selector */}
+			<TradingPairSelector />
+
+			{/* Main Content */}
+			<div className="flex-1 flex gap-4 p-4">
+				{/* Left Side - Chart and Positions */}
+				<div className="flex-1 flex flex-col gap-4">
+					{/* Chart Section */}
+					<ChartSection />
+
+					{/* Positions Table */}
+					<PositionsTable />
+				</div>
+
+				{/* Right Side - Trading Panel */}
+				<TradingPanel />
 			</div>
 		</div>
 	);

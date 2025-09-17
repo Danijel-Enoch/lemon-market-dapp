@@ -1,9 +1,8 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 import { mockTradingPairs } from "@/lib/mock-data";
