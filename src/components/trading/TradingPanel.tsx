@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpDown } from "lucide-react";
+import Image from "next/image";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,23 +17,93 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 
 const chainMarkets = [
-	{ chain: "OP Mainnet", market: "Aave V3", roe: "-4.46%", icon: "🔴" },
-	{ chain: "Gnosis", market: "Aave V3", roe: "-3.59%", icon: "🟢" },
-	{ chain: "Gnosis", market: "SparkSky", roe: "-6.8%", icon: "🟢" },
-	{ chain: "Polygon", market: "Aave V3", roe: "-8.12%", icon: "🟣" },
-	{ chain: "Polygon", market: "Compound III", roe: "-4.07%", icon: "🟣" },
-	{ chain: "Arbitrum", market: "Aave V3", roe: "-3.69%", icon: "🔵" },
-	{ chain: "Arbitrum", market: "Compound III", roe: "-4.21%", icon: "🔵" },
-	{ chain: "Arbitrum", market: "Silo", roe: "-7.16%", icon: "🔵" },
+	{
+		chain: "OP Mainnet",
+		market: "Aave V3",
+		roe: "-4.46%",
+		icon: "https://via.placeholder.com/24x24/FF0420/FFFFFF?text=OP",
+	},
+	{
+		chain: "Gnosis",
+		market: "Aave V3",
+		roe: "-3.59%",
+		icon: "https://via.placeholder.com/24x24/00A651/FFFFFF?text=GNO",
+	},
+	{
+		chain: "Gnosis",
+		market: "SparkSky",
+		roe: "-6.8%",
+		icon: "https://via.placeholder.com/24x24/00A651/FFFFFF?text=GNO",
+	},
+	{
+		chain: "Polygon",
+		market: "Aave V3",
+		roe: "-8.12%",
+		icon: "https://via.placeholder.com/24x24/8247E5/FFFFFF?text=POL",
+	},
+	{
+		chain: "Polygon",
+		market: "Compound III",
+		roe: "-4.07%",
+		icon: "https://via.placeholder.com/24x24/8247E5/FFFFFF?text=POL",
+	},
+	{
+		chain: "Arbitrum",
+		market: "Aave V3",
+		roe: "-3.69%",
+		icon: "https://via.placeholder.com/24x24/2D374B/FFFFFF?text=ARB",
+	},
+	{
+		chain: "Arbitrum",
+		market: "Compound III",
+		roe: "-4.21%",
+		icon: "https://via.placeholder.com/24x24/2D374B/FFFFFF?text=ARB",
+	},
+	{
+		chain: "Arbitrum",
+		market: "Silo",
+		roe: "-7.16%",
+		icon: "https://via.placeholder.com/24x24/2D374B/FFFFFF?text=ARB",
+	},
 ];
 
 const tokens = [
-	{ symbol: "USDC.e", name: "USD Coin", balance: "1,234.56", icon: "💵" },
-	{ symbol: "USDC", name: "USD Coin", balance: "2,456.78", icon: "💵" },
-	{ symbol: "DAI", name: "Dai Stablecoin", balance: "3,789.12", icon: "🟡" },
-	{ symbol: "USDT", name: "Tether USD", balance: "5,432.10", icon: "🟢" },
-	{ symbol: "ETH", name: "Ethereum", balance: "12.34", icon: "⚡" },
-	{ symbol: "WETH", name: "Wrapped Ethereum", balance: "8.76", icon: "🔷" },
+	{
+		symbol: "USDC.e",
+		name: "USD Coin",
+		balance: "1,234.56",
+		icon: "https://via.placeholder.com/24x24/2775CA/FFFFFF?text=USDC",
+	},
+	{
+		symbol: "USDC",
+		name: "USD Coin",
+		balance: "2,456.78",
+		icon: "https://via.placeholder.com/24x24/2775CA/FFFFFF?text=USDC",
+	},
+	{
+		symbol: "DAI",
+		name: "Dai Stablecoin",
+		balance: "3,789.12",
+		icon: "https://via.placeholder.com/24x24/F5AC37/FFFFFF?text=DAI",
+	},
+	{
+		symbol: "USDT",
+		name: "Tether USD",
+		balance: "5,432.10",
+		icon: "https://via.placeholder.com/24x24/26A17B/FFFFFF?text=USDT",
+	},
+	{
+		symbol: "ETH",
+		name: "Ethereum",
+		balance: "12.34",
+		icon: "https://via.placeholder.com/24x24/627EEA/FFFFFF?text=ETH",
+	},
+	{
+		symbol: "WETH",
+		name: "Wrapped Ethereum",
+		balance: "8.76",
+		icon: "https://via.placeholder.com/24x24/627EEA/FFFFFF?text=WETH",
+	},
 ];
 
 export function TradingPanel() {
@@ -96,9 +167,15 @@ export function TradingPanel() {
 							<Select value={inputToken} onValueChange={setInputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">
-											{tokens.find((t) => t.symbol === inputToken)?.icon}
-										</span>
+										<Image
+											src={
+												tokens.find((t) => t.symbol === inputToken)?.icon || ""
+											}
+											alt="x"
+											width={14}
+											height={14}
+											className="rounded-sm"
+										/>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -110,7 +187,13 @@ export function TradingPanel() {
 											className="text-[#bbbbbe] hover:bg-[#2a2d3a] focus:bg-[#2a2d3a]"
 										>
 											<div className="flex items-center gap-2">
-												<span>{token.icon}</span>
+												<Image
+													src={token.icon}
+													alt="x"
+													width={13}
+													height={13}
+													className="rounded-sm"
+												/>
 												<div>
 													<div className="text-[13px] font-medium">
 														{token.symbol}
@@ -170,9 +253,6 @@ export function TradingPanel() {
 							<Select value={outputToken} onValueChange={setOutputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">
-											{tokens.find((t) => t.symbol === outputToken)?.icon}
-										</span>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -184,7 +264,13 @@ export function TradingPanel() {
 											className="text-[#bbbbbe] hover:bg-[#2a2d3a] focus:bg-[#2a2d3a]"
 										>
 											<div className="flex items-center gap-2">
-												<span>{token.icon}</span>
+												<Image
+													src={token.icon}
+													alt="x"
+													width={13}
+													height={13}
+													className="rounded-sm"
+												/>
 												<div>
 													<div className="text-[13px] font-medium">
 														{token.symbol}
@@ -253,7 +339,13 @@ export function TradingPanel() {
 									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer transition-colors"
 								>
 									<div className="flex items-center">
-										<span className="mr-2 text-[12px]">{item.icon}</span>
+										<Image
+											src={item.icon}
+											alt="x"
+											width={12}
+											height={12}
+											className="rounded-sm mr-2"
+										/>
 										<span className="text-[#bbbbbe] text-[10px] font-medium">
 											{item.chain} / {item.market}
 										</span>
@@ -295,9 +387,15 @@ export function TradingPanel() {
 							<Select value={inputToken} onValueChange={setInputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">
-											{tokens.find((t) => t.symbol === inputToken)?.icon}
-										</span>
+										<Image
+											src={
+												tokens.find((t) => t.symbol === inputToken)?.icon || ""
+											}
+											alt="x"
+											width={14}
+											height={14}
+											className="rounded-sm"
+										/>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -309,7 +407,13 @@ export function TradingPanel() {
 											className="text-[#bbbbbe] hover:bg-[#2a2d3a] focus:bg-[#2a2d3a]"
 										>
 											<div className="flex items-center gap-2">
-												<span>{token.icon}</span>
+												<Image
+													src={token.icon}
+													alt="x"
+													width={13}
+													height={13}
+													className="rounded-sm"
+												/>
 												<div>
 													<div className="text-[13px] font-medium">
 														{token.symbol}
@@ -369,9 +473,15 @@ export function TradingPanel() {
 							<Select value={outputToken} onValueChange={setOutputToken}>
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
-										<span className="text-[14px]">
-											{tokens.find((t) => t.symbol === outputToken)?.icon}
-										</span>
+										<Image
+											src={
+												tokens.find((t) => t.symbol === outputToken)?.icon || ""
+											}
+											alt="x"
+											width={14}
+											height={14}
+											className="rounded-sm"
+										/>
 										<SelectValue />
 									</div>
 								</SelectTrigger>
@@ -383,7 +493,13 @@ export function TradingPanel() {
 											className="text-[#bbbbbe] hover:bg-[#2a2d3a] focus:bg-[#2a2d3a]"
 										>
 											<div className="flex items-center gap-2">
-												<span>{token.icon}</span>
+												<Image
+													src={token.icon}
+													alt="x"
+													width={13}
+													height={13}
+													className="rounded-sm"
+												/>
 												<div>
 													<div className="text-[13px] font-medium">
 														{token.symbol}
@@ -452,7 +568,13 @@ export function TradingPanel() {
 									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer transition-colors"
 								>
 									<div className="flex items-center">
-										<span className="mr-2 text-[12px]">{item.icon}</span>
+										<Image
+											src={item.icon}
+											alt="x"
+											width={12}
+											height={12}
+											className="rounded-sm mr-2"
+										/>
 										<span className="text-[#bbbbbe] text-[10px] font-medium">
 											{item.chain} / {item.market}
 										</span>

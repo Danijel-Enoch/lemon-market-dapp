@@ -347,12 +347,36 @@ export const mockChartData: ChartData[] = Array.from({ length: 24 }, (_, i) => {
 
 // Mock Chains Data
 export const mockChains: Chain[] = [
-	{ id: "ethereum", name: "Ethereum", icon: "⟠" },
-	{ id: "arbitrum", name: "Arbitrum", icon: "🔵" },
-	{ id: "polygon", name: "Polygon", icon: "🟣" },
-	{ id: "optimism", name: "Optimism", icon: "🔴" },
-	{ id: "base", name: "Base", icon: "🔷" },
-	{ id: "avalanche", name: "Avalanche", icon: "🔺" },
+	{
+		id: "ethereum",
+		name: "Ethereum",
+		icon: "https://via.placeholder.com/24x24/627EEA/FFFFFF?text=ETH",
+	},
+	{
+		id: "arbitrum",
+		name: "Arbitrum",
+		icon: "https://via.placeholder.com/24x24/2D374B/FFFFFF?text=ARB",
+	},
+	{
+		id: "polygon",
+		name: "Polygon",
+		icon: "https://via.placeholder.com/24x24/8247E5/FFFFFF?text=POL",
+	},
+	{
+		id: "optimism",
+		name: "Optimism",
+		icon: "https://via.placeholder.com/24x24/FF0420/FFFFFF?text=OP",
+	},
+	{
+		id: "base",
+		name: "Base",
+		icon: "https://via.placeholder.com/24x24/0052FF/FFFFFF?text=BASE",
+	},
+	{
+		id: "avalanche",
+		name: "Avalanche",
+		icon: "https://via.placeholder.com/24x24/E84142/FFFFFF?text=AVAX",
+	},
 ];
 
 // Mock Money Markets Data
@@ -361,42 +385,42 @@ export const mockMoneyMarkets: MoneyMarket[] = [
 		id: "aave-v3",
 		name: "Aave V3",
 		chain: "ethereum",
-		icon: "👻",
+		icon: "https://via.placeholder.com/24x24/B6509E/FFFFFF?text=AAVE",
 		tvl: 12500000000,
 	},
 	{
 		id: "compound-v3",
 		name: "Compound V3",
 		chain: "ethereum",
-		icon: "🏛️",
+		icon: "https://via.placeholder.com/24x24/00D395/FFFFFF?text=COMP",
 		tvl: 8900000000,
 	},
 	{
 		id: "morpho-blue",
 		name: "Morpho Blue",
 		chain: "ethereum",
-		icon: "🦋",
+		icon: "https://via.placeholder.com/24x24/0066FF/FFFFFF?text=MORPHO",
 		tvl: 3200000000,
 	},
 	{
 		id: "spark",
 		name: "Spark",
 		chain: "ethereum",
-		icon: "⚡",
+		icon: "https://via.placeholder.com/24x24/F5AC37/FFFFFF?text=SPARK",
 		tvl: 2100000000,
 	},
 	{
 		id: "radiant",
 		name: "Radiant",
 		chain: "arbitrum",
-		icon: "☀️",
+		icon: "https://via.placeholder.com/24x24/FFD700/FFFFFF?text=RDNT",
 		tvl: 950000000,
 	},
 	{
 		id: "dolomite",
 		name: "Dolomite",
 		chain: "arbitrum",
-		icon: "⛰️",
+		icon: "https://via.placeholder.com/24x24/8B4513/FFFFFF?text=DOLO",
 		tvl: 650000000,
 	},
 ];
