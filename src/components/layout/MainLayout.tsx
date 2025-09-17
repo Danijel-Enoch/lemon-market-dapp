@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Header } from "./Header";
+import { GroupsHeader } from "./GroupsHeader";
 import { Sidebar } from "./Sidebar";
 
 interface MainLayoutProps {
@@ -11,7 +11,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
 	return (
 		<div className="min-h-screen bg-black text-white">
-			<Header />
+			<GroupsHeader />
 			<div className="flex">
 				<Sidebar />
 				<main className="flex-1 overflow-hidden">{children}</main>
