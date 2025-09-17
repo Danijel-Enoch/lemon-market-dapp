@@ -123,7 +123,7 @@ export function TradingPanel() {
 					</div>
 
 					{/* Swap Button */}
-					<div className="flex justify-center">
+					<div className="flex justify-center -my-4 relative z-10">
 						<Button
 							onClick={handleSwapTokens}
 							size="sm"
@@ -297,7 +297,7 @@ export function TradingPanel() {
 					</div>
 
 					{/* Swap Button */}
-					<div className="flex justify-center">
+					<div className="flex justify-center -my-4 relative z-10">
 						<Button
 							onClick={handleSwapTokens}
 							size="sm"
