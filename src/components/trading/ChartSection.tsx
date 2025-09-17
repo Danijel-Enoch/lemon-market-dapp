@@ -1,7 +1,7 @@
 "use client";
 
+import { CandlestickSeries, ColorType, createChart } from "lightweight-charts";
 import React, { useEffect, useRef } from "react";
-import { createChart, ColorType, CandlestickSeries } from "lightweight-charts";
 
 const timeframes = [
 	{ label: "1Day", value: "1D", active: false },
@@ -70,6 +70,7 @@ export function ChartSection() {
 				<div className="flex space-x-6">
 					{timeframes.map((tf) => (
 						<button
+							type="button"
 							key={tf.value}
 							className={`text-[11px] ${
 								tf.active ? "text-[#4853ab]" : "text-[#8a8d91]"

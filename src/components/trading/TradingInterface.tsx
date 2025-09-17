@@ -2,9 +2,9 @@
 
 import React from "react";
 import { TradingHeader } from "../layout/TradingHeader";
-import { TradingPairSelector } from "./TradingPairSelector";
 import { ChartSection } from "./ChartSection";
 import { PositionsTable } from "./PositionsTable";
+import { TradingPairSelector } from "./TradingPairSelector";
 import { TradingPanel } from "./TradingPanel";
 
 export function TradingInterface() {

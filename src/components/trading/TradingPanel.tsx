@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,14 +28,14 @@ export function TradingPanel() {
 			<Tabs defaultValue="buy" className="w-full">
 				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto mb-6">
-					<TabsTrigger 
-						value="buy" 
+					<TabsTrigger
+						value="buy"
 						className="bg-[#4c82f7] text-white text-[13px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91]"
 					>
 						Buy / Long
 					</TabsTrigger>
-					<TabsTrigger 
-						value="sell" 
+					<TabsTrigger
+						value="sell"
 						className="bg-[#2a2d3a] text-[#8a8d91] text-[13px] font-bold rounded-r-md data-[state=active]:bg-[#ef5350] data-[state=active]:text-white data-[state=inactive]:bg-[#2a2d3a]"
 					>
 						Sell / Short
@@ -46,8 +46,13 @@ export function TradingPanel() {
 					{/* Margin Section */}
 					<div className="bg-[#141623] rounded-lg p-4">
 						<div className="flex items-center justify-between mb-2">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">Margin</span>
-							<Button size="sm" className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2">
+							<span className="text-[#bbbbbe] text-[12px] font-medium">
+								Margin
+							</span>
+							<Button
+								size="sm"
+								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2"
+							>
 								Max
 							</Button>
 						</div>
@@ -56,7 +61,7 @@ export function TradingPanel() {
 							<span className="text-[#8a8d91] text-[10px]">USDC.e</span>
 						</div>
 						<div className="flex items-center">
-							<Input 
+							<Input
 								value={marginAmount}
 								onChange={(e) => setMarginAmount(e.target.value)}
 								className="bg-transparent border-none text-[#bbbbbe] text-right flex-1 p-0"
@@ -69,7 +74,9 @@ export function TradingPanel() {
 					{/* Size Section */}
 					<div className="bg-[#141623] rounded-lg p-4">
 						<div className="flex items-center justify-between">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">Size</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">
+								Size
+							</span>
 							<span className="text-[#bbbbbe] text-[12px]">ETH</span>
 						</div>
 					</div>
@@ -82,10 +89,14 @@ export function TradingPanel() {
 					{/* Leverage Section */}
 					<div className="bg-[#141623] rounded-lg p-4">
 						<div className="flex items-center justify-between mb-4">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">Leverage</span>
-							<span className="text-[#bbbbbe] text-[12px] font-bold">{selectedLeverage}</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">
+								Leverage
+							</span>
+							<span className="text-[#bbbbbe] text-[12px] font-bold">
+								{selectedLeverage}
+							</span>
 						</div>
-						
+
 						{/* Leverage Slider */}
 						<div className="relative mb-4">
 							<div className="w-full h-2 bg-[#2a2d3a] rounded-full">
@@ -98,12 +109,13 @@ export function TradingPanel() {
 						<div className="flex justify-between">
 							{leverageOptions.map((option) => (
 								<button
+									type="button"
 									key={option}
 									onClick={() => setSelectedLeverage(option)}
 									className={`text-[10px] px-2 py-1 rounded ${
-										selectedLeverage === option 
-											? 'text-[#4c82f7] bg-[#2a2d3a]' 
-											: 'text-[#8a8d91] hover:text-[#bbbbbe]'
+										selectedLeverage === option
+											? "text-[#4c82f7] bg-[#2a2d3a]"
+											: "text-[#8a8d91] hover:text-[#bbbbbe]"
 									}`}
 								>
 									{option}
@@ -115,14 +127,19 @@ export function TradingPanel() {
 					{/* Chain & Market Selection */}
 					<div className="bg-[#141623] rounded-lg p-4">
 						<div className="flex items-center justify-between mb-4">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">Select Chain & Market</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">
+								Select Chain & Market
+							</span>
 							<span className="text-[#8a8d91] text-[10px]">ROE</span>
 						</div>
 
 						{/* Chain/Market List */}
 						<div className="space-y-2 max-h-48 overflow-y-auto">
-							{chainMarkets.map((item, index) => (
-								<div key={index} className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer">
+							{chainMarkets.map((item) => (
+								<div
+									key={`${item.chain}-${item.market}`}
+									className="flex items-center justify-between p-2 bg-[#0a0b17] rounded hover:bg-[#1a1b27] cursor-pointer"
+								>
 									<div className="flex items-center">
 										<span className="mr-2">{item.icon}</span>
 										<span className="text-[#bbbbbe] text-[10px]">
@@ -139,7 +156,9 @@ export function TradingPanel() {
 				<TabsContent value="sell" className="space-y-4">
 					{/* Same content as buy but with sell styling */}
 					<div className="text-center py-8">
-						<span className="text-[#8a8d91] text-[12px]">Sell/Short interface would be similar to Buy/Long</span>
+						<span className="text-[#8a8d91] text-[12px]">
+							Sell/Short interface would be similar to Buy/Long
+						</span>
 					</div>
 				</TabsContent>
 			</Tabs>
