@@ -1,17 +1,16 @@
 "use client";
 
-import React from "react";
-import { TradingHeader } from "../layout/TradingHeader";
 import { ChartSection } from "./ChartSection";
 import { PositionsTable } from "./PositionsTable";
 import { TradingPairSelector } from "./TradingPairSelector";
 import { TradingPanel } from "./TradingPanel";
+import { Header } from "../layout/Header";
 
 export function TradingInterface() {
 	return (
 		<div className="h-screen bg-[#0a0b17] flex flex-col">
 			{/* Header */}
-			<TradingHeader />
+			<Header />
 
 			{/* Trading Pair Selector */}
 			<TradingPairSelector />

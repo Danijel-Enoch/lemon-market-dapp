@@ -1,119 +1,131 @@
 "use client";
 
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { useAppContext } from "@/contexts/AppContext";
-
 export function Header() {
-	const { state, dispatch } = useAppContext();
-
-	const handleConnectWallet = () => {
-		// Mock wallet connection
-		dispatch({
-			type: "SET_WALLET_CONNECTION",
-			payload: {
-				isConnected: !state.isConnected,
-				address: state.isConnected ? null : "0x1234...5678",
-			},
-		});
-		if (!state.isConnected) {
-			dispatch({ type: "SET_BALANCE", payload: 2.456 });
-		}
-	};
-
 	return (
-		<header className="border-b border-gray-800/50 bg-gray-950 text-white">
-			<div className="flex items-center justify-between px-4 py-3">
-				{/* Logo and Navigation */}
-				<div className="flex items-center space-x-6 gap-4">
-					<div className="flex items-center space-x-2">
-						<div className="text-xl font-bold text-white">Contango</div>
-					</div>
-
-					<nav className="hidden md:flex items-center space-x-1 gap-4">
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 h-8 text-sm font-medium"
-						>
-							Trade
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-gray-400 hover:text-white hover:bg-gray-800 px-3 py-1.5 h-8 text-sm"
-						>
-							Strategies
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-gray-400 hover:text-white hover:bg-gray-800 px-3 py-1.5 h-8 text-sm"
-						>
-							Portfolio
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-gray-400 hover:text-white hover:bg-gray-800 px-3 py-1.5 h-8 text-sm"
-						>
-							Analytics
-						</Button>
-					</nav>
+		<div className="flex items-center w-[1430px] h-[69px]">
+			<div
+				className="flex relative flex-grow items-start"
+				style={{ padding: "8px 5px 1px 22px" }}
+			>
+				{/* Logo */}
+				<div
+					className="flex items-center w-[80px] h-[27px] text-[#41c6b2] font-bold text-[23px] leading-none"
+					style={{ margin: "10px 0px 0px" }}
+				>
+					contan
 				</div>
 
-				{/* Stats */}
-				<div className="hidden lg:flex items-center space-x-6 gap-4 text-xs">
-					<div className="text-center">
-						<div className="text-gray-500">Total Volume</div>
-						<div className="font-medium text-white">$3.1B</div>
-					</div>
-					<div className="text-center">
-						<div className="text-gray-500">Open Interest</div>
-						<div className="font-medium text-white">$279.9M</div>
-					</div>
-					<div className="text-center">
-						<div className="text-gray-500">Users</div>
-						<div className="font-medium text-white">15,868</div>
-					</div>
+				{/* Logo Image */}
+				<div
+					className="w-[29px] h-[23px] bg-gray-600"
+					style={{ marginTop: "16px", marginLeft: "2px" }}
+				></div>
+
+				{/* Advanced */}
+				<div
+					className="flex items-center w-[68px] h-[17px] text-[#bbbdc0] font-bold text-[13px]"
+					style={{ margin: "15px 0px 0px 39px" }}
+				>
+					Advanced
 				</div>
 
-				{/* Right Side Actions */}
-				<div className="flex items-center space-x-2 gap-4">
-					{/* Network Selector */}
-					<div className="hidden md:flex items-center space-x-2 gap-4 bg-gray-800 rounded-md px-2 py-1.5 text-sm">
-						<div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-						<span>Ethereum</span>
-					</div>
-
-					{/* Wallet Connection */}
-					{state.isConnected ? (
-						<div className="flex items-center space-x-2 gap-4">
-							<div className="text-right text-xs">
-								<div className="text-gray-400">
-									{state.balance.toFixed(3)} ETH
-								</div>
-							</div>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={handleConnectWallet}
-								className="border-gray-700 text-white hover:bg-gray-800 h-8 px-3 text-sm"
-							>
-								{state.walletAddress}
-							</Button>
+				{/* New Badge */}
+				<div
+					className="flex absolute items-center bg-transparent w-[34px] h-[20px]"
+					style={{ right: "712px", bottom: "36px", padding: "2px 1px 1px" }}
+				>
+					<div
+						className="flex flex-grow items-start border border-[#077175] rounded-md bg-[#09222b]"
+						style={{ padding: "1px 4px 3px 5px" }}
+					>
+						<div className="flex items-center justify-center w-[21px] h-[11px] text-[#198680] font-light text-[8px]">
+							New
 						</div>
-					) : (
-						<Button
-							onClick={handleConnectWallet}
-							size="sm"
-							className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3 text-sm"
-						>
+					</div>
+				</div>
+
+				{/* Simplified */}
+				<div
+					className="flex items-start bg-transparent"
+					style={{
+						marginTop: "2px",
+						marginLeft: "15px",
+						padding: "13px 18px 28px 23px",
+					}}
+				>
+					<div className="flex items-center w-[65px] h-[18px] text-[#797b81] font-bold text-[13px]">
+						Simplified
+					</div>
+				</div>
+
+				{/* Staking */}
+				<div
+					className="flex items-center w-[50px] h-[19px] text-[#808287] font-bold text-[13px]"
+					style={{ margin: "15px 0px 0px 20px" }}
+				>
+					Staking
+				</div>
+
+				{/* oTango */}
+				<div
+					className="flex items-center w-[49px] h-[19px] text-[#7d7f84] font-bold text-[13px]"
+					style={{ margin: "15px 0px 0px 38px" }}
+				>
+					oTango
+				</div>
+
+				{/* Profile */}
+				<div
+					className="flex items-center w-[42px] h-[17px] text-[#7b7d82] font-bold text-[13px]"
+					style={{ margin: "14px 0px 0px 38px" }}
+				>
+					Profile
+				</div>
+
+				{/* Airdrop */}
+				<div
+					className="flex items-center z-10 w-[50px] h-[19px] text-[#7e8085] font-bold text-[13px]"
+					style={{ margin: "14px 0px 0px 37px" }}
+				>
+					Airdrop
+				</div>
+
+				{/* Resources */}
+				<div
+					className="flex items-center w-[59px] h-[15px] text-[#6f7377] font-bold text-[10px]"
+					style={{ margin: "16px 0px 0px 456px" }}
+				>
+					Resources
+				</div>
+
+				{/* Fee Profile */}
+				<div
+					className="w-[75px] text-[#85888c] text-[12px]"
+					style={{ margin: "9px 0px 0px 15px", lineHeight: "15px" }}
+				>
+					Fee Profile
+					<br />
+					25 bps/5 bps
+				</div>
+
+				{/* Connect Wallet Button */}
+				<div
+					className="flex items-center bg-transparent"
+					style={{ marginLeft: "4px", padding: "4px 3px 3px 4px" }}
+				>
+					<div
+						className="flex flex-grow items-center border border-[#272a3b] bg-[#0a0b17]"
+						style={{
+							borderRadius: "6px 0px 0px 3px",
+							padding: "10px 10px 11px 11px",
+						}}
+					>
+						<div className="flex items-center w-[101px] h-[17px] text-[#b9b9bc] font-bold text-[13px]">
 							Connect Wallet
-						</Button>
-					)}
+						</div>
+					</div>
 				</div>
 			</div>
-		</header>
+		</div>
 	);
 }
