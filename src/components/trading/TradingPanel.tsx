@@ -1,10 +1,16 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 
@@ -19,9 +25,12 @@ const chainMarkets = [
 	{ chain: "Arbitrum", market: "Silo", roe: "-7.16%", icon: "🔵" },
 ];
 
+const currencies = ["USDC.e", "USDC", "DAI", "USDT"];
+
 export function TradingPanel() {
 	const [selectedLeverage, setSelectedLeverage] = useState("2x");
 	const [marginAmount, setMarginAmount] = useState("0.00");
+	const [selectedCurrency, setSelectedCurrency] = useState("USDC.e");
 
 	return (
 		<div className="w-[380px] bg-[#0a0b17] rounded-lg p-6">
@@ -58,7 +67,7 @@ export function TradingPanel() {
 						</div>
 						<div className="flex items-center justify-between mb-3">
 							<span className="text-[#8a8d91] text-[11px]">Balance:</span>
-							<span className="text-[#8a8d91] text-[11px]">USDC.e</span>
+							<span className="text-[#8a8d91] text-[11px]">{selectedCurrency}</span>
 						</div>
 						<div className="flex items-center">
 							<Input
@@ -67,7 +76,22 @@ export function TradingPanel() {
 								className="bg-transparent border-none text-[#bbbbbe] text-right flex-1 p-0 text-[14px]"
 								placeholder="0.00"
 							/>
-							<ChevronDown className="w-4 h-4 text-gray-400 ml-2" />
+							<Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+								<SelectTrigger className="w-auto bg-transparent border-none p-0 h-auto focus:ring-0 focus:ring-offset-0">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent className="bg-[#141623] border-[#2a2d3a]">
+									{currencies.map((currency) => (
+										<SelectItem
+											key={currency}
+											value={currency}
+											className="text-[#bbbbbe] hover:bg-[#2a2d3a] focus:bg-[#2a2d3a]"
+										>
+											{currency}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 					</div>
 
