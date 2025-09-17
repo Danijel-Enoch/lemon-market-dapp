@@ -17,30 +17,30 @@ const tableHeaders = [
 
 export function PositionsTable() {
 	return (
-		<div className="bg-[#0a0b17] rounded-lg p-4">
+		<div className="bg-[#0a0b17] rounded-lg p-6">
 			<Tabs defaultValue="positions" className="w-full">
 				<TabsList className="bg-transparent border-b border-[#282b3c] rounded-none p-0 h-auto">
 					<TabsTrigger
 						value="positions"
-						className="bg-transparent text-[#bbbbbe] text-[13px] font-bold border-b-2 border-transparent data-[state=active]:border-[#41c6b2] data-[state=active]:text-[#41c6b2] rounded-none px-4 py-2"
+						className="bg-transparent text-[#bbbbbe] text-[14px] font-bold border-b-2 border-transparent data-[state=active]:border-[#41c6b2] data-[state=active]:text-[#41c6b2] rounded-none px-6 py-3"
 					>
 						Open Positions
 					</TabsTrigger>
 					<TabsTrigger
 						value="history"
-						className="bg-transparent text-[#bbbbbe] text-[13px] font-bold border-b-2 border-transparent data-[state=active]:border-[#41c6b2] data-[state=active]:text-[#41c6b2] rounded-none px-4 py-2"
+						className="bg-transparent text-[#bbbbbe] text-[14px] font-bold border-b-2 border-transparent data-[state=active]:border-[#41c6b2] data-[state=active]:text-[#41c6b2] rounded-none px-6 py-3"
 					>
 						Transaction History
 					</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="positions" className="mt-4">
+				<TabsContent value="positions" className="mt-6">
 					{/* Table Header */}
-					<div className="grid grid-cols-9 gap-4 mb-4 pb-2 border-b border-[#282b3c]">
+					<div className="grid grid-cols-9 gap-6 mb-6 pb-3 border-b border-[#282b3c]">
 						{tableHeaders.map((header) => (
 							<div
 								key={header}
-								className="text-[#8a8d91] text-[11px] font-medium"
+								className="text-[#8a8d91] text-[12px] font-medium"
 							>
 								{header}
 							</div>

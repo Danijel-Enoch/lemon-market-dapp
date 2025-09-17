@@ -24,47 +24,47 @@ export function TradingPanel() {
 	const [marginAmount, setMarginAmount] = useState("0.00");
 
 	return (
-		<div className="w-[353px] bg-[#0a0b17] rounded-lg p-4">
+		<div className="w-[380px] bg-[#0a0b17] rounded-lg p-6">
 			<Tabs defaultValue="buy" className="w-full">
 				{/* Buy/Sell Tabs */}
-				<TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto mb-6">
+				<TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto mb-8">
 					<TabsTrigger
 						value="buy"
-						className="bg-[#4c82f7] text-white text-[13px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91]"
+						className="bg-[#4c82f7] text-white text-[14px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91] py-3"
 					>
 						Buy / Long
 					</TabsTrigger>
 					<TabsTrigger
 						value="sell"
-						className="bg-[#2a2d3a] text-[#8a8d91] text-[13px] font-bold rounded-r-md data-[state=active]:bg-[#ef5350] data-[state=active]:text-white data-[state=inactive]:bg-[#2a2d3a]"
+						className="bg-[#2a2d3a] text-[#8a8d91] text-[14px] font-bold rounded-r-md data-[state=active]:bg-[#ef5350] data-[state=active]:text-white data-[state=inactive]:bg-[#2a2d3a] py-3"
 					>
 						Sell / Short
 					</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="buy" className="space-y-4">
+				<TabsContent value="buy" className="space-y-6">
 					{/* Margin Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
-						<div className="flex items-center justify-between mb-2">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
+					<div className="bg-[#141623] rounded-lg p-5">
+						<div className="flex items-center justify-between mb-3">
+							<span className="text-[#bbbbbe] text-[13px] font-medium">
 								Margin
 							</span>
 							<Button
 								size="sm"
-								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2"
+								className="bg-[#2a2d3a] text-[#8a8d91] text-[11px] h-7 px-3"
 							>
 								Max
 							</Button>
 						</div>
-						<div className="flex items-center justify-between mb-2">
-							<span className="text-[#8a8d91] text-[10px]">Balance:</span>
-							<span className="text-[#8a8d91] text-[10px]">USDC.e</span>
+						<div className="flex items-center justify-between mb-3">
+							<span className="text-[#8a8d91] text-[11px]">Balance:</span>
+							<span className="text-[#8a8d91] text-[11px]">USDC.e</span>
 						</div>
 						<div className="flex items-center">
 							<Input
 								value={marginAmount}
 								onChange={(e) => setMarginAmount(e.target.value)}
-								className="bg-transparent border-none text-[#bbbbbe] text-right flex-1 p-0"
+								className="bg-transparent border-none text-[#bbbbbe] text-right flex-1 p-0 text-[14px]"
 								placeholder="0.00"
 							/>
 							<ChevronDown className="w-4 h-4 text-gray-400 ml-2" />
@@ -72,12 +72,12 @@ export function TradingPanel() {
 					</div>
 
 					{/* Size Section */}
-					<div className="bg-[#141623] rounded-lg p-4">
+					<div className="bg-[#141623] rounded-lg p-5">
 						<div className="flex items-center justify-between">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
+							<span className="text-[#bbbbbe] text-[13px] font-medium">
 								Size
 							</span>
-							<span className="text-[#bbbbbe] text-[12px]">ETH</span>
+							<span className="text-[#bbbbbe] text-[13px]">ETH</span>
 						</div>
 					</div>
 
