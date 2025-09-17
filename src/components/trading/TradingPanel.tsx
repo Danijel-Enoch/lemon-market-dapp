@@ -36,7 +36,7 @@ export function TradingPanel() {
 		<div className="w-[380px] bg-[#0a0b17] rounded-lg p-6">
 			<Tabs defaultValue="buy" className="w-full">
 				{/* Buy/Sell Tabs */}
-				<TabsList className="grid w-full grid-cols-2 bg-transparent p-0 h-auto mb-8">
+				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto mb-8">
 					<TabsTrigger
 						value="buy"
 						className="bg-[#4c82f7] text-white text-[14px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91] py-3"

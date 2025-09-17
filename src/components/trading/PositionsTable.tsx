@@ -36,7 +36,7 @@ export function PositionsTable() {
 
 				<TabsContent value="positions" className="mt-6">
 					{/* Table Header */}
-					<div className="grid grid-cols-9 gap-6 mb-6 pb-3 border-b border-[#282b3c]">
+					<div className="grid grid-cols-9 gap-4 mb-6 pb-3 border-b border-[#282b3c]">
 						{tableHeaders.map((header) => (
 							<div
 								key={header}

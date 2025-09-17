@@ -52,7 +52,7 @@ export function TradingPairsList() {
 
 	return (
 		<div className="space-y-2">
-			<div className="flex items-center justify-between mb-3">
+			<div className="flex items-center justify-between gap-4 mb-3">
 				<h2 className="text-sm font-medium text-white">Trading Pairs</h2>
 				<Badge
 					variant="secondary"
@@ -79,7 +79,7 @@ export function TradingPairsList() {
 							}`}
 							onClick={() => handlePairSelect(pair)}
 						>
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between gap-4">
 								<div className="flex items-center space-x-2">
 									<div className="text-sm font-medium text-white">
 										{pair.baseAsset}/{pair.quoteAsset}
@@ -97,7 +97,7 @@ export function TradingPairsList() {
 										{pair.moneyMarket}
 									</Badge>
 								</div>
-								<div className="flex items-center space-x-3">
+								<div className="flex items-center space-x-3 gap-4">
 									<div className="text-right">
 										<div className="text-xs text-gray-500">ROE</div>
 										<div

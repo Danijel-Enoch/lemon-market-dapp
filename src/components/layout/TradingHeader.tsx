@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 
 export function TradingHeader() {
 	return (
-		<div className="flex items-center h-[80px] bg-gradient-to-r from-[#0a0b17] to-[#141623] border-b border-gray-800">
-			<div className="flex items-center flex-1 px-8">
+		<div className="flex items-center gap-4 h-[80px] bg-gradient-to-r from-[#0a0b17] to-[#141623] border-b border-gray-800">
+			<div className="flex items-center flex-1 gap-4 px-8">
 				{/* Logo */}
-				<div className="flex items-center">
+				<div className="flex items-center gap-4">
 					<span className="text-[#41c6b2] text-[26px] font-bold mr-3">
 						contan
 					</span>
@@ -16,7 +16,7 @@ export function TradingHeader() {
 				</div>
 
 				{/* Navigation */}
-				<nav className="flex items-center ml-12 space-x-10">
+				<nav className="flex items-center ml-12 space-x-10 gap-4">
 					<div className="relative">
 						<span className="text-[#bbbdc0] text-[14px] font-bold cursor-pointer">
 							Advanced
@@ -43,7 +43,7 @@ export function TradingHeader() {
 				</nav>
 
 				{/* Right side */}
-				<div className="flex items-center ml-auto space-x-6">
+				<div className="flex items-center ml-auto space-x-6 gap-4">
 					<span className="text-[#6f7377] text-[11px] font-bold">
 						Resources
 					</span>

@@ -66,7 +66,7 @@ export function ChartSection() {
 	return (
 		<div className="bg-[#0a0b17] rounded-lg p-6 flex-1">
 			{/* Timeframe Controls */}
-			<div className="flex items-center justify-between mb-6">
+			<div className="flex items-center justify-between gap-4 mb-6">
 				<div className="flex space-x-8">
 					{timeframes.map((tf) => (
 						<button
@@ -83,7 +83,7 @@ export function ChartSection() {
 			</div>
 
 			{/* Price Info */}
-			<div className="flex items-center space-x-6 mb-6 text-[12px]">
+			<div className="flex items-center space-x-6 gap-4 mb-6 text-[12px]">
 				<span className="text-[#9699a2]">O</span>
 				<span className="text-[#269e54]">4519.23</span>
 				<span className="text-[#38985f]">H4543.35</span>
@@ -99,7 +99,7 @@ export function ChartSection() {
 				<div ref={chartContainerRef} className="w-full" />
 
 				{/* Price Scale */}
-				<div className="absolute right-0 top-0 h-full flex flex-col justify-between py-10 pr-3">
+				<div className="absolute right-0 top-0 h-full flex flex-col justify-between gap-4 py-10 pr-3">
 					<span className="text-[#8b8d97] text-[26px]">500</span>
 					<span className="text-[#8d9099] text-[26px]">490</span>
 					<span className="text-[#8f9299] text-[26px]">480</span>

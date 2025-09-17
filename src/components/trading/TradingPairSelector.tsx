@@ -27,9 +27,9 @@ export function TradingPairSelector() {
 	const currentPair = tradingPairs.find(pair => pair.symbol === selectedPair) || tradingPairs[0];
 
 	return (
-		<div className="flex items-center justify-between px-8 py-4 bg-[#0a0b17]">
+		<div className="flex items-center justify-between gap-4 px-8 py-4 bg-[#0a0b17]">
 			{/* Trading Pair Section */}
-			<div className="flex items-center">
+			<div className="flex items-center gap-4">
 				<div className="bg-[#141623] rounded-md p-5 mr-6">
 					<Select value={selectedPair} onValueChange={setSelectedPair}>
 						<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3c] rounded px-4 py-3 w-auto">
@@ -45,7 +45,7 @@ export function TradingPairSelector() {
 									value={pair.symbol}
 									className="text-[#c2c3c6] hover:bg-[#282b3c] focus:bg-[#282b3c]"
 								>
-									<div className="flex items-center">
+									<div className="flex items-center gap-4">
 										<div className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}></div>
 										{pair.symbol}
 									</div>
