@@ -1,18 +1,8 @@
 "use client";
 
-import { ArrowUpDown } from "lucide-react";
-import Image from "next/image";
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TradingForm } from "./TradingForm";
 
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 
@@ -125,12 +115,7 @@ export function TradingPanel() {
 
 	return (
 		<div className="w-[380px] bg-[#0a0b17] rounded p-6">
-			<Tabs
-				defaultValue="buy"
-				value={activeTab}
-				onValueChange={setActiveTab}
-				className="w-full"
-			>
+			<Tabs defaultValue="buy" value={activeTab} onValueChange={setActiveTab} className="w-full">
 				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto mb-8">
 					<TabsTrigger
@@ -153,8 +138,7 @@ export function TradingPanel() {
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You pay</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance:{" "}
-								{tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
+								Balance: {tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -168,9 +152,7 @@ export function TradingPanel() {
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 									<div className="flex items-center gap-2">
 										<Image
-											src={
-												tokens.find((t) => t.symbol === inputToken)?.icon || ""
-											}
+											src={tokens.find((t) => t.symbol === inputToken)?.icon || ""}
 											alt="x"
 											width={14}
 											height={14}
@@ -195,12 +177,8 @@ export function TradingPanel() {
 													className="rounded-sm"
 												/>
 												<div>
-													<div className="text-[13px] font-medium">
-														{token.symbol}
-													</div>
-													<div className="text-[10px] text-[#8a8d91]">
-														{token.name}
-													</div>
+													<div className="text-[13px] font-medium">{token.symbol}</div>
+													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -210,10 +188,7 @@ export function TradingPanel() {
 							<Button
 								size="sm"
 								onClick={() =>
-									setInputAmount(
-										tokens.find((t) => t.symbol === inputToken)?.balance ||
-											"0.00",
-									)
+									setInputAmount(tokens.find((t) => t.symbol === inputToken)?.balance || "0.00")
 								}
 								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2 hover:bg-[#3a3d4a]"
 							>
@@ -238,9 +213,7 @@ export function TradingPanel() {
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You receive</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance:{" "}
-								{tokens.find((t) => t.symbol === outputToken)?.balance ||
-									"0.00"}
+								Balance: {tokens.find((t) => t.symbol === outputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -272,12 +245,8 @@ export function TradingPanel() {
 													className="rounded-sm"
 												/>
 												<div>
-													<div className="text-[13px] font-medium">
-														{token.symbol}
-													</div>
-													<div className="text-[10px] text-[#8a8d91]">
-														{token.name}
-													</div>
+													<div className="text-[13px] font-medium">{token.symbol}</div>
+													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -295,12 +264,8 @@ export function TradingPanel() {
 					{/* Leverage Section */}
 					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-4">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
-								Leverage
-							</span>
-							<span className="text-[#8a8d91] text-[10px]">
-								{selectedLeverage}
-							</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Leverage</span>
+							<span className="text-[#8a8d91] text-[10px]">{selectedLeverage}</span>
 						</div>
 
 						{/* Leverage Slider */}
@@ -325,9 +290,7 @@ export function TradingPanel() {
 					{/* Chain & Market Selection */}
 					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-3">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
-								Chain & Market
-							</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Chain & Market</span>
 							<span className="text-[#8a8d91] text-[10px]">ROE</span>
 						</div>
 
@@ -350,9 +313,7 @@ export function TradingPanel() {
 											{item.chain} / {item.market}
 										</span>
 									</div>
-									<span className="text-[#ef5350] text-[10px] font-medium">
-										{item.roe}
-									</span>
+									<span className="text-[#ef5350] text-[10px] font-medium">{item.roe}</span>
 								</div>
 							))}
 							<div className="text-center pt-1">
@@ -373,8 +334,7 @@ export function TradingPanel() {
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You pay</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance:{" "}
-								{tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
+								Balance: {tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -388,9 +348,7 @@ export function TradingPanel() {
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
 										<Image
-											src={
-												tokens.find((t) => t.symbol === inputToken)?.icon || ""
-											}
+											src={tokens.find((t) => t.symbol === inputToken)?.icon || ""}
 											alt="x"
 											width={14}
 											height={14}
@@ -415,12 +373,8 @@ export function TradingPanel() {
 													className="rounded-sm"
 												/>
 												<div>
-													<div className="text-[13px] font-medium">
-														{token.symbol}
-													</div>
-													<div className="text-[10px] text-[#8a8d91]">
-														{token.name}
-													</div>
+													<div className="text-[13px] font-medium">{token.symbol}</div>
+													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -430,10 +384,7 @@ export function TradingPanel() {
 							<Button
 								size="sm"
 								onClick={() =>
-									setInputAmount(
-										tokens.find((t) => t.symbol === inputToken)?.balance ||
-											"0.00",
-									)
+									setInputAmount(tokens.find((t) => t.symbol === inputToken)?.balance || "0.00")
 								}
 								className="bg-[#2a2d3a] text-[#8a8d91] text-[10px] h-6 px-2 hover:bg-[#3a3d4a]"
 							>
@@ -458,9 +409,7 @@ export function TradingPanel() {
 						<div className="flex items-center justify-between mb-2">
 							<span className="text-[#8a8d91] text-[11px]">You receive</span>
 							<span className="text-[#8a8d91] text-[11px]">
-								Balance:{" "}
-								{tokens.find((t) => t.symbol === outputToken)?.balance ||
-									"0.00"}
+								Balance: {tokens.find((t) => t.symbol === outputToken)?.balance || "0.00"}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -474,9 +423,7 @@ export function TradingPanel() {
 								<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 									<div className="flex items-center gap-2">
 										<Image
-											src={
-												tokens.find((t) => t.symbol === outputToken)?.icon || ""
-											}
+											src={tokens.find((t) => t.symbol === outputToken)?.icon || ""}
 											alt="x"
 											width={14}
 											height={14}
@@ -501,12 +448,8 @@ export function TradingPanel() {
 													className="rounded-sm"
 												/>
 												<div>
-													<div className="text-[13px] font-medium">
-														{token.symbol}
-													</div>
-													<div className="text-[10px] text-[#8a8d91]">
-														{token.name}
-													</div>
+													<div className="text-[13px] font-medium">{token.symbol}</div>
+													<div className="text-[10px] text-[#8a8d91]">{token.name}</div>
 												</div>
 											</div>
 										</SelectItem>
@@ -524,12 +467,8 @@ export function TradingPanel() {
 					{/* Leverage Section */}
 					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-4">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
-								Leverage
-							</span>
-							<span className="text-[#8a8d91] text-[10px]">
-								{selectedLeverage}
-							</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Leverage</span>
+							<span className="text-[#8a8d91] text-[10px]">{selectedLeverage}</span>
 						</div>
 
 						{/* Leverage Slider */}
@@ -554,9 +493,7 @@ export function TradingPanel() {
 					{/* Chain & Market Selection */}
 					<div className="bg-[#141623] rounded p-4">
 						<div className="flex items-center justify-between mb-3">
-							<span className="text-[#bbbbbe] text-[12px] font-medium">
-								Chain & Market
-							</span>
+							<span className="text-[#bbbbbe] text-[12px] font-medium">Chain & Market</span>
 							<span className="text-[#8a8d91] text-[10px]">ROE</span>
 						</div>
 
@@ -579,9 +516,7 @@ export function TradingPanel() {
 											{item.chain} / {item.market}
 										</span>
 									</div>
-									<span className="text-[#ef5350] text-[10px] font-medium">
-										{item.roe}
-									</span>
+									<span className="text-[#ef5350] text-[10px] font-medium">{item.roe}</span>
 								</div>
 							))}
 							<div className="text-center pt-1">

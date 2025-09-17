@@ -38,10 +38,7 @@ export function PositionsTable() {
 					{/* Table Header */}
 					<div className="grid grid-cols-9 gap-4 mb-6 pb-3 border-b border-[#282b3c]">
 						{tableHeaders.map((header) => (
-							<div
-								key={header}
-								className="text-[#8a8d91] text-[12px] font-medium"
-							>
+							<div key={header} className="text-[#8a8d91] text-[12px] font-medium">
 								{header}
 							</div>
 						))}
@@ -62,10 +59,7 @@ export function PositionsTable() {
 					{/* Table Header */}
 					<div className="grid grid-cols-9 gap-4 mb-4 pb-2 border-b border-[#282b3c]">
 						{tableHeaders.map((header) => (
-							<div
-								key={`history-${header}`}
-								className="text-[#8a8d91] text-[11px] font-medium"
-							>
+							<div key={`history-${header}`} className="text-[#8a8d91] text-[11px] font-medium">
 								{header}
 							</div>
 						))}
@@ -77,9 +71,7 @@ export function PositionsTable() {
 							<div className="w-16 h-16 bg-[#141623] rounded-full flex items-center justify-center mb-4 mx-auto">
 								<div className="w-8 h-8 bg-[#282b3c] rounded"></div>
 							</div>
-							<p className="text-[#6b7280] text-[14px]">
-								No transaction history
-							</p>
+							<p className="text-[#6b7280] text-[14px]">No transaction history</p>
 						</div>
 					</div>
 				</TabsContent>

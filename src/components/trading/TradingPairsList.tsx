@@ -13,12 +13,8 @@ export function TradingPairsList() {
 	const filteredPairs = mockTradingPairs.filter((pair) => {
 		const matchesSearch =
 			!state.filters.searchTerm ||
-			pair.baseAsset
-				.toLowerCase()
-				.includes(state.filters.searchTerm.toLowerCase()) ||
-			pair.quoteAsset
-				.toLowerCase()
-				.includes(state.filters.searchTerm.toLowerCase());
+			pair.baseAsset.toLowerCase().includes(state.filters.searchTerm.toLowerCase()) ||
+			pair.quoteAsset.toLowerCase().includes(state.filters.searchTerm.toLowerCase());
 
 		const matchesChain =
 			!state.selectedChain ||
@@ -26,11 +22,9 @@ export function TradingPairsList() {
 			pair.chain === state.selectedChain;
 
 		const matchesMoneyMarket =
-			!state.selectedMoneyMarket ||
-			pair.moneyMarket === state.selectedMoneyMarket;
+			!state.selectedMoneyMarket || pair.moneyMarket === state.selectedMoneyMarket;
 
-		const matchesROE =
-			!state.filters.minROE || pair.roe >= state.filters.minROE;
+		const matchesROE = !state.filters.minROE || pair.roe >= state.filters.minROE;
 
 		return matchesSearch && matchesChain && matchesMoneyMarket && matchesROE;
 	});
@@ -54,10 +48,7 @@ export function TradingPairsList() {
 		<div className="space-y-2">
 			<div className="flex items-center justify-between gap-4 mb-3">
 				<h2 className="text-sm font-medium text-white">Trading Pairs</h2>
-				<Badge
-					variant="secondary"
-					className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5"
-				>
+				<Badge variant="secondary" className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5">
 					{filteredPairs.length} pairs
 				</Badge>
 			</div>
@@ -100,27 +91,19 @@ export function TradingPairsList() {
 								<div className="flex items-center space-x-3 gap-4">
 									<div className="text-right">
 										<div className="text-xs text-gray-500">ROE</div>
-										<div
-											className={`text-sm font-medium ${getROEColor(pair.roe)}`}
-										>
+										<div className={`text-sm font-medium ${getROEColor(pair.roe)}`}>
 											{formatROE(pair.roe)}
 										</div>
 									</div>
 									<div className="text-right">
 										<div className="text-xs text-gray-500">Max Lev</div>
-										<div className="text-sm font-medium text-white">
-											{pair.maxLeverage}x
-										</div>
+										<div className="text-sm font-medium text-white">{pair.maxLeverage}x</div>
 									</div>
 									<div className="text-right">
 										<div className="text-xs text-gray-500">APY</div>
-										<div className="text-sm font-medium text-white">
-											{pair.apy.toFixed(2)}%
-										</div>
+										<div className="text-sm font-medium text-white">{pair.apy.toFixed(2)}%</div>
 									</div>
-									{pair.roe > 15 && (
-										<Zap className="h-3.5 w-3.5 text-yellow-400" />
-									)}
+									{pair.roe > 15 && <Zap className="h-3.5 w-3.5 text-yellow-400" />}
 								</div>
 							</div>
 						</Card>

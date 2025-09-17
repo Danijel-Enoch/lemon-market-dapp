@@ -2,13 +2,7 @@
 
 import type React from "react";
 import { createContext, type ReactNode, useContext, useReducer } from "react";
-import type {
-	Chain,
-	MoneyMarket,
-	Position,
-	TradingPair,
-	Transaction,
-} from "@/lib/mock-data";
+import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";
 
 interface AppState {
 	selectedPair: TradingPair | null;
@@ -87,9 +81,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 			return {
 				...state,
 				positions: state.positions.map((pos) =>
-					pos.id === action.payload.id
-						? { ...pos, ...action.payload.updates }
-						: pos,
+					pos.id === action.payload.id ? { ...pos, ...action.payload.updates } : pos,
 				),
 			};
 		case "REMOVE_POSITION":
@@ -133,11 +125,7 @@ const AppContext = createContext<{
 export function AppProvider({ children }: { children: ReactNode }) {
 	const [state, dispatch] = useReducer(appReducer, initialState);
 
-	return (
-		<AppContext.Provider value={{ state, dispatch }}>
-			{children}
-		</AppContext.Provider>
-	);
+	return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
 
 export function useAppContext() {

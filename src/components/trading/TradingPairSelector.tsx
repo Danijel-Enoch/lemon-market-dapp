@@ -24,9 +24,7 @@ export function TradingPairSelector() {
 	const [selectedChain, setSelectedChain] = useState("All");
 	const [selectedMoneyMarket, setSelectedMoneyMarket] = useState("All");
 
-	const currentPair =
-		tradingPairs.find((pair) => pair.symbol === selectedPair) ||
-		tradingPairs[0];
+	const currentPair = tradingPairs.find((pair) => pair.symbol === selectedPair) || tradingPairs[0];
 
 	return (
 		<div className="w-full flex items-center justify-between gap-4 px-8 py-2">
@@ -50,9 +48,7 @@ export function TradingPairSelector() {
 									className="text-[#c2c3c6] hover:bg-[#282b3c] focus:bg-[#282b3c]"
 								>
 									<div className="flex items-center gap-4">
-										<div
-											className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}
-										></div>
+										<div className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}></div>
 										{pair.symbol}
 									</div>
 								</SelectItem>
@@ -82,10 +78,7 @@ export function TradingPairSelector() {
 						))}
 					</SelectContent>
 				</Select>
-				<Select
-					value={selectedMoneyMarket}
-					onValueChange={setSelectedMoneyMarket}
-				>
+				<Select value={selectedMoneyMarket} onValueChange={setSelectedMoneyMarket}>
 					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 py-3 w-40">
 						<span className="text-[#bfc0c3] text-[11px]">
 							Money Market: <SelectValue />

@@ -1,0 +1,122 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.2.3/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.json"],
+		"ignoreUnknown": false,
+		"experimentalScannerIgnores": [
+			"node_modules/**",
+			".next/**",
+			"dist/**",
+			"build/**",
+			"coverage/**",
+			"*.min.js",
+			"yarn.lock",
+			"package-lock.json"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "tab",
+		"indentWidth": 2,
+		"lineEnding": "lf",
+		"lineWidth": 100,
+		"attributePosition": "auto"
+	},
+
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"a11y": {
+				"recommended": true
+			},
+			"complexity": {
+				"recommended": true,
+				"noExtraBooleanCast": "error",
+				"noUselessCatch": "error",
+				"noUselessTypeConstraint": "error"
+			},
+			"correctness": {
+				"recommended": true,
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "warn",
+				"useHookAtTopLevel": "error",
+				"useUniqueElementIds": "off"
+			},
+			"security": {
+				"recommended": true
+			},
+			"style": {
+				"recommended": true,
+				"noNegationElse": "off",
+				"useImportType": "error",
+				"useConst": "error",
+				"useTemplate": "warn"
+			},
+			"suspicious": {
+				"recommended": true,
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn",
+				"noConsole": "warn"
+			},
+			"nursery": {
+				"useSortedClasses": "off"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"jsxQuoteStyle": "double",
+			"quoteProperties": "asNeeded",
+			"trailingCommas": "all",
+			"semicolons": "always",
+			"arrowParentheses": "always",
+			"bracketSpacing": true,
+			"bracketSameLine": false,
+			"quoteStyle": "double",
+			"attributePosition": "auto"
+		}
+	},
+	"json": {
+		"formatter": {
+			"enabled": true,
+			"indentStyle": "tab",
+			"indentWidth": 4,
+			"lineEnding": "lf",
+			"lineWidth": 100
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.tsx", "**/*.jsx"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"useKeyWithClickEvents": "error",
+						"useKeyWithMouseEvents": "error",
+						"noStaticElementInteractions": "off"
+					},
+					"correctness": {
+						"useJsxKeyInIterable": "error"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.config.js", "**/*.config.ts", "next.config.*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noDefaultExport": "off"
+					}
+				}
+			}
+		}
+	]
+}
