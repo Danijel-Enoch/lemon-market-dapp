@@ -86,13 +86,6 @@ export function TradingForm({
 					<Select value={inputToken} onValueChange={onInputTokenChange}>
 						<SelectTrigger className="w-auto bg-[#2a2d3a] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 							<div className="flex items-center gap-2">
-								<Image
-									src={tokens.find((t) => t.symbol === inputToken)?.icon || ""}
-									alt="x"
-									width={14}
-									height={14}
-									className="rounded-sm"
-								/>
 								<SelectValue />
 							</div>
 						</SelectTrigger>
@@ -124,11 +117,11 @@ export function TradingForm({
 			</div>
 
 			{/* Swap Button */}
-			<div className="flex justify-center -my-4 relative z-10">
+			<div className="flex justify-center -my-4 -mt-6 relative z-10">
 				<Button
 					onClick={onSwapTokens}
 					size="sm"
-					className="bg-[#2a2d3a] hover:bg-[#3a3d4a] p-2 rounded-full"
+					className="bg-[#2a2d3a] hover:bg-[#3a3d4a] p-2 rounded-md"
 				>
 					<ArrowUpDown className="w-4 h-4 text-[#8a8d91]" />
 				</Button>

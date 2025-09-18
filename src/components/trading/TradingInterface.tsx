@@ -12,14 +12,10 @@ export function TradingInterface() {
 			{/* Header */}
 			<Header />
 
-			{/* Trading Pair Selector */}
-			<TradingPairSelector />
-
 			{/* Main Content */}
-			<div className="flex-1 flex gap-6 p-6">
-				{/* Left Side - Chart and Positions */}
-				<div className="flex-1 flex flex-col gap-6">
-					{/* Chart Section */}
+			<div className="flex-1 flex items-start">
+				<div className="flex-1 flex flex-col gap-1">
+					<TradingPairSelector />
 					<ChartSection />
 
 					{/* Positions Table */}

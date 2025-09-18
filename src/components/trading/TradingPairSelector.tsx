@@ -16,87 +16,33 @@ const tradingPairs = [
 	{ symbol: "LINK/USDC.e", gradient: "from-blue-600 to-cyan-500" },
 ];
 
-const chains = ["All", "Ethereum", "Polygon", "Arbitrum", "Optimism"];
-const moneyMarkets = ["All", "Aave V3", "Compound III", "SparkSky", "Silo"];
-
 export function TradingPairSelector() {
 	const [selectedPair, setSelectedPair] = useState("ETH/USDC.e");
-	const [selectedChain, setSelectedChain] = useState("All");
-	const [selectedMoneyMarket, setSelectedMoneyMarket] = useState("All");
 
 	const currentPair = tradingPairs.find((pair) => pair.symbol === selectedPair) || tradingPairs[0];
 
 	return (
-		<div className="w-full flex items-center justify-between gap-4 px-8 py-2">
-			{/* Trading Pair Section */}
-			<div className="flex items-center gap-4 bg-[#141623]">
-				<div className="">
-					<Select value={selectedPair} onValueChange={setSelectedPair}>
-						<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3c] rounded px-4 py-3 w-48">
-							<div
-								className={`w-8 h-5 bg-gradient-to-r ${currentPair.gradient} rounded mr-3`}
-							></div>
-							<span className="text-[#c2c3c6] text-[14px] font-bold">
-								<SelectValue />
-							</span>
-						</SelectTrigger>
-						<SelectContent className="bg-[#141623] border-[#282b3c]">
-							{tradingPairs.map((pair) => (
-								<SelectItem
-									key={pair.symbol}
-									value={pair.symbol}
-									className="text-[#c2c3c6] hover:bg-[#282b3c] focus:bg-[#282b3c]"
-								>
-									<div className="flex items-center gap-4">
-										<div className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}></div>
-										{pair.symbol}
-									</div>
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
-
-			{/* Filters Section */}
-			<div className="flex items-center bg-[#141623] border border-[#0f101d] rounded p-2 space-x-3">
-				<Select value={selectedChain} onValueChange={setSelectedChain}>
-					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 py-3 w-32">
-						<span className="text-[#bebec1] text-[11px] font-bold">
-							Chain: <SelectValue />
-						</span>
-					</SelectTrigger>
-					<SelectContent className="bg-[#141623] border-[#282b3b]">
-						{chains.map((chain) => (
-							<SelectItem
-								key={chain}
-								value={chain}
-								className="text-[#bebec1] hover:bg-[#282b3b] focus:bg-[#282b3b]"
-							>
-								{chain}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select value={selectedMoneyMarket} onValueChange={setSelectedMoneyMarket}>
-					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 py-3 w-40">
-						<span className="text-[#bfc0c3] text-[11px]">
-							Money Market: <SelectValue />
-						</span>
-					</SelectTrigger>
-					<SelectContent className="bg-[#141623] border-[#282b3b]">
-						{moneyMarkets.map((market) => (
-							<SelectItem
-								key={market}
-								value={market}
-								className="text-[#bfc0c3] hover:bg-[#282b3b] focus:bg-[#282b3b]"
-							>
-								{market}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
-		</div>
+		<Select value={selectedPair} onValueChange={setSelectedPair}>
+			<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3c] rounded px-4 py-3 w-48">
+				<div className={`w-8 h-5 bg-gradient-to-r ${currentPair.gradient} rounded mr-3`}></div>
+				<span className="text-[#c2c3c6] text-[14px] font-bold">
+					<SelectValue />
+				</span>
+			</SelectTrigger>
+			<SelectContent className="bg-[#141623] border-[#282b3c]">
+				{tradingPairs.map((pair) => (
+					<SelectItem
+						key={pair.symbol}
+						value={pair.symbol}
+						className="text-[#c2c3c6] hover:bg-[#282b3c] focus:bg-[#282b3c]"
+					>
+						<div className="flex items-center gap-4">
+							<div className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}></div>
+							{pair.symbol}
+						</div>
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TradingForm } from "./TradingForm";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 
@@ -96,6 +97,9 @@ const tokens = [
 	},
 ];
 
+const chains = ["All", "Ethereum", "Polygon", "Arbitrum", "Optimism"];
+const moneyMarkets = ["All", "Aave V3", "Compound III", "SparkSky", "Silo"];
+
 export function TradingPanel() {
 	const [selectedLeverage, setSelectedLeverage] = useState("2x");
 	const [inputAmount, setInputAmount] = useState("0.00");
@@ -103,6 +107,8 @@ export function TradingPanel() {
 	const [inputToken, setInputToken] = useState("USDC.e");
 	const [outputToken, setOutputToken] = useState("ETH");
 	const [activeTab, setActiveTab] = useState("buy");
+	const [selectedChain, setSelectedChain] = useState("All");
+	const [selectedMoneyMarket, setSelectedMoneyMarket] = useState("All");
 
 	const handleSwapTokens = () => {
 		const tempToken = inputToken;
@@ -118,10 +124,53 @@ export function TradingPanel() {
 	};
 
 	return (
-		<div className="w-[380px] bg-[#0a0b17] rounded p-6">
-			<Tabs defaultValue="buy" value={activeTab} onValueChange={setActiveTab} className="w-full">
+		<div className="w-[380px] bg-[#141623] h-full rounded p-2">
+			<div className="flex items-center bg-[#0a0b17] border border-[#0f101d] rounded p-2 space-x-3 mb-2">
+				<Select value={selectedChain} onValueChange={setSelectedChain}>
+					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 w-full">
+						<span className="text-[#bebec1] text-[11px] font-bold">
+							Chain: <SelectValue />
+						</span>
+					</SelectTrigger>
+					<SelectContent className="bg-[#141623] border-[#282b3b]">
+						{chains.map((chain) => (
+							<SelectItem
+								key={chain}
+								value={chain}
+								className="text-[#bebec1] hover:bg-[#282b3b] focus:bg-[#282b3b]"
+							>
+								{chain}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<Select value={selectedMoneyMarket} onValueChange={setSelectedMoneyMarket}>
+					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 w-full">
+						<span className="text-[#bfc0c3] text-[11px]">
+							Money Market: <SelectValue />
+						</span>
+					</SelectTrigger>
+					<SelectContent className="bg-[#141623] border-[#282b3b]">
+						{moneyMarkets.map((market) => (
+							<SelectItem
+								key={market}
+								value={market}
+								className="text-[#bfc0c3] hover:bg-[#282b3b] focus:bg-[#282b3b]"
+							>
+								{market}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
+			<Tabs
+				defaultValue="buy"
+				value={activeTab}
+				onValueChange={setActiveTab}
+				className="w-full bg-[#0a0b17] p-2 h-full"
+			>
 				{/* Buy/Sell Tabs */}
-				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto mb-8">
+				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto">
 					<TabsTrigger
 						value="buy"
 						className="bg-[#4c82f7] text-white text-[14px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91] py-3"
@@ -136,7 +185,7 @@ export function TradingPanel() {
 					</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="buy">
+				<TabsContent value="buy" className="">
 					<TradingForm
 						mode="buy"
 						inputAmount={inputAmount}

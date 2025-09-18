@@ -5,7 +5,7 @@ import { ConnectWallet } from "@/components/ui/ConnectWallet";
 export function Header() {
 	return (
 		<header className="h-16 px-6 border-b border-slate-800">
-			<div className="flex items-center justify-between h-full max-w-7xl mx-auto">
+			<div className="flex items-center justify-between h-full mx-auto">
 				{/* Logo */}
 				<div className="flex items-center">
 					<div className="text-teal-400 font-bold text-xl leading-none">contan</div>
@@ -22,10 +22,6 @@ export function Header() {
 							>
 								Advanced
 							</button>
-							{/* New Badge */}
-							<span className="absolute -top-2 -right-8 inline-flex items-center px-2 py-0.5 rounded text-xs font-light text-teal-500 bg-slate-900 border border-teal-600">
-								New
-							</span>
 						</div>
 						<button
 							type="button"
