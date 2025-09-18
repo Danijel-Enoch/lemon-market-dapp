@@ -1,5 +1,7 @@
 "use client";
 
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
+
 export function Header() {
 	return (
 		<header className="h-16 px-6 border-b border-slate-800">
@@ -79,12 +81,7 @@ export function Header() {
 					</div>
 
 					{/* Connect Wallet Button */}
-					<button
-						type="button"
-						className="flex items-center px-4 py-2 bg-slate-900 border border-slate-700 rounded text-gray-300 hover:text-white hover:border-slate-600 font-bold text-sm transition-all"
-					>
-						Connect Wallet
-					</button>
+					<ConnectWallet />
 				</div>
 			</div>
 		</header>

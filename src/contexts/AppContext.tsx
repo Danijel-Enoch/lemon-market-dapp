@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { createContext, type ReactNode, useContext, useReducer } from "react";
+import { createContext, type ReactNode, useContext, useReducer, useEffect } from "react";
+import { useAccount, useBalance } from "wagmi";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";
 
 interface AppState {
@@ -124,6 +125,28 @@ const AppContext = createContext<{
 
 export function AppProvider({ children }: { children: ReactNode }) {
 	const [state, dispatch] = useReducer(appReducer, initialState);
+	const { address, isConnected } = useAccount();
+	const { data: balance } = useBalance({
+		address: address,
+	});
+
+	// Sync wallet connection state with app context
+	useEffect(() => {
+		dispatch({
+			type: "SET_WALLET_CONNECTION",
+			payload: { isConnected, address: address || null },
+		});
+	}, [isConnected, address]);
+
+	// Sync balance with app context
+	useEffect(() => {
+		if (balance) {
+			dispatch({
+				type: "SET_BALANCE",
+				payload: Number(balance.formatted),
+			});
+		}
+	}, [balance]);
 
 	return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
