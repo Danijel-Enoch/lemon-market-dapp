@@ -2,7 +2,6 @@
 
 import { ArrowUpDown } from "lucide-react";
 import Image from "next/image";
-import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -196,7 +195,7 @@ export function TradingForm({
 						min="1"
 						max="10"
 						step="1"
-						value={parseInt(selectedLeverage.replace("x", ""))}
+						value={parseInt(selectedLeverage.replace("x", ""), 10)}
 						onChange={(e) => onLeverageChange(`${e.target.value}x`)}
 						className="w-full h-1 bg-[#2a2d3a] rounded appearance-none cursor-pointer slider"
 					/>

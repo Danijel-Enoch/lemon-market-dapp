@@ -1,7 +1,6 @@
 "use client";
 
 import { Zap } from "lucide-react";
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";

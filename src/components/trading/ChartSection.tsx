@@ -1,7 +1,7 @@
 "use client";
 
-import { CandlestickSeries, ColorType, createChart } from "lightweight-charts";
-import React, { useEffect, useRef } from "react";
+import { CandlestickSeries, ColorType, createChart, type IChartApi } from "lightweight-charts";
+import { useEffect, useRef } from "react";
 
 const timeframes = [
 	{ label: "1Day", value: "1D", active: false },
@@ -22,7 +22,7 @@ const priceData = [
 
 export function ChartSection() {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	const chartRef = useRef<any>(null);
+	const chartRef = useRef<IChartApi | null>(null);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;

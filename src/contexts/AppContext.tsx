@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { createContext, type ReactNode, useContext, useReducer, useEffect } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useReducer } from "react";
 import { useAccount, useBalance } from "wagmi";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";
 

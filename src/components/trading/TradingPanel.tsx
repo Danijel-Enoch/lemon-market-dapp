@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TradingForm } from "./TradingForm";
 
@@ -114,19 +114,12 @@ export function TradingPanel() {
 	};
 
 	const handleMaxClick = () => {
-		setInputAmount(
-			tokens.find((t) => t.symbol === inputToken)?.balance || "0.00",
-		);
+		setInputAmount(tokens.find((t) => t.symbol === inputToken)?.balance || "0.00");
 	};
 
 	return (
 		<div className="w-[380px] bg-[#0a0b17] rounded p-6">
-			<Tabs
-				defaultValue="buy"
-				value={activeTab}
-				onValueChange={setActiveTab}
-				className="w-full"
-			>
+			<Tabs defaultValue="buy" value={activeTab} onValueChange={setActiveTab} className="w-full">
 				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto mb-8">
 					<TabsTrigger
