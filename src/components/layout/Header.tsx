@@ -1,74 +1,95 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
 export function Header() {
+	const pathname = usePathname();
+
 	return (
 		<header className="h-16 px-6 border-b border-slate-800">
 			<div className="flex items-center justify-between h-full mx-auto">
 				{/* Logo */}
 				<div className="flex items-center">
-					<div className="text-teal-400 font-bold text-xl leading-none">lemon-looper</div>
+					<Link
+						href="/"
+						className="text-teal-400 font-bold text-xl leading-none hover:text-teal-300 transition-colors"
+					>
+						lemon-looper
+					</Link>
 				</div>
 
 				{/* Navigation */}
 				<nav className="flex items-center space-x-8">
 					{/* Trading Section */}
 					<div className="flex items-center space-x-6">
-						<div className="relative">
-							<button
-								type="button"
-								className="text-gray-400 hover:text-gray-300 font-bold text-sm transition-colors"
-							>
-								Advanced
-							</button>
-						</div>
-						<button
-							type="button"
-							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						<Link
+							href="/"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
+						>
+							Advanced
+						</Link>
+						<Link
+							href="/simplified"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/simplified" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
 						>
 							Simplified
-						</button>
+						</Link>
 					</div>
 
 					{/* Main Navigation */}
 					<div className="flex items-center space-x-6">
-						<button
-							type="button"
-							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						<Link
+							href="/staking"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/staking" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
 						>
 							Staking
-						</button>
-						<button
-							type="button"
-							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						</Link>
+						<Link
+							href="/otango"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/otango" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
 						>
 							oTango
-						</button>
-						<button
-							type="button"
-							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						</Link>
+						<Link
+							href="/profile"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/profile" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
 						>
 							Profile
-						</button>
-						<button
-							type="button"
-							className="text-gray-500 hover:text-gray-400 font-bold text-sm transition-colors"
+						</Link>
+						<Link
+							href="/airdrop"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/airdrop" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+							}`}
 						>
 							Airdrop
-						</button>
+						</Link>
 					</div>
 				</nav>
 
 				{/* Right Section */}
 				<div className="flex items-center space-x-6">
 					{/* Resources */}
-					<button
-						type="button"
-						className="text-gray-600 hover:text-gray-500 font-bold text-sm transition-colors"
+					<Link
+						href="/resources"
+						className={`font-bold text-sm transition-colors ${
+							pathname === "/resources" ? "text-gray-500" : "text-gray-600 hover:text-gray-500"
+						}`}
 					>
 						Resources
-					</button>
+					</Link>
 
 					{/* Fee Profile */}
 					<div className="text-right">
