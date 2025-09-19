@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 
 const tradingPairs = [
 	{ symbol: "ETH/USDC.e", gradient: "from-blue-500 to-purple-500" },
@@ -19,27 +13,21 @@ const tradingPairs = [
 export function TradingPairSelector() {
 	const [selectedPair, setSelectedPair] = useState("ETH/USDC.e");
 
-	const currentPair = tradingPairs.find((pair) => pair.symbol === selectedPair) || tradingPairs[0];
-
 	return (
 		<Select value={selectedPair} onValueChange={setSelectedPair}>
-			<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3c] rounded px-4 py-3 w-48">
-				<div className={`w-8 h-5 bg-gradient-to-r ${currentPair.gradient} rounded mr-3`}></div>
-				<span className="text-[#c2c3c6] text-[14px] font-bold">
-					<SelectValue />
-				</span>
+			<SelectTrigger className="flex items-center bg-[var(--trading-bg-secondary)] border border-[var(--trading-border)] rounded px-4 py-3 w-48">
+				<div className="flex items-center space-x-2">
+					<span className="text-[var(--trading-text-primary)] text-sm font-bold">ETH/USD</span>
+				</div>
 			</SelectTrigger>
-			<SelectContent className="bg-[#141623] border-[#282b3c]">
+			<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-border)]">
 				{tradingPairs.map((pair) => (
 					<SelectItem
 						key={pair.symbol}
 						value={pair.symbol}
-						className="text-[#c2c3c6] hover:bg-[#282b3c] focus:bg-[#282b3c]"
+						className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-border)] focus:bg-[var(--trading-border)]"
 					>
-						<div className="flex items-center gap-4">
-							<div className={`w-6 h-4 bg-gradient-to-r ${pair.gradient} rounded mr-3`}></div>
-							{pair.symbol}
-						</div>
+						{pair.symbol}
 					</SelectItem>
 				))}
 			</SelectContent>

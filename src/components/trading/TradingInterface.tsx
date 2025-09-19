@@ -8,7 +8,7 @@ import { TradingPanel } from "./TradingPanel";
 
 export function TradingInterface() {
 	return (
-		<div className="h-screen bg-[#0a0b17] flex flex-col">
+		<div className="h-screen bg-[var(--trading-bg-primary)] flex flex-col">
 			{/* Header */}
 			<Header />
 

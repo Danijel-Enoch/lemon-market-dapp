@@ -20,10 +20,10 @@ export const config = createConfig(
 		walletConnectProjectId: projectId,
 
 		// Required App Info
-		appName: "Contango Clone",
+		appName: "Lemon Looper",
 		appDescription: "A decentralized trading platform clone",
-		appUrl: "https://contango-clone.vercel.app", // your app's url
-		appIcon: "https://contango-clone.vercel.app/favicon.ico", // your app's icon, no bigger than 1024x1024px (max. 1MB)
+		appUrl: "https://lemon-looper.vercel.app", // your app's url
+		appIcon: "https://lemon-looper.vercel.app/favicon.ico", // your app's icon, no bigger than 1024x1024px (max. 1MB)
 	}),
 );
 

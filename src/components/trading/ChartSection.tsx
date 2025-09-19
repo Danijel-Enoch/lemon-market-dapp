@@ -64,7 +64,7 @@ export function ChartSection() {
 	}, []);
 
 	return (
-		<div className="bg-[#0a0b17] rounded p-6 flex-1">
+		<div className="bg-[var(--trading-bg-primary)] rounded p-6 flex-1">
 			{/* Timeframe Controls */}
 			<div className="flex items-center justify-between gap-4 mb-6">
 				<div className="flex space-x-8">
@@ -72,9 +72,9 @@ export function ChartSection() {
 						<button
 							type="button"
 							key={tf.value}
-							className={`text-[12px] ${
-								tf.active ? "text-[#4853ab]" : "text-[#8a8d91]"
-							} hover:text-[#4853ab] transition-colors`}
+							className={`text-xs ${
+								tf.active ? "text-[var(--trading-blue)]" : "text-[var(--trading-text-secondary)]"
+							} hover:text-[var(--trading-blue)] transition-colors`}
 						>
 							{tf.label}
 						</button>
@@ -83,15 +83,15 @@ export function ChartSection() {
 			</div>
 
 			{/* Price Info */}
-			<div className="flex items-center space-x-6 gap-4 mb-6 text-[12px]">
-				<span className="text-[#9699a2]">O</span>
-				<span className="text-[#269e54]">4519.23</span>
-				<span className="text-[#38985f]">H4543.35</span>
-				<span className="text-[#9699a2]">L</span>
-				<span className="text-[#269e54]">4519.23</span>
-				<span className="text-[#92949d]">C</span>
-				<span className="text-[#27a556]">4543.35</span>
-				<span className="text-[#24924f]">+24.12(+0.53%)</span>
+			<div className="flex items-center space-x-6 gap-4 mb-6 text-xs">
+				<span className="text-gray-400">O</span>
+				<span className="text-[var(--trading-green-alt)]">4519.23</span>
+				<span className="text-green-500">H4543.35</span>
+				<span className="text-gray-400">L</span>
+				<span className="text-[var(--trading-green-alt)]">4519.23</span>
+				<span className="text-gray-400">C</span>
+				<span className="text-green-500">4543.35</span>
+				<span className="text-green-600">+24.12(+0.53%)</span>
 			</div>
 
 			{/* Chart Container */}
@@ -100,11 +100,11 @@ export function ChartSection() {
 
 				{/* Price Scale */}
 				<div className="absolute right-0 top-0 h-full flex flex-col justify-between gap-4 py-10 pr-3">
-					<span className="text-[#8b8d97] text-[26px]">500</span>
-					<span className="text-[#8d9099] text-[26px]">490</span>
-					<span className="text-[#8f9299] text-[26px]">480</span>
-					<span className="text-[#91949b] text-[26px]">470</span>
-					<span className="text-[#93969d] text-[26px]">AA0I</span>
+					<span className="text-gray-400 text-2xl">500</span>
+					<span className="text-gray-400 text-2xl">490</span>
+					<span className="text-gray-400 text-2xl">480</span>
+					<span className="text-gray-400 text-2xl">470</span>
+					<span className="text-gray-400 text-2xl">AA0I</span>
 				</div>
 			</div>
 		</div>

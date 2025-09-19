@@ -101,43 +101,25 @@ const chains = ["All", "Ethereum", "Polygon", "Arbitrum", "Optimism"];
 const moneyMarkets = ["All", "Aave V3", "Compound III", "SparkSky", "Silo"];
 
 export function TradingPanel() {
-	const [selectedLeverage, setSelectedLeverage] = useState("2x");
-	const [inputAmount, setInputAmount] = useState("0.00");
-	const [outputAmount, setOutputAmount] = useState("0.00");
-	const [inputToken, setInputToken] = useState("USDC.e");
-	const [outputToken, setOutputToken] = useState("ETH");
 	const [activeTab, setActiveTab] = useState("buy");
 	const [selectedChain, setSelectedChain] = useState("All");
 	const [selectedMoneyMarket, setSelectedMoneyMarket] = useState("All");
 
-	const handleSwapTokens = () => {
-		const tempToken = inputToken;
-		setInputToken(outputToken);
-		setOutputToken(tempToken);
-		const tempAmount = inputAmount;
-		setInputAmount(outputAmount);
-		setOutputAmount(tempAmount);
-	};
-
-	const handleMaxClick = () => {
-		setInputAmount(tokens.find((t) => t.symbol === inputToken)?.balance || "0.00");
-	};
-
 	return (
-		<div className="w-[380px] bg-[#141623] h-full rounded p-2">
-			<div className="flex items-center bg-[#0a0b17] border border-[#0f101d] rounded p-2 space-x-3 mb-2">
+		<div className="w-96 bg-[var(--trading-bg-secondary)] h-full rounded p-2">
+			<div className="flex items-center bg-[var(--trading-bg-primary)] border border-gray-800 rounded p-2 space-x-3 mb-2">
 				<Select value={selectedChain} onValueChange={setSelectedChain}>
-					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 w-full">
-						<span className="text-[#bebec1] text-[11px] font-bold">
+					<SelectTrigger className="flex items-center bg-[var(--trading-bg-secondary)] border border-[var(--trading-border)] rounded px-4 w-full">
+						<span className="text-[var(--trading-text-primary)] text-xs font-bold">
 							Chain: <SelectValue />
 						</span>
 					</SelectTrigger>
-					<SelectContent className="bg-[#141623] border-[#282b3b]">
+					<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-border)]">
 						{chains.map((chain) => (
 							<SelectItem
 								key={chain}
 								value={chain}
-								className="text-[#bebec1] hover:bg-[#282b3b] focus:bg-[#282b3b]"
+								className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-border)] focus:bg-[var(--trading-border)]"
 							>
 								{chain}
 							</SelectItem>
@@ -145,17 +127,17 @@ export function TradingPanel() {
 					</SelectContent>
 				</Select>
 				<Select value={selectedMoneyMarket} onValueChange={setSelectedMoneyMarket}>
-					<SelectTrigger className="flex items-center bg-[#141623] border border-[#282b3b] rounded px-4 w-full">
-						<span className="text-[#bfc0c3] text-[11px]">
+					<SelectTrigger className="flex items-center bg-[var(--trading-bg-secondary)] border border-[var(--trading-border)] rounded px-4 w-full">
+						<span className="text-[var(--trading-text-primary)] text-xs">
 							Money Market: <SelectValue />
 						</span>
 					</SelectTrigger>
-					<SelectContent className="bg-[#141623] border-[#282b3b]">
+					<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-border)]">
 						{moneyMarkets.map((market) => (
 							<SelectItem
 								key={market}
 								value={market}
-								className="text-[#bfc0c3] hover:bg-[#282b3b] focus:bg-[#282b3b]"
+								className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-border)] focus:bg-[var(--trading-border)]"
 							>
 								{market}
 							</SelectItem>
@@ -167,19 +149,19 @@ export function TradingPanel() {
 				defaultValue="buy"
 				value={activeTab}
 				onValueChange={setActiveTab}
-				className="w-full bg-[#0a0b17] p-2 h-full"
+				className="w-full bg-[var(--trading-bg-primary)] p-2 h-full"
 			>
 				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto">
 					<TabsTrigger
 						value="buy"
-						className="bg-[#4c82f7] text-white text-[14px] font-bold rounded-l-md data-[state=active]:bg-[#4c82f7] data-[state=inactive]:bg-[#2a2d3a] data-[state=inactive]:text-[#8a8d91] py-3"
+						className="bg-[var(--trading-blue)] text-white text-sm font-bold rounded-l-md data-[state=active]:bg-[var(--trading-blue)] data-[state=inactive]:bg-[var(--trading-bg-tertiary)] data-[state=inactive]:text-[var(--trading-text-secondary)] py-3"
 					>
 						Buy / Long
 					</TabsTrigger>
 					<TabsTrigger
 						value="sell"
-						className="bg-[#2a2d3a] text-[#8a8d91] text-[14px] font-bold rounded-r-md data-[state=active]:bg-[#ef5350] data-[state=active]:text-white data-[state=inactive]:bg-[#2a2d3a] py-3"
+						className="bg-[var(--trading-bg-tertiary)] text-[var(--trading-text-secondary)] text-sm font-bold rounded-r-md data-[state=active]:bg-[var(--trading-red)] data-[state=active]:text-white data-[state=inactive]:bg-[var(--trading-bg-tertiary)] py-3"
 					>
 						Sell / Short
 					</TabsTrigger>
@@ -188,42 +170,18 @@ export function TradingPanel() {
 				<TabsContent value="buy" className="">
 					<TradingForm
 						mode="buy"
-						inputAmount={inputAmount}
-						outputAmount={outputAmount}
-						inputToken={inputToken}
-						outputToken={outputToken}
-						selectedLeverage={selectedLeverage}
 						leverageOptions={leverageOptions}
 						tokens={tokens}
 						chainMarkets={chainMarkets}
-						onInputAmountChange={setInputAmount}
-						onOutputAmountChange={setOutputAmount}
-						onInputTokenChange={setInputToken}
-						onOutputTokenChange={setOutputToken}
-						onLeverageChange={setSelectedLeverage}
-						onSwapTokens={handleSwapTokens}
-						onMaxClick={handleMaxClick}
 					/>
 				</TabsContent>
 
-				<TabsContent value="sell">
+				<TabsContent value="sell" className="">
 					<TradingForm
 						mode="sell"
-						inputAmount={inputAmount}
-						outputAmount={outputAmount}
-						inputToken={inputToken}
-						outputToken={outputToken}
-						selectedLeverage={selectedLeverage}
 						leverageOptions={leverageOptions}
 						tokens={tokens}
 						chainMarkets={chainMarkets}
-						onInputAmountChange={setInputAmount}
-						onOutputAmountChange={setOutputAmount}
-						onInputTokenChange={setInputToken}
-						onOutputTokenChange={setOutputToken}
-						onLeverageChange={setSelectedLeverage}
-						onSwapTokens={handleSwapTokens}
-						onMaxClick={handleMaxClick}
 					/>
 				</TabsContent>
 			</Tabs>

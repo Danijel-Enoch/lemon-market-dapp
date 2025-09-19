@@ -8,7 +8,7 @@ export function Header() {
 			<div className="flex items-center justify-between h-full mx-auto">
 				{/* Logo */}
 				<div className="flex items-center">
-					<div className="text-teal-400 font-bold text-xl leading-none">contan</div>
+					<div className="text-teal-400 font-bold text-xl leading-none">lemon-looper</div>
 				</div>
 
 				{/* Navigation */}
