@@ -82,14 +82,6 @@ export function Header() {
 					</Link>
 
 					{/* Fee Profile */}
-					<div className="text-right">
-						<div className="text-gray-400 text-xs font-medium">
-							Fee Profile
-						</div>
-						<div className="text-gray-400 text-xs">
-							25 bps/5 bps
-						</div>
-					</div>
 
 					{/* Connect Wallet Button */}
 					<ConnectWallet />
