@@ -22,79 +22,73 @@ export function Header() {
 
 				{/* Navigation */}
 				<nav className="flex items-center space-x-8">
-					{/* Trading Section */}
+					{/* Main Navigation */}
 					<div className="flex items-center space-x-6">
 						<Link
 							href="/"
 							className={`font-bold text-sm transition-colors ${
-								pathname === "/" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+								pathname === "/"
+									? "text-gray-400"
+									: "text-gray-500 hover:text-gray-400"
 							}`}
 						>
-							Advanced
+							Trending
 						</Link>
 						<Link
-							href="/simplified"
+							href="/perp"
 							className={`font-bold text-sm transition-colors ${
-								pathname === "/simplified" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+								pathname === "/perp"
+									? "text-gray-400"
+									: "text-gray-500 hover:text-gray-400"
 							}`}
 						>
-							Simplified
+							Perp
 						</Link>
-					</div>
-
-					{/* Main Navigation */}
-					<div className="flex items-center space-x-6">
+						<Link
+							href="/bridge"
+							className={`font-bold text-sm transition-colors ${
+								pathname === "/bridge"
+									? "text-gray-400"
+									: "text-gray-500 hover:text-gray-400"
+							}`}
+						>
+							Bridge
+						</Link>
 						<Link
 							href="/staking"
 							className={`font-bold text-sm transition-colors ${
-								pathname === "/staking" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
+								pathname === "/staking"
+									? "text-gray-400"
+									: "text-gray-500 hover:text-gray-400"
 							}`}
 						>
 							Staking
-						</Link>
-						<Link
-							href="/otango"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/otango" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							oTango
-						</Link>
-						<Link
-							href="/profile"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/profile" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Profile
-						</Link>
-						<Link
-							href="/airdrop"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/airdrop" ? "text-gray-400" : "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Airdrop
 						</Link>
 					</div>
 				</nav>
 
 				{/* Right Section */}
 				<div className="flex items-center space-x-6">
-					{/* Resources */}
+					{/* Leaderboard */}
 					<Link
-						href="/resources"
+						href="/leaderboard"
 						className={`font-bold text-sm transition-colors ${
-							pathname === "/resources" ? "text-gray-500" : "text-gray-600 hover:text-gray-500"
+							pathname === "/leaderboard"
+								? "text-gray-500"
+								: "text-gray-600 hover:text-gray-500"
 						}`}
 					>
-						Resources
+						Leaderboard
 					</Link>
 
 					{/* Fee Profile */}
 					<div className="text-right">
-						<div className="text-gray-400 text-xs font-medium">Fee Profile</div>
-						<div className="text-gray-400 text-xs">25 bps/5 bps</div>
+						<div className="text-gray-400 text-xs font-medium">
+							Fee Profile
+						</div>
+						<div className="text-gray-400 text-xs">
+							25 bps/5 bps
+						</div>
 					</div>
 
 					{/* Connect Wallet Button */}
