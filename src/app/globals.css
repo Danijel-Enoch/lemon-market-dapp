@@ -2,6 +2,26 @@
 @import "tw-animate-css";
 
 /* @custom-variant dark (&:is(.dark *)); */
+#dexscreener-embed {
+	position: relative;
+	width: 100%;
+	padding-bottom: 125%;
+}
+
+@media(min-width:1400px) {
+	#dexscreener-embed {
+		padding-bottom: 65%;
+	}
+}
+
+#dexscreener-embed iframe {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	border: 0;
+}
 
 @theme inline {
 	--color-background: var(--background);
@@ -76,21 +96,21 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
-	
+
 	/* Trading interface colors */
-  --trading-bg-primary: #0a0b17;
-  --trading-bg-secondary: #141623;
-  --trading-bg-tertiary: #2a2d3a;
-  --trading-border: #282b3c;
-  --trading-text-primary: #bbbbbe;
-  --trading-text-secondary: #8a8d91;
-  --trading-text-muted: #6b7280;
-  --trading-blue: #4c82f7;
-  --trading-blue-hover: #3a6bd6;
-  --trading-red: #ef5350;
-  --trading-red-hover: #d32f2f;
-  --trading-green: #41c6b2;
-  --trading-green-alt: #41c6b2;
+	--trading-bg-primary: #0a0b17;
+	--trading-bg-secondary: #141623;
+	--trading-bg-tertiary: #2a2d3a;
+	--trading-border: #282b3c;
+	--trading-text-primary: #bbbbbe;
+	--trading-text-secondary: #8a8d91;
+	--trading-text-muted: #6b7280;
+	--trading-blue: #4c82f7;
+	--trading-blue-hover: #3a6bd6;
+	--trading-red: #ef5350;
+	--trading-red-hover: #d32f2f;
+	--trading-green: #41c6b2;
+	--trading-green-alt: #41c6b2;
 }
 
 /* Custom slider styles */

@@ -11,7 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -95,7 +95,7 @@ export default function PerpPage() {
 						Perpetual Trading
 					</h1>
 					<p className="text-gray-400">
-						Trade cryptocurrency perpetual futures with up to 100x
+						Trade cryptocurrency perpetual futures with up to 2x
 						leverage
 					</p>
 				</div>
@@ -141,197 +141,86 @@ export default function PerpPage() {
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-4">
-								<Tabs defaultValue="market" className="w-full">
-									<TabsList className="grid w-full grid-cols-2 bg-slate-800">
-										<TabsTrigger
-											value="market"
-											className="data-[state=active]:bg-slate-700"
-										>
-											Market
-										</TabsTrigger>
-										<TabsTrigger
-											value="limit"
-											className="data-[state=active]:bg-slate-700"
-										>
-											Limit
-										</TabsTrigger>
-									</TabsList>
-
-									<TabsContent
-										value="market"
-										className="space-y-4"
+								<div className="grid grid-cols-2 gap-2">
+									<Button className="bg-green-600 hover:bg-green-700 text-white">
+										Long
+									</Button>
+									<Button
+										variant="outline"
+										className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
 									>
-										<div className="grid grid-cols-2 gap-2">
-											<Button className="bg-green-600 hover:bg-green-700 text-white">
-												Long
-											</Button>
-											<Button
-												variant="outline"
-												className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
-											>
-												Short
-											</Button>
+										Short
+									</Button>
+								</div>
+
+								<div className="space-y-3">
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">
+											Size (
+											{tradingPair.symbol.split("/")[0]})
+										</label>
+										<Input
+											placeholder="0.00"
+											className="bg-slate-800 border-slate-700 text-white"
+										/>
+									</div>
+
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">
+											Leverage
+										</label>
+										<Select>
+											<SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+												<SelectValue placeholder="10x" />
+											</SelectTrigger>
+											<SelectContent className="bg-slate-800 border-slate-700">
+												<SelectItem value="1">
+													1x
+												</SelectItem>
+												<SelectItem value="5">
+													5x
+												</SelectItem>
+												<SelectItem value="10">
+													10x
+												</SelectItem>
+												<SelectItem value="25">
+													25x
+												</SelectItem>
+												<SelectItem value="50">
+													50x
+												</SelectItem>
+												<SelectItem value="100">
+													100x
+												</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+
+									<div className="text-sm text-gray-400 space-y-1">
+										<div className="flex justify-between">
+											<span>Est. Entry Price:</span>
+											<span className="text-white">
+												{tradingPair.price}
+											</span>
 										</div>
-
-										<div className="space-y-3">
-											<div>
-												<label className="text-sm text-gray-400 mb-1 block">
-													Size (
-													{
-														tradingPair.symbol.split(
-															"/"
-														)[0]
-													}
-													)
-												</label>
-												<Input
-													placeholder="0.00"
-													className="bg-slate-800 border-slate-700 text-white"
-												/>
-											</div>
-
-											<div>
-												<label className="text-sm text-gray-400 mb-1 block">
-													Leverage
-												</label>
-												<Select>
-													<SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-														<SelectValue placeholder="10x" />
-													</SelectTrigger>
-													<SelectContent className="bg-slate-800 border-slate-700">
-														<SelectItem value="1">
-															1x
-														</SelectItem>
-														<SelectItem value="5">
-															5x
-														</SelectItem>
-														<SelectItem value="10">
-															10x
-														</SelectItem>
-														<SelectItem value="25">
-															25x
-														</SelectItem>
-														<SelectItem value="50">
-															50x
-														</SelectItem>
-														<SelectItem value="100">
-															100x
-														</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-
-											<div className="text-sm text-gray-400 space-y-1">
-												<div className="flex justify-between">
-													<span>
-														Est. Entry Price:
-													</span>
-													<span className="text-white">
-														{tradingPair.price}
-													</span>
-												</div>
-												<div className="flex justify-between">
-													<span>
-														Required Margin:
-													</span>
-													<span className="text-white">
-														$452.35
-													</span>
-												</div>
-												<div className="flex justify-between">
-													<span>Trading Fee:</span>
-													<span className="text-white">
-														$2.26
-													</span>
-												</div>
-											</div>
-
-											<Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
-												Open Long Position
-											</Button>
+										<div className="flex justify-between">
+											<span>Required Margin:</span>
+											<span className="text-white">
+												$452.35
+											</span>
 										</div>
-									</TabsContent>
-
-									<TabsContent
-										value="limit"
-										className="space-y-4"
-									>
-										<div className="grid grid-cols-2 gap-2">
-											<Button className="bg-green-600 hover:bg-green-700 text-white">
-												Long
-											</Button>
-											<Button
-												variant="outline"
-												className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
-											>
-												Short
-											</Button>
+										<div className="flex justify-between">
+											<span>Trading Fee:</span>
+											<span className="text-white">
+												$2.26
+											</span>
 										</div>
+									</div>
 
-										<div className="space-y-3">
-											<div>
-												<label className="text-sm text-gray-400 mb-1 block">
-													Price (USDT)
-												</label>
-												<Input
-													placeholder="45,000.00"
-													className="bg-slate-800 border-slate-700 text-white"
-												/>
-											</div>
-
-											<div>
-												<label className="text-sm text-gray-400 mb-1 block">
-													Size (
-													{
-														tradingPair.symbol.split(
-															"/"
-														)[0]
-													}
-													)
-												</label>
-												<Input
-													placeholder="0.00"
-													className="bg-slate-800 border-slate-700 text-white"
-												/>
-											</div>
-
-											<div>
-												<label className="text-sm text-gray-400 mb-1 block">
-													Leverage
-												</label>
-												<Select>
-													<SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-														<SelectValue placeholder="10x" />
-													</SelectTrigger>
-													<SelectContent className="bg-slate-800 border-slate-700">
-														<SelectItem value="1">
-															1x
-														</SelectItem>
-														<SelectItem value="5">
-															5x
-														</SelectItem>
-														<SelectItem value="10">
-															10x
-														</SelectItem>
-														<SelectItem value="25">
-															25x
-														</SelectItem>
-														<SelectItem value="50">
-															50x
-														</SelectItem>
-														<SelectItem value="100">
-															100x
-														</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-
-											<Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
-												Place Limit Order
-											</Button>
-										</div>
-									</TabsContent>
-								</Tabs>
+									<Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
+										Open Position
+									</Button>
+								</div>
 							</CardContent>
 						</Card>
 
