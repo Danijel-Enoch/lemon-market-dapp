@@ -1,31 +1,15 @@
-import { getDefaultConfig } from "connectkit";
-import { createConfig, http } from "wagmi";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { arbitrum, mainnet, polygon, sepolia } from "wagmi/chains";
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "your-project-id";
+const projectId =
+	process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "your-project-id";
 
-export const config = createConfig(
-	getDefaultConfig({
-		// Your dApps chains
-		chains: [mainnet, sepolia, arbitrum, polygon],
-		transports: {
-			// RPC URL for each chain
-			[mainnet.id]: http(),
-			[sepolia.id]: http(),
-			[arbitrum.id]: http(),
-			[polygon.id]: http(),
-		},
-
-		// Required API Keys
-		walletConnectProjectId: projectId,
-
-		// Required App Info
-		appName: "Lemon Looper",
-		appDescription: "A decentralized trading platform clone",
-		appUrl: "https://lemon-looper.vercel.app", // your app's url
-		appIcon: "https://lemon-looper.vercel.app/favicon.ico", // your app's icon, no bigger than 1024x1024px (max. 1MB)
-	}),
-);
+export const config = getDefaultConfig({
+	appName: "Lemon Looper",
+	projectId: projectId,
+	chains: [mainnet, sepolia, arbitrum, polygon],
+	ssr: true // If your dApp uses server side rendering (SSR)
+});
 
 declare module "wagmi" {
 	interface Register {
