@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 // Types
 interface Token {
@@ -17,6 +18,7 @@ interface Token {
 	marketCap: string;
 	trend: "up" | "down";
 	logo: string;
+	pairAddress?: string;
 }
 
 interface ForexPair {
@@ -47,6 +49,7 @@ interface TokenAPIResponse {
 }
 
 export default function Home() {
+	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isLoading, setIsLoading] = useState(true);
 	const [apiData, setApiData] = useState({
@@ -54,6 +57,20 @@ export default function Home() {
 		fx: [] as ForexPair[],
 		tokens: [] as Token[]
 	});
+
+	// Navigation handler for trade button
+	const handleTradeClick = (item: Token | ForexPair) => {
+		const params = new URLSearchParams();
+		params.set("symbol", item.symbol);
+
+		// If it's a token with pairAddress, add it to the URL
+		if ("pairAddress" in item && item.pairAddress) {
+			params.set("pairAddress", item.pairAddress);
+		}
+
+		// Navigate to perp page with query parameters
+		router.push(`/perp?${params.toString()}`);
+	};
 
 	// Fetch data from APIs
 	useEffect(() => {
@@ -306,7 +323,12 @@ export default function Home() {
 												: (item as Token).marketCap}
 										</td>
 										<td className="p-4">
-											<button className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-colors">
+											<button
+												onClick={() =>
+													handleTradeClick(item)
+												}
+												className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-colors"
+											>
 												Trade
 											</button>
 										</td>

@@ -1,3 +1,5 @@
+"use client";
+
 import { Header } from "@/components/layout/Header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 // Mock perpetual positions data
 const positions = [
@@ -41,6 +45,47 @@ const positions = [
 ];
 
 export default function PerpPage() {
+	const searchParams = useSearchParams();
+	const [tradingPair, setTradingPair] = useState({
+		symbol: "BTC/USDT",
+		price: "$45,234.56",
+		change: "+2.34%",
+		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
+	});
+
+	useEffect(() => {
+		const symbol = searchParams.get("symbol");
+		const pairAddress = searchParams.get("pairAddress");
+
+		if (symbol) {
+			// Format the symbol for display (add /USDT if not already present)
+			const formattedSymbol = symbol.includes("/")
+				? symbol
+				: `${symbol}/USDT`;
+
+			setTradingPair((prev) => ({
+				...prev,
+				symbol: formattedSymbol,
+				pairAddress: pairAddress || prev.pairAddress
+			}));
+		}
+	}, [searchParams]);
+
+	// Generate chart URL based on pair address
+	const getChartUrl = () => {
+		const baseUrl = "https://dexscreener.com";
+		if (tradingPair.pairAddress) {
+			console.log("Using pair address:", tradingPair.pairAddress);
+			return (
+				"https://dexscreener.com/bsc/" +
+				tradingPair.pairAddress +
+				"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"
+			);
+		}
+		// Fallback to default chart
+		return "";
+	};
+
 	return (
 		<div className="min-h-screen bg-gray-950">
 			<Header />
@@ -62,186 +107,29 @@ export default function PerpPage() {
 						<Card className="bg-slate-900 border-slate-800">
 							<CardHeader>
 								<CardTitle className="text-white flex items-center justify-between">
-									<span>BTC/USDT Perpetual</span>
+									<span>{tradingPair.symbol} Perpetual</span>
 									<div className="flex items-center space-x-4">
 										<div className="text-2xl font-bold text-green-400">
-											$45,234.56
+											{tradingPair.price}
 										</div>
 										<Badge className="bg-green-600 hover:bg-green-700">
-											+2.34%
+											{tradingPair.change}
 										</Badge>
 									</div>
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								<div className="h-96 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700">
-									<div className="text-center text-gray-400">
-										<div className="text-6xl mb-4">📈</div>
-										<div className="text-lg">
-											Price Chart
-										</div>
-										<div className="text-sm">
-											TradingView integration would go
-											here
-										</div>
-									</div>
+								<div id="dexscreener-embed">
+									<iframe
+										src={getChartUrl()}
+										width="100%"
+										height="500"
+										style={{ border: "none" }}
+										title={`${tradingPair.symbol} Chart`}
+									></iframe>
 								</div>
 							</CardContent>
 						</Card>
-
-						{/* Order Book & Recent Trades */}
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-							<Card className="bg-slate-900 border-slate-800">
-								<CardHeader>
-									<CardTitle className="text-white text-lg">
-										Order Book
-									</CardTitle>
-								</CardHeader>
-								<CardContent className="p-0">
-									<div className="space-y-1">
-										{/* Ask orders */}
-										{[
-											{
-												price: "45,245",
-												size: "0.245",
-												total: "11.075"
-											},
-											{
-												price: "45,240",
-												size: "0.156",
-												total: "7.057"
-											},
-											{
-												price: "45,238",
-												size: "0.089",
-												total: "4.026"
-											}
-										].map((order, i) => (
-											<div
-												key={i}
-												className="flex justify-between px-4 py-1 text-sm"
-											>
-												<span className="text-red-400">
-													{order.price}
-												</span>
-												<span className="text-gray-300">
-													{order.size}
-												</span>
-												<span className="text-gray-400">
-													{order.total}
-												</span>
-											</div>
-										))}
-
-										{/* Current price */}
-										<div className="px-4 py-2 bg-slate-800 border-y border-slate-700">
-											<div className="text-center text-white font-bold">
-												45,234.56
-											</div>
-										</div>
-
-										{/* Bid orders */}
-										{[
-											{
-												price: "45,230",
-												size: "0.123",
-												total: "5.558"
-											},
-											{
-												price: "45,225",
-												size: "0.234",
-												total: "10.583"
-											},
-											{
-												price: "45,220",
-												size: "0.345",
-												total: "15.601"
-											}
-										].map((order, i) => (
-											<div
-												key={i}
-												className="flex justify-between px-4 py-1 text-sm"
-											>
-												<span className="text-green-400">
-													{order.price}
-												</span>
-												<span className="text-gray-300">
-													{order.size}
-												</span>
-												<span className="text-gray-400">
-													{order.total}
-												</span>
-											</div>
-										))}
-									</div>
-								</CardContent>
-							</Card>
-
-							<Card className="bg-slate-900 border-slate-800">
-								<CardHeader>
-									<CardTitle className="text-white text-lg">
-										Recent Trades
-									</CardTitle>
-								</CardHeader>
-								<CardContent className="p-0">
-									<div className="space-y-1">
-										{[
-											{
-												price: "45,234",
-												size: "0.125",
-												time: "14:23:45",
-												side: "buy"
-											},
-											{
-												price: "45,232",
-												size: "0.089",
-												time: "14:23:44",
-												side: "sell"
-											},
-											{
-												price: "45,235",
-												size: "0.234",
-												time: "14:23:43",
-												side: "buy"
-											},
-											{
-												price: "45,230",
-												size: "0.156",
-												time: "14:23:42",
-												side: "sell"
-											},
-											{
-												price: "45,236",
-												size: "0.078",
-												time: "14:23:41",
-												side: "buy"
-											}
-										].map((trade, i) => (
-											<div
-												key={i}
-												className="flex justify-between px-4 py-1 text-sm"
-											>
-												<span
-													className={
-														trade.side === "buy"
-															? "text-green-400"
-															: "text-red-400"
-													}
-												>
-													{trade.price}
-												</span>
-												<span className="text-gray-300">
-													{trade.size}
-												</span>
-												<span className="text-gray-400">
-													{trade.time}
-												</span>
-											</div>
-										))}
-									</div>
-								</CardContent>
-							</Card>
-						</div>
 					</div>
 
 					{/* Trading Form */}
@@ -288,7 +176,13 @@ export default function PerpPage() {
 										<div className="space-y-3">
 											<div>
 												<label className="text-sm text-gray-400 mb-1 block">
-													Size (BTC)
+													Size (
+													{
+														tradingPair.symbol.split(
+															"/"
+														)[0]
+													}
+													)
 												</label>
 												<Input
 													placeholder="0.00"
@@ -333,7 +227,7 @@ export default function PerpPage() {
 														Est. Entry Price:
 													</span>
 													<span className="text-white">
-														$45,234.56
+														{tradingPair.price}
 													</span>
 												</div>
 												<div className="flex justify-between">
@@ -387,7 +281,13 @@ export default function PerpPage() {
 
 											<div>
 												<label className="text-sm text-gray-400 mb-1 block">
-													Size (BTC)
+													Size (
+													{
+														tradingPair.symbol.split(
+															"/"
+														)[0]
+													}
+													)
 												</label>
 												<Input
 													placeholder="0.00"
