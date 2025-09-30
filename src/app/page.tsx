@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Types
 interface Token {
@@ -31,253 +31,172 @@ interface ForexPair {
 	logo: string;
 }
 
-// Mock trending tokens data
-const trendingTokens: Token[] = [
-	{
-		id: 1,
-		symbol: "BTC",
-		name: "Bitcoin",
-		price: "$45,234.56",
-		change24h: "+2.34%",
-		volume: "$23.4B",
-		marketCap: "$887.2B",
-		trend: "up",
-		logo: "₿"
-	},
-	{
-		id: 2,
-		symbol: "ETH",
-		name: "Ethereum",
-		price: "$2,456.78",
-		change24h: "+4.12%",
-		volume: "$12.8B",
-		marketCap: "$295.6B",
-		trend: "up",
-		logo: "Ξ"
-	},
-	{
-		id: 3,
-		symbol: "SOL",
-		name: "Solana",
-		price: "$98.45",
-		change24h: "-1.23%",
-		volume: "$2.1B",
-		marketCap: "$42.8B",
-		trend: "down",
-		logo: "◎"
-	},
-	{
-		id: 4,
-		symbol: "AVAX",
-		name: "Avalanche",
-		price: "$23.67",
-		change24h: "+6.78%",
-		volume: "$456M",
-		marketCap: "$8.9B",
-		trend: "up",
-		logo: "▲"
-	},
-	{
-		id: 5,
-		symbol: "MATIC",
-		name: "Polygon",
-		price: "$0.85",
-		change24h: "+3.45%",
-		volume: "$234M",
-		marketCap: "$6.2B",
-		trend: "up",
-		logo: "⬟"
-	},
-	{
-		id: 6,
-		symbol: "DOT",
-		name: "Polkadot",
-		price: "$4.32",
-		change24h: "-2.11%",
-		volume: "$189M",
-		marketCap: "$5.1B",
-		trend: "down",
-		logo: "●"
-	}
-];
+// API Response Types
+interface APIStockData {
+	Ticker: string;
+	Price: number;
+	Timestamp: string;
+}
 
-// Mock trending RWAs data
-const trendingRWAs: Token[] = [
-	{
-		id: 1,
-		symbol: "USDC",
-		name: "USD Coin",
-		price: "$1.00",
-		change24h: "+0.01%",
-		volume: "$2.8B",
-		marketCap: "$35.2B",
-		trend: "up",
-		logo: "💵"
-	},
-	{
-		id: 2,
-		symbol: "WBTC",
-		name: "Wrapped Bitcoin",
-		price: "$45,189.23",
-		change24h: "+2.31%",
-		volume: "$125M",
-		marketCap: "$7.1B",
-		trend: "up",
-		logo: "🟠"
-	},
-	{
-		id: 3,
-		symbol: "stETH",
-		name: "Staked Ethereum",
-		price: "$2,445.67",
-		change24h: "+4.05%",
-		volume: "$89M",
-		marketCap: "$23.4B",
-		trend: "up",
-		logo: "🔷"
-	}
-];
+interface APIResponse {
+	data: APIStockData[];
+}
 
-// Mock trending FX data
-const trendingFX: ForexPair[] = [
-	{
-		id: 1,
-		symbol: "EUR/USD",
-		name: "Euro/US Dollar",
-		price: "1.0875",
-		change24h: "+0.23%",
-		volume: "$1.2T",
-		spread: "0.8 pips",
-		trend: "up",
-		logo: "💶"
-	},
-	{
-		id: 2,
-		symbol: "GBP/USD",
-		name: "British Pound/US Dollar",
-		price: "1.2634",
-		change24h: "-0.15%",
-		volume: "$845B",
-		spread: "1.2 pips",
-		trend: "down",
-		logo: "💷"
-	},
-	{
-		id: 3,
-		symbol: "USD/JPY",
-		name: "US Dollar/Japanese Yen",
-		price: "149.85",
-		change24h: "+0.45%",
-		volume: "$967B",
-		spread: "0.9 pips",
-		trend: "up",
-		logo: "💴"
-	}
-];
-
-// Mock trending Stocks data
-const trendingStocks: Token[] = [
-	{
-		id: 1,
-		symbol: "AAPL",
-		name: "Apple Inc.",
-		price: "$175.43",
-		change24h: "+1.87%",
-		volume: "$45.2B",
-		marketCap: "$2.8T",
-		trend: "up",
-		logo: "🍎"
-	},
-	{
-		id: 2,
-		symbol: "TSLA",
-		name: "Tesla Inc.",
-		price: "$248.56",
-		change24h: "+3.21%",
-		volume: "$23.1B",
-		marketCap: "$789B",
-		trend: "up",
-		logo: "🚗"
-	},
-	{
-		id: 3,
-		symbol: "NVDA",
-		name: "NVIDIA Corporation",
-		price: "$432.18",
-		change24h: "+2.67%",
-		volume: "$34.8B",
-		marketCap: "$1.1T",
-		trend: "up",
-		logo: "🔥"
-	}
-];
-
-// Mock trending Blue Chips data
-const trendingBlueChips: Token[] = [
-	{
-		id: 1,
-		symbol: "BRK.A",
-		name: "Berkshire Hathaway",
-		price: "$534,200.00",
-		change24h: "+0.85%",
-		volume: "$2.1B",
-		marketCap: "$785B",
-		trend: "up",
-		logo: "💎"
-	},
-	{
-		id: 2,
-		symbol: "JNJ",
-		name: "Johnson & Johnson",
-		price: "$158.92",
-		change24h: "+0.42%",
-		volume: "$8.7B",
-		marketCap: "$421B",
-		trend: "up",
-		logo: "🏥"
-	},
-	{
-		id: 3,
-		symbol: "PG",
-		name: "Procter & Gamble",
-		price: "$152.34",
-		change24h: "+0.67%",
-		volume: "$6.2B",
-		marketCap: "$364B",
-		trend: "up",
-		logo: "🧴"
-	}
-];
+interface TokenAPIResponse {
+	data: Token[];
+}
 
 export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
+	const [isLoading, setIsLoading] = useState(true);
+	const [apiData, setApiData] = useState({
+		stocks: [] as Token[],
+		fx: [] as ForexPair[],
+		tokens: [] as Token[]
+	});
 
-	// Filter tokens based on search query
-	const filteredTokens = trendingTokens.filter(
+	// Fetch data from APIs
+	useEffect(() => {
+		const fetchTrendingData = async () => {
+			try {
+				setIsLoading(true);
+
+				// Fetch tokens data
+				const tokensResponse = await fetch("/api/trending/tokens");
+				if (!tokensResponse.ok) {
+					throw new Error(
+						`Tokens API failed: ${tokensResponse.status}`
+					);
+				}
+				const tokensData: TokenAPIResponse =
+					await tokensResponse.json();
+				console.log("Tokens data:", tokensData);
+
+				// Fetch stocks data
+				const stocksResponse = await fetch("/api/trending/stocks");
+				if (!stocksResponse.ok) {
+					throw new Error(
+						`Stocks API failed: ${stocksResponse.status}`
+					);
+				}
+				const stocksData: APIResponse = await stocksResponse.json();
+				console.log("Stocks data:", stocksData);
+
+				// Fetch FX data
+				const fxResponse = await fetch("/api/trending/fx");
+				if (!fxResponse.ok) {
+					throw new Error(`FX API failed: ${fxResponse.status}`);
+				}
+				const fxData: APIResponse = await fxResponse.json();
+				console.log("FX data:", fxData);
+
+				// Transform API data to match our interface
+				const transformedStocks: Token[] = stocksData.data.map(
+					(stock, index) => {
+						return {
+							id: index + 1,
+							symbol: stock.Ticker,
+							name:
+								stock.Ticker === "NFLX"
+									? "Netflix Inc."
+									: stock.Ticker === "TSLA"
+									? "Tesla Inc."
+									: stock.Ticker,
+							price: `$${stock.Price.toFixed(2)}`,
+							change24h: "N/A", // Not provided by current API
+							volume: "N/A", // Not provided by current API
+							marketCap: "N/A", // Not provided by current API
+							trend: "up", // Default since we don't have change data
+							logo:
+								stock.Ticker === "NFLX"
+									? "🎬"
+									: stock.Ticker === "TSLA"
+									? "🚗"
+									: "📈"
+						};
+					}
+				);
+
+				const transformedFX: ForexPair[] = fxData.data.map(
+					(fx, index) => {
+						// Map the ticker to a more readable format for FX pairs
+						const getDisplaySymbol = (ticker: string) => {
+							if (ticker.includes("AUD-USD")) return "AUD/USD";
+							if (ticker.includes("CNY-USD")) return "CNY/USD";
+							if (ticker.includes("NGN-USD")) return "NGN/USD";
+							return ticker;
+						};
+
+						const getDisplayName = (ticker: string) => {
+							if (ticker.includes("AUD"))
+								return "Australian Dollar/US Dollar";
+							if (ticker.includes("CNY"))
+								return "Chinese Yuan/US Dollar";
+							if (ticker.includes("NGN"))
+								return "Nigerian Naira/US Dollar";
+							return ticker;
+						};
+
+						const getLogo = (ticker: string) => {
+							if (ticker.includes("AUD")) return "🇦🇺";
+							if (ticker.includes("CNY")) return "🇨🇳";
+							if (ticker.includes("NGN")) return "🇳🇬";
+							return "💱";
+						};
+
+						return {
+							id: index + 1,
+							symbol: getDisplaySymbol(fx.Ticker),
+							name: getDisplayName(fx.Ticker),
+							price: fx.Price.toFixed(4),
+							change24h: "N/A", // Not provided by current API
+							volume: "N/A", // Not provided by current API
+							spread: "N/A", // Not provided by API
+							trend: "up", // Default since we don't have change data
+							logo: getLogo(fx.Ticker)
+						};
+					}
+				);
+
+				// Transform tokens data (DexScreener format is already transformed in the API)
+				const transformedTokens: Token[] = tokensData.data;
+
+				setApiData((prev) => ({
+					...prev,
+					tokens: transformedTokens,
+					stocks: transformedStocks,
+					fx: transformedFX
+				}));
+			} catch (error) {
+				console.error("Error fetching trending data:", error);
+				// Keep empty arrays when API fails - no mock data fallback
+				setApiData({
+					tokens: [],
+					stocks: [],
+					fx: []
+				});
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		fetchTrendingData();
+	}, []);
+
+	// Filter data based on search query
+	const filteredTokens = apiData.tokens.filter(
 		(token) =>
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
 	);
 
-	const filteredRWAs = trendingRWAs.filter(
+	const filteredFX = apiData.fx.filter(
 		(token) =>
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
 	);
 
-	const filteredFX = trendingFX.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const filteredStocks = trendingStocks.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const filteredBlueChips = trendingBlueChips.filter(
+	const filteredStocks = apiData.stocks.filter(
 		(token) =>
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
@@ -329,8 +248,25 @@ export default function Home() {
 										</td>
 										<td className="p-4">
 											<div className="flex items-center space-x-3">
-												<div className="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold">
-													{item.logo}
+												<div className="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+													{item.logo &&
+													item.logo.startsWith(
+														"http"
+													) ? (
+														<img
+															src={item.logo}
+															alt={item.symbol}
+															className="w-full h-full object-cover rounded-full"
+															onError={(e) => {
+																e.currentTarget.style.display =
+																	"none";
+																e.currentTarget.parentElement!.textContent =
+																	"🪙";
+															}}
+														/>
+													) : (
+														item.logo || "🪙"
+													)}
 												</div>
 												<div>
 													<div className="text-white font-medium">
@@ -381,10 +317,14 @@ export default function Home() {
 									<td colSpan={7} className="p-8 text-center">
 										<div className="text-gray-400">
 											<div className="text-lg mb-2">
-												No items found
+												{searchQuery
+													? "No items found"
+													: "No data available"}
 											</div>
 											<div className="text-sm">
-												Try adjusting your search terms
+												{searchQuery
+													? "Try adjusting your search terms"
+													: "Unable to fetch data from API"}
 											</div>
 										</div>
 									</td>
@@ -445,61 +385,23 @@ export default function Home() {
 					)}
 				</div>
 
-				{/* Market Overview */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-					<Card className="bg-slate-900 border-slate-800">
-						<CardHeader>
-							<CardTitle className="text-white text-sm">
-								Total Market Cap
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold text-teal-400">
-								$1.24T
-							</div>
-							<div className="text-sm text-green-400">
-								+2.45% (24h)
-							</div>
-						</CardContent>
-					</Card>
-					<Card className="bg-slate-900 border-slate-800">
-						<CardHeader>
-							<CardTitle className="text-white text-sm">
-								24h Volume
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold text-teal-400">
-								$45.6B
-							</div>
-							<div className="text-sm text-green-400">
-								+8.12% (24h)
-							</div>
-						</CardContent>
-					</Card>
-					<Card className="bg-slate-900 border-slate-800">
-						<CardHeader>
-							<CardTitle className="text-white text-sm">
-								Active Assets
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold text-teal-400">
-								8,542
-							</div>
-							<div className="text-sm text-gray-400">
-								Tracked assets
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-
 				{/* All Trading Panels */}
-				{renderTable(filteredTokens, "Top Trending Tokens")}
-				{renderTable(filteredRWAs, "Trending RWAs")}
-				{renderTable(filteredFX, "Trending FX", true)}
-				{renderTable(filteredStocks, "Trending Stocks")}
-				{renderTable(filteredBlueChips, "Trending Blue Chips")}
+				{isLoading ? (
+					<div className="text-center py-12">
+						<div className="text-white text-lg mb-2">
+							Loading trending assets...
+						</div>
+						<div className="text-gray-400">
+							Fetching real-time market data
+						</div>
+					</div>
+				) : (
+					<>
+						{renderTable(filteredTokens, "Top Trending Tokens")}
+						{renderTable(filteredFX, "Trending FX", true)}
+						{renderTable(filteredStocks, "Trending Stocks")}
+					</>
+				)}
 			</main>
 		</div>
 	);
