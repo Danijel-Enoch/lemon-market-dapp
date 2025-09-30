@@ -53,6 +53,12 @@ export default function PerpPage() {
 		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
 	});
 
+	// Trading form state
+	const [isLong, setIsLong] = useState(true);
+	const [valueUSDC, setValueUSDC] = useState("100");
+	const [leverage, setLeverage] = useState(2);
+	const [bnbAmount, setBnbAmount] = useState("0.51451404");
+
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
 		const pairAddress = searchParams.get("pairAddress");
@@ -71,9 +77,25 @@ export default function PerpPage() {
 		}
 	}, [searchParams]);
 
+	// Handle leverage changes
+	const handleLeverageChange = (delta: number) => {
+		const newLeverage = Math.max(1, Math.min(5, leverage + delta));
+		setLeverage(newLeverage);
+	};
+
+	// Handle place transaction
+	const handlePlaceTransaction = () => {
+		console.log("Placing transaction:", {
+			side: isLong ? "Long" : "Short",
+			valueUSDC,
+			leverage,
+			bnbAmount
+		});
+		// Add your transaction logic here
+	};
+
 	// Generate chart URL based on pair address
 	const getChartUrl = () => {
-		const baseUrl = "https://dexscreener.com";
 		if (tradingPair.pairAddress) {
 			console.log("Using pair address:", tradingPair.pairAddress);
 			return (
@@ -135,135 +157,211 @@ export default function PerpPage() {
 					{/* Trading Form */}
 					<div className="space-y-6">
 						<Card className="bg-slate-900 border-slate-800">
-							<CardHeader>
-								<CardTitle className="text-white">
-									Place Order
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid grid-cols-2 gap-2">
-									<Button className="bg-green-600 hover:bg-green-700 text-white">
-										Long
+							<CardContent className="space-y-6 p-6">
+								{/* Long/Short Toggle */}
+								<div className="grid grid-cols-2 gap-1 bg-slate-800 p-1 rounded-lg">
+									<Button
+										onClick={() => setIsLong(true)}
+										className={`rounded-md h-12 font-semibold ${
+											isLong
+												? "bg-green-500 hover:bg-green-600 text-white"
+												: "bg-transparent text-gray-400 hover:text-white"
+										}`}
+									>
+										LONG
 									</Button>
 									<Button
-										variant="outline"
-										className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+										onClick={() => setIsLong(false)}
+										className={`rounded-md h-12 font-semibold ${
+											!isLong
+												? "bg-red-500 hover:bg-red-600 text-white"
+												: "bg-transparent text-gray-400 hover:text-white"
+										}`}
 									>
-										Short
+										SHORT
 									</Button>
 								</div>
 
-								<div className="space-y-3">
-									<div>
-										<label className="text-sm text-gray-400 mb-1 block">
-											Size (
-											{tradingPair.symbol.split("/")[0]})
-										</label>
+								{/* Value Input */}
+								<div className="space-y-2">
+									<label className="text-sm text-cyan-400 uppercase font-medium">
+										Value (USDC)
+									</label>
+									<div className="relative">
+										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
+											<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+												<span className="text-white text-xs font-bold">
+													$
+												</span>
+											</div>
+										</div>
 										<Input
-											placeholder="0.00"
-											className="bg-slate-800 border-slate-700 text-white"
+											placeholder="100"
+											value={valueUSDC}
+											onChange={(e) =>
+												setValueUSDC(e.target.value)
+											}
+											className="bg-slate-800 border-slate-700 text-white text-center text-2xl font-bold h-14 pl-12 pr-20"
 										/>
+										<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+											<div className="w-6 h-6 bg-gray-300 rounded"></div>
+											<span className="text-cyan-400 font-medium">
+												USDC
+											</span>
+										</div>
 									</div>
+								</div>
 
-									<div>
-										<label className="text-sm text-gray-400 mb-1 block">
+								{/* Leverage */}
+								<div className="space-y-3">
+									<div className="flex justify-between items-center">
+										<label className="text-sm text-cyan-400 uppercase font-medium">
 											Leverage
 										</label>
-										<Select>
-											<SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-												<SelectValue placeholder="10x" />
-											</SelectTrigger>
-											<SelectContent className="bg-slate-800 border-slate-700">
-												<SelectItem value="1">
-													1x
-												</SelectItem>
-												<SelectItem value="5">
-													5x
-												</SelectItem>
-												<SelectItem value="10">
-													10x
-												</SelectItem>
-												<SelectItem value="25">
-													25x
-												</SelectItem>
-												<SelectItem value="50">
-													50x
-												</SelectItem>
-												<SelectItem value="100">
-													100x
-												</SelectItem>
-											</SelectContent>
-										</Select>
+										<span className="text-green-400 text-lg font-bold">
+											{leverage}x
+										</span>
 									</div>
+									<div className="relative">
+										<div className="flex items-center space-x-4 bg-slate-800 rounded-lg p-4">
+											<button
+												onClick={() =>
+													handleLeverageChange(-1)
+												}
+												className="w-8 h-8 border border-cyan-400 text-cyan-400 rounded-full flex items-center justify-center text-lg hover:bg-cyan-400 hover:text-black transition-colors"
+											>
+												-
+											</button>
+											<div className="flex-1 relative">
+												<div className="h-2 bg-slate-700 rounded-full">
+													<div
+														className="h-2 bg-gradient-to-r from-green-400 to-cyan-400 rounded-full"
+														style={{
+															width: `${
+																(leverage - 1) *
+																25
+															}%`
+														}}
+													></div>
+												</div>
+												<div className="flex justify-between text-xs text-gray-400 mt-2">
+													<span
+														className={
+															leverage === 1
+																? "text-cyan-400 font-bold"
+																: ""
+														}
+													>
+														1x
+													</span>
+													<span
+														className={
+															leverage === 2
+																? "text-cyan-400 font-bold"
+																: ""
+														}
+													>
+														2x
+													</span>
+													<span
+														className={
+															leverage === 3
+																? "text-cyan-400 font-bold"
+																: ""
+														}
+													>
+														3x
+													</span>
+													<span
+														className={
+															leverage === 4
+																? "text-cyan-400 font-bold"
+																: ""
+														}
+													>
+														4x
+													</span>
+													<span
+														className={
+															leverage === 5
+																? "text-cyan-400 font-bold"
+																: ""
+														}
+													>
+														5x
+													</span>
+												</div>
+											</div>
+											<button
+												onClick={() =>
+													handleLeverageChange(1)
+												}
+												className="w-8 h-8 border border-cyan-400 text-cyan-400 rounded-full flex items-center justify-center text-lg hover:bg-cyan-400 hover:text-black transition-colors"
+											>
+												+
+											</button>
+										</div>
+									</div>
+								</div>
 
-									<div className="text-sm text-gray-400 space-y-1">
-										<div className="flex justify-between">
-											<span>Est. Entry Price:</span>
-											<span className="text-white">
-												{tradingPair.price}
-											</span>
+								{/* You Pay */}
+								<div className="space-y-2">
+									<label className="text-sm text-cyan-400 uppercase font-medium">
+										You Pay (BNB)
+									</label>
+									<div className="relative">
+										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
+											<div className="w-6 h-6 bg-yellow-500 rounded-full"></div>
 										</div>
-										<div className="flex justify-between">
-											<span>Required Margin:</span>
-											<span className="text-white">
-												$452.35
-											</span>
-										</div>
-										<div className="flex justify-between">
-											<span>Trading Fee:</span>
-											<span className="text-white">
-												$2.26
+										<Input
+											placeholder="0.51451404"
+											value={bnbAmount}
+											onChange={(e) =>
+												setBnbAmount(e.target.value)
+											}
+											className="bg-slate-800 border-slate-700 text-white text-center text-2xl font-bold h-14 pl-12 pr-16"
+										/>
+										<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+											<span className="text-cyan-400 font-medium">
+												BNB
 											</span>
 										</div>
 									</div>
+								</div>
 
-									<Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
-										Open Position
-									</Button>
+								{/* Position Details */}
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between">
+										<span className="text-gray-400 uppercase">
+											Position Size (BNB)
+										</span>
+										<span className="text-white">0</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-400 uppercase">
+											Open Fee
+										</span>
+										<span className="text-white">
+											0.022%
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-400 uppercase">
+											Close Fee (Applied only to profits)
+										</span>
+										<span className="text-white">
+											0.022%
+										</span>
+									</div>
 								</div>
-							</CardContent>
-						</Card>
 
-						{/* Account Info */}
-						<Card className="bg-slate-900 border-slate-800">
-							<CardHeader>
-								<CardTitle className="text-white text-lg">
-									Account
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="space-y-3">
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">
-										Available Balance:
-									</span>
-									<span className="text-white font-medium">
-										$12,456.78
-									</span>
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">
-										Used Margin:
-									</span>
-									<span className="text-white font-medium">
-										$3,438.00
-									</span>
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">
-										Free Margin:
-									</span>
-									<span className="text-white font-medium">
-										$9,018.78
-									</span>
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">
-										Unrealized PnL:
-									</span>
-									<span className="text-green-400 font-medium">
-										+$837.00
-									</span>
-								</div>
+								{/* Place Transaction Button */}
+								<Button
+									onClick={handlePlaceTransaction}
+									className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white h-12 font-semibold text-lg"
+								>
+									Place Transaction
+								</Button>
 							</CardContent>
 						</Card>
 					</div>
