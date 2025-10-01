@@ -13,8 +13,28 @@ import {
 } from "@/components/ui/select";
 
 import { Badge } from "@/components/ui/badge";
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+	useAccount,
+	useSendTransaction,
+	useWaitForTransactionReceipt
+} from "wagmi";
+import { parseEther, formatUnits } from "viem";
+import {
+	SyntheticAbi,
+	SyntheticPerpetualContract,
+	usdc
+} from "@/lib/contracts";
+import {
+	createPosition,
+	extractTokenSymbol,
+	formatTxHash,
+	getEtherscanUrl,
+	validateMargin,
+	validateLeverage
+} from "@/lib/position-api";
 
 // Mock perpetual positions data
 const positions = [
@@ -53,11 +73,29 @@ export default function PerpPage() {
 		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
 	});
 
+	// Wallet connection
+	const { address, isConnected } = useAccount();
+	const {
+		sendTransaction,
+		data: hash,
+		error,
+		isPending
+	} = useSendTransaction();
+	const { isLoading: isConfirming, isSuccess: isConfirmed } =
+		useWaitForTransactionReceipt({
+			hash
+		});
+
 	// Trading form state
 	const [isLong, setIsLong] = useState(true);
 	const [valueUSDC, setValueUSDC] = useState("100");
 	const [leverage, setLeverage] = useState(2);
 	const [bnbAmount, setBnbAmount] = useState("0.51451404");
+	const [isCreatingPosition, setIsCreatingPosition] = useState(false);
+	const [apiError, setApiError] = useState<string | null>(null);
+	const [lastTransactionHash, setLastTransactionHash] = useState<
+		string | null
+	>(null);
 
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
@@ -77,6 +115,20 @@ export default function PerpPage() {
 		}
 	}, [searchParams]);
 
+	// Handle transaction completion
+	useEffect(() => {
+		if (isConfirmed && hash) {
+			setLastTransactionHash(hash);
+			// Reset form after successful transaction
+			setTimeout(() => {
+				setApiError(null);
+				// Optionally reset form values
+				// setValueUSDC("100");
+				// setLeverage(2);
+			}, 3000);
+		}
+	}, [isConfirmed, hash]);
+
 	// Handle leverage changes
 	const handleLeverageChange = (delta: number) => {
 		const newLeverage = Math.max(1, Math.min(5, leverage + delta));
@@ -84,14 +136,69 @@ export default function PerpPage() {
 	};
 
 	// Handle place transaction
-	const handlePlaceTransaction = () => {
-		console.log("Placing transaction:", {
-			side: isLong ? "Long" : "Short",
-			valueUSDC,
-			leverage,
-			bnbAmount
-		});
-		// Add your transaction logic here
+	const handlePlaceTransaction = async () => {
+		if (!isConnected || !address) {
+			setApiError("Please connect your wallet first");
+			return;
+		}
+
+		// Validate inputs
+		const marginValidation = validateMargin(valueUSDC);
+		if (!marginValidation.valid) {
+			setApiError(marginValidation.error!);
+			return;
+		}
+
+		const leverageValidation = validateLeverage(leverage);
+		if (!leverageValidation.valid) {
+			setApiError(leverageValidation.error!);
+			return;
+		}
+
+		setIsCreatingPosition(true);
+		setApiError(null);
+
+		try {
+			// Extract token symbol from trading pair
+			const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
+
+			// Call the position creation API
+			const result = await createPosition({
+				tokenSymbol,
+				isLong,
+				margin: valueUSDC,
+				leverage,
+				userAddress: address,
+				pairAddress: tradingPair.pairAddress // Include pair address for accurate pricing
+			});
+
+			if (!result.success) {
+				throw new Error(result.error || "Failed to create position");
+			}
+
+			// Execute the transaction using the returned data
+			if (result.data) {
+				console.log("Executing transaction with data:", result.data);
+
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(result.data.value),
+					gas: result.data.gasEstimate
+						? BigInt(String(result.data.gasEstimate))
+						: undefined
+				});
+			}
+		} catch (error) {
+			console.error("Error creating position:", error);
+			setApiError(
+				error instanceof Error
+					? error.message
+					: "Failed to create position"
+			);
+		} finally {
+			setIsCreatingPosition(false);
+		}
 	};
 
 	// Generate chart URL based on pair address
@@ -184,9 +291,22 @@ export default function PerpPage() {
 
 								{/* Value Input */}
 								<div className="space-y-2">
-									<label className="text-sm text-cyan-400 uppercase font-medium">
-										Value (USDC)
-									</label>
+									<div className="flex justify-between items-center">
+										<label className="text-sm text-cyan-400 uppercase font-medium">
+											Margin (USDC)
+										</label>
+										{valueUSDC &&
+											!validateMargin(valueUSDC)
+												.valid && (
+												<span className="text-xs text-red-400">
+													{
+														validateMargin(
+															valueUSDC
+														).error
+													}
+												</span>
+											)}
+									</div>
 									<div className="relative">
 										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
 											<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
@@ -198,10 +318,16 @@ export default function PerpPage() {
 										<Input
 											placeholder="100"
 											value={valueUSDC}
-											onChange={(e) =>
-												setValueUSDC(e.target.value)
-											}
-											className="bg-slate-800 border-slate-700 text-white text-center text-2xl font-bold h-14 pl-12 pr-20"
+											onChange={(e) => {
+												setValueUSDC(e.target.value);
+												setApiError(null); // Clear error when user types
+											}}
+											className={`bg-slate-800 border-slate-700 text-white text-center text-2xl font-bold h-14 pl-12 pr-20 ${
+												valueUSDC &&
+												!validateMargin(valueUSDC).valid
+													? "border-red-500 focus:border-red-500"
+													: "focus:border-cyan-500"
+											}`}
 										/>
 										<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
 											<div className="w-6 h-6 bg-gray-300 rounded"></div>
@@ -333,35 +459,129 @@ export default function PerpPage() {
 								<div className="space-y-3 text-sm">
 									<div className="flex justify-between">
 										<span className="text-gray-400 uppercase">
-											Position Size (BNB)
+											Position Size (
+											{extractTokenSymbol(
+												tradingPair.symbol
+											)}
+											)
 										</span>
-										<span className="text-white">0</span>
+										<span className="text-white">
+											{(
+												(parseFloat(valueUSDC || "0") *
+													leverage) /
+												parseFloat(
+													tradingPair.price.replace(
+														/[$,]/g,
+														""
+													)
+												)
+											).toFixed(6)}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span className="text-gray-400 uppercase">
+											Total Exposure
+										</span>
+										<span className="text-white">
+											$
+											{(
+												parseFloat(valueUSDC || "0") *
+												leverage
+											).toLocaleString()}
+										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-400 uppercase">
 											Open Fee
 										</span>
 										<span className="text-white">
-											0.022%
+											0.1% (~$
+											{(
+												parseFloat(valueUSDC || "0") *
+												0.001
+											).toFixed(2)}
+											)
 										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-400 uppercase">
 											Close Fee (Applied only to profits)
 										</span>
-										<span className="text-white">
-											0.022%
-										</span>
+										<span className="text-white">0.1%</span>
 									</div>
 								</div>
 
-								{/* Place Transaction Button */}
-								<Button
-									onClick={handlePlaceTransaction}
-									className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white h-12 font-semibold text-lg"
-								>
-									Place Transaction
-								</Button>
+								{/* Error Display */}
+								{apiError && (
+									<div className="p-3 bg-red-900/50 border border-red-600 rounded-lg">
+										<p className="text-red-400 text-sm">
+											{apiError}
+										</p>
+									</div>
+								)}
+
+								{/* Transaction Status */}
+								{hash && (
+									<div className="p-3 bg-blue-900/50 border border-blue-600 rounded-lg">
+										<p className="text-blue-400 text-sm">
+											Transaction submitted:
+											<a
+												href={getEtherscanUrl(hash)}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="text-cyan-400 hover:text-cyan-300 underline ml-1"
+											>
+												{formatTxHash(hash)}
+											</a>
+										</p>
+										{isConfirming && (
+											<p className="text-yellow-400 text-sm mt-1">
+												⏳ Waiting for confirmation...
+											</p>
+										)}
+										{isConfirmed && (
+											<p className="text-green-400 text-sm mt-1">
+												✅ Position created
+												successfully!
+											</p>
+										)}
+										{error && (
+											<p className="text-red-400 text-sm mt-1">
+												❌ Transaction failed:{" "}
+												{String(error)}
+											</p>
+										)}
+									</div>
+								)}
+
+								{/* Wallet Connection or Place Transaction */}
+								{!isConnected ? (
+									<div className="w-full">
+										<ConnectWallet />
+									</div>
+								) : (
+									<Button
+										onClick={handlePlaceTransaction}
+										disabled={
+											isCreatingPosition ||
+											isPending ||
+											isConfirming
+										}
+										className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white h-12 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{isCreatingPosition
+											? "Preparing Transaction..."
+											: isPending
+											? "Confirm in Wallet..."
+											: isConfirming
+											? "Confirming..."
+											: `${isLong ? "Long" : "Short"} ${
+													tradingPair.symbol.split(
+														"/"
+													)[0]
+											  }`}
+									</Button>
+								)}
 							</CardContent>
 						</Card>
 					</div>
