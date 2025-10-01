@@ -19,13 +19,17 @@ import { useEffect, useState } from "react";
 import {
 	useAccount,
 	useSendTransaction,
-	useWaitForTransactionReceipt
+	useWaitForTransactionReceipt,
+	useReadContract,
+	useWriteContract,
+	useBalance
 } from "wagmi";
-import { parseEther, formatUnits } from "viem";
+import { parseEther, formatUnits, parseUnits } from "viem";
 import {
 	SyntheticAbi,
 	SyntheticPerpetualContract,
-	usdc
+	usdc,
+	ERC20Abi
 } from "@/lib/contracts";
 import {
 	createPosition,
@@ -86,6 +90,47 @@ export default function PerpPage() {
 			hash
 		});
 
+	// Contract interactions for approvals
+	const {
+		writeContract,
+		data: approvalHash,
+		isPending: isApproving
+	} = useWriteContract();
+	const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } =
+		useWaitForTransactionReceipt({
+			hash: approvalHash
+		});
+
+	// Balance and allowance queries
+	const { data: ethBalance } = useBalance({
+		address: address,
+		query: { enabled: !!address }
+	});
+
+	const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
+		address: usdc as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address }
+	});
+
+	const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
+		address: usdc as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "allowance",
+		args: address
+			? [address, SyntheticPerpetualContract as `0x${string}`]
+			: undefined,
+		query: { enabled: !!address }
+	});
+
+	const { data: maxLeverageFromContract } = useReadContract({
+		address: SyntheticPerpetualContract as `0x${string}`,
+		abi: SyntheticAbi,
+		functionName: "MAX_LEVERAGE"
+	});
+
 	// Trading form state
 	const [isLong, setIsLong] = useState(true);
 	const [valueUSDC, setValueUSDC] = useState("100");
@@ -96,6 +141,10 @@ export default function PerpPage() {
 	const [lastTransactionHash, setLastTransactionHash] = useState<
 		string | null
 	>(null);
+	const [needsApproval, setNeedsApproval] = useState(false);
+
+	// Get max leverage from contract (fallback to 10 if not loaded)
+	const maxLeverage = maxLeverageFromContract ? Number(2) : 2;
 
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
@@ -115,10 +164,22 @@ export default function PerpPage() {
 		}
 	}, [searchParams]);
 
+	// Check if approval is needed
+	useEffect(() => {
+		if (usdcAllowance && valueUSDC) {
+			const marginInWei = parseUnits(valueUSDC, 6); // USDC has 6 decimals
+			const allowanceAmount = BigInt(usdcAllowance as string);
+			setNeedsApproval(allowanceAmount < marginInWei);
+		}
+	}, [usdcAllowance, valueUSDC]);
+
 	// Handle transaction completion
 	useEffect(() => {
 		if (isConfirmed && hash) {
 			setLastTransactionHash(hash);
+			// Refetch balances after successful transaction
+			refetchUsdcBalance();
+			refetchAllowance();
 			// Reset form after successful transaction
 			setTimeout(() => {
 				setApiError(null);
@@ -127,12 +188,55 @@ export default function PerpPage() {
 				// setLeverage(2);
 			}, 3000);
 		}
-	}, [isConfirmed, hash]);
+	}, [isConfirmed, hash, refetchUsdcBalance, refetchAllowance]);
+
+	// Handle approval completion
+	useEffect(() => {
+		if (isApprovalConfirmed && approvalHash) {
+			// Refetch allowance after successful approval
+			refetchAllowance();
+			setApiError(null);
+		}
+	}, [isApprovalConfirmed, approvalHash, refetchAllowance]);
 
 	// Handle leverage changes
 	const handleLeverageChange = (delta: number) => {
-		const newLeverage = Math.max(1, Math.min(5, leverage + delta));
+		const newLeverage = Math.max(
+			1,
+			Math.min(maxLeverage, leverage + delta)
+		);
 		setLeverage(newLeverage);
+	};
+
+	// Handle USDC approval
+	const handleApproveUSDC = async () => {
+		if (!isConnected || !address) {
+			setApiError("Please connect your wallet first");
+			return;
+		}
+
+		try {
+			setApiError(null);
+			// Approve a large amount to avoid frequent approvals
+			const approvalAmount = parseUnits("1000000", 6); // 1M USDC
+
+			writeContract({
+				address: usdc as `0x${string}`,
+				abi: ERC20Abi,
+				functionName: "approve",
+				args: [
+					SyntheticPerpetualContract as `0x${string}`,
+					approvalAmount
+				]
+			});
+		} catch (error) {
+			console.error("Error approving USDC:", error);
+			setApiError(
+				error instanceof Error
+					? error.message
+					: "Failed to approve USDC"
+			);
+		}
 	};
 
 	// Handle place transaction
@@ -183,7 +287,7 @@ export default function PerpPage() {
 				sendTransaction({
 					to: result.data.to as `0x${string}`,
 					data: result.data.data as `0x${string}`,
-					value: BigInt(result.data.value),
+					value: BigInt(0),
 					gas: result.data.gasEstimate
 						? BigInt(String(result.data.gasEstimate))
 						: undefined
@@ -224,8 +328,8 @@ export default function PerpPage() {
 						Perpetual Trading
 					</h1>
 					<p className="text-gray-400">
-						Trade cryptocurrency perpetual futures with up to 2x
-						leverage
+						Trade cryptocurrency perpetual futures with up to{" "}
+						{maxLeverage}x leverage
 					</p>
 				</div>
 
@@ -288,6 +392,49 @@ export default function PerpPage() {
 										SHORT
 									</Button>
 								</div>
+
+								{/* Wallet Balances */}
+								{isConnected && (
+									<div className="bg-slate-800 p-4 rounded-lg">
+										<h4 className="text-sm text-gray-400 uppercase font-medium mb-3">
+											Wallet Balance
+										</h4>
+										<div className="space-y-2">
+											<div className="flex justify-between items-center">
+												<span className="text-gray-300">
+													ETH:
+												</span>
+												<span className="text-white font-medium">
+													{ethBalance
+														? `${parseFloat(
+																formatUnits(
+																	ethBalance.value,
+																	ethBalance.decimals
+																)
+														  ).toFixed(4)} ETH`
+														: "0.0000 ETH"}
+												</span>
+											</div>
+											<div className="flex justify-between items-center">
+												<span className="text-gray-300">
+													USDC:
+												</span>
+												<span className="text-white font-medium">
+													{usdcBalance
+														? `${parseFloat(
+																formatUnits(
+																	BigInt(
+																		usdcBalance as string
+																	),
+																	6
+																)
+														  ).toFixed(2)} USDC`
+														: "0.00 USDC"}
+												</span>
+											</div>
+										</div>
+									</div>
+								)}
 
 								{/* Value Input */}
 								<div className="space-y-2">
@@ -364,58 +511,31 @@ export default function PerpPage() {
 														className="h-2 bg-gradient-to-r from-green-400 to-cyan-400 rounded-full"
 														style={{
 															width: `${
-																(leverage - 1) *
-																25
+																((leverage -
+																	1) /
+																	(maxLeverage -
+																		1)) *
+																100
 															}%`
 														}}
 													></div>
 												</div>
 												<div className="flex justify-between text-xs text-gray-400 mt-2">
-													<span
-														className={
-															leverage === 1
-																? "text-cyan-400 font-bold"
-																: ""
-														}
-													>
-														1x
-													</span>
-													<span
-														className={
-															leverage === 2
-																? "text-cyan-400 font-bold"
-																: ""
-														}
-													>
-														2x
-													</span>
-													<span
-														className={
-															leverage === 3
-																? "text-cyan-400 font-bold"
-																: ""
-														}
-													>
-														3x
-													</span>
-													<span
-														className={
-															leverage === 4
-																? "text-cyan-400 font-bold"
-																: ""
-														}
-													>
-														4x
-													</span>
-													<span
-														className={
-															leverage === 5
-																? "text-cyan-400 font-bold"
-																: ""
-														}
-													>
-														5x
-													</span>
+													{Array.from(
+														{ length: maxLeverage },
+														(_, i) => i + 1
+													).map((lev) => (
+														<span
+															key={lev}
+															className={
+																leverage === lev
+																	? "text-cyan-400 font-bold"
+																	: ""
+															}
+														>
+															{lev}x
+														</span>
+													))}
 												</div>
 											</div>
 											<button
@@ -507,7 +627,7 @@ export default function PerpPage() {
 										<span className="text-gray-400 uppercase">
 											Close Fee (Applied only to profits)
 										</span>
-										<span className="text-white">0.1%</span>
+										<span className="text-white">2%</span>
 									</div>
 								</div>
 
@@ -554,6 +674,40 @@ export default function PerpPage() {
 									</div>
 								)}
 
+								{/* USDC Approval */}
+								{isConnected && needsApproval && (
+									<div className="p-3 bg-yellow-900/30 border border-yellow-600 rounded-lg">
+										<p className="text-yellow-400 text-sm mb-3">
+											You need to approve USDC spending
+											before creating a position.
+										</p>
+										<Button
+											onClick={handleApproveUSDC}
+											disabled={
+												isApproving ||
+												isApprovalConfirming
+											}
+											className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{isApproving
+												? "Confirm Approval in Wallet..."
+												: isApprovalConfirming
+												? "Confirming Approval..."
+												: "Approve USDC"}
+										</Button>
+									</div>
+								)}
+
+								{/* Approval Success */}
+								{isApprovalConfirmed && approvalHash && (
+									<div className="p-3 bg-green-900/50 border border-green-600 rounded-lg">
+										<p className="text-green-400 text-sm">
+											✅ USDC approval confirmed! You can
+											now create positions.
+										</p>
+									</div>
+								)}
+
 								{/* Wallet Connection or Place Transaction */}
 								{!isConnected ? (
 									<div className="w-full">
@@ -563,13 +717,18 @@ export default function PerpPage() {
 									<Button
 										onClick={handlePlaceTransaction}
 										disabled={
+											needsApproval ||
 											isCreatingPosition ||
 											isPending ||
-											isConfirming
+											isConfirming ||
+											isApproving ||
+											isApprovalConfirming
 										}
 										className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white h-12 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										{isCreatingPosition
+										{needsApproval
+											? "Approve USDC First"
+											: isCreatingPosition
 											? "Preparing Transaction..."
 											: isPending
 											? "Confirm in Wallet..."

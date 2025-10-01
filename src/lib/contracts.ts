@@ -1,5 +1,51 @@
 const usdc = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
 const SyntheticPerpetualContract = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
+
+// ERC20 ABI for USDC token interactions
+const ERC20Abi = [
+	{
+		constant: true,
+		inputs: [{ name: "_owner", type: "address" }],
+		name: "balanceOf",
+		outputs: [{ name: "balance", type: "uint256" }],
+		type: "function"
+	},
+	{
+		constant: false,
+		inputs: [
+			{ name: "_spender", type: "address" },
+			{ name: "_value", type: "uint256" }
+		],
+		name: "approve",
+		outputs: [{ name: "", type: "bool" }],
+		type: "function"
+	},
+	{
+		constant: true,
+		inputs: [
+			{ name: "_owner", type: "address" },
+			{ name: "_spender", type: "address" }
+		],
+		name: "allowance",
+		outputs: [{ name: "", type: "uint256" }],
+		type: "function"
+	},
+	{
+		constant: true,
+		inputs: [],
+		name: "decimals",
+		outputs: [{ name: "", type: "uint8" }],
+		type: "function"
+	},
+	{
+		constant: true,
+		inputs: [],
+		name: "symbol",
+		outputs: [{ name: "", type: "string" }],
+		type: "function"
+	}
+] as const;
+
 const SyntheticAbi = [
 	{
 		inputs: [
@@ -1012,4 +1058,4 @@ const SyntheticAbi = [
 	}
 ];
 
-export { usdc, SyntheticPerpetualContract, SyntheticAbi };
+export { usdc, SyntheticPerpetualContract, SyntheticAbi, ERC20Abi };
