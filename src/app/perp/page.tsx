@@ -45,6 +45,7 @@ import {
 	type Position
 } from "@/lib/position-api";
 import { useUserPositions } from "@/hooks/useUserPositions";
+import { getTokenPriceByPair, formatPrice, formatPriceChange } from "@/lib/oracle";
 
 export default function PerpPage() {
 	const searchParams = useSearchParams();
@@ -54,6 +55,8 @@ export default function PerpPage() {
 		change: "+2.34%",
 		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
 	});
+	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
+	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
 
 	// Positions management with custom hook
 	const {
@@ -136,6 +139,28 @@ export default function PerpPage() {
 	// Get max leverage from contract (fallback to 10 if not loaded)
 	const maxLeverage = 2;
 
+	// Fetch the latest token price
+	const fetchLatestPrice = async () => {
+		if (!tradingPair.pairAddress) return;
+		
+		setIsLoadingPrice(true);
+		try {
+			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, "bsc");
+			if (tokenPrice) {
+				setTradingPair(prev => ({
+					...prev,
+					price: formatPrice(tokenPrice.priceUsd),
+					change: tokenPrice.priceChange24h ? formatPriceChange(tokenPrice.priceChange24h) : prev.change
+				}));
+				setLastPriceUpdate(new Date());
+			}
+		} catch (error) {
+			console.error("Error fetching latest price:", error);
+		} finally {
+			setIsLoadingPrice(false);
+		}
+	};
+
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
 		const pairAddress = searchParams.get("pairAddress");
@@ -153,6 +178,22 @@ export default function PerpPage() {
 			}));
 		}
 	}, [searchParams]);
+
+	// Fetch latest price when component mounts and when pair address changes
+	useEffect(() => {
+		fetchLatestPrice();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tradingPair.pairAddress]);
+
+	// Set up interval to refresh price every 30 seconds
+	useEffect(() => {
+		const interval = setInterval(() => {
+			fetchLatestPrice();
+		}, 30000); // 30 seconds
+
+		return () => clearInterval(interval);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [tradingPair.pairAddress]);
 
 	// Check if approval is needed
 	useEffect(() => {
@@ -359,16 +400,53 @@ export default function PerpPage() {
 								<CardTitle className="text-white flex items-center justify-between">
 									<span>{tradingPair.symbol} Perpetual</span>
 									<div className="flex items-center space-x-4">
-										<div className="text-2xl font-bold text-green-400">
-											{tradingPair.price}
+										<div className="flex items-center space-x-2">
+											<div className="text-2xl font-bold text-green-400">
+												{isLoadingPrice ? (
+													<div className="animate-pulse">Loading...</div>
+												) : (
+													tradingPair.price
+												)}
+											</div>
+											<Button
+												size="sm"
+												variant="ghost"
+												onClick={fetchLatestPrice}
+												disabled={isLoadingPrice}
+												className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+												title="Refresh price"
+											>
+												<svg
+													className={`h-4 w-4 ${isLoadingPrice ? 'animate-spin' : ''}`}
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														strokeWidth={2}
+														d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+													/>
+												</svg>
+											</Button>
 										</div>
-										<Badge className="bg-green-600 hover:bg-green-700">
+										<Badge className={`${
+											tradingPair.change.startsWith('+') 
+												? 'bg-green-600 hover:bg-green-700' 
+												: 'bg-red-600 hover:bg-red-700'
+										}`}>
 											{tradingPair.change}
 										</Badge>
 									</div>
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
+								{lastPriceUpdate && (
+									<div className="mb-2 text-xs text-gray-500 text-right">
+										Last updated: {lastPriceUpdate.toLocaleTimeString()}
+									</div>
+								)}
 								<div id="dexscreener-embed">
 									<iframe
 										src={getChartUrl()}
