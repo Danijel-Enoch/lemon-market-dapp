@@ -144,7 +144,7 @@ export default function PerpPage() {
 	const [needsApproval, setNeedsApproval] = useState(false);
 
 	// Get max leverage from contract (fallback to 10 if not loaded)
-	const maxLeverage = maxLeverageFromContract ? Number(2) : 2;
+	const maxLeverage = 2;
 
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
@@ -166,12 +166,29 @@ export default function PerpPage() {
 
 	// Check if approval is needed
 	useEffect(() => {
-		if (usdcAllowance && valueUSDC) {
+		if (
+			usdcAllowance !== undefined &&
+			valueUSDC &&
+			parseFloat(valueUSDC) > 0
+		) {
 			const marginInWei = parseUnits(valueUSDC, 6); // USDC has 6 decimals
 			const allowanceAmount = BigInt(usdcAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
+		} else if (usdcAllowance !== undefined) {
+			// If we have allowance data but no valid margin, assume no approval needed for now
+			setNeedsApproval(false);
+		} else {
+			// If we don't have allowance data yet, assume approval is needed
+			setNeedsApproval(true);
 		}
 	}, [usdcAllowance, valueUSDC]);
+
+	// Reset approval state when wallet connection changes
+	useEffect(() => {
+		if (!isConnected) {
+			setNeedsApproval(false);
+		}
+	}, [isConnected]);
 
 	// Handle transaction completion
 	useEffect(() => {
@@ -436,6 +453,58 @@ export default function PerpPage() {
 									</div>
 								)}
 
+								{/* USDC Approval Section */}
+								{isConnected && (
+									<div className="bg-slate-800 p-4 rounded-lg">
+										<div className="flex justify-between items-center mb-3">
+											<h4 className="text-sm text-gray-400 uppercase font-medium">
+												USDC Approval
+											</h4>
+											<span
+												className={`text-xs px-2 py-1 rounded ${
+													needsApproval
+														? "bg-red-900/50 text-red-400"
+														: "bg-green-900/50 text-green-400"
+												}`}
+											>
+												{needsApproval
+													? "Required"
+													: "Approved"}
+											</span>
+										</div>
+
+										{needsApproval ? (
+											<div className="space-y-3">
+												<p className="text-sm text-gray-300">
+													Approve USDC spending to
+													create positions
+												</p>
+												<Button
+													onClick={handleApproveUSDC}
+													disabled={
+														isApproving ||
+														isApprovalConfirming
+													}
+													className="w-full bg-blue-600 hover:bg-blue-700 text-white h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+												>
+													{isApproving
+														? "Confirm in Wallet..."
+														: isApprovalConfirming
+														? "Confirming..."
+														: "Approve USDC"}
+												</Button>
+											</div>
+										) : (
+											<div className="flex items-center space-x-2">
+												<div className="w-2 h-2 bg-green-400 rounded-full"></div>
+												<p className="text-sm text-green-400">
+													USDC spending approved
+												</p>
+											</div>
+										)}
+									</div>
+								)}
+
 								{/* Value Input */}
 								<div className="space-y-2">
 									<div className="flex justify-between items-center">
@@ -640,6 +709,28 @@ export default function PerpPage() {
 									</div>
 								)}
 
+								{/* Approval Success Message */}
+								{isApprovalConfirmed &&
+									approvalHash &&
+									!needsApproval && (
+										<div className="p-3 bg-green-900/50 border border-green-600 rounded-lg">
+											<p className="text-green-400 text-sm">
+												✅ USDC approval confirmed! You
+												can now create positions.
+												<a
+													href={getEtherscanUrl(
+														approvalHash
+													)}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-cyan-400 hover:text-cyan-300 underline ml-1"
+												>
+													View transaction
+												</a>
+											</p>
+										</div>
+									)}
+
 								{/* Transaction Status */}
 								{hash && (
 									<div className="p-3 bg-blue-900/50 border border-blue-600 rounded-lg">
@@ -671,40 +762,6 @@ export default function PerpPage() {
 												{String(error)}
 											</p>
 										)}
-									</div>
-								)}
-
-								{/* USDC Approval */}
-								{isConnected && needsApproval && (
-									<div className="p-3 bg-yellow-900/30 border border-yellow-600 rounded-lg">
-										<p className="text-yellow-400 text-sm mb-3">
-											You need to approve USDC spending
-											before creating a position.
-										</p>
-										<Button
-											onClick={handleApproveUSDC}
-											disabled={
-												isApproving ||
-												isApprovalConfirming
-											}
-											className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											{isApproving
-												? "Confirm Approval in Wallet..."
-												: isApprovalConfirming
-												? "Confirming Approval..."
-												: "Approve USDC"}
-										</Button>
-									</div>
-								)}
-
-								{/* Approval Success */}
-								{isApprovalConfirmed && approvalHash && (
-									<div className="p-3 bg-green-900/50 border border-green-600 rounded-lg">
-										<p className="text-green-400 text-sm">
-											✅ USDC approval confirmed! You can
-											now create positions.
-										</p>
 									</div>
 								)}
 

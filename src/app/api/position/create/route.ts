@@ -21,7 +21,7 @@
  *     to: string,           // contract address
  *     data: string,         // transaction calldata
  *     value: string,        // ETH value (always "0x0")
- *     gasEstimate?: bigint  // estimated gas cost
+ *     gasEstimate?: string  // estimated gas cost (as string)
  *   },
  *   error?: string
  * }
@@ -69,7 +69,7 @@ interface CreatePositionResponse {
 		to: string;
 		data: string;
 		value: string;
-		gasEstimate?: bigint;
+		gasEstimate?: string;
 	};
 	error?: string;
 }
@@ -390,7 +390,7 @@ export async function POST(request: NextRequest) {
 				to: SyntheticPerpetualContract,
 				data: calldata,
 				value: "0x0", // No ETH value needed
-				gasEstimate
+				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined
 			}
 		};
 
