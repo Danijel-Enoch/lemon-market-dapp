@@ -367,10 +367,54 @@ export default function Home() {
 					<h1 className="text-3xl font-bold text-white mb-2">
 						Trending Assets
 					</h1>
-					<p className="text-gray-400">
+					<p className="text-gray-400 mb-4">
 						Discover the most popular assets and their market
 						performance across different categories
 					</p>
+					<div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4">
+						<div className="flex items-start space-x-3">
+							<div className="text-blue-400 text-xl">ℹ️</div>
+							<div>
+								<h3 className="text-blue-400 font-medium mb-2">
+									Perpetual Trading Availability
+								</h3>
+								<p className="text-gray-300 text-sm mb-2">
+									Perpetual trading is currently supported for
+									tokens available on the following DEXs and
+									exchanges:
+								</p>
+								<div className="flex flex-wrap gap-2 text-xs">
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										PancakeSwap V2
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										PancakeSwap V3
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										SushiSwap BSC
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										MDEX BSC
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										BiSwap
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										BakerySwap
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										Gra.Fun
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										Uniswap V2 BNB
+									</span>
+									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
+										4.meme
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 
 				{/* Search Bar */}

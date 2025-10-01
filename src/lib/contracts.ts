@@ -1,5 +1,5 @@
-const usdc = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
-const SyntheticPerpetualContract = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
+const usdc = "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0";
+const SyntheticPerpetualContract = "0x9A676e781A523b5d0C0e43731313A708CB607508";
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -187,6 +187,31 @@ const SyntheticAbi = [
 			}
 		],
 		name: "FeeCollected",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newMinLeverage",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newMaxLeverage",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "LeverageLimitsUpdated",
 		type: "event"
 	},
 	{
@@ -466,7 +491,7 @@ const SyntheticAbi = [
 	},
 	{
 		inputs: [],
-		name: "MAX_LEVERAGE",
+		name: "MAX_PROFIT_RATE",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -479,7 +504,20 @@ const SyntheticAbi = [
 	},
 	{
 		inputs: [],
-		name: "MAX_PROFIT_RATE",
+		name: "MAX_TRADING_MARGIN",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "MIN_TRADING_MARGIN",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -624,6 +662,95 @@ const SyntheticAbi = [
 		type: "function"
 	},
 	{
+		inputs: [],
+		name: "getLeverageLimits",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			}
+		],
+		name: "getPositionDetails",
+		outputs: [
+			{
+				components: [
+					{
+						internalType: "address",
+						name: "trader",
+						type: "address"
+					},
+					{
+						internalType: "string",
+						name: "tokenSymbol",
+						type: "string"
+					},
+					{
+						internalType: "bool",
+						name: "isLong",
+						type: "bool"
+					},
+					{
+						internalType: "uint256",
+						name: "margin",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "leverage",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "entryPrice",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "liquidationPrice",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "openTimestamp",
+						type: "uint256"
+					},
+					{
+						internalType: "bool",
+						name: "isActive",
+						type: "bool"
+					},
+					{
+						internalType: "int256",
+						name: "unrealizedPnl",
+						type: "int256"
+					}
+				],
+				internalType: "struct SyntheticPerpetual.Position",
+				name: "",
+				type: "tuple"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
 		inputs: [
 			{
 				internalType: "address",
@@ -640,6 +767,24 @@ const SyntheticAbi = [
 			}
 		],
 		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "getTradingMarginLimits",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "pure",
 		type: "function"
 	},
 	{
@@ -685,6 +830,32 @@ const SyntheticAbi = [
 		name: "liquidatePosition",
 		outputs: [],
 		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "maxLeverage",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "minLeverage",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
 		type: "function"
 	},
 	{
@@ -870,6 +1041,11 @@ const SyntheticAbi = [
 			},
 			{
 				internalType: "uint256",
+				name: "liquidationPrice",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
 				name: "openTimestamp",
 				type: "uint256"
 			},
@@ -966,6 +1142,24 @@ const SyntheticAbi = [
 			}
 		],
 		name: "updateAdminSigner",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "newMinLeverage",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "newMaxLeverage",
+				type: "uint256"
+			}
+		],
+		name: "updateLeverageLimits",
 		outputs: [],
 		stateMutability: "nonpayable",
 		type: "function"

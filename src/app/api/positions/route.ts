@@ -1,0 +1,198 @@
+import { NextRequest, NextResponse } from "next/server";
+
+// GraphQL query to fetch positions
+const POSITIONS_QUERY = `
+  query GetPositions($trader: String!) {
+    positions(where: {trader: $trader}) {
+      entryPrice
+      exitPrice
+      finalPnl
+      id
+      isLong
+      lastBlockNumber
+      lastBlockTimestamp
+      lastTransactionHash
+      lastUpdatedAt
+      leverage
+      liquidationPrice
+      trader
+      tokenSymbol
+      positionId
+      openedAt
+      margin
+      status
+    }
+  }
+`;
+
+interface Position {
+	entryPrice: string;
+	exitPrice: string;
+	finalPnl: string;
+	id: string;
+	isLong: boolean;
+	lastBlockNumber: string;
+	lastBlockTimestamp: string;
+	lastTransactionHash: string;
+	lastUpdatedAt: string;
+	leverage: string;
+	liquidationPrice: string;
+	trader: string;
+	tokenSymbol: string;
+	positionId: string;
+	openedAt: string;
+	margin: string;
+	status: string;
+}
+
+interface GraphQLResponse {
+	data?: {
+		positions: Position[];
+	};
+	errors?: Array<{
+		message: string;
+	}>;
+}
+
+export async function GET(request: NextRequest) {
+	try {
+		const { searchParams } = new URL(request.url);
+		const trader = searchParams.get("trader");
+
+		if (!trader) {
+			return NextResponse.json(
+				{ error: "trader address is required" },
+				{ status: 400 }
+			);
+		}
+
+		// Validate trader address format (basic check)
+		if (!trader.match(/^0x[a-fA-F0-9]{40}$/)) {
+			return NextResponse.json(
+				{ error: "Invalid trader address format" },
+				{ status: 400 }
+			);
+		}
+
+		// Make GraphQL request to the subgraph
+		const response = await fetch(
+			"http://localhost:8000/subgraphs/name/lemon-v1",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					query: POSITIONS_QUERY,
+					variables: {
+						trader: trader.toLowerCase() // Ensure lowercase for consistency
+					}
+				})
+			}
+		);
+
+		if (!response.ok) {
+			throw new Error(
+				`Subgraph request failed: ${response.status} ${response.statusText}`
+			);
+		}
+
+		const result: GraphQLResponse = await response.json();
+
+		if (result.errors && result.errors.length > 0) {
+			console.error("GraphQL errors:", result.errors);
+			return NextResponse.json(
+				{
+					error: "Failed to fetch positions from subgraph",
+					details: result.errors
+				},
+				{ status: 500 }
+			);
+		}
+
+		const positions = result.data?.positions || [];
+
+		// Transform positions for frontend consumption
+		const transformedPositions = positions.map((position) => ({
+			id: position.id,
+			positionId: position.positionId,
+			pair: `${position.tokenSymbol}/USDT`,
+			side: position.isLong ? "Long" : "Short",
+			tokenSymbol: position.tokenSymbol,
+			isLong: position.isLong,
+			entryPrice: formatPrice(position.entryPrice),
+			exitPrice: position.exitPrice
+				? formatPrice(position.exitPrice)
+				: null,
+			margin: formatAmount(position.margin),
+			leverage: `${position.leverage}x`,
+			leverageValue: parseFloat(position.leverage),
+			liquidationPrice: formatPrice(position.liquidationPrice),
+			status: position.status,
+			pnl: formatAmount(position.finalPnl),
+			pnlRaw: position.finalPnl,
+			openedAt: new Date(
+				parseInt(position.openedAt) * 1000
+			).toISOString(),
+			lastUpdatedAt: new Date(
+				parseInt(position.lastUpdatedAt) * 1000
+			).toISOString(),
+			lastTransactionHash: position.lastTransactionHash,
+			trader: position.trader
+		}));
+
+		return NextResponse.json({
+			success: true,
+			positions: transformedPositions,
+			count: transformedPositions.length
+		});
+	} catch (error) {
+		console.error("Error fetching positions:", error);
+		return NextResponse.json(
+			{
+				error: "Internal server error",
+				details:
+					error instanceof Error ? error.message : "Unknown error"
+			},
+			{ status: 500 }
+		);
+	}
+}
+
+// Helper function to format price values
+function formatPrice(priceWei: string | null): string {
+	try {
+		if (!priceWei || priceWei === "null" || priceWei === "0") {
+			return "$0.00";
+		}
+		const price = parseFloat(priceWei) / 1e18; // Assuming 18 decimals
+		if (isNaN(price) || !isFinite(price)) {
+			return "$0.00";
+		}
+		return `$${price.toLocaleString("en-US", {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		})}`;
+	} catch {
+		return "$0.00";
+	}
+}
+
+// Helper function to format amount values
+function formatAmount(amountWei: string | null): string {
+	try {
+		if (!amountWei || amountWei === "null" || amountWei === "0") {
+			return "$0.00";
+		}
+		const amount = parseFloat(amountWei) / 1e6; // Assuming USDC with 6 decimals
+		if (isNaN(amount) || !isFinite(amount)) {
+			return "$0.00";
+		}
+		return `$${amount.toLocaleString("en-US", {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		})}`;
+	} catch {
+		return "$0.00";
+	}
+}

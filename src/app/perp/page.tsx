@@ -37,36 +37,14 @@ import {
 	formatTxHash,
 	getEtherscanUrl,
 	validateMargin,
-	validateLeverage
+	validateLeverage,
+	calculatePnlPercentage,
+	isPositionProfitable,
+	formatPositionSize,
+	calculatePositionCurrentValue,
+	type Position
 } from "@/lib/position-api";
-
-// Mock perpetual positions data
-const positions = [
-	{
-		id: 1,
-		pair: "BTC/USDT",
-		side: "Long",
-		size: "0.5 BTC",
-		entryPrice: "$44,200",
-		markPrice: "$45,234",
-		pnl: "+$517.00",
-		pnlPercent: "+2.34%",
-		margin: "$2,210",
-		leverage: "10x"
-	},
-	{
-		id: 2,
-		pair: "ETH/USDT",
-		side: "Short",
-		size: "5 ETH",
-		entryPrice: "$2,520",
-		markPrice: "$2,456",
-		pnl: "+$320.00",
-		pnlPercent: "+2.54%",
-		margin: "$1,228",
-		leverage: "10x"
-	}
-];
+import { useUserPositions } from "@/hooks/useUserPositions";
 
 export default function PerpPage() {
 	const searchParams = useSearchParams();
@@ -76,6 +54,18 @@ export default function PerpPage() {
 		change: "+2.34%",
 		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
 	});
+
+	// Positions management with custom hook
+	const {
+		positions,
+		isLoading: isLoadingPositions,
+		error: positionsError,
+		refetch: fetchUserPositions,
+		isEmpty: hasNoPositions,
+		openPositions,
+		totalPnl,
+		totalMargin
+	} = useUserPositions();
 
 	// Wallet connection
 	const { address, isConnected } = useAccount();
@@ -128,7 +118,7 @@ export default function PerpPage() {
 	const { data: maxLeverageFromContract } = useReadContract({
 		address: SyntheticPerpetualContract as `0x${string}`,
 		abi: SyntheticAbi,
-		functionName: "MAX_LEVERAGE"
+		functionName: "maxLeverage"
 	});
 
 	// Trading form state
@@ -215,6 +205,16 @@ export default function PerpPage() {
 			setApiError(null);
 		}
 	}, [isApprovalConfirmed, approvalHash, refetchAllowance]);
+
+	// Refetch positions after successful position creation
+	useEffect(() => {
+		if (isConfirmed && hash && address) {
+			// Wait a bit for the subgraph to index the new position
+			setTimeout(() => {
+				fetchUserPositions();
+			}, 5000);
+		}
+	}, [isConfirmed, hash, address]);
 
 	// Handle leverage changes
 	const handleLeverageChange = (delta: number) => {
@@ -805,101 +805,306 @@ export default function PerpPage() {
 
 				{/* Positions Table */}
 				<Card className="bg-slate-900 border-slate-800 mt-8">
-					<CardHeader>
-						<CardTitle className="text-white">
-							Open Positions
-						</CardTitle>
+					<CardHeader className="flex flex-row items-center justify-between">
+						<div>
+							<CardTitle className="text-white">
+								Positions{" "}
+								{positions.length > 0 &&
+									`(${positions.length})`}
+							</CardTitle>
+							{positions.length > 0 && (
+								<div className="flex gap-4 mt-2 text-sm">
+									<span className="text-gray-400">
+										Open:{" "}
+										<span className="text-white">
+											{openPositions.length}
+										</span>
+									</span>
+									<span className="text-gray-400">
+										Total Margin:{" "}
+										<span className="text-white">
+											${totalMargin.toFixed(2)}
+										</span>
+									</span>
+									<span className="text-gray-400">
+										Total PnL:{" "}
+										<span
+											className={
+												totalPnl >= 0
+													? "text-green-400"
+													: "text-red-400"
+											}
+										>
+											{totalPnl >= 0 ? "+" : ""}$
+											{totalPnl.toFixed(2)}
+										</span>
+									</span>
+								</div>
+							)}
+						</div>
+						{isConnected && (
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={fetchUserPositions}
+								disabled={isLoadingPositions}
+								className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+							>
+								{isLoadingPositions ? "Loading..." : "Refresh"}
+							</Button>
+						)}
 					</CardHeader>
 					<CardContent className="p-0">
-						<div className="overflow-x-auto">
-							<table className="w-full">
-								<thead>
-									<tr className="border-b border-slate-800">
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Pair
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Side
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Size
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Entry Price
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Mark Price
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											PnL
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Margin
-										</th>
-										<th className="text-left p-4 text-gray-400 font-medium">
-											Action
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{positions.map((position) => (
-										<tr
-											key={position.id}
-											className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
-										>
-											<td className="p-4 text-white font-medium">
-												{position.pair}
-											</td>
-											<td className="p-4">
-												<Badge
-													variant={
-														position.side === "Long"
-															? "default"
-															: "destructive"
-													}
-													className={
-														position.side === "Long"
-															? "bg-green-600 hover:bg-green-700"
-															: "bg-red-600 hover:bg-red-700"
-													}
-												>
-													{position.side}
-												</Badge>
-											</td>
-											<td className="p-4 text-white">
-												{position.size}
-											</td>
-											<td className="p-4 text-gray-300">
-												{position.entryPrice}
-											</td>
-											<td className="p-4 text-white">
-												{position.markPrice}
-											</td>
-											<td className="p-4">
-												<div className="text-green-400 font-medium">
-													{position.pnl}
-												</div>
-												<div className="text-green-400 text-sm">
-													{position.pnlPercent}
-												</div>
-											</td>
-											<td className="p-4 text-gray-300">
-												{position.margin}
-											</td>
-											<td className="p-4">
-												<Button
-													size="sm"
-													variant="outline"
-													className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
-												>
-													Close
-												</Button>
-											</td>
+						{!isConnected ? (
+							<div className="text-center py-12">
+								<p className="text-gray-400 mb-4">
+									Connect your wallet to view positions
+								</p>
+								<ConnectWallet />
+							</div>
+						) : isLoadingPositions ? (
+							<div className="text-center py-12">
+								<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+								<p className="text-gray-400">
+									Loading positions...
+								</p>
+							</div>
+						) : positionsError ? (
+							<div className="text-center py-12">
+								<p className="text-red-400 mb-4">
+									Error: {positionsError}
+								</p>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={fetchUserPositions}
+									className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+								>
+									Retry
+								</Button>
+							</div>
+						) : positions.length === 0 ? (
+							<div className="text-center py-12">
+								<p className="text-gray-400">
+									No positions found
+								</p>
+								<p className="text-gray-500 text-sm mt-2">
+									Create your first position above
+								</p>
+							</div>
+						) : (
+							<div className="overflow-x-auto">
+								<table className="w-full">
+									<thead>
+										<tr className="border-b border-slate-800">
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Pair
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Side
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Size
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Entry Price
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Liquidation Price
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												PnL
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Margin
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Status
+											</th>
+											<th className="text-left p-4 text-gray-400 font-medium">
+												Action
+											</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+									</thead>
+									<tbody>
+										{positions.map((position) => {
+											// Get current price for this specific token
+											// For now, use the trading pair price if it matches, otherwise use entry price as fallback
+											const currentPrice =
+												position.tokenSymbol ===
+												extractTokenSymbol(
+													tradingPair.symbol
+												)
+													? tradingPair.price
+													: position.entryPrice; // Fallback to entry price if different token
+
+											// Calculate real-time position metrics with current market price
+											const currentPositionValue =
+												calculatePositionCurrentValue(
+													position.margin,
+													position.leverage,
+													position.entryPrice,
+													currentPrice,
+													position.isLong
+												);
+
+											const positionSize =
+												formatPositionSize(
+													position.margin,
+													position.leverage,
+													position.entryPrice,
+													position.tokenSymbol,
+													currentPrice
+												);
+
+											// Use real-time PnL if available, fallback to stored PnL
+											const displayPnl =
+												currentPositionValue.unrealizedPnl !==
+												0
+													? `$${
+															currentPositionValue.unrealizedPnl >=
+															0
+																? "+"
+																: ""
+													  }${currentPositionValue.unrealizedPnl.toFixed(
+															2
+													  )}`
+													: position.pnl;
+
+											const displayPnlPercentage =
+												currentPositionValue.unrealizedPnlPercentage !==
+												"0.00%"
+													? currentPositionValue.unrealizedPnlPercentage
+													: calculatePnlPercentage(
+															position.pnlRaw,
+															position.margin
+													  );
+
+											const isProfitable =
+												currentPositionValue.unrealizedPnl !==
+												0
+													? currentPositionValue.unrealizedPnl >
+													  0
+													: isPositionProfitable(
+															position.pnlRaw
+													  );
+
+											return (
+												<tr
+													key={position.id}
+													className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+												>
+													<td className="p-4 text-white font-medium">
+														{position.pair}
+													</td>
+													<td className="p-4">
+														<Badge
+															variant={
+																position.side ===
+																"Long"
+																	? "default"
+																	: "destructive"
+															}
+															className={
+																position.side ===
+																"Long"
+																	? "bg-green-600 hover:bg-green-700"
+																	: "bg-red-600 hover:bg-red-700"
+															}
+														>
+															{position.side}{" "}
+															{position.leverage}
+														</Badge>
+													</td>
+													<td className="p-4 text-white">
+														{positionSize}
+													</td>
+													<td className="p-4 text-gray-300">
+														{position.entryPrice}
+													</td>
+													<td className="p-4 text-yellow-400">
+														{
+															position.liquidationPrice
+														}
+													</td>
+													<td className="p-4">
+														<div
+															className={`font-medium ${
+																isProfitable
+																	? "text-green-400"
+																	: "text-red-400"
+															}`}
+														>
+															{displayPnl}
+														</div>
+														<div
+															className={`text-sm ${
+																isProfitable
+																	? "text-green-400"
+																	: "text-red-400"
+															}`}
+														>
+															{
+																displayPnlPercentage
+															}
+														</div>
+													</td>
+													<td className="p-4 text-gray-300">
+														{position.margin}
+													</td>
+													<td className="p-4">
+														<Badge
+															variant="outline"
+															className={
+																position.status ===
+																"OPEN"
+																	? "border-green-500 text-green-400"
+																	: position.status ===
+																	  "CLOSED"
+																	? "border-gray-500 text-gray-400"
+																	: "border-yellow-500 text-yellow-400"
+															}
+														>
+															{position.status}
+														</Badge>
+													</td>
+													<td className="p-4">
+														{position.status ===
+															"OPEN" && (
+															<Button
+																size="sm"
+																variant="outline"
+																className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+																onClick={() => {
+																	// TODO: Implement close position functionality
+																	console.log(
+																		"Close position:",
+																		position.id
+																	);
+																}}
+															>
+																Close
+															</Button>
+														)}
+														{position.status ===
+															"CLOSED" && (
+															<Button
+																size="sm"
+																variant="outline"
+																disabled
+																className="border-gray-600 text-gray-400"
+															>
+																Closed
+															</Button>
+														)}
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 			</main>

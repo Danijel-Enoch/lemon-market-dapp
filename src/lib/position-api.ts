@@ -139,3 +139,227 @@ export function validateLeverage(leverage: number): {
 
 	return { valid: true };
 }
+
+export interface Position {
+	id: string;
+	positionId: string;
+	pair: string;
+	side: "Long" | "Short";
+	tokenSymbol: string;
+	isLong: boolean;
+	entryPrice: string;
+	exitPrice?: string | null;
+	margin: string;
+	leverage: string;
+	leverageValue: number;
+	liquidationPrice: string;
+	status: string;
+	pnl: string;
+	pnlRaw: string | null;
+	openedAt: string;
+	lastUpdatedAt: string;
+	lastTransactionHash: string;
+	trader: string;
+}
+
+export interface GetPositionsResponse {
+	success: boolean;
+	positions: Position[];
+	count: number;
+	error?: string;
+	details?: any;
+}
+
+/**
+ * Fetch user positions from the API
+ */
+export async function getUserPositions(
+	traderAddress: string
+): Promise<GetPositionsResponse> {
+	try {
+		const response = await fetch(
+			`/api/positions?trader=${encodeURIComponent(traderAddress)}`,
+			{
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json"
+				}
+			}
+		);
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			throw new Error(
+				errorData.error || `HTTP error! status: ${response.status}`
+			);
+		}
+
+		return await response.json();
+	} catch (error) {
+		console.error("Error fetching user positions:", error);
+		return {
+			success: false,
+			positions: [],
+			count: 0,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to fetch positions"
+		};
+	}
+}
+
+/**
+ * Calculate PnL percentage
+ */
+export function calculatePnlPercentage(
+	pnlRaw: string | null,
+	margin: string
+): string {
+	try {
+		if (!pnlRaw || pnlRaw === "null") return "0.00%";
+
+		const pnl = parseFloat(pnlRaw) / 1e6; // Assuming USDC with 6 decimals
+		const marginAmount = parseFloat(margin.replace(/[$,]/g, ""));
+
+		if (marginAmount === 0 || isNaN(pnl) || !isFinite(pnl)) return "0.00%";
+
+		const percentage = (pnl / marginAmount) * 100;
+		const sign = percentage >= 0 ? "+" : "";
+
+		return `${sign}${percentage.toFixed(2)}%`;
+	} catch {
+		return "0.00%";
+	}
+}
+
+/**
+ * Determine if position is profitable
+ */
+export function isPositionProfitable(pnlRaw: string | null): boolean {
+	try {
+		if (!pnlRaw || pnlRaw === "null") return false;
+		const pnl = parseFloat(pnlRaw);
+		return !isNaN(pnl) && isFinite(pnl) && pnl > 0;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Format position size for display - shows token amount and current worth
+ */
+export function formatPositionSize(
+	margin: string,
+	leverage: string,
+	entryPrice: string,
+	tokenSymbol: string,
+	currentPrice?: string
+): string {
+	try {
+		const marginAmount = parseFloat(margin.replace(/[\$,]/g, ""));
+		const leverageValue = parseFloat(leverage.replace(/x/g, ""));
+		const entryPriceValue = parseFloat(entryPrice.replace(/[\$,]/g, ""));
+
+		if (
+			entryPriceValue === 0 ||
+			isNaN(entryPriceValue) ||
+			isNaN(marginAmount) ||
+			isNaN(leverageValue)
+		) {
+			return `0 ${tokenSymbol}`;
+		}
+
+		// Calculate the actual token amount based on total exposure / entry price
+		const totalExposure = marginAmount * leverageValue;
+		const tokenAmount = totalExposure / entryPriceValue;
+
+		// If current price is provided, show current worth
+		if (currentPrice) {
+			const currentPriceValue = parseFloat(
+				currentPrice.replace(/[\$,]/g, "")
+			);
+			if (currentPriceValue > 0 && !isNaN(currentPriceValue)) {
+				const currentWorth = tokenAmount * currentPriceValue;
+				return `${tokenAmount.toFixed(
+					6
+				)} ${tokenSymbol} ($${currentWorth.toFixed(2)})`;
+			}
+		}
+
+		// Fallback to just token amount if no current price
+		return `${tokenAmount.toFixed(6)} ${tokenSymbol}`;
+	} catch {
+		return `0 ${tokenSymbol}`;
+	}
+}
+
+/**
+ * Calculate current position value with current market price
+ */
+export function calculatePositionCurrentValue(
+	margin: string,
+	leverage: string,
+	entryPrice: string,
+	currentPrice: string,
+	isLong: boolean
+): {
+	tokenAmount: number;
+	currentWorth: number;
+	unrealizedPnl: number;
+	unrealizedPnlPercentage: string;
+} {
+	try {
+		const marginAmount = parseFloat(margin.replace(/[\$,]/g, ""));
+		const leverageValue = parseFloat(leverage.replace(/x/g, ""));
+		const entryPriceValue = parseFloat(entryPrice.replace(/[\$,]/g, ""));
+		const currentPriceValue = parseFloat(
+			currentPrice.replace(/[\$,]/g, "")
+		);
+
+		if (entryPriceValue === 0 || currentPriceValue === 0) {
+			return {
+				tokenAmount: 0,
+				currentWorth: 0,
+				unrealizedPnl: 0,
+				unrealizedPnlPercentage: "0.00%"
+			};
+		}
+
+		// Calculate token amount based on total exposure / entry price
+		const totalExposure = marginAmount * leverageValue;
+		const tokenAmount = totalExposure / entryPriceValue;
+
+		// Current worth of the position
+		const currentWorth = tokenAmount * currentPriceValue;
+
+		// Calculate unrealized PnL
+		const priceChange = currentPriceValue - entryPriceValue;
+		const pnlMultiplier = isLong ? 1 : -1; // Short positions profit when price goes down
+		const unrealizedPnl =
+			(priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
+
+		// PnL percentage based on margin
+		const unrealizedPnlPercentage =
+			marginAmount > 0
+				? `${unrealizedPnl >= 0 ? "+" : ""}${(
+						(unrealizedPnl / marginAmount) *
+						100
+				  ).toFixed(2)}%`
+				: "0.00%";
+
+		return {
+			tokenAmount,
+			currentWorth,
+			unrealizedPnl,
+			unrealizedPnlPercentage
+		};
+	} catch {
+		return {
+			tokenAmount: 0,
+			currentWorth: 0,
+			unrealizedPnl: 0,
+			unrealizedPnlPercentage: "0.00%"
+		};
+	}
+}
