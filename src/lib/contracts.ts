@@ -1,5 +1,5 @@
-const usdc = "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0";
-const SyntheticPerpetualContract = "0x9A676e781A523b5d0C0e43731313A708CB607508";
+const usdc = "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44";
+const SyntheticPerpetualContract = "0x4A679253410272dd5232B3Ff7cF5dbB88f295319";
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
