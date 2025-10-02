@@ -45,6 +45,12 @@ export function EnhancedPositionsTable({
 			: `$${parseFloat(price).toFixed(6)}`;
 	};
 
+	const formatPriceHighPrecision = (price: string | undefined) => {
+		if (!price) return "N/A";
+		// API now returns prices with 8 decimal precision, just return as-is
+		return price;
+	};
+
 	const formatPnL = (pnl: number | undefined) => {
 		if (pnl === undefined) return "N/A";
 		const formatted = Math.abs(pnl).toFixed(2);
@@ -185,6 +191,9 @@ export function EnhancedPositionsTable({
 										<th className="text-left p-2">
 											Entry Price
 										</th>
+										<th className="text-left p-2">
+											Liquidation Price
+										</th>
 										{isEnhancedMode && (
 											<th className="text-left p-2">
 												Current Price
@@ -242,8 +251,13 @@ export function EnhancedPositionsTable({
 													</Badge>
 												</td>
 												<td className="p-2">
-													{formatPrice(
+													{formatPriceHighPrecision(
 														position.entryPrice
+													)}
+												</td>
+												<td className="p-2">
+													{formatPriceHighPrecision(
+														position.liquidationPrice
 													)}
 												</td>
 												{isEnhancedMode && (

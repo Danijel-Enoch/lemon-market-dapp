@@ -268,18 +268,16 @@ export async function GET(request: NextRequest) {
 function formatPrice(priceWei: string | null): string {
 	try {
 		if (!priceWei || priceWei === "null" || priceWei === "0") {
-			return "$0.00";
+			return "$0.00000000";
 		}
 		const price = parseFloat(priceWei) / 1e18; // Assuming 18 decimals
 		if (isNaN(price) || !isFinite(price)) {
-			return "$0.00";
+			return "$0.00000000";
 		}
-		return `$${price.toLocaleString("en-US", {
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		})}`;
+		// Use 8 decimal places for better precision
+		return `$${price.toFixed(8)}`;
 	} catch {
-		return "$0.00";
+		return "$0.00000000";
 	}
 }
 
