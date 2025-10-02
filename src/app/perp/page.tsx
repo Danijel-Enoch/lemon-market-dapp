@@ -45,7 +45,11 @@ import {
 	type Position
 } from "@/lib/position-api";
 import { useUserPositions } from "@/hooks/useUserPositions";
-import { getTokenPriceByPair, formatPrice, formatPriceChange } from "@/lib/oracle";
+import {
+	getTokenPriceByPair,
+	formatPrice,
+	formatPriceChange
+} from "@/lib/oracle";
 
 export default function PerpPage() {
 	const searchParams = useSearchParams();
@@ -142,15 +146,20 @@ export default function PerpPage() {
 	// Fetch the latest token price
 	const fetchLatestPrice = async () => {
 		if (!tradingPair.pairAddress) return;
-		
+
 		setIsLoadingPrice(true);
 		try {
-			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, "bsc");
+			const tokenPrice = await getTokenPriceByPair(
+				tradingPair.pairAddress,
+				"bsc"
+			);
 			if (tokenPrice) {
-				setTradingPair(prev => ({
+				setTradingPair((prev) => ({
 					...prev,
 					price: formatPrice(tokenPrice.priceUsd),
-					change: tokenPrice.priceChange24h ? formatPriceChange(tokenPrice.priceChange24h) : prev.change
+					change: tokenPrice.priceChange24h
+						? formatPriceChange(tokenPrice.priceChange24h)
+						: prev.change
 				}));
 				setLastPriceUpdate(new Date());
 			}
@@ -403,7 +412,9 @@ export default function PerpPage() {
 										<div className="flex items-center space-x-2">
 											<div className="text-2xl font-bold text-green-400">
 												{isLoadingPrice ? (
-													<div className="animate-pulse">Loading...</div>
+													<div className="animate-pulse">
+														Loading...
+													</div>
 												) : (
 													tradingPair.price
 												)}
@@ -417,7 +428,11 @@ export default function PerpPage() {
 												title="Refresh price"
 											>
 												<svg
-													className={`h-4 w-4 ${isLoadingPrice ? 'animate-spin' : ''}`}
+													className={`h-4 w-4 ${
+														isLoadingPrice
+															? "animate-spin"
+															: ""
+													}`}
 													fill="none"
 													stroke="currentColor"
 													viewBox="0 0 24 24"
@@ -431,11 +446,15 @@ export default function PerpPage() {
 												</svg>
 											</Button>
 										</div>
-										<Badge className={`${
-											tradingPair.change.startsWith('+') 
-												? 'bg-green-600 hover:bg-green-700' 
-												: 'bg-red-600 hover:bg-red-700'
-										}`}>
+										<Badge
+											className={`${
+												tradingPair.change.startsWith(
+													"+"
+												)
+													? "bg-green-600 hover:bg-green-700"
+													: "bg-red-600 hover:bg-red-700"
+											}`}
+										>
 											{tradingPair.change}
 										</Badge>
 									</div>
@@ -444,7 +463,8 @@ export default function PerpPage() {
 							<CardContent>
 								{lastPriceUpdate && (
 									<div className="mb-2 text-xs text-gray-500 text-right">
-										Last updated: {lastPriceUpdate.toLocaleTimeString()}
+										Last updated:{" "}
+										{lastPriceUpdate.toLocaleTimeString()}
 									</div>
 								)}
 								<div id="dexscreener-embed">
