@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ToastDemo } from "@/components/ui/ToastDemo";
 
 // Types
 interface Token {

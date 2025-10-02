@@ -27,6 +27,7 @@ import {
 	isPositionProfitable,
 	formatPositionSize
 } from "@/lib/position-api";
+import { Toast } from "@/components/ui/toast";
 
 interface PositionsTableProps {
 	positions: Position[];
@@ -53,7 +54,6 @@ export function PositionsTable({
 	);
 	const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
 	const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
-	const [isProcessing, setIsProcessing] = useState(false);
 	const [apiError, setApiError] = useState<string | null>(null);
 
 	// Modify position form state
@@ -76,10 +76,15 @@ export function PositionsTable({
 			return;
 		}
 
-		setIsProcessing(true);
 		setApiError(null);
 
 		try {
+			// Show initial loading toast
+			const loadingToastId = Toast.transaction.pending(
+				`Closing ${position.pair} position...`,
+				{ description: "Please confirm the transaction in your wallet" }
+			);
+
 			const tokenSymbol = extractTokenSymbol(position.pair);
 
 			const result = await closePosition({
@@ -90,31 +95,48 @@ export function PositionsTable({
 			});
 
 			if (!result.success) {
+				Toast.dismiss(loadingToastId);
 				throw new Error(result.error || "Failed to close position");
 			}
 
-			if (result.data) {
-				sendTransaction({
-					to: result.data.to as `0x${string}`,
-					data: result.data.data as `0x${string}`,
-					value: BigInt(0),
-					gas: result.data.gasEstimate
-						? BigInt(result.data.gasEstimate)
-						: undefined
-				});
-
-				setIsCloseDialogOpen(false);
-				setSelectedPosition(null);
+			if (!result.data) {
+				Toast.dismiss(loadingToastId);
+				throw new Error("No transaction data returned from API");
 			}
+
+			// Send the transaction
+			sendTransaction({
+				to: result.data.to as `0x${string}`,
+				data: result.data.data as `0x${string}`,
+				value: BigInt(0),
+				gas: result.data.gasEstimate
+					? BigInt(result.data.gasEstimate)
+					: undefined
+			});
+
+			// Dismiss loading toast and show success
+			Toast.dismiss(loadingToastId);
+			Toast.transaction.success(
+				`Successfully submitted close transaction for ${position.pair}!`,
+				{
+					description:
+						"Transaction is being processed on the blockchain"
+				}
+			);
+
+			// Close the dialog
+			setIsCloseDialogOpen(false);
+			setSelectedPosition(null);
 		} catch (error) {
 			console.error("Error closing position:", error);
-			setApiError(
+			const errorMessage =
 				error instanceof Error
 					? error.message
-					: "Failed to close position"
-			);
-		} finally {
-			setIsProcessing(false);
+					: "Failed to close position";
+			setApiError(errorMessage);
+			Toast.transaction.failed("Failed to close position", {
+				description: errorMessage
+			});
 		}
 	};
 
@@ -138,10 +160,15 @@ export function PositionsTable({
 			return;
 		}
 
-		setIsProcessing(true);
 		setApiError(null);
 
 		try {
+			// Show initial loading toast
+			const loadingToastId = Toast.transaction.pending(
+				`Modifying ${selectedPosition.pair} position...`,
+				{ description: "Please confirm the transaction in your wallet" }
+			);
+
 			const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
 
 			const result = await modifyPosition({
@@ -154,33 +181,50 @@ export function PositionsTable({
 			});
 
 			if (!result.success) {
+				Toast.dismiss(loadingToastId);
 				throw new Error(result.error || "Failed to modify position");
 			}
 
-			if (result.data) {
-				sendTransaction({
-					to: result.data.to as `0x${string}`,
-					data: result.data.data as `0x${string}`,
-					value: BigInt(0),
-					gas: result.data.gasEstimate
-						? BigInt(result.data.gasEstimate)
-						: undefined
-				});
-
-				setIsModifyDialogOpen(false);
-				setSelectedPosition(null);
-				setNewMargin("");
-				setNewLeverage(2);
+			if (!result.data) {
+				Toast.dismiss(loadingToastId);
+				throw new Error("No transaction data returned from API");
 			}
+
+			// Send the transaction
+			sendTransaction({
+				to: result.data.to as `0x${string}`,
+				data: result.data.data as `0x${string}`,
+				value: BigInt(0),
+				gas: result.data.gasEstimate
+					? BigInt(result.data.gasEstimate)
+					: undefined
+			});
+
+			// Dismiss loading toast and show success
+			Toast.dismiss(loadingToastId);
+			Toast.transaction.success(
+				`Successfully submitted modification for ${selectedPosition.pair}!`,
+				{
+					description:
+						"Transaction is being processed on the blockchain"
+				}
+			);
+
+			// Close the dialog and reset form
+			setIsModifyDialogOpen(false);
+			setSelectedPosition(null);
+			setNewMargin("");
+			setNewLeverage(2);
 		} catch (error) {
 			console.error("Error modifying position:", error);
-			setApiError(
+			const errorMessage =
 				error instanceof Error
 					? error.message
-					: "Failed to modify position"
-			);
-		} finally {
-			setIsProcessing(false);
+					: "Failed to modify position";
+			setApiError(errorMessage);
+			Toast.transaction.failed("Failed to modify position", {
+				description: errorMessage
+			});
 		}
 	};
 
@@ -199,11 +243,18 @@ export function PositionsTable({
 		setIsModifyDialogOpen(true);
 	};
 
-	// Refresh positions after successful transaction
+	// Handle transaction confirmation
 	if (isConfirmed && hash) {
+		// Show confirmation toast
+		Toast.transaction.confirmed("Transaction confirmed!", {
+			hash,
+			description: "Your transaction has been confirmed on the blockchain"
+		});
+
+		// Refresh positions after confirmation
 		setTimeout(() => {
 			onRefetch();
-		}, 3000);
+		}, 2000);
 	}
 
 	return (
@@ -559,7 +610,7 @@ export function PositionsTable({
 							<Button
 								variant="outline"
 								onClick={() => setIsCloseDialogOpen(false)}
-								disabled={isProcessing || isPending}
+								disabled={isPending}
 							>
 								Cancel
 							</Button>
@@ -568,12 +619,10 @@ export function PositionsTable({
 									selectedPosition &&
 									handleClosePosition(selectedPosition)
 								}
-								disabled={isProcessing || isPending}
+								disabled={isPending}
 								className="bg-red-600 hover:bg-red-700"
 							>
-								{isProcessing || isPending
-									? "Processing..."
-									: "Close Position"}
+								{isPending ? "Processing..." : "Close Position"}
 							</Button>
 						</div>
 					</div>
@@ -703,16 +752,16 @@ export function PositionsTable({
 							<Button
 								variant="outline"
 								onClick={() => setIsModifyDialogOpen(false)}
-								disabled={isProcessing || isPending}
+								disabled={isPending}
 							>
 								Cancel
 							</Button>
 							<Button
 								onClick={handleModifyPosition}
-								disabled={isProcessing || isPending}
+								disabled={isPending}
 								className="bg-blue-600 hover:bg-blue-700"
 							>
-								{isProcessing || isPending
+								{isPending
 									? "Processing..."
 									: "Modify Position"}
 							</Button>
