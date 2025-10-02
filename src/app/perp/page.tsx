@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import {
 	useAccount,
 	useSendTransaction,
@@ -35,7 +35,7 @@ import {
 	formatPriceChange
 } from "@/lib/oracle";
 
-export default function PerpPage() {
+function PerpContent() {
 	const searchParams = useSearchParams();
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "BTC/USDT",
@@ -931,5 +931,13 @@ export default function PerpPage() {
 				</div>
 			</main>
 		</div>
+	);
+}
+
+export default function PerpPage() {
+	return (
+		<Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>}>
+			<PerpContent />
+		</Suspense>
 	);
 }
