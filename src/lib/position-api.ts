@@ -2,6 +2,12 @@
  * Position API utilities for frontend integration
  */
 
+import {
+	getTokenPriceService,
+	type TokenPriceData,
+	type PnLCalculation
+} from "./token-price-service";
+
 export interface CreatePositionRequest {
 	tokenSymbol: string;
 	isLong: boolean;
@@ -162,12 +168,32 @@ export interface Position {
 	trader: string;
 }
 
+export interface EnhancedPosition extends Position {
+	currentPrice?: string;
+	unrealizedPnL?: number;
+	unrealizedPnLPercentage?: number;
+	tokenAmount?: number;
+	currentValue?: number;
+	priceSource?: "lemon-oracle" | "dexscreener" | "coingecko";
+	priceConfidence?: "high" | "medium" | "low";
+}
+
 export interface GetPositionsResponse {
 	success: boolean;
 	positions: Position[];
 	count: number;
 	error?: string;
 	details?: unknown;
+}
+
+export interface GetEnhancedPositionsResponse {
+	success: boolean;
+	positions: EnhancedPosition[];
+	count: number;
+	error?: string;
+	details?: unknown;
+	totalPortfolioValue?: number;
+	totalUnrealizedPnL?: number;
 }
 
 /**
@@ -442,4 +468,134 @@ export async function modifyPosition(
 	}
 
 	return response.json();
+}
+
+/**
+ * Enrich position data with real-time PnL calculations using the token price service
+ */
+export async function enrichPositionsWithPrices(
+	positions: Position[]
+): Promise<EnhancedPosition[]> {
+	if (!positions.length) return [];
+
+	const tokenPriceService = getTokenPriceService();
+
+	// Get unique token symbols
+	const uniqueSymbols = [...new Set(positions.map((pos) => pos.tokenSymbol))];
+
+	// Fetch current prices for all tokens
+	const priceMap = await tokenPriceService.getMultipleTokenPrices(
+		uniqueSymbols
+	);
+
+	// Enrich each position with real-time data
+	const enrichedPositions = await Promise.all(
+		positions.map(async (position) => {
+			const priceData = priceMap.get(position.tokenSymbol.toUpperCase());
+
+			if (!priceData) {
+				// Return position without enhancement if no price data
+				return {
+					...position,
+					currentPrice: undefined,
+					unrealizedPnL: undefined,
+					unrealizedPnLPercentage: undefined,
+					tokenAmount: undefined,
+					currentValue: undefined
+				} as EnhancedPosition;
+			}
+
+			// Calculate PnL using the token price service
+			const pnlCalculation = await tokenPriceService.calculatePositionPnL(
+				position.tokenSymbol,
+				position.entryPrice,
+				position.margin,
+				position.leverage,
+				position.isLong,
+				position.liquidationPrice
+			);
+
+			return {
+				...position,
+				currentPrice: priceData.priceUSD,
+				unrealizedPnL: pnlCalculation?.unrealizedPnL || 0,
+				unrealizedPnLPercentage:
+					pnlCalculation?.unrealizedPnLPercentage || 0,
+				tokenAmount: pnlCalculation?.tokenAmount || 0,
+				currentValue: pnlCalculation?.currentValue || 0,
+				priceSource: priceData.source,
+				priceConfidence: priceData.confidence
+			} as EnhancedPosition;
+		})
+	);
+
+	return enrichedPositions;
+}
+
+/**
+ * Fetch user positions with enhanced real-time PnL calculations using the enhanced API
+ */
+export async function getEnhancedUserPositions(
+	traderAddress: string
+): Promise<GetEnhancedPositionsResponse> {
+	try {
+		const response = await fetch(
+			`/api/positions/enhanced?trader=${encodeURIComponent(
+				traderAddress
+			)}`,
+			{
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json"
+				}
+			}
+		);
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			throw new Error(
+				errorData.error || `HTTP error! status: ${response.status}`
+			);
+		}
+
+		const data = await response.json();
+
+		return {
+			success: data.success,
+			positions: data.positions || [],
+			count: data.count || 0,
+			totalPortfolioValue: data.totalPortfolioValue,
+			totalUnrealizedPnL: data.totalUnrealizedPnL,
+			error: data.error
+		};
+	} catch (error) {
+		console.error("Error fetching enhanced user positions:", error);
+		return {
+			success: false,
+			positions: [],
+			count: 0,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to fetch enhanced positions"
+		};
+	}
+}
+
+/**
+ * Calculate unrealized PnL based on current price
+ */
+function calculateUnrealizedPnl(
+	position: Position,
+	currentPrice: number | null
+): number | null {
+	if (!currentPrice) return null;
+
+	const entryPrice = parseFloat(position.entryPrice);
+	const marginAmount = parseFloat(position.margin);
+	const leverageValue = parseFloat(position.leverage);
+	const tokenAmount = (marginAmount * leverageValue) / entryPrice;
+
+	// PnL calculation: (Current Price - Entry Price) * Token Amount
+	return (currentPrice - entryPrice) * tokenAmount;
 }

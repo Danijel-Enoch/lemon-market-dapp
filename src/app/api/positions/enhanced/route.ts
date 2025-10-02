@@ -1,7 +1,16 @@
+/**
+ * Enhanced Positions API Endpoint
+ *
+ * This endpoint provides enhanced position data with real-time PnL calculations
+ * using the token price service and lemon oracle client.
+ *
+ * GET /api/positions/enhanced?trader=<address>
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenPriceService } from "@/lib/token-price-service";
 
-// GraphQL query to fetch positions
+// GraphQL query to fetch positions (same as regular positions route)
 const POSITIONS_QUERY = `
   query GetPositions($trader: String!) {
     positions(where: {trader: $trader}) {
@@ -67,7 +76,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Validate trader address format (basic check)
+		// Validate trader address format
 		if (!trader.match(/^0x[a-fA-F0-9]{40}$/)) {
 			return NextResponse.json(
 				{ error: "Invalid trader address format" },
@@ -75,7 +84,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Make GraphQL request to the subgraph
+		// Fetch positions from subgraph
 		const response = await fetch(
 			"http://localhost:8000/subgraphs/name/lemon-v1",
 			{
@@ -86,7 +95,7 @@ export async function GET(request: NextRequest) {
 				body: JSON.stringify({
 					query: POSITIONS_QUERY,
 					variables: {
-						trader: trader.toLowerCase() // Ensure lowercase for consistency
+						trader: trader.toLowerCase()
 					}
 				})
 			}
@@ -142,14 +151,12 @@ export async function GET(request: NextRequest) {
 			trader: position.trader
 		}));
 
-		// Check if enhanced mode is requested (with real-time PnL)
-		const enhanced = searchParams.get("enhanced") === "true";
-
-		if (enhanced && transformedPositions.length > 0) {
+		// Get enhanced data using token price service
+		if (transformedPositions.length > 0) {
 			try {
 				const tokenPriceService = getTokenPriceService();
 
-				// Get unique token symbols for open positions
+				// Get unique token symbols for open positions only
 				const openPositions = transformedPositions.filter(
 					(p) => p.status === "OPEN"
 				);
@@ -157,15 +164,19 @@ export async function GET(request: NextRequest) {
 					...new Set(openPositions.map((pos) => pos.tokenSymbol))
 				];
 
+				let enhancedPositions = transformedPositions;
+				let totalUnrealizedPnL = 0;
+				let totalPortfolioValue = 0;
+
 				if (uniqueSymbols.length > 0) {
-					// Fetch current prices
+					// Fetch current prices for all tokens
 					const priceMap =
 						await tokenPriceService.getMultipleTokenPrices(
 							uniqueSymbols
 						);
 
 					// Enhance positions with real-time data
-					const enhancedPositions = await Promise.all(
+					enhancedPositions = await Promise.all(
 						transformedPositions.map(async (position) => {
 							if (position.status !== "OPEN") {
 								return position; // Don't enhance closed positions
@@ -190,7 +201,7 @@ export async function GET(request: NextRequest) {
 									position.liquidationPrice
 								);
 
-							return {
+							const enhanced = {
 								...position,
 								currentPrice: `$${parseFloat(
 									priceData.priceUSD
@@ -206,42 +217,35 @@ export async function GET(request: NextRequest) {
 								priceConfidence: priceData.confidence,
 								lastPriceUpdate: Date.now()
 							};
+
+							// Add to totals
+							totalUnrealizedPnL += enhanced.unrealizedPnL || 0;
+							totalPortfolioValue += enhanced.currentValue || 0;
+
+							return enhanced;
 						})
 					);
-
-					// Calculate portfolio totals
-					const totalUnrealizedPnL = enhancedPositions
-						.filter((p) => p.status === "OPEN")
-						.reduce(
-							(sum, pos) =>
-								sum + ((pos as any).unrealizedPnL || 0),
-							0
-						);
-
-					const totalPortfolioValue = enhancedPositions
-						.filter((p) => p.status === "OPEN")
-						.reduce(
-							(sum, pos) =>
-								sum + ((pos as any).currentValue || 0),
-							0
-						);
-
-					return NextResponse.json({
-						success: true,
-						positions: enhancedPositions,
-						count: enhancedPositions.length,
-						enhanced: true,
-						totalUnrealizedPnL,
-						totalPortfolioValue,
-						priceUpdateTimestamp: Date.now()
-					});
 				}
+
+				return NextResponse.json({
+					success: true,
+					positions: enhancedPositions,
+					count: enhancedPositions.length,
+					enhanced: true,
+					totalUnrealizedPnL,
+					totalPortfolioValue,
+					priceUpdateTimestamp: Date.now()
+				});
 			} catch (error) {
-				console.warn(
-					"Error fetching real-time prices, falling back to basic positions:",
-					error
-				);
-				// Fall through to return basic positions
+				console.error("Error fetching enhanced position data:", error);
+				// Fall back to basic positions if enhancement fails
+				return NextResponse.json({
+					success: true,
+					positions: transformedPositions,
+					count: transformedPositions.length,
+					enhanced: false,
+					error: "Price enhancement failed, returning basic positions"
+				});
 			}
 		}
 
@@ -252,7 +256,7 @@ export async function GET(request: NextRequest) {
 			enhanced: false
 		});
 	} catch (error) {
-		console.error("Error fetching positions:", error);
+		console.error("Error in enhanced positions endpoint:", error);
 		return NextResponse.json(
 			{
 				error: "Internal server error",

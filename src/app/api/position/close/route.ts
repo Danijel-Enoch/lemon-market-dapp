@@ -26,6 +26,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getTokenPriceService } from "@/lib/token-price-service";
 import {
 	createPublicClient,
 	createWalletClient,
@@ -170,51 +171,41 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Fetch current price from oracle
-		let tokenPrice;
+		// Fetch current price using enhanced token price service
+		let tokenPriceData;
 		try {
-			// Use pair address for more accurate pricing if available
-			if (body.pairAddress) {
+			console.log(
+				`Fetching current price for ${body.tokenSymbol} to close position`
+			);
+
+			const tokenPriceService = getTokenPriceService();
+			tokenPriceData = await tokenPriceService.getTokenPrice(
+				body.tokenSymbol,
+				body.pairAddress
+			);
+
+			if (tokenPriceData) {
 				console.log(
-					`Fetching price using pair address: ${body.pairAddress} for ${body.tokenSymbol}`
+					`Successfully fetched price: $${tokenPriceData.priceUSD} for ${body.tokenSymbol}`,
+					`(source: ${tokenPriceData.source}, confidence: ${tokenPriceData.confidence})`
 				);
-				tokenPrice = await getTokenPriceByPair(body.pairAddress, "bsc");
-
-				if (tokenPrice) {
-					console.log(
-						`Successfully fetched price from pair: $${tokenPrice.priceUsd} for ${tokenPrice.symbol}`
-					);
-				}
-			}
-
-			// Fallback to token symbol if pair address fails or not provided
-			if (!tokenPrice) {
-				console.log(
-					`Fetching price using token symbol: ${body.tokenSymbol} (fallback method)`
-				);
-				tokenPrice = await getTokenPrice(
-					body.tokenSymbol.toLowerCase(),
-					"bsc"
-				);
-
-				if (tokenPrice) {
-					console.log(
-						`Successfully fetched price from symbol: $${tokenPrice.priceUsd} for ${tokenPrice.symbol}`
-					);
-				}
 			}
 		} catch (error) {
-			console.error("Oracle price fetch error:", error);
+			console.error("Token price service error:", error);
 			return NextResponse.json(
 				{
 					success: false,
-					error: "Failed to fetch current token price"
+					error: "Failed to fetch current token price from oracle service"
 				},
 				{ status: 503 }
 			);
 		}
 
-		if (!tokenPrice || !tokenPrice.priceUsd || tokenPrice.priceUsd <= 0) {
+		if (
+			!tokenPriceData ||
+			!tokenPriceData.priceUSD ||
+			parseFloat(tokenPriceData.priceUSD) <= 0
+		) {
 			return NextResponse.json(
 				{
 					success: false,
@@ -229,7 +220,8 @@ export async function POST(request: NextRequest) {
 		const nonce = generateNonce();
 
 		// Convert price to appropriate decimals (18 decimals for price oracle)
-		const priceInWei = parseUnits(tokenPrice.priceUsd.toFixed(18), 18);
+		const priceValue = parseFloat(tokenPriceData.priceUSD);
+		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
 		const oracleData: OracleData = {
 			tokenSymbol: body.tokenSymbol.toUpperCase(),
