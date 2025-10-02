@@ -936,7 +936,13 @@ function PerpContent() {
 
 export default function PerpPage() {
 	return (
-		<Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>}>
+		<Suspense
+			fallback={
+				<div className="min-h-screen bg-black text-white flex items-center justify-center">
+					Loading...
+				</div>
+			}
+		>
 			<PerpContent />
 		</Suspense>
 	);

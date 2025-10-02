@@ -464,8 +464,8 @@ export default function Home() {
 				) : (
 					<>
 						{renderTable(filteredTokens, "Top Trending Tokens")}
-						{renderTable(filteredFX, "Trending FX", true)}
-						{renderTable(filteredStocks, "Trending Stocks")}
+						{/* {renderTable(filteredFX, "Trending FX", true)}
+						{renderTable(filteredStocks, "Trending Stocks")} */}
 					</>
 				)}
 			</main>
