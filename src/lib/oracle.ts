@@ -173,11 +173,17 @@ async function fetchFromGeckoTerminal(
 		);
 
 		// Get token info from included data
-		const tokenInfo = data.included?.find(
-			(item: any) =>
-				item.type === "token" &&
-				item.id === bestPool.relationships.base_token.data.id
-		);
+		const tokenInfo = data.included?.find((item: unknown) => {
+			const typedItem = item as {
+				type: string;
+				id: string;
+				attributes?: { symbol?: string; name?: string };
+			};
+			return (
+				typedItem.type === "token" &&
+				typedItem.id === bestPool.relationships.base_token.data.id
+			);
+		}) as { attributes?: { symbol?: string; name?: string } } | undefined;
 
 		return {
 			address: tokenAddress,

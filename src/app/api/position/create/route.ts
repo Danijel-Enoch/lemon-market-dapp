@@ -38,11 +38,10 @@ import {
 	encodeFunctionData,
 	keccak256,
 	encodePacked,
-	verifyMessage,
 	recoverMessageAddress
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { hardhat, localhost, mainnet } from "viem/chains";
+import { hardhat } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
 import { getTokenPrice, getTokenPriceByPair } from "@/lib/oracle";
 

@@ -167,7 +167,7 @@ export interface GetPositionsResponse {
 	positions: Position[];
 	count: number;
 	error?: string;
-	details?: any;
+	details?: unknown;
 }
 
 /**
@@ -362,4 +362,84 @@ export function calculatePositionCurrentValue(
 			unrealizedPnlPercentage: "0.00%"
 		};
 	}
+}
+
+export interface ClosePositionRequest {
+	positionId: string;
+	tokenSymbol: string;
+	userAddress: string;
+	pairAddress?: string; // optional pair address for accurate pricing
+}
+
+export interface ClosePositionResponse {
+	success: boolean;
+	data?: {
+		to: string;
+		data: string;
+		value: string;
+		gasEstimate?: bigint;
+	};
+	error?: string;
+}
+
+export interface ModifyPositionRequest {
+	positionId: string;
+	tokenSymbol: string;
+	newMargin: string; // in USDC
+	newLeverage: number;
+	userAddress: string;
+	pairAddress?: string; // optional pair address for accurate pricing
+}
+
+export interface ModifyPositionResponse {
+	success: boolean;
+	data?: {
+		to: string;
+		data: string;
+		value: string;
+		gasEstimate?: bigint;
+	};
+	error?: string;
+}
+
+/**
+ * Call the position close API
+ */
+export async function closePosition(
+	params: ClosePositionRequest
+): Promise<ClosePositionResponse> {
+	const response = await fetch("/api/position/close", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(params)
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Call the position modify API
+ */
+export async function modifyPosition(
+	params: ModifyPositionRequest
+): Promise<ModifyPositionResponse> {
+	const response = await fetch("/api/position/modify", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(params)
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	}
+
+	return response.json();
 }
