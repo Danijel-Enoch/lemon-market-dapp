@@ -131,14 +131,14 @@ export class TokenPriceService {
 		string,
 		{ data: TokenPriceData; timestamp: number }
 	> = new Map();
-	private cacheTTL = 30000; // 30 seconds
+	private cacheTTL = 5000; // Reduced to 5 seconds for micro price changes
 
 	constructor() {
 		this.lemonClient = new LemonSpotPriceClient({
 			baseUrl: LEMON_ORACLE_BASE_URL,
 			timeout: 15000,
 			enableCaching: true,
-			cacheTTL: 30000,
+			cacheTTL: 5000, // Reduced cache TTL for better price sensitivity
 			maxRetries: 2,
 			debug: process.env.NODE_ENV === "development"
 		});

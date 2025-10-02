@@ -5,6 +5,7 @@ import {
 	getEnhancedUserPositions,
 	type Position,
 	type EnhancedPosition,
+	type GetPositionsResponse,
 	type GetEnhancedPositionsResponse
 } from "@/lib/position-api";
 
@@ -165,6 +166,35 @@ export function useUserPositions(): UseUserPositionsResult {
 			return false;
 		}
 	});
+
+	// Auto-refresh positions for real-time PnL updates (only in enhanced mode)
+	useEffect(() => {
+		let intervalId: NodeJS.Timeout;
+
+		if (
+			isConnected &&
+			address &&
+			isEnhancedMode &&
+			openPositions.length > 0
+		) {
+			// Refresh every 10 seconds for micro price change detection
+			intervalId = setInterval(() => {
+				fetchEnhancedPositions();
+			}, 10000);
+		}
+
+		return () => {
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
+		};
+	}, [
+		isConnected,
+		address,
+		isEnhancedMode,
+		openPositions.length,
+		fetchEnhancedPositions
+	]);
 
 	return {
 		positions,

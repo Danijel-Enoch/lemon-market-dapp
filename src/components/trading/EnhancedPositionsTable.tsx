@@ -47,19 +47,29 @@ export function EnhancedPositionsTable({
 
 	const formatPriceHighPrecision = (price: string | undefined) => {
 		if (!price) return "N/A";
-		// API now returns prices with 8 decimal precision, just return as-is
+		// Handle high precision prices - up to 12 decimal places for micro changes
+		if (price.startsWith("$")) {
+			const numPrice = parseFloat(price.substring(1));
+			// Use adaptive precision based on price magnitude
+			const precision = numPrice < 0.001 ? 12 : numPrice < 1 ? 8 : 6;
+			return `$${numPrice.toFixed(precision)}`;
+		}
 		return price;
 	};
 
 	const formatPnL = (pnl: number | undefined) => {
 		if (pnl === undefined) return "N/A";
-		const formatted = Math.abs(pnl).toFixed(2);
+		// Use higher precision for small PnL values
+		const precision = Math.abs(pnl) < 1 ? 6 : Math.abs(pnl) < 10 ? 4 : 2;
+		const formatted = Math.abs(pnl).toFixed(precision);
 		return pnl >= 0 ? `+$${formatted}` : `-$${formatted}`;
 	};
 
 	const formatPercentage = (percentage: number | undefined) => {
 		if (percentage === undefined) return "N/A";
-		const formatted = Math.abs(percentage).toFixed(2);
+		// Use higher precision for small percentage changes
+		const precision = Math.abs(percentage) < 1 ? 4 : 2;
+		const formatted = Math.abs(percentage).toFixed(precision);
 		return percentage >= 0 ? `+${formatted}%` : `-${formatted}%`;
 	};
 
@@ -118,8 +128,14 @@ export function EnhancedPositionsTable({
 			<Card className="mb-4">
 				<CardHeader>
 					<div className="flex items-center justify-between">
-						<CardTitle>Positions</CardTitle>
+						<CardTitle>Positions</CardTitle>{" "}
 						<div className="flex items-center space-x-4">
+							{isEnhancedMode && (
+								<div className="flex items-center space-x-2 text-sm text-gray-500">
+									<div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+									<span>Auto-updating every 10s</span>
+								</div>
+							)}
 							<Button
 								onClick={toggleEnhancedMode}
 								variant={isEnhancedMode ? "default" : "outline"}
@@ -136,7 +152,7 @@ export function EnhancedPositionsTable({
 								variant="outline"
 								size="sm"
 							>
-								Refresh
+								Refresh Now
 							</Button>
 						</div>
 					</div>

@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
 								...position,
 								currentPrice: `$${parseFloat(
 									priceData.priceUSD
-								).toFixed(6)}`,
+								).toFixed(12)}`, // Increased precision for micro changes
 								unrealizedPnL:
 									pnlCalculation?.unrealizedPnL || 0,
 								unrealizedPnLPercentage:
@@ -272,16 +272,17 @@ export async function GET(request: NextRequest) {
 function formatPrice(priceWei: string | null): string {
 	try {
 		if (!priceWei || priceWei === "null" || priceWei === "0") {
-			return "$0.00000000";
+			return "$0.000000000000";
 		}
 		const price = parseFloat(priceWei) / 1e18; // Assuming 18 decimals
 		if (isNaN(price) || !isFinite(price)) {
-			return "$0.00000000";
+			return "$0.000000000000";
 		}
-		// Use 8 decimal places for better precision
-		return `$${price.toFixed(8)}`;
+		// Use adaptive precision for micro changes
+		const precision = price < 0.001 ? 12 : price < 1 ? 8 : 6;
+		return `$${price.toFixed(precision)}`;
 	} catch {
-		return "$0.00000000";
+		return "$0.000000000000";
 	}
 }
 
