@@ -1,5 +1,5 @@
-const usdc = "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44";
-const SyntheticPerpetualContract = "0x4A679253410272dd5232B3Ff7cF5dbB88f295319";
+const usdc = "0x4826533B4897376654Bb4d4AD88B7faFD0C98528";
+const SyntheticPerpetualContract = "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF";
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -93,6 +93,16 @@ const SyntheticAbi = [
 			}
 		],
 		name: "ECDSAInvalidSignatureS",
+		type: "error"
+	},
+	{
+		inputs: [],
+		name: "EnforcedPause",
+		type: "error"
+	},
+	{
+		inputs: [],
+		name: "ExpectedPause",
 		type: "error"
 	},
 	{
@@ -193,6 +203,31 @@ const SyntheticAbi = [
 		anonymous: false,
 		inputs: [
 			{
+				indexed: true,
+				internalType: "address",
+				name: "treasury",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "FeesWithdrawn",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newMinLeverage",
@@ -237,6 +272,31 @@ const SyntheticAbi = [
 		anonymous: false,
 		inputs: [
 			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newMinMargin",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newMaxMargin",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "MarginLimitsUpdated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
 				indexed: true,
 				internalType: "address",
 				name: "previousOwner",
@@ -250,6 +310,19 @@ const SyntheticAbi = [
 			}
 		],
 		name: "OwnershipTransferred",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "address",
+				name: "account",
+				type: "address"
+			}
+		],
+		name: "Paused",
 		type: "event"
 	},
 	{
@@ -438,6 +511,44 @@ const SyntheticAbi = [
 		type: "event"
 	},
 	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "oldTreasury",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "address",
+				name: "newTreasury",
+				type: "address"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "TreasuryWalletUpdated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "address",
+				name: "account",
+				type: "address"
+			}
+		],
+		name: "Unpaused",
+		type: "event"
+	},
+	{
 		inputs: [],
 		name: "BASIS_POINTS",
 		outputs: [
@@ -492,32 +603,6 @@ const SyntheticAbi = [
 	{
 		inputs: [],
 		name: "MAX_PROFIT_RATE",
-		outputs: [
-			{
-				internalType: "uint256",
-				name: "",
-				type: "uint256"
-			}
-		],
-		stateMutability: "view",
-		type: "function"
-	},
-	{
-		inputs: [],
-		name: "MAX_TRADING_MARGIN",
-		outputs: [
-			{
-				internalType: "uint256",
-				name: "",
-				type: "uint256"
-			}
-		],
-		stateMutability: "view",
-		type: "function"
-	},
-	{
-		inputs: [],
-		name: "MIN_TRADING_MARGIN",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -753,6 +838,45 @@ const SyntheticAbi = [
 	{
 		inputs: [
 			{
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "currentPrice",
+				type: "uint256"
+			}
+		],
+		name: "getPositionPnLDetails",
+		outputs: [
+			{
+				internalType: "int256",
+				name: "grossPnL",
+				type: "int256"
+			},
+			{
+				internalType: "int256",
+				name: "netPnL",
+				type: "int256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalFees",
+				type: "uint256"
+			},
+			{
+				internalType: "bool",
+				name: "shouldLiquidate",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "address",
 				name: "trader",
 				type: "address"
@@ -784,7 +908,20 @@ const SyntheticAbi = [
 				type: "uint256"
 			}
 		],
-		stateMutability: "pure",
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "getTreasuryWallet",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
 		type: "function"
 	},
 	{
@@ -847,7 +984,33 @@ const SyntheticAbi = [
 	},
 	{
 		inputs: [],
+		name: "maxTradingMargin",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
 		name: "minLeverage",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "minTradingMargin",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -1000,6 +1163,26 @@ const SyntheticAbi = [
 		type: "function"
 	},
 	{
+		inputs: [],
+		name: "pause",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "paused",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
 		inputs: [
 			{
 				internalType: "uint256",
@@ -1071,6 +1254,40 @@ const SyntheticAbi = [
 		type: "function"
 	},
 	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "currentPrice",
+				type: "uint256"
+			}
+		],
+		name: "simulatePositionClosure",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "payoutAmount",
+				type: "uint256"
+			},
+			{
+				internalType: "int256",
+				name: "liquidityChange",
+				type: "int256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalFeesCharged",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
 		inputs: [],
 		name: "totalFeesCollected",
 		outputs: [
@@ -1134,6 +1351,26 @@ const SyntheticAbi = [
 		type: "function"
 	},
 	{
+		inputs: [],
+		name: "treasuryWallet",
+		outputs: [
+			{
+				internalType: "address",
+				name: "",
+				type: "address"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "unpause",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
 		inputs: [
 			{
 				internalType: "address",
@@ -1160,6 +1397,74 @@ const SyntheticAbi = [
 			}
 		],
 		name: "updateLeverageLimits",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "newMinMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "newMaxMargin",
+				type: "uint256"
+			}
+		],
+		name: "updateMarginLimits",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "newLeverage",
+				type: "uint256"
+			},
+			{
+				components: [
+					{
+						internalType: "string",
+						name: "tokenSymbol",
+						type: "string"
+					},
+					{
+						internalType: "uint256",
+						name: "price",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "timestamp",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "nonce",
+						type: "uint256"
+					}
+				],
+				internalType: "struct SyntheticPerpetual.OracleData",
+				name: "oracleData",
+				type: "tuple"
+			},
+			{
+				internalType: "bytes",
+				name: "signature",
+				type: "bytes"
+			}
+		],
+		name: "updatePositionLeverage",
 		outputs: [],
 		stateMutability: "nonpayable",
 		type: "function"
@@ -1205,6 +1510,19 @@ const SyntheticAbi = [
 			}
 		],
 		name: "updatePositionPnL",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "address",
+				name: "newTreasuryWallet",
+				type: "address"
+			}
+		],
+		name: "updateTreasuryWallet",
 		outputs: [],
 		stateMutability: "nonpayable",
 		type: "function"
