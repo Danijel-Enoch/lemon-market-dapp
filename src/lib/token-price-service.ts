@@ -105,6 +105,16 @@ const TOKEN_ADDRESS_MAP: Record<
 		address: "0x4B948d64dE1F71fCd12fB586f4c776421a35b3eE",
 		chain: "bsc",
 		decimals: 18
+	},
+	BROCCOLI: {
+		address: "0x12B4356C65340Fb02cdff01293F95FEBb1512F3b",
+		chain: "bsc",
+		decimals: 18
+	},
+	priceless: {
+		address: "0x7d03759E5B41E36899833cb2E008455d69A24444",
+		chain: "bsc",
+		decimals: 18
 	}
 };
 
@@ -339,8 +349,7 @@ export class TokenPriceService {
 		// Try Lemon Oracle first (highest confidence)
 		try {
 			const oracleResponse = await this.lemonClient.getPrice(
-				tokenMetadata.address,
-				pairAddress
+				tokenMetadata.address
 			);
 
 			if (oracleResponse.success && oracleResponse.data) {

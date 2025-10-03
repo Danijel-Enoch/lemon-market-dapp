@@ -423,9 +423,6 @@ export class LemonSpotPriceClient {
 		}
 
 		const params = new URLSearchParams({ token: tokenAddress });
-		if (pairAddress) {
-			params.append("pair", pairAddress);
-		}
 
 		return this.request<AggregatedPrice>(`/price?${params.toString()}`);
 	}

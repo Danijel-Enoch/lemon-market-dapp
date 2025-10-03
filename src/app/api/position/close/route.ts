@@ -180,8 +180,7 @@ export async function POST(request: NextRequest) {
 
 			const tokenPriceService = getTokenPriceService();
 			tokenPriceData = await tokenPriceService.getTokenPrice(
-				body.tokenSymbol,
-				body.pairAddress
+				body.tokenSymbol
 			);
 
 			if (tokenPriceData) {

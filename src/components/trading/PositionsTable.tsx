@@ -394,7 +394,7 @@ export function PositionsTable({
 											</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
-													<Button
+													{/* <Button
 														size="sm"
 														variant="outline"
 														onClick={() =>
@@ -405,7 +405,7 @@ export function PositionsTable({
 														className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
 													>
 														Modify
-													</Button>
+													</Button> */}
 													<Button
 														size="sm"
 														variant="outline"
