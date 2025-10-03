@@ -85,6 +85,26 @@ const TOKEN_ADDRESS_MAP: Record<
 		address: "0x86Bb94DdD16Efc8bc58e6b056e8df71D9e666429",
 		chain: "bsc",
 		decimals: 18
+	},
+	ALU: {
+		address: "0x8263CD1601FE73C066bf49cc09841f35348e3be0",
+		chain: "bsc",
+		decimals: 18
+	},
+	GIGGLE: {
+		address: "0xd6B652AECB704b0AEBEc6317315afb90ba641d57",
+		chain: "bsc",
+		decimals: 18
+	},
+	RWA: {
+		address: "0x9C8B5CA345247396bDfAc0395638ca9045C6586E",
+		chain: "bsc",
+		decimals: 18
+	},
+	"0G": {
+		address: "0x4B948d64dE1F71fCd12fB586f4c776421a35b3eE",
+		chain: "bsc",
+		decimals: 18
 	}
 };
 

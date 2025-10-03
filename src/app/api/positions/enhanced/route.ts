@@ -139,8 +139,12 @@ export async function GET(request: NextRequest) {
 			leverageValue: parseFloat(position.leverage),
 			liquidationPrice: formatPrice(position.liquidationPrice),
 			status: position.status,
-			pnl: formatAmount(position.finalPnl),
-			pnlRaw: position.finalPnl,
+			// Don't use subgraph PnL for open positions - calculate real-time PnL instead
+			pnl:
+				position.status === "CLOSED"
+					? formatAmount(position.finalPnl)
+					: "$0.00",
+			pnlRaw: position.status === "CLOSED" ? position.finalPnl : null,
 			openedAt: new Date(
 				parseInt(position.openedAt) * 1000
 			).toISOString(),
