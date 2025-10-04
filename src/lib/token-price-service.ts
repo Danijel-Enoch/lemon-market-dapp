@@ -92,7 +92,7 @@ const TOKEN_ADDRESS_MAP: Record<
 		decimals: 18
 	},
 	GIGGLE: {
-		address: "0xd6B652AECB704b0AEBEc6317315afb90ba641d57",
+		address: "0x20d6015660b3fe52e6690a889b5C51F69902cE0e",
 		chain: "bsc",
 		decimals: 18
 	},

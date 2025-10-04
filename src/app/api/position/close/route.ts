@@ -37,7 +37,7 @@ import {
 	encodePacked
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { hardhat } from "viem/chains";
+import { hardhat, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
 import { getTokenPrice, getTokenPriceByPair } from "@/lib/oracle";
 
@@ -69,7 +69,7 @@ interface ClosePositionResponse {
 
 // Initialize clients
 const publicClient = createPublicClient({
-	chain: hardhat,
+	chain: sepolia,
 	transport: http()
 });
 
@@ -79,7 +79,7 @@ async function signOracleData(
 	traderAddress: string
 ): Promise<string> {
 	const privateKey =
-		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a" as `0x${string}`;
+		"0xf3d594c80d011b791c862b9e0cb42984a3b6d766ab426a57e4d50462e5926bbc" as `0x${string}`;
 
 	if (!privateKey) {
 		throw new Error("Admin private key not found");
@@ -89,7 +89,7 @@ async function signOracleData(
 
 	const walletClient = createWalletClient({
 		account,
-		chain: hardhat,
+		chain: sepolia,
 		transport: http()
 	});
 

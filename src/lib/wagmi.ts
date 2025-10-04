@@ -17,9 +17,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 export const config = getDefaultConfig({
 	appName: "Lemon Looper",
 	projectId: projectId,
-	chains: isDevelopment
-		? [mainnet, sepolia, arbitrum, polygon, localhost, hardhat]
-		: [mainnet, sepolia, arbitrum, polygon],
+	chains: isDevelopment ? [sepolia] : [sepolia],
 	ssr: true // If your dApp uses server side rendering (SSR)
 });
 
