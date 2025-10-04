@@ -16,7 +16,7 @@ export function Header() {
 						href="/"
 						className="text-teal-400 font-bold text-xl leading-none hover:text-teal-300 transition-colors"
 					>
-						lemon-looper
+						lemon-perp
 					</Link>
 				</div>
 
