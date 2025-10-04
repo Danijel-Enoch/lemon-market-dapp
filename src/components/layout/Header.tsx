@@ -1,92 +1,74 @@
 "use client";
 
+import { Lock, Repeat, TrendingUp, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
 export function Header() {
-	const pathname = usePathname();
+    const pathname = usePathname();
 
-	return (
-		<header className="h-16 px-6 border-b border-slate-800">
-			<div className="flex items-center justify-between h-full mx-auto">
-				{/* Logo */}
-				<div className="flex items-center">
-					<Link
-						href="/"
-						className="text-teal-400 font-bold text-xl leading-none hover:text-teal-300 transition-colors"
-					>
-						lemon-perp
-					</Link>
-				</div>
+    const navItems = [
+        { href: "/", label: "Trending", icon: TrendingUp },
+        { href: "/perp", label: "Trade", icon: Repeat },
+        { href: "/bridge", label: "Bridge", icon: Repeat },
+        { href: "/staking", label: "Stake", icon: Lock },
+    ];
 
-				{/* Navigation */}
-				<nav className="flex items-center space-x-8">
-					{/* Main Navigation */}
-					<div className="flex items-center space-x-6">
-						<Link
-							href="/"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/"
-									? "text-gray-400"
-									: "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Trending
-						</Link>
-						<Link
-							href="/perp"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/perp"
-									? "text-gray-400"
-									: "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Perp
-						</Link>
-						<Link
-							href="/bridge"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/bridge"
-									? "text-gray-400"
-									: "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Bridge
-						</Link>
-						<Link
-							href="/staking"
-							className={`font-bold text-sm transition-colors ${
-								pathname === "/staking"
-									? "text-gray-400"
-									: "text-gray-500 hover:text-gray-400"
-							}`}
-						>
-							Staking
-						</Link>
-					</div>
-				</nav>
+    return (
+        <header className="h-16 px-6 border-b border-border bg-card/50 backdrop-blur-sm">
+            <div className="flex items-center justify-between h-full mx-auto max-w-[1600px]">
+                {/* Logo */}
+                <div className="flex items-center">
+                    <Link
+                        href="/"
+                        className="text-primary font-bold text-lg tracking-tight hover:text-primary-hover transition-colors"
+                    >
+                        lemon-perp
+                    </Link>
+                </div>
 
-				{/* Right Section */}
-				<div className="flex items-center space-x-6">
-					{/* Leaderboard */}
-					<Link
-						href="/leaderboard"
-						className={`font-bold text-sm transition-colors ${
-							pathname === "/leaderboard"
-								? "text-gray-500"
-								: "text-gray-600 hover:text-gray-500"
-						}`}
-					>
-						Leaderboard
-					</Link>
+                {/* Navigation */}
+                <nav className="flex items-center space-x-1">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    isActive
+                                        ? "bg-primary/10 text-primary"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                }`}
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span>{item.label}</span>
+                            </Link>
+                        );
+                    })}
+                </nav>
 
-					{/* Fee Profile */}
+                {/* Right Section */}
+                <div className="flex items-center gap-4">
+                    {/* Leaderboard */}
+                    <Link
+                        href="/leaderboard"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            pathname === "/leaderboard"
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        }`}
+                    >
+                        <Trophy className="w-4 h-4" />
+                        <span>Leaderboard</span>
+                    </Link>
 
-					{/* Connect Wallet Button */}
-					<ConnectWallet />
-				</div>
-			</div>
-		</header>
-	);
+                    {/* Connect Wallet Button */}
+                    <ConnectWallet />
+                </div>
+            </div>
+        </header>
+    );
 }

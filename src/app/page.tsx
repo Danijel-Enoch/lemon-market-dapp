@@ -1,475 +1,458 @@
 "use client";
 
-import { Header } from "@/components/layout/Header";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import {
+    ArrowDownRight,
+    ArrowUpRight,
+    Info,
+    Loader2,
+    Search,
+    TrendingUp,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ToastDemo } from "@/components/ui/ToastDemo";
+import { useEffect, useState } from "react";
+import { Header } from "@/components/layout/Header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 // Types
 interface Token {
-	id: number;
-	symbol: string;
-	name: string;
-	price: string;
-	change24h: string;
-	volume: string;
-	marketCap: string;
-	trend: "up" | "down";
-	logo: string;
-	pairAddress?: string;
+    id: number;
+    symbol: string;
+    name: string;
+    price: string;
+    change24h: string;
+    volume: string;
+    marketCap: string;
+    trend: "up" | "down";
+    logo: string;
+    pairAddress?: string;
 }
 
 interface ForexPair {
-	id: number;
-	symbol: string;
-	name: string;
-	price: string;
-	change24h: string;
-	volume: string;
-	spread: string;
-	trend: "up" | "down";
-	logo: string;
+    id: number;
+    symbol: string;
+    name: string;
+    price: string;
+    change24h: string;
+    volume: string;
+    spread: string;
+    trend: "up" | "down";
+    logo: string;
 }
 
 // API Response Types
 interface APIStockData {
-	Ticker: string;
-	Price: number;
-	Timestamp: string;
+    Ticker: string;
+    Price: number;
+    Timestamp: string;
 }
 
 interface APIResponse {
-	data: APIStockData[];
+    data: APIStockData[];
 }
 
 interface TokenAPIResponse {
-	data: Token[];
+    data: Token[];
 }
 
 export default function Home() {
-	const router = useRouter();
-	const [searchQuery, setSearchQuery] = useState("");
-	const [isLoading, setIsLoading] = useState(true);
-	const [apiData, setApiData] = useState({
-		stocks: [] as Token[],
-		fx: [] as ForexPair[],
-		tokens: [] as Token[]
-	});
+    const router = useRouter();
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+    const [apiData, setApiData] = useState({
+        stocks: [] as Token[],
+        fx: [] as ForexPair[],
+        tokens: [] as Token[],
+    });
 
-	// Navigation handler for trade button
-	const handleTradeClick = (item: Token | ForexPair) => {
-		const params = new URLSearchParams();
-		params.set("symbol", item.symbol);
+    // Navigation handler for trade button
+    const handleTradeClick = (item: Token | ForexPair) => {
+        const params = new URLSearchParams();
+        params.set("symbol", item.symbol);
 
-		// If it's a token with pairAddress, add it to the URL
-		if ("pairAddress" in item && item.pairAddress) {
-			params.set("pairAddress", item.pairAddress);
-		}
+        if ("pairAddress" in item && item.pairAddress) {
+            params.set("pairAddress", item.pairAddress);
+        }
 
-		// Navigate to perp page with query parameters
-		router.push(`/perp?${params.toString()}`);
-	};
+        router.push(`/perp?${params.toString()}`);
+    };
 
-	// Fetch data from APIs
-	useEffect(() => {
-		const fetchTrendingData = async () => {
-			try {
-				setIsLoading(true);
+    // Fetch data from APIs
+    useEffect(() => {
+        const fetchTrendingData = async () => {
+            try {
+                setIsLoading(true);
 
-				// Fetch tokens data
-				const tokensResponse = await fetch("/api/trending/tokens");
-				if (!tokensResponse.ok) {
-					throw new Error(
-						`Tokens API failed: ${tokensResponse.status}`
-					);
-				}
-				const tokensData: TokenAPIResponse =
-					await tokensResponse.json();
-				console.log("Tokens data:", tokensData);
+                const tokensResponse = await fetch("/api/trending/tokens");
+                if (!tokensResponse.ok) {
+                    throw new Error(
+                        `Tokens API failed: ${tokensResponse.status}`,
+                    );
+                }
+                const tokensData: TokenAPIResponse =
+                    await tokensResponse.json();
 
-				// Fetch stocks data
-				const stocksResponse = await fetch("/api/trending/stocks");
-				if (!stocksResponse.ok) {
-					throw new Error(
-						`Stocks API failed: ${stocksResponse.status}`
-					);
-				}
-				const stocksData: APIResponse = await stocksResponse.json();
-				console.log("Stocks data:", stocksData);
+                const stocksResponse = await fetch("/api/trending/stocks");
+                if (!stocksResponse.ok) {
+                    throw new Error(
+                        `Stocks API failed: ${stocksResponse.status}`,
+                    );
+                }
+                const stocksData: APIResponse = await stocksResponse.json();
 
-				// Fetch FX data
-				const fxResponse = await fetch("/api/trending/fx");
-				if (!fxResponse.ok) {
-					throw new Error(`FX API failed: ${fxResponse.status}`);
-				}
-				const fxData: APIResponse = await fxResponse.json();
-				console.log("FX data:", fxData);
+                const fxResponse = await fetch("/api/trending/fx");
+                if (!fxResponse.ok) {
+                    throw new Error(`FX API failed: ${fxResponse.status}`);
+                }
+                const fxData: APIResponse = await fxResponse.json();
 
-				// Transform API data to match our interface
-				const transformedStocks: Token[] = stocksData.data.map(
-					(stock, index) => {
-						return {
-							id: index + 1,
-							symbol: stock.Ticker,
-							name:
-								stock.Ticker === "NFLX"
-									? "Netflix Inc."
-									: stock.Ticker === "TSLA"
-									? "Tesla Inc."
-									: stock.Ticker,
-							price: `$${stock.Price.toFixed(2)}`,
-							change24h: "N/A", // Not provided by current API
-							volume: "N/A", // Not provided by current API
-							marketCap: "N/A", // Not provided by current API
-							trend: "up", // Default since we don't have change data
-							logo:
-								stock.Ticker === "NFLX"
-									? "🎬"
-									: stock.Ticker === "TSLA"
-									? "🚗"
-									: "📈"
-						};
-					}
-				);
+                const transformedStocks: Token[] = stocksData.data.map(
+                    (stock, index) => ({
+                        id: index + 1,
+                        symbol: stock.Ticker,
+                        name:
+                            stock.Ticker === "NFLX"
+                                ? "Netflix Inc."
+                                : stock.Ticker === "TSLA"
+                                  ? "Tesla Inc."
+                                  : stock.Ticker,
+                        price: `$${stock.Price.toFixed(2)}`,
+                        change24h: "N/A",
+                        volume: "N/A",
+                        marketCap: "N/A",
+                        trend: "up",
+                        logo:
+                            stock.Ticker === "NFLX"
+                                ? "🎬"
+                                : stock.Ticker === "TSLA"
+                                  ? "🚗"
+                                  : "📈",
+                    }),
+                );
 
-				const transformedFX: ForexPair[] = fxData.data.map(
-					(fx, index) => {
-						// Map the ticker to a more readable format for FX pairs
-						const getDisplaySymbol = (ticker: string) => {
-							if (ticker.includes("AUD-USD")) return "AUD/USD";
-							if (ticker.includes("CNY-USD")) return "CNY/USD";
-							if (ticker.includes("NGN-USD")) return "NGN/USD";
-							return ticker;
-						};
+                const transformedFX: ForexPair[] = fxData.data.map(
+                    (fx, index) => {
+                        const getDisplaySymbol = (ticker: string) => {
+                            if (ticker.includes("AUD-USD")) return "AUD/USD";
+                            if (ticker.includes("CNY-USD")) return "CNY/USD";
+                            if (ticker.includes("NGN-USD")) return "NGN/USD";
+                            return ticker;
+                        };
 
-						const getDisplayName = (ticker: string) => {
-							if (ticker.includes("AUD"))
-								return "Australian Dollar/US Dollar";
-							if (ticker.includes("CNY"))
-								return "Chinese Yuan/US Dollar";
-							if (ticker.includes("NGN"))
-								return "Nigerian Naira/US Dollar";
-							return ticker;
-						};
+                        const getDisplayName = (ticker: string) => {
+                            if (ticker.includes("AUD"))
+                                return "Australian Dollar/US Dollar";
+                            if (ticker.includes("CNY"))
+                                return "Chinese Yuan/US Dollar";
+                            if (ticker.includes("NGN"))
+                                return "Nigerian Naira/US Dollar";
+                            return ticker;
+                        };
 
-						const getLogo = (ticker: string) => {
-							if (ticker.includes("AUD")) return "🇦🇺";
-							if (ticker.includes("CNY")) return "🇨🇳";
-							if (ticker.includes("NGN")) return "🇳🇬";
-							return "💱";
-						};
+                        const getLogo = (ticker: string) => {
+                            if (ticker.includes("AUD")) return "🇦🇺";
+                            if (ticker.includes("CNY")) return "🇨🇳";
+                            if (ticker.includes("NGN")) return "🇳🇬";
+                            return "💱";
+                        };
 
-						return {
-							id: index + 1,
-							symbol: getDisplaySymbol(fx.Ticker),
-							name: getDisplayName(fx.Ticker),
-							price: fx.Price.toFixed(4),
-							change24h: "N/A", // Not provided by current API
-							volume: "N/A", // Not provided by current API
-							spread: "N/A", // Not provided by API
-							trend: "up", // Default since we don't have change data
-							logo: getLogo(fx.Ticker)
-						};
-					}
-				);
+                        return {
+                            id: index + 1,
+                            symbol: getDisplaySymbol(fx.Ticker),
+                            name: getDisplayName(fx.Ticker),
+                            price: fx.Price.toFixed(4),
+                            change24h: "N/A",
+                            volume: "N/A",
+                            spread: "N/A",
+                            trend: "up",
+                            logo: getLogo(fx.Ticker),
+                        };
+                    },
+                );
 
-				// Transform tokens data (DexScreener format is already transformed in the API)
-				const transformedTokens: Token[] = tokensData.data;
+                const transformedTokens: Token[] = tokensData.data;
 
-				setApiData((prev) => ({
-					...prev,
-					tokens: transformedTokens,
-					stocks: transformedStocks,
-					fx: transformedFX
-				}));
-			} catch (error) {
-				console.error("Error fetching trending data:", error);
-				// Keep empty arrays when API fails - no mock data fallback
-				setApiData({
-					tokens: [],
-					stocks: [],
-					fx: []
-				});
-			} finally {
-				setIsLoading(false);
-			}
-		};
+                setApiData({
+                    tokens: transformedTokens,
+                    stocks: transformedStocks,
+                    fx: transformedFX,
+                });
+            } catch (error) {
+                console.error("Error fetching trending data:", error);
+                setApiData({
+                    tokens: [],
+                    stocks: [],
+                    fx: [],
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-		fetchTrendingData();
-	}, []);
+        fetchTrendingData();
+    }, []);
 
-	// Filter data based on search query
-	const filteredTokens = apiData.tokens.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+    // Filter data based on search query
+    const filteredTokens = apiData.tokens.filter(
+        (token) =>
+            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
-	const filteredFX = apiData.fx.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+    const filteredFX = apiData.fx.filter(
+        (token) =>
+            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
-	const filteredStocks = apiData.stocks.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+    const filteredStocks = apiData.stocks.filter(
+        (token) =>
+            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
-	// Reusable table component
-	const renderTable = (data: any[], title: string, isForex = false) => (
-		<Card className="bg-slate-900 border-slate-800 mb-8">
-			<CardHeader>
-				<CardTitle className="text-white">{title}</CardTitle>
-			</CardHeader>
-			<CardContent className="p-0">
-				<div className="overflow-x-auto">
-					<table className="w-full">
-						<thead>
-							<tr className="border-b border-slate-800">
-								<th className="text-left p-4 text-gray-400 font-medium">
-									#
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									{isForex ? "Pair" : "Token"}
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									Price
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									24h Change
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									{isForex ? "Volume" : "Volume"}
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									{isForex ? "Spread" : "Market Cap"}
-								</th>
-								<th className="text-left p-4 text-gray-400 font-medium">
-									Action
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{data.length > 0 ? (
-								data.map((item, index) => (
-									<tr
-										key={item.id}
-										className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
-									>
-										<td className="p-4 text-gray-300">
-											{index + 1}
-										</td>
-										<td className="p-4">
-											<div className="flex items-center space-x-3">
-												<div className="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
-													{item.logo &&
-													item.logo.startsWith(
-														"http"
-													) ? (
-														<img
-															src={item.logo}
-															alt={item.symbol}
-															className="w-full h-full object-cover rounded-full"
-															onError={(e) => {
-																e.currentTarget.style.display =
-																	"none";
-																e.currentTarget.parentElement!.textContent =
-																	"🪙";
-															}}
-														/>
-													) : (
-														item.logo || "🪙"
-													)}
-												</div>
-												<div>
-													<div className="text-white font-medium">
-														{item.symbol}
-													</div>
-													<div className="text-gray-400 text-sm">
-														{item.name}
-													</div>
-												</div>
-											</div>
-										</td>
-										<td className="p-4 text-white font-medium">
-											{item.price}
-										</td>
-										<td className="p-4">
-											<Badge
-												variant={
-													item.trend === "up"
-														? "default"
-														: "destructive"
-												}
-												className={
-													item.trend === "up"
-														? "bg-green-600 hover:bg-green-700"
-														: "bg-red-600 hover:bg-red-700"
-												}
-											>
-												{item.change24h}
-											</Badge>
-										</td>
-										<td className="p-4 text-gray-300">
-											{item.volume}
-										</td>
-										<td className="p-4 text-gray-300">
-											{isForex
-												? (item as ForexPair).spread
-												: (item as Token).marketCap}
-										</td>
-										<td className="p-4">
-											<button
-												onClick={() =>
-													handleTradeClick(item)
-												}
-												className="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 transition-colors"
-											>
-												Trade
-											</button>
-										</td>
-									</tr>
-								))
-							) : (
-								<tr>
-									<td colSpan={7} className="p-8 text-center">
-										<div className="text-gray-400">
-											<div className="text-lg mb-2">
-												{searchQuery
-													? "No items found"
-													: "No data available"}
-											</div>
-											<div className="text-sm">
-												{searchQuery
-													? "Try adjusting your search terms"
-													: "Unable to fetch data from API"}
-											</div>
-										</div>
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
-				</div>
-			</CardContent>
-		</Card>
-	);
+    // Reusable table component
+    const renderTable = (data: any[], title: string, isForex = false) => (
+        <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border">
+                <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    #
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    {isForex ? "Pair" : "Token"}
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    Price
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    24h Change
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    {isForex ? "Volume" : "Volume"}
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    {isForex ? "Spread" : "Market Cap"}
+                                </th>
+                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.length > 0 ? (
+                                data.map((item, index) => (
+                                    <tr
+                                        key={item.id}
+                                        className="border-b border-border hover:bg-card-hover transition-colors"
+                                    >
+                                        <td className="p-3 text-muted-foreground text-sm">
+                                            {index + 1}
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
+                                                    {item.logo &&
+                                                    item.logo.startsWith(
+                                                        "http",
+                                                    ) ? (
+                                                        <img
+                                                            src={item.logo}
+                                                            alt={item.symbol}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display =
+                                                                    "none";
+                                                                e.currentTarget.parentElement!.textContent =
+                                                                    "🪙";
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        item.logo || "🪙"
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="text-foreground font-medium text-sm">
+                                                        {item.symbol}
+                                                    </div>
+                                                    <div className="text-muted-foreground text-xs">
+                                                        {item.name}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-3 text-foreground font-medium text-sm">
+                                            {item.price}
+                                        </td>
+                                        <td className="p-3">
+                                            <Badge
+                                                variant={"outline"}
+                                                className={`gap-1 ${
+                                                    item.trend === "up"
+                                                        ? "bg-success/10 text-success border-success/30 hover:bg-success/20"
+                                                        : "bg-destructive/20 text-destructive border-destructive/30 hover:bg-destructive/20"
+                                                }`}
+                                            >
+                                                {item.trend === "up" ? (
+                                                    <ArrowUpRight className="w-3 h-3" />
+                                                ) : (
+                                                    <ArrowDownRight className="w-3 h-3" />
+                                                )}
+                                                {item.change24h}
+                                            </Badge>
+                                        </td>
+                                        <td className="p-3 text-muted-foreground text-sm">
+                                            {item.volume}
+                                        </td>
+                                        <td className="p-3 text-muted-foreground text-sm">
+                                            {isForex
+                                                ? (item as ForexPair).spread
+                                                : (item as Token).marketCap}
+                                        </td>
+                                        <td className="p-3">
+                                            <Button
+                                                onClick={() =>
+                                                    handleTradeClick(item)
+                                                }
+                                                size="sm"
+                                            >
+                                                Trade
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td
+                                        colSpan={7}
+                                        className="p-12 text-center"
+                                    >
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="text-muted-foreground">
+                                                {searchQuery
+                                                    ? "No items found"
+                                                    : "No data available"}
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {searchQuery
+                                                    ? "Try adjusting your search"
+                                                    : "Unable to fetch data"}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </CardContent>
+        </Card>
+    );
 
-	return (
-		<div className="min-h-screen bg-gray-950">
-			<Header />
-			<main className="container mx-auto px-6 py-8">
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-white mb-2">
-						Trending Assets
-					</h1>
-					<p className="text-gray-400 mb-4">
-						Discover the most popular assets and their market
-						performance across different categories
-					</p>
-					<div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4">
-						<div className="flex items-start space-x-3">
-							<div className="text-blue-400 text-xl">ℹ️</div>
-							<div>
-								<h3 className="text-blue-400 font-medium mb-2">
-									Perpetual Trading Availability
-								</h3>
-								<p className="text-gray-300 text-sm mb-2">
-									Perpetual trading is currently supported for
-									tokens available on the following DEXs and
-									exchanges:
-								</p>
-								<div className="flex flex-wrap gap-2 text-xs">
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										PancakeSwap V2
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										PancakeSwap V3
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										SushiSwap BSC
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										MDEX BSC
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										BiSwap
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										BakerySwap
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										Gra.Fun
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										Uniswap V2 BNB
-									</span>
-									<span className="bg-blue-600/20 text-blue-300 px-2 py-1 rounded">
-										4.meme
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
+    return (
+        <div className="min-h-screen bg-background">
+            <Header />
+            <main className="container mx-auto px-6 py-8 max-w-[1600px]">
+                <div className="mb-8 space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <TrendingUp className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">
+                                Trending Assets
+                            </h1>
+                            <p className="text-muted-foreground text-sm">
+                                Discover popular assets and market performance
+                            </p>
+                        </div>
+                    </div>
 
-				{/* Search Bar */}
-				<div className="mb-8">
-					<div className="relative max-w-md">
-						<Input
-							type="text"
-							placeholder="Search assets by name or symbol..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							className="pl-10 bg-slate-900 border-slate-700 text-white placeholder:text-gray-400 focus:border-teal-500"
-						/>
-						<div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-							<svg
-								className="w-4 h-4 text-gray-400"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-								/>
-							</svg>
-						</div>
-					</div>
-					{searchQuery && (
-						<p className="text-gray-400 text-sm mt-2">
-							Searching across all asset categories for "
-							{searchQuery}"
-						</p>
-					)}
-				</div>
+                    <Card className="border-primary/20 bg-primary/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                                <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                                <div className="space-y-3">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-foreground mb-1">
+                                            Perpetual Trading Availability
+                                        </h3>
+                                        <p className="text-muted-foreground text-xs">
+                                            Perpetual trading is currently
+                                            supported for tokens on these DEXs:
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            "PancakeSwap V2",
+                                            "PancakeSwap V3",
+                                            "SushiSwap BSC",
+                                            "MDEX BSC",
+                                            "BiSwap",
+                                            "BakerySwap",
+                                            "Gra.Fun",
+                                            "Uniswap V2 BNB",
+                                            "4.meme",
+                                        ].map((dex) => (
+                                            <Badge
+                                                key={dex}
+                                                variant="outline"
+                                                className="text-xs border-primary/40 text-primary bg-primary/10"
+                                            >
+                                                {dex}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
-				{/* All Trading Panels */}
-				{isLoading ? (
-					<div className="text-center py-12">
-						<div className="text-white text-lg mb-2">
-							Loading trending assets...
-						</div>
-						<div className="text-gray-400">
-							Fetching real-time market data
-						</div>
-					</div>
-				) : (
-					<>
-						{renderTable(filteredTokens, "Top Trending Tokens")}
-						{/* {renderTable(filteredFX, "Trending FX", true)}
-						{renderTable(filteredStocks, "Trending Stocks")} */}
-					</>
-				)}
-			</main>
-		</div>
-	);
+                {/* Search Bar */}
+                <div className="mb-8">
+                    <div className="relative max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                            type="text"
+                            placeholder="Search assets..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    {searchQuery && (
+                        <p className="text-muted-foreground text-xs mt-2">
+                            Searching for &quot;{searchQuery}&quot;
+                        </p>
+                    )}
+                </div>
+
+                {/* All Trading Panels */}
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-4">
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                        <div className="text-foreground font-medium">
+                            Loading trending assets...
+                        </div>
+                        <div className="text-muted-foreground text-sm">
+                            Fetching real-time market data
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-8">
+                        {renderTable(filteredTokens, "Top Trending Tokens")}
+                    </div>
+                )}
+            </main>
+        </div>
+    );
 }
