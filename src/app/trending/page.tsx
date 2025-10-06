@@ -344,7 +344,7 @@ export default function Home() {
                                                     (item, index) => (
                                                         <tr
                                                             key={item.id}
-                                                            className="border-b border-border hover:bg-card-hover transition-colors"
+                                                            className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
                                                         >
                                                             <td className="p-3 text-muted-foreground text-sm">
                                                                 {index + 1}

@@ -356,7 +356,7 @@ function PerpContent() {
                     {/* Trading Panel */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Price Chart Placeholder */}
-                        <Card className="bg-card border-border">
+                        <Card className="bg-card border-gray-100/10">
                             <CardHeader>
                                 <CardTitle className="text-foreground flex items-center justify-between">
                                     <span>{tradingPair.symbol} Perpetual</span>
@@ -430,7 +430,7 @@ function PerpContent() {
 
                     {/* Trading Form */}
                     <div className="space-y-6">
-                        <Card className="bg-card border-border">
+                        <Card className="bg-card border-gray-100/10">
                             <CardContent className="space-y-6 p-6">
                                 {/* Long/Short Toggle */}
                                 <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg">
@@ -584,7 +584,7 @@ function PerpContent() {
                                                 setValueUSDC(e.target.value);
                                                 setApiError(null); // Clear error when user types
                                             }}
-                                            className={`bg-muted border-border text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
+                                            className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
                                                 valueUSDC &&
                                                 !validateMargin(valueUSDC).valid
                                                     ? "border-red-500 focus:border-red-500"
@@ -674,7 +674,7 @@ function PerpContent() {
                                             onChange={(e) =>
                                                 setBnbAmount(e.target.value)
                                             }
-                                            className="bg-muted border-border text-foreground text-center text-2xl font-bold h-14 pl-12 pr-16"
+                                            className="bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-16"
                                         />
                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                                             <span className="text-primary font-medium">

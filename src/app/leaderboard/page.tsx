@@ -193,7 +193,7 @@ export default function LeaderboardPage() {
                 </div>
 
                 <Card>
-                    <CardHeader className="border-b border-border">
+                    <CardHeader className="border-b border-gray-100/10">
                         <Tabs defaultValue="pnl" className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="pnl">Top PnL</TabsTrigger>
@@ -212,7 +212,7 @@ export default function LeaderboardPage() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
-                                            <tr className="border-b border-border bg-muted/30">
+                                            <tr className="border-b border-gray-100/10 bg-muted/30">
                                                 <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
                                                     Rank
                                                 </th>
@@ -243,7 +243,7 @@ export default function LeaderboardPage() {
                                             {topTraders.map((trader) => (
                                                 <tr
                                                     key={trader.id}
-                                                    className="border-b border-border hover:bg-card-hover transition-colors"
+                                                    className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
                                                 >
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export default function LeaderboardPage() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
-                                            <tr className="border-b border-border bg-muted/30">
+                                            <tr className="border-b border-gray-100/10 bg-muted/30">
                                                 <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
                                                     Rank
                                                 </th>
@@ -350,7 +350,7 @@ export default function LeaderboardPage() {
                                             {topVolume.map((trader) => (
                                                 <tr
                                                     key={trader.id}
-                                                    className="border-b border-border hover:bg-card-hover transition-colors"
+                                                    className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
                                                 >
                                                     <td className="p-3">
                                                         <div className="flex items-center gap-2">
@@ -451,7 +451,7 @@ export default function LeaderboardPage() {
                         },
                     ].map((strategy, index) => (
                         <Card key={index}>
-                            <CardHeader className="border-b border-border">
+                            <CardHeader className="border-b border-gray-100/10">
                                 <CardTitle className="text-base">
                                     {strategy.title}
                                 </CardTitle>
