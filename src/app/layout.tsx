@@ -25,7 +25,7 @@ const raleway = Raleway({
 });
 
 export const metadata: Metadata = {
-    title: "Lemon Loopa",
+    title: "Lemon Markets",
     description: "A decentralized trading platform",
 };
 
