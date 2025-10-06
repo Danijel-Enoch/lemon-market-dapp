@@ -1,11 +1,9 @@
 import { Lock } from "lucide-react";
-import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function StakingPage() {
     return (
-        <div className="min-h-screen bg-background">
-            <Header />
+        <div className="min-h-screen">
             <main className="container mx-auto px-6 py-8 max-w-[1600px]">
                 <div className="mb-8 flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">

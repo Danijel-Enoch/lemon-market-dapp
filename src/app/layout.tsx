@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
-import "./globals.css";
+import { Inter, Raleway, Roboto_Mono } from "next/font/google";
+import { Header } from "@/components/layout/Header";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 import { AppProvider } from "@/contexts/AppContext";
+import "./globals.css";
 
 const inter = Inter({
     variable: "--font-inter",
@@ -15,6 +16,12 @@ const robotoMono = Roboto_Mono({
     variable: "--font-roboto-mono",
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
+});
+
+const raleway = Raleway({
+    variable: "--font-raleway",
+    subsets: ["latin"],
+    weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -30,11 +37,14 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body
-                className={`${inter.variable} ${robotoMono.variable} antialiased bg-background text-foreground`}
+                className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
             >
                 <ToastProvider>
                     <WalletProvider>
-                        <AppProvider>{children}</AppProvider>
+                        <AppProvider>
+                            <Header />
+                            {children}
+                        </AppProvider>
                     </WalletProvider>
                 </ToastProvider>
             </body>

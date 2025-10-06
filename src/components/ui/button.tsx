@@ -5,12 +5,12 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
     {
         variants: {
             variant: {
                 default:
-                    "bg-gradient-to-r from-[#14b8a6] to-[#0891b2] text-white shadow-lg hover:shadow-xl hover:from-[#0d9488] hover:to-[#0e7490] transition-all duration-200",
+                    "bg-gradient-to-r from-primary/50 to-primary/60 text-white shadow-lg hover:shadow-xl hover:from-[#0d9488] hover:to-[#0e7490] transition-all duration-200",
                 destructive:
                     "bg-gradient-to-r from-[#ef4444] to-[#dc2626] text-white shadow-lg hover:shadow-xl hover:from-[#dc2626] hover:to-[#b91c1c] focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 transition-all duration-200",
                 outline:

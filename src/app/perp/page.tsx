@@ -12,7 +12,6 @@ import {
     useWaitForTransactionReceipt,
     useWriteContract,
 } from "wagmi";
-import { Header } from "@/components/layout/Header";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,6 @@ function PerpContent() {
     const [isLoadingPrice, setIsLoadingPrice] = useState(false);
     const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
 
-    // Positions management with custom hook
     const {
         positions,
         isLoading: isLoadingPositions,
@@ -57,7 +55,6 @@ function PerpContent() {
         totalMargin,
     } = useUserPositions();
 
-    // Wallet connection
     const { address, isConnected } = useAccount();
     const {
         sendTransaction,
@@ -70,7 +67,6 @@ function PerpContent() {
             hash,
         });
 
-    // Contract interactions for approvals
     const {
         writeContract,
         data: approvalHash,
@@ -81,7 +77,6 @@ function PerpContent() {
             hash: approvalHash,
         });
 
-    // Balance and allowance queries
     const { data: ethBalance } = useBalance({
         address: address,
         query: { enabled: !!address },
@@ -105,13 +100,6 @@ function PerpContent() {
         query: { enabled: !!address },
     });
 
-    // const { data: maxLeverageFromContract } = useReadContract({
-    // 	address: SyntheticPerpetualContract as `0x${string}`,
-    // 	abi: SyntheticAbi,
-    // 	functionName: "maxLeverage"
-    // });
-
-    // Trading form state
     const [isLong, setIsLong] = useState(true);
     const [valueUSDC, setValueUSDC] = useState("100");
     const [leverage, setLeverage] = useState(2);
@@ -123,10 +111,8 @@ function PerpContent() {
     >(null);
     const [needsApproval, setNeedsApproval] = useState(false);
 
-    // Get max leverage from contract (fallback to 10 if not loaded)
     const maxLeverage = 2;
 
-    // Fetch the latest token price
     const fetchLatestPrice = async () => {
         if (!tradingPair.pairAddress) return;
 
@@ -171,13 +157,11 @@ function PerpContent() {
         }
     }, [searchParams]);
 
-    // Fetch latest price when component mounts and when pair address changes
     useEffect(() => {
         fetchLatestPrice();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tradingPair.pairAddress]);
 
-    // Set up interval to refresh price every 30 seconds
     useEffect(() => {
         const interval = setInterval(() => {
             fetchLatestPrice();
@@ -187,7 +171,6 @@ function PerpContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tradingPair.pairAddress]);
 
-    // Check if approval is needed
     useEffect(() => {
         if (
             usdcAllowance !== undefined &&
@@ -206,14 +189,12 @@ function PerpContent() {
         }
     }, [usdcAllowance, valueUSDC]);
 
-    // Reset approval state when wallet connection changes
     useEffect(() => {
         if (!isConnected) {
             setNeedsApproval(false);
         }
     }, [isConnected]);
 
-    // Handle transaction completion
     useEffect(() => {
         if (isConfirmed && hash) {
             setLastTransactionHash(hash);
@@ -230,7 +211,6 @@ function PerpContent() {
         }
     }, [isConfirmed, hash, refetchUsdcBalance, refetchAllowance]);
 
-    // Handle approval completion
     useEffect(() => {
         if (isApprovalConfirmed && approvalHash) {
             // Refetch allowance after successful approval
@@ -239,7 +219,6 @@ function PerpContent() {
         }
     }, [isApprovalConfirmed, approvalHash, refetchAllowance]);
 
-    // Refetch positions after successful position creation
     useEffect(() => {
         if (isConfirmed && hash && address) {
             // Wait a bit for the subgraph to index the new position
@@ -249,7 +228,6 @@ function PerpContent() {
         }
     }, [isConfirmed, hash, address]);
 
-    // Handle leverage changes
     const handleLeverageChange = (delta: number) => {
         const newLeverage = Math.max(
             1,
@@ -258,7 +236,6 @@ function PerpContent() {
         setLeverage(newLeverage);
     };
 
-    // Handle USDC approval
     const handleApproveUSDC = async () => {
         if (!isConnected || !address) {
             setApiError("Please connect your wallet first");
@@ -267,8 +244,7 @@ function PerpContent() {
 
         try {
             setApiError(null);
-            // Approve a large amount to avoid frequent approvals
-            const approvalAmount = parseUnits("1000000", 6); // 1M USDC
+            const approvalAmount = parseUnits("1000000", 6);
 
             writeContract({
                 address: usdc as `0x${string}`,
@@ -296,7 +272,6 @@ function PerpContent() {
             return;
         }
 
-        // Validate inputs
         const marginValidation = validateMargin(valueUSDC);
         if (!marginValidation.valid) {
             setApiError(marginValidation.error!);
@@ -313,24 +288,21 @@ function PerpContent() {
         setApiError(null);
 
         try {
-            // Extract token symbol from trading pair
             const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
 
-            // Call the position creation API
             const result = await createPosition({
                 tokenSymbol,
                 isLong,
                 margin: valueUSDC,
                 leverage,
                 userAddress: address,
-                pairAddress: tradingPair.pairAddress, // Include pair address for accurate pricing
+                pairAddress: tradingPair.pairAddress,
             });
 
             if (!result.success) {
                 throw new Error(result.error || "Failed to create position");
             }
 
-            // Execute the transaction using the returned data
             if (result.data) {
                 console.log("Executing transaction with data:", result.data);
 
@@ -355,7 +327,6 @@ function PerpContent() {
         }
     };
 
-    // Generate chart URL based on pair address
     const getChartUrl = () => {
         if (tradingPair.pairAddress) {
             console.log("Using pair address:", tradingPair.pairAddress);
@@ -365,13 +336,11 @@ function PerpContent() {
                 "?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"
             );
         }
-        // Fallback to default chart
         return "";
     };
 
     return (
-        <div className="min-h-screen bg-background">
-            <Header />
+        <div className="min-h-screen">
             <main className="container mx-auto px-6 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -430,7 +399,7 @@ function PerpContent() {
                                                 tradingPair.change.startsWith(
                                                     "+",
                                                 )
-                                                    ? "bg-success hover:bg-success/90"
+                                                    ? "bg-primary hover:bg-primary/90"
                                                     : "bg-destructive hover:bg-destructive/90"
                                             }`}
                                         >
@@ -469,7 +438,7 @@ function PerpContent() {
                                         onClick={() => setIsLong(true)}
                                         className={`rounded-md h-12 font-semibold ${
                                             isLong
-                                                ? "bg-success hover:bg-success/90 text-foreground"
+                                                ? "bg-primary hover:bg-primary/90 text-black"
                                                 : "bg-transparent text-muted-foreground hover:text-foreground"
                                         }`}
                                     >

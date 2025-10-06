@@ -1,458 +1,635 @@
 "use client";
 
-import {
-    ArrowDownRight,
-    ArrowUpRight,
-    Info,
-    Loader2,
-    Search,
-    TrendingUp,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Header } from "@/components/layout/Header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-
-// Types
-interface Token {
-    id: number;
-    symbol: string;
-    name: string;
-    price: string;
-    change24h: string;
-    volume: string;
-    marketCap: string;
-    trend: "up" | "down";
-    logo: string;
-    pairAddress?: string;
-}
-
-interface ForexPair {
-    id: number;
-    symbol: string;
-    name: string;
-    price: string;
-    change24h: string;
-    volume: string;
-    spread: string;
-    trend: "up" | "down";
-    logo: string;
-}
-
-// API Response Types
-interface APIStockData {
-    Ticker: string;
-    Price: number;
-    Timestamp: string;
-}
-
-interface APIResponse {
-    data: APIStockData[];
-}
-
-interface TokenAPIResponse {
-    data: Token[];
-}
+import { motion } from "framer-motion";
+import { ChevronDown, Menu, X } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
 
 export default function Home() {
-    const router = useRouter();
-    const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
-    const [apiData, setApiData] = useState({
-        stocks: [] as Token[],
-        fx: [] as ForexPair[],
-        tokens: [] as Token[],
-    });
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-    // Navigation handler for trade button
-    const handleTradeClick = (item: Token | ForexPair) => {
-        const params = new URLSearchParams();
-        params.set("symbol", item.symbol);
-
-        if ("pairAddress" in item && item.pairAddress) {
-            params.set("pairAddress", item.pairAddress);
-        }
-
-        router.push(`/perp?${params.toString()}`);
+    const fadeInUp = {
+        initial: { opacity: 0, y: 60 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.6 },
     };
 
-    // Fetch data from APIs
-    useEffect(() => {
-        const fetchTrendingData = async () => {
-            try {
-                setIsLoading(true);
+    const staggerContainer = {
+        animate: {
+            transition: {
+                staggerChildren: 0.1,
+            },
+        },
+    };
 
-                const tokensResponse = await fetch("/api/trending/tokens");
-                if (!tokensResponse.ok) {
-                    throw new Error(
-                        `Tokens API failed: ${tokensResponse.status}`,
-                    );
-                }
-                const tokensData: TokenAPIResponse =
-                    await tokensResponse.json();
-
-                const stocksResponse = await fetch("/api/trending/stocks");
-                if (!stocksResponse.ok) {
-                    throw new Error(
-                        `Stocks API failed: ${stocksResponse.status}`,
-                    );
-                }
-                const stocksData: APIResponse = await stocksResponse.json();
-
-                const fxResponse = await fetch("/api/trending/fx");
-                if (!fxResponse.ok) {
-                    throw new Error(`FX API failed: ${fxResponse.status}`);
-                }
-                const fxData: APIResponse = await fxResponse.json();
-
-                const transformedStocks: Token[] = stocksData.data.map(
-                    (stock, index) => ({
-                        id: index + 1,
-                        symbol: stock.Ticker,
-                        name:
-                            stock.Ticker === "NFLX"
-                                ? "Netflix Inc."
-                                : stock.Ticker === "TSLA"
-                                  ? "Tesla Inc."
-                                  : stock.Ticker,
-                        price: `$${stock.Price.toFixed(2)}`,
-                        change24h: "N/A",
-                        volume: "N/A",
-                        marketCap: "N/A",
-                        trend: "up",
-                        logo:
-                            stock.Ticker === "NFLX"
-                                ? "🎬"
-                                : stock.Ticker === "TSLA"
-                                  ? "🚗"
-                                  : "📈",
-                    }),
-                );
-
-                const transformedFX: ForexPair[] = fxData.data.map(
-                    (fx, index) => {
-                        const getDisplaySymbol = (ticker: string) => {
-                            if (ticker.includes("AUD-USD")) return "AUD/USD";
-                            if (ticker.includes("CNY-USD")) return "CNY/USD";
-                            if (ticker.includes("NGN-USD")) return "NGN/USD";
-                            return ticker;
-                        };
-
-                        const getDisplayName = (ticker: string) => {
-                            if (ticker.includes("AUD"))
-                                return "Australian Dollar/US Dollar";
-                            if (ticker.includes("CNY"))
-                                return "Chinese Yuan/US Dollar";
-                            if (ticker.includes("NGN"))
-                                return "Nigerian Naira/US Dollar";
-                            return ticker;
-                        };
-
-                        const getLogo = (ticker: string) => {
-                            if (ticker.includes("AUD")) return "🇦🇺";
-                            if (ticker.includes("CNY")) return "🇨🇳";
-                            if (ticker.includes("NGN")) return "🇳🇬";
-                            return "💱";
-                        };
-
-                        return {
-                            id: index + 1,
-                            symbol: getDisplaySymbol(fx.Ticker),
-                            name: getDisplayName(fx.Ticker),
-                            price: fx.Price.toFixed(4),
-                            change24h: "N/A",
-                            volume: "N/A",
-                            spread: "N/A",
-                            trend: "up",
-                            logo: getLogo(fx.Ticker),
-                        };
-                    },
-                );
-
-                const transformedTokens: Token[] = tokensData.data;
-
-                setApiData({
-                    tokens: transformedTokens,
-                    stocks: transformedStocks,
-                    fx: transformedFX,
-                });
-            } catch (error) {
-                console.error("Error fetching trending data:", error);
-                setApiData({
-                    tokens: [],
-                    stocks: [],
-                    fx: [],
-                });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchTrendingData();
-    }, []);
-
-    // Filter data based on search query
-    const filteredTokens = apiData.tokens.filter(
-        (token) =>
-            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    const filteredFX = apiData.fx.filter(
-        (token) =>
-            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    const filteredStocks = apiData.stocks.filter(
-        (token) =>
-            token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-    // Reusable table component
-    const renderTable = (data: any[], title: string, isForex = false) => (
-        <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border">
-                <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-border bg-muted/30">
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    #
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    {isForex ? "Pair" : "Token"}
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    Price
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    24h Change
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    {isForex ? "Volume" : "Volume"}
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    {isForex ? "Spread" : "Market Cap"}
-                                </th>
-                                <th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                                    Action
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.length > 0 ? (
-                                data.map((item, index) => (
-                                    <tr
-                                        key={item.id}
-                                        className="border-b border-border hover:bg-card-hover transition-colors"
-                                    >
-                                        <td className="p-3 text-muted-foreground text-sm">
-                                            {index + 1}
-                                        </td>
-                                        <td className="p-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
-                                                    {item.logo &&
-                                                    item.logo.startsWith(
-                                                        "http",
-                                                    ) ? (
-                                                        <img
-                                                            src={item.logo}
-                                                            alt={item.symbol}
-                                                            className="w-full h-full object-cover"
-                                                            onError={(e) => {
-                                                                e.currentTarget.style.display =
-                                                                    "none";
-                                                                e.currentTarget.parentElement!.textContent =
-                                                                    "🪙";
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        item.logo || "🪙"
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="text-foreground font-medium text-sm">
-                                                        {item.symbol}
-                                                    </div>
-                                                    <div className="text-muted-foreground text-xs">
-                                                        {item.name}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-3 text-foreground font-medium text-sm">
-                                            {item.price}
-                                        </td>
-                                        <td className="p-3">
-                                            <Badge
-                                                variant={"outline"}
-                                                className={`gap-1 ${
-                                                    item.trend === "up"
-                                                        ? "bg-success/10 text-success border-success/30 hover:bg-success/20"
-                                                        : "bg-destructive/20 text-destructive border-destructive/30 hover:bg-destructive/20"
-                                                }`}
-                                            >
-                                                {item.trend === "up" ? (
-                                                    <ArrowUpRight className="w-3 h-3" />
-                                                ) : (
-                                                    <ArrowDownRight className="w-3 h-3" />
-                                                )}
-                                                {item.change24h}
-                                            </Badge>
-                                        </td>
-                                        <td className="p-3 text-muted-foreground text-sm">
-                                            {item.volume}
-                                        </td>
-                                        <td className="p-3 text-muted-foreground text-sm">
-                                            {isForex
-                                                ? (item as ForexPair).spread
-                                                : (item as Token).marketCap}
-                                        </td>
-                                        <td className="p-3">
-                                            <Button
-                                                onClick={() =>
-                                                    handleTradeClick(item)
-                                                }
-                                                size="sm"
-                                            >
-                                                Trade
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td
-                                        colSpan={7}
-                                        className="p-12 text-center"
-                                    >
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="text-muted-foreground">
-                                                {searchQuery
-                                                    ? "No items found"
-                                                    : "No data available"}
-                                            </div>
-                                            <div className="text-sm text-muted-foreground">
-                                                {searchQuery
-                                                    ? "Try adjusting your search"
-                                                    : "Unable to fetch data"}
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </CardContent>
-        </Card>
-    );
+    const faqItems = [
+        {
+            question:
+                "How does Lemon Perp use lemon markets in digital asset management?",
+            answer: "Lemon Perp leverages advanced market mechanisms to provide efficient trading solutions for digital assets.",
+        },
+        {
+            question: "Which cryptocurrencies does Lemon Perp support?",
+            answer: "We support major cryptocurrencies including Bitcoin, Ethereum, and various ERC-20 tokens.",
+        },
+        {
+            question: "How do I get started with Lemon Perp?",
+            answer: "Simply connect your Web3 wallet, select a trading pair, and start trading with our intuitive interface.",
+        },
+        {
+            question: "Can I recover my wallet if I lose my device?",
+            answer: "Yes, you can recover your wallet using your seed phrase or backup methods provided by your wallet provider.",
+        },
+        {
+            question: "Is Lemon Perp available globally?",
+            answer: "Lemon Perp is available in most countries, subject to local regulations and compliance requirements.",
+        },
+        {
+            question: "Does Lemon Perp offer customer support?",
+            answer: "Yes, we provide 24/7 customer support through various channels including chat and email.",
+        },
+    ];
 
     return (
-        <div className="min-h-screen bg-background">
-            <Header />
-            <main className="container mx-auto px-6 py-8 max-w-[1600px]">
-                <div className="mb-8 space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                            <TrendingUp className="w-6 h-6 text-primary" />
+        <div className="bg-black text-white overflow-x-hidden">
+            <div className="w-full min-h-screen flex flex-col items-center px-4 md:px-32 py-24">
+                <div className="relative flex flex-col items-center justify-center w-full max-w-6xl mb-20">
+                    <div className="relative w-192 h-192 flex items-center justify-center">
+                        <Image
+                            src="/image/hero-background.svg"
+                            alt="Background"
+                            width={763}
+                            height={763}
+                            priority
+                        />
+
+                        <div className="absolute flex flex-col items-center gap-y-5 max-w-xl px-4">
+                            <div className="flex flex-col items-center gap-y-4">
+                                <motion.h1
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.8, delay: 0.2 }}
+                                    className="text-center text-black text-5xl md:text-7xl leading-normal font-normal"
+                                >
+                                    Get <span>ready</span>
+                                    <br />
+                                    for the new era of Trading
+                                </motion.h1>
+
+                                <motion.p
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.8, delay: 0.4 }}
+                                    className="text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent text-lg md:text-xl font-medium leading-loose"
+                                >
+                                    Lorem ipsum dolor sit amet consectetur. Nunc
+                                    commodo risus rutrum nulla in pellentesque
+                                    amet mattis. Sed malesuada commodo tincidunt
+                                    accumsan duis ac purus in diam.
+                                </motion.p>
+                            </div>
+
+                            <motion.button
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, delay: 0.6 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="inline-flex items-center justify-center rounded-lg border border-white gap-x-2.5 px-10 py-4 bg-gradient-to-r from-lime-300 via-green-600 to-green-950"
+                            >
+                                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent text-base font-bold leading-tight">
+                                    Get Started
+                                </span>
+                            </motion.button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <motion.section
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                variants={staggerContainer}
+                className="py-20 px-4 max-w-7xl mx-auto"
+            >
+                <div className="grid md:grid-cols-3 gap-8">
+                    <motion.div
+                        variants={fadeInUp}
+                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
+                    >
+                        <div className="w-16 h-16 mb-6">
+                            <Image
+                                src="/image/wallet-icon.svg"
+                                alt="Wallet Icon"
+                                width={64}
+                                height={64}
+                            />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-4">
+                            Connect wallet
+                        </h3>
+                        <p className="text-white/70 leading-relaxed">
+                            Securely link your Web3 wallet (like MetaMask) to
+                            access DEXCISION.
+                        </p>
+                    </motion.div>
+
+                    <motion.div
+                        variants={fadeInUp}
+                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
+                    >
+                        <div className="w-16 h-16 mb-6">
+                            <Image
+                                src="/image/leaf-icon.svg"
+                                alt="Leaf Icon"
+                                width={64}
+                                height={64}
+                            />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-4">
+                            Select a pair
+                        </h3>
+                        <p className="text-white/70 leading-relaxed">
+                            Choose an asset to predict like ETH or S&P 500
+                            tokens
+                        </p>
+                    </motion.div>
+
+                    <motion.div
+                        variants={fadeInUp}
+                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
+                    >
+                        <div className="w-16 h-16 mb-6">
+                            <Image
+                                src="/image/trading-icon.svg"
+                                alt="Trading Icon"
+                                width={64}
+                                height={64}
+                            />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-4">
+                            Start Trading
+                        </h3>
+                        <p className="text-white/70 leading-relaxed">
+                            Go long or short. If you&apos;re right, earn rewards
+                            instantly.
+                        </p>
+                    </motion.div>
+                </div>
+            </motion.section>
+
+            <motion.section
+                id="features"
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 max-w-7xl mx-auto"
+            >
+                <div className="text-center mb-16">
+                    <motion.div
+                        variants={fadeInUp}
+                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                    >
+                        <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                            FEATURES
+                        </span>
+                    </motion.div>
+                    <motion.h2
+                        variants={fadeInUp}
+                        className="text-5xl md:text-6xl font-semibold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                    >
+                        lorem Ipsum Dolor
+                    </motion.h2>
+                    <motion.p
+                        variants={fadeInUp}
+                        className="text-xl text-white/70 max-w-2xl mx-auto leading-relaxed"
+                    >
+                        Lorem ipsum dolor sit amet consectetur. Nunc commodo
+                        risus rutrum nulla in pellentesque amet mattis. Samet
+                    </motion.p>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <motion.div variants={fadeInUp}>
+                        <Image
+                            src="/image/features-image.png"
+                            alt="Features"
+                            width={530}
+                            height={529}
+                            className="rounded-lg"
+                        />
+                    </motion.div>
+
+                    <motion.div variants={fadeInUp} className="space-y-12">
                         <div>
-                            <h1 className="text-3xl font-bold text-foreground">
-                                Trending Assets
-                            </h1>
-                            <p className="text-muted-foreground text-sm">
-                                Discover popular assets and market performance
+                            <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                lorem Ipsum Dolor
+                            </h3>
+                            <p className="text-white/70 leading-relaxed">
+                                Lorem ipsum dolor sit amet consectetur. Nunc
+                                commodo risus rutrum nulla in pellentesque amet
+                                mattis. Samet
                             </p>
                         </div>
-                    </div>
+                        <div className="h-px bg-white/20"></div>
+                        <div>
+                            <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                lorem Ipsum Dolor
+                            </h3>
+                            <p className="text-white/70 leading-relaxed">
+                                Lorem ipsum dolor sit amet consectetur. Nunc
+                                commodo risus rutrum nulla in pellentesque amet
+                                mattis. Samet
+                            </p>
+                        </div>
+                        <div className="h-px bg-white/20"></div>
+                        <div>
+                            <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                lorem Ipsum Dolor
+                            </h3>
+                            <p className="text-white/70 leading-relaxed">
+                                Lorem ipsum dolor sit amet consectetur. Nunc
+                                commodo risus rutrum nulla in pellentesque amet
+                                mattis. Samet
+                            </p>
+                        </div>
+                    </motion.div>
+                </div>
+            </motion.section>
 
-                    <Card className="border-primary/20 bg-primary/5">
-                        <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                                <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                                <div className="space-y-3">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-foreground mb-1">
-                                            Perpetual Trading Availability
-                                        </h3>
-                                        <p className="text-muted-foreground text-xs">
-                                            Perpetual trading is currently
-                                            supported for tokens on these DEXs:
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {[
-                                            "PancakeSwap V2",
-                                            "PancakeSwap V3",
-                                            "SushiSwap BSC",
-                                            "MDEX BSC",
-                                            "BiSwap",
-                                            "BakerySwap",
-                                            "Gra.Fun",
-                                            "Uniswap V2 BNB",
-                                            "4.meme",
-                                        ].map((dex) => (
-                                            <Badge
-                                                key={dex}
-                                                variant="outline"
-                                                className="text-xs border-primary/40 text-primary bg-primary/10"
-                                            >
-                                                {dex}
-                                            </Badge>
-                                        ))}
-                                    </div>
+            <motion.section
+                id="about"
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 max-w-7xl mx-auto relative"
+            >
+                <div className="absolute top-0 left-8 w-96 h-2 bg-gradient-to-r from-lime-300 via-green-600 to-green-950 rounded-full blur-lg opacity-60"></div>
+
+                <div className="grid lg:grid-cols-2 gap-16 items-center">
+                    <motion.div variants={fadeInUp}>
+                        <div className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6">
+                            <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                                ABOUT
+                            </span>
+                        </div>
+                        <h2 className="text-5xl md:text-6xl font-semibold mb-8 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                            lorem Ipsum Dolor Sit Connectre
+                        </h2>
+                        <p className="text-white/70 leading-relaxed text-lg mb-8">
+                            Lorem ipsum dolor sit amet consectetur. Nunc commodo
+                            risus rutrum nulla in pellentesque amet mattis.
+                            Samet consectetur. Nunc commodo risus rutrum nulla
+                            in pellentesque amet mattis. Samet consectetur. Nunc
+                            commodo risus rutrum nulla in pellentesque amet
+                            mattis mattis. Samet consectetur. Nunc commodo risus
+                            rutrum nulla in pellentesque amet mattis.
+                        </p>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 text-white px-12 py-4 rounded-lg font-bold border border-white/20"
+                        >
+                            Get Started
+                        </motion.button>
+                    </motion.div>
+
+                    <motion.div variants={fadeInUp} className="relative">
+                        <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-full p-20">
+                            <Image
+                                src="/image/about-lemon.png"
+                                alt="About"
+                                width={87}
+                                height={120}
+                                className="mx-auto"
+                            />
+                        </div>
+                    </motion.div>
+                </div>
+
+                <div className="absolute bottom-0 right-8 w-96 h-2 bg-gradient-to-r from-lime-300 via-green-600 to-green-950 rounded-full blur-lg opacity-60 rotate-2"></div>
+            </motion.section>
+
+            <motion.section
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 max-w-4xl mx-auto text-center"
+            >
+                <motion.h2
+                    variants={fadeInUp}
+                    className="text-3xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                >
+                    Watch How Lemon Perp Works
+                </motion.h2>
+                <motion.p
+                    variants={fadeInUp}
+                    className="text-white/70 text-lg mb-12 max-w-2xl mx-auto"
+                >
+                    A simple platform for traders who want clarity, speed, and
+                    control.
+                </motion.p>
+                <motion.div
+                    variants={fadeInUp}
+                    className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center"
+                >
+                    <Image
+                        src="/image/video-placeholder.svg"
+                        alt="Video Placeholder"
+                        width={400}
+                        height={300}
+                        className="opacity-50"
+                    />
+                </motion.div>
+            </motion.section>
+
+            <motion.section
+                id="roadmap"
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 max-w-6xl mx-auto"
+            >
+                <div className="text-center mb-16">
+                    <motion.div
+                        variants={fadeInUp}
+                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                    >
+                        <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                            GOALS
+                        </span>
+                    </motion.div>
+                    <motion.h2
+                        variants={fadeInUp}
+                        className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                    >
+                        Roadmap
+                    </motion.h2>
+                </div>
+
+                <div className="relative">
+                    <div className="absolute left-8 top-0 bottom-0 w-px bg-gradient-to-b from-lime-300 to-green-950"></div>
+
+                    <div className="space-y-16">
+                        {[
+                            {
+                                phase: "Phase I",
+                                content:
+                                    "Finalize multi-chain support (Ethereum, Bitcoin, EVM chains).\n\nPartner with oracles (e.g., Chainlink) for secure data feeds.\n\nComplete third-party security audits.",
+                            },
+                            {
+                                phase: "Phase II",
+                                content:
+                                    "Invite 1,000+ users to test AI-driven insights and cross-chain swaps.\n\nOptimize UI/UX and resolve edge-case vulnerabilities.",
+                            },
+                            {
+                                phase: "Phase III",
+                                content:
+                                    "Release web and mobile platforms with core features (AI dashboards, self-custody).\n\nLaunch global marketing and partner with liquidity providers.",
+                            },
+                            {
+                                phase: "Phase IV",
+                                content:
+                                    "Integrate DeFi protocols (Uniswap, Aave) and Layer-2 networks.\n\nAdd staking, governance, and institutional tools.",
+                            },
+                        ].map((item, index) => (
+                            <motion.div
+                                key={index}
+                                variants={fadeInUp}
+                                className="relative flex items-start space-x-8"
+                            >
+                                <div className="w-4 h-4 bg-gradient-to-r from-lime-300 to-green-950 rounded-full relative z-10"></div>
+                                <div className="flex-1">
+                                    <h3 className="text-2xl font-bold mb-4 text-white">
+                                        {item.phase}
+                                    </h3>
+                                    <p className="text-white/70 leading-relaxed whitespace-pre-line">
+                                        {item.content}
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            </motion.section>
+
+            <motion.section
+                id="faq"
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 max-w-4xl mx-auto"
+            >
+                <div className="text-center mb-16">
+                    <motion.div
+                        variants={fadeInUp}
+                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                    >
+                        <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                            FAQ
+                        </span>
+                    </motion.div>
+                    <motion.h2
+                        variants={fadeInUp}
+                        className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                    >
+                        Frequently Asked Questions
+                    </motion.h2>
+                    <motion.p
+                        variants={fadeInUp}
+                        className="text-white/70 text-lg"
+                    >
+                        How Can we Smoothen your journey?
+                    </motion.p>
+                </div>
+
+                <motion.div variants={staggerContainer} className="space-y-4">
+                    {faqItems.map((item, index) => (
+                        <motion.div
+                            key={index}
+                            variants={fadeInUp}
+                            className="border-b border-white/20"
+                        >
+                            <button
+                                onClick={() =>
+                                    setOpenFaq(openFaq === index ? null : index)
+                                }
+                                className="w-full flex items-center justify-between py-6 text-left"
+                            >
+                                <span className="text-lg font-medium text-white pr-4">
+                                    {item.question}
+                                </span>
+                                <ChevronDown
+                                    className={`w-5 h-5 text-white/60 transition-transform ${
+                                        openFaq === index ? "rotate-180" : ""
+                                    }`}
+                                />
+                            </button>
+                            {openFaq === index && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="pb-6"
+                                >
+                                    <p className="text-white/70 leading-relaxed">
+                                        {item.answer}
+                                    </p>
+                                </motion.div>
+                            )}
+                        </motion.div>
+                    ))}
+                </motion.div>
+            </motion.section>
+
+            <motion.section
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="py-20 px-4 text-center"
+            >
+                <motion.h2
+                    variants={fadeInUp}
+                    className="text-5xl md:text-6xl font-bold mb-8"
+                >
+                    <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                        The future of Trading
+                    </span>
+                    <br />
+                    <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                        starts here
+                    </span>
+                </motion.h2>
+                <motion.button
+                    variants={fadeInUp}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 text-white px-12 py-4 rounded-lg text-lg font-bold border border-white/20"
+                >
+                    Start Free Trial
+                </motion.button>
+            </motion.section>
+
+            <footer className="border-t border-white/20 py-12 px-4">
+                <div className="max-w-7xl mx-auto">
+                    <div className="grid md:grid-cols-3 gap-8 mb-8">
+                        <div className="md:col-span-2">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+                                <div className="flex items-center space-x-3 mb-4 md:mb-0">
+                                    <Image
+                                        src="/image/logo-footer.png"
+                                        alt="Lemon Perp Logo"
+                                        width={40}
+                                        height={40}
+                                        className="rounded"
+                                    />
+                                    <span className="text-xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                        Lemon Perp
+                                    </span>
+                                </div>
+                                <nav className="flex flex-wrap gap-6">
+                                    <a
+                                        href="#home"
+                                        className="text-white/60 hover:text-white transition-colors"
+                                    >
+                                        Home
+                                    </a>
+                                    <a
+                                        href="#features"
+                                        className="text-white/60 hover:text-white transition-colors"
+                                    >
+                                        Features
+                                    </a>
+                                    <a
+                                        href="#about"
+                                        className="text-white/60 hover:text-white transition-colors"
+                                    >
+                                        About
+                                    </a>
+                                    <a
+                                        href="#roadmap"
+                                        className="text-white/60 hover:text-white transition-colors"
+                                    >
+                                        Roadmap
+                                    </a>
+                                    <a
+                                        href="#faq"
+                                        className="text-white/60 hover:text-white transition-colors"
+                                    >
+                                        FAQ
+                                    </a>
+                                </nav>
+                                <div className="flex items-center space-x-4 mt-4 md:mt-0">
+                                    <Image
+                                        src="/image/twitter.svg"
+                                        alt="Twitter"
+                                        width={24}
+                                        height={24}
+                                    />
+                                    <Image
+                                        src="/image/telegram.svg"
+                                        alt="Telegram"
+                                        width={24}
+                                        height={24}
+                                    />
+                                    <Image
+                                        src="/image/discord.svg"
+                                        alt="Discord"
+                                        width={24}
+                                        height={24}
+                                    />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
 
-                {/* Search Bar */}
-                <div className="mb-8">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                        <Input
-                            type="text"
-                            placeholder="Search assets..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
+                        <div className="bg-gray-900 rounded-lg p-6">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <Image
+                                    src="/image/logo-newsletter.png"
+                                    alt="Logo"
+                                    width={32}
+                                    height={32}
+                                />
+                                <h3 className="text-lg font-semibold">
+                                    Join our Waitlist
+                                </h3>
+                            </div>
+                            <div className="flex">
+                                <input
+                                    type="email"
+                                    placeholder="Enter your email address"
+                                    className="flex-1 bg-gray-800 border border-gray-700 rounded-l-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-green-500"
+                                />
+                                <button className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 text-white px-6 py-2 rounded-r-lg font-semibold">
+                                    Subscribe
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    {searchQuery && (
-                        <p className="text-muted-foreground text-xs mt-2">
-                            Searching for &quot;{searchQuery}&quot;
+
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-8 border-t border-white/20 text-white/60">
+                        <p>
+                            Copyright © 2025 Lemon Perp. All rights reserved.
                         </p>
-                    )}
+                        <div className="flex space-x-6 mt-4 md:mt-0">
+                            <a
+                                href="#"
+                                className="hover:text-white transition-colors"
+                            >
+                                Privacy Policy
+                            </a>
+                            <a
+                                href="#"
+                                className="hover:text-white transition-colors"
+                            >
+                                Terms and Conditions
+                            </a>
+                        </div>
+                    </div>
                 </div>
-
-                {/* All Trading Panels */}
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-24 gap-4">
-                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                        <div className="text-foreground font-medium">
-                            Loading trending assets...
-                        </div>
-                        <div className="text-muted-foreground text-sm">
-                            Fetching real-time market data
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-8">
-                        {renderTable(filteredTokens, "Top Trending Tokens")}
-                    </div>
-                )}
-            </main>
+            </footer>
         </div>
     );
 }
