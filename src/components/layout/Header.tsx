@@ -13,10 +13,10 @@ export function Header() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const navItems = [
-        { href: "/trending", label: "Trending", },
-        { href: "/perp", label: "Trade", },
-        { href: "/bridge", label: "Bridge",  },
-        { href: "/staking", label: "Stake", },
+        { href: "/trending", label: "Trending" },
+        { href: "/perp", label: "Trade" },
+        { href: "/bridge", label: "Bridge" },
+        { href: "/staking", label: "Stake" },
     ];
 
     return (
@@ -25,7 +25,7 @@ export function Header() {
                 initial={{ opacity: 0.5 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6 }}
-                className="max-w-screen-xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-8 md:px-12 py-4 bg-[#13151b99] border border-gray-100/10"
+                className="max-w-screen-2xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-8 md:px-12 py-4 bg-[#13151b99] border border-gray-100/10"
             >
                 <Link href="/" className="inline-flex items-center gap-3.5">
                     <Image
