@@ -1,5 +1,6 @@
-const usdc = "0xe87251CD15E87FE9bC79C30808c8d719b1849943";
-const SyntheticPerpetualContract = "0xE27f91b3d14Ad71052f4003a4dA5eB3BD1751881";
+const usdc = process.env.USDC_CONTRACT_ADDRESS as `0x${string}`;
+const SyntheticPerpetualContract = process.env
+	.SYNTHETIC_PERPETUAL_CONTRACT_ADDRESS as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -266,6 +267,99 @@ const SyntheticAbi = [
 			}
 		],
 		name: "LiquidityAdded",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "totalAllocatedLiquidity",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "LiquidityAllocated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "totalAllocatedLiquidity",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "LiquidityDeallocated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "string",
+				name: "fromMarket",
+				type: "string"
+			},
+			{
+				indexed: true,
+				internalType: "string",
+				name: "toMarket",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "LiquidityMovedBetweenMarkets",
 		type: "event"
 	},
 	{
@@ -549,6 +643,87 @@ const SyntheticAbi = [
 		type: "event"
 	},
 	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "initialVirtualFunding",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "VirtualMarketCreated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "oldFeeRate",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newFeeRate",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "VirtualMarketDurationFeeUpdated",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "oldRate",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "newRate",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "VirtualMarketProfitRateUpdated",
+		type: "event"
+	},
+	{
 		inputs: [],
 		name: "BASIS_POINTS",
 		outputs: [
@@ -576,7 +751,7 @@ const SyntheticAbi = [
 	},
 	{
 		inputs: [],
-		name: "DURATION_FEE_RATE",
+		name: "DEFAULT_DURATION_FEE_RATE",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -655,6 +830,52 @@ const SyntheticAbi = [
 	{
 		inputs: [
 			{
+				components: [
+					{
+						internalType: "string",
+						name: "marketId",
+						type: "string"
+					},
+					{
+						internalType: "uint256",
+						name: "amount",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "timestamp",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "nonce",
+						type: "uint256"
+					},
+					{
+						internalType: "address",
+						name: "operator",
+						type: "address"
+					}
+				],
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				name: "liquidityData",
+				type: "tuple"
+			},
+			{
+				internalType: "bytes",
+				name: "signature",
+				type: "bytes"
+			}
+		],
+		name: "allocateVirtualMarketLiquidity",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "uint256",
 				name: "positionId",
 				type: "uint256"
@@ -680,9 +901,20 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint8",
+						name: "volatilityTier",
+						type: "uint8"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -708,6 +940,52 @@ const SyntheticAbi = [
 			}
 		],
 		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				components: [
+					{
+						internalType: "string",
+						name: "marketId",
+						type: "string"
+					},
+					{
+						internalType: "uint256",
+						name: "amount",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "timestamp",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "nonce",
+						type: "uint256"
+					},
+					{
+						internalType: "address",
+						name: "operator",
+						type: "address"
+					}
+				],
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				name: "liquidityData",
+				type: "tuple"
+			},
+			{
+				internalType: "bytes",
+				name: "signature",
+				type: "bytes"
+			}
+		],
+		name: "deallocateVirtualMarketLiquidity",
+		outputs: [],
+		stateMutability: "nonpayable",
 		type: "function"
 	},
 	{
@@ -827,7 +1105,7 @@ const SyntheticAbi = [
 						type: "int256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.Position",
+				internalType: "struct SyntheticPerpetualWithVmarkets.Position",
 				name: "",
 				type: "tuple"
 			}
@@ -927,6 +1205,116 @@ const SyntheticAbi = [
 	{
 		inputs: [
 			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			}
+		],
+		name: "getVirtualMarket",
+		outputs: [
+			{
+				components: [
+					{
+						internalType: "string",
+						name: "marketId",
+						type: "string"
+					},
+					{
+						internalType: "uint256",
+						name: "realLiquidity",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualLiquidity",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "totalLiquidity",
+						type: "uint256"
+					},
+					{
+						internalType: "bool",
+						name: "exists",
+						type: "bool"
+					},
+					{
+						internalType: "uint256",
+						name: "createdTimestamp",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "durationFeeRate",
+						type: "uint256"
+					}
+				],
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.VirtualMarket",
+				name: "",
+				type: "tuple"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			}
+		],
+		name: "getVirtualMarketDurationFee",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			}
+		],
+		name: "getVirtualMarketLiquidity",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "realLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "virtualLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalMarketLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "usableLiquidity",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "uint256",
 				name: "positionId",
 				type: "uint256"
@@ -952,9 +1340,15 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -985,6 +1379,19 @@ const SyntheticAbi = [
 	{
 		inputs: [],
 		name: "maxTradingMargin",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "maxVirtualMarketProfitRate",
 		outputs: [
 			{
 				internalType: "uint256",
@@ -1059,9 +1466,15 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -1072,6 +1485,34 @@ const SyntheticAbi = [
 			}
 		],
 		name: "modifyPosition",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "fromMarket",
+				type: "string"
+			},
+			{
+				internalType: "string",
+				name: "toMarket",
+				type: "string"
+			},
+			{
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256"
+			},
+			{
+				internalType: "bool",
+				name: "moveFromVirtual",
+				type: "bool"
+			}
+		],
+		name: "moveLiquidityBetweenMarkets",
 		outputs: [],
 		stateMutability: "nonpayable",
 		type: "function"
@@ -1132,9 +1573,15 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -1281,6 +1728,19 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "totalFeesCharged",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [],
+		name: "totalAllocatedLiquidity",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "",
 				type: "uint256"
 			}
 		],
@@ -1452,9 +1912,15 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -1497,9 +1963,15 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "virtualFunding",
+						type: "uint256"
 					}
 				],
-				internalType: "struct SyntheticPerpetual.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple"
 			},
@@ -1530,6 +2002,37 @@ const SyntheticAbi = [
 	{
 		inputs: [
 			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				internalType: "uint256",
+				name: "newFeeRate",
+				type: "uint256"
+			}
+		],
+		name: "updateVirtualMarketDurationFee",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "newProfitRate",
+				type: "uint256"
+			}
+		],
+		name: "updateVirtualMarketProfitRate",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "address",
 				name: "",
 				type: "address"
@@ -1546,6 +2049,74 @@ const SyntheticAbi = [
 				internalType: "bool",
 				name: "",
 				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			}
+		],
+		name: "virtualMarketExists",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "",
+				type: "bool"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "",
+				type: "string"
+			}
+		],
+		name: "virtualMarkets",
+		outputs: [
+			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				internalType: "uint256",
+				name: "realLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "virtualLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalLiquidity",
+				type: "uint256"
+			},
+			{
+				internalType: "bool",
+				name: "exists",
+				type: "bool"
+			},
+			{
+				internalType: "uint256",
+				name: "createdTimestamp",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "durationFeeRate",
+				type: "uint256"
 			}
 		],
 		stateMutability: "view",

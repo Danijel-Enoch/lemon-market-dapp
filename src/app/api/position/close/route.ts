@@ -26,20 +26,23 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getTokenPriceService } from "@/lib/token-price-service";
 import {
 	createPublicClient,
 	createWalletClient,
 	http,
-	parseUnits,
 	encodeFunctionData,
+	encodePacked,
 	keccak256,
-	encodePacked
+	parseUnits
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { hardhat, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
-import { getTokenPrice, getTokenPriceByPair } from "@/lib/oracle";
+import { getTokenPriceService } from "@/lib/token-price-service";
+import {
+	getVolatilityTierForToken,
+	calculateVirtualFunding
+} from "@/lib/volatility-utils";
 
 // Types for the API request and response
 interface ClosePositionRequest {
@@ -54,6 +57,8 @@ interface OracleData {
 	price: bigint;
 	timestamp: bigint;
 	nonce: bigint;
+	volatilityTier: number;
+	virtualFunding: bigint;
 }
 
 interface ClosePositionResponse {
@@ -69,7 +74,7 @@ interface ClosePositionResponse {
 
 // Initialize clients
 const publicClient = createPublicClient({
-	chain: sepolia,
+	chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
 	transport: http()
 });
 
@@ -88,18 +93,28 @@ async function signOracleData(
 
 	const walletClient = createWalletClient({
 		account,
-		chain: sepolia,
+		chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
 		transport: http()
 	});
 
-	// Match the exact format from the test
+	// Match the exact format from the test - updated to include volatilityTier and virtualFunding
 	const message = encodePacked(
-		["string", "uint256", "uint256", "uint256", "address"],
+		[
+			"string",
+			"uint256",
+			"uint256",
+			"uint256",
+			"uint8",
+			"uint256",
+			"address"
+		],
 		[
 			oracleData.tokenSymbol,
 			oracleData.price,
 			oracleData.timestamp,
 			oracleData.nonce,
+			oracleData.volatilityTier,
+			oracleData.virtualFunding,
 			traderAddress as `0x${string}`
 		]
 	);
@@ -109,6 +124,8 @@ async function signOracleData(
 	console.log("- Price:", oracleData.price.toString());
 	console.log("- Timestamp:", oracleData.timestamp.toString());
 	console.log("- Nonce:", oracleData.nonce.toString());
+	console.log("- Volatility Tier:", oracleData.volatilityTier);
+	console.log("- Virtual Funding:", oracleData.virtualFunding.toString());
 	console.log("- Trader address:", traderAddress);
 
 	const messageHash = keccak256(message);
@@ -221,11 +238,18 @@ export async function POST(request: NextRequest) {
 		const priceValue = parseFloat(tokenPriceData.priceUSD);
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
+		const volatilityTier = getVolatilityTierForToken(body.tokenSymbol);
+
+		// For closing positions, market should already exist, so virtual funding is zero
+		const virtualFunding = BigInt(0);
+
 		const oracleData: OracleData = {
 			tokenSymbol: body.tokenSymbol.toUpperCase(),
 			price: priceInWei,
 			timestamp: currentTimestamp,
-			nonce: nonce
+			nonce: nonce,
+			volatilityTier: volatilityTier,
+			virtualFunding: virtualFunding
 		};
 
 		// Sign the oracle data
@@ -252,7 +276,9 @@ export async function POST(request: NextRequest) {
 						tokenSymbol: oracleData.tokenSymbol,
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
-						nonce: oracleData.nonce
+						nonce: oracleData.nonce,
+						volatilityTier: oracleData.volatilityTier,
+						virtualFunding: oracleData.virtualFunding
 					},
 					signature
 				]

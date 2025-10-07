@@ -34,16 +34,22 @@ import {
 	createPublicClient,
 	createWalletClient,
 	http,
-	parseUnits,
 	encodeFunctionData,
-	keccak256,
 	encodePacked,
+	keccak256,
+	parseUnits,
 	recoverMessageAddress
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { hardhat, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
-import { getTokenPrice, getTokenPriceByPair } from "@/lib/oracle";
+import { getTokenPriceService } from "@/lib/token-price-service";
+import {
+	getVolatilityTierForToken,
+	calculateVirtualFunding,
+	calculateVirtualFundingForMarket,
+	VolatilityTier
+} from "@/lib/volatility-utils";
 
 // Types for the API request and response
 interface CreatePositionRequest {
@@ -60,6 +66,8 @@ interface OracleData {
 	price: bigint;
 	timestamp: bigint;
 	nonce: bigint;
+	volatilityTier: number;
+	virtualFunding: bigint;
 }
 
 interface CreatePositionResponse {
@@ -75,7 +83,7 @@ interface CreatePositionResponse {
 
 // Initialize clients
 const publicClient = createPublicClient({
-	chain: sepolia,
+	chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
 	transport: http()
 });
 
@@ -94,29 +102,39 @@ async function signOracleData(
 
 	const walletClient = createWalletClient({
 		account,
-		chain: sepolia, // Match the chain used for the client
+		chain: process.env.NODE_ENV === "development" ? hardhat : sepolia, // Match the chain used for the client
 		transport: http()
 	});
 
-	// Match the exact format from the test:
-	// ethers.keccak256(ethers.solidityPacked(["string", "uint256", "uint256", "uint256", "address"],
-	//   [TOKEN_SYMBOL, INITIAL_PRICE, timestamp, nonce, trader1Address]))
+	// Updated format to include volatilityTier and virtualFunding
 	const message = encodePacked(
-		["string", "uint256", "uint256", "uint256", "address"],
+		[
+			"string",
+			"uint256",
+			"uint256",
+			"uint256",
+			"uint8",
+			"uint256",
+			"address"
+		],
 		[
 			oracleData.tokenSymbol,
 			oracleData.price,
 			oracleData.timestamp,
 			oracleData.nonce,
+			oracleData.volatilityTier,
+			oracleData.virtualFunding,
 			traderAddress as `0x${string}` // This is the trader address, not admin address!
 		]
 	);
 
-	console.log("Signing oracle data (matching test format):");
+	console.log("Signing oracle data (updated format):");
 	console.log("- Token:", oracleData.tokenSymbol);
 	console.log("- Price:", oracleData.price.toString());
 	console.log("- Timestamp:", oracleData.timestamp.toString());
 	console.log("- Nonce:", oracleData.nonce.toString());
+	console.log("- Volatility Tier:", oracleData.volatilityTier);
+	console.log("- Virtual Funding:", oracleData.virtualFunding.toString());
 	console.log("- Trader address:", traderAddress);
 	console.log("- Admin signer address:", account.address);
 	console.log("- Message to sign:", message);
@@ -156,14 +174,24 @@ async function verifySignatureLocallyWithTrader(
 	traderAddress: string
 ): Promise<boolean> {
 	try {
-		// Match the exact format: oracle data + trader address
+		// Match the exact format: oracle data + trader address (updated format)
 		const message = encodePacked(
-			["string", "uint256", "uint256", "uint256", "address"],
+			[
+				"string",
+				"uint256",
+				"uint256",
+				"uint256",
+				"uint8",
+				"uint256",
+				"address"
+			],
 			[
 				oracleData.tokenSymbol,
 				oracleData.price,
 				oracleData.timestamp,
 				oracleData.nonce,
+				oracleData.volatilityTier,
+				oracleData.virtualFunding,
 				traderAddress as `0x${string}`
 			]
 		);
@@ -189,6 +217,40 @@ async function verifySignatureLocallyWithTrader(
 	} catch (error) {
 		console.error("Local signature verification failed:", error);
 		return false;
+	}
+}
+
+// Helper function to check market existence and get available liquidity
+async function checkMarketAndLiquidity(tokenSymbol: string): Promise<{
+	marketExists: boolean;
+	availableLiquidity: bigint;
+}> {
+	try {
+		// Check if virtual market exists
+		const marketExists = (await publicClient.readContract({
+			address: SyntheticPerpetualContract,
+			abi: SyntheticAbi,
+			functionName: "virtualMarketExists",
+			args: [tokenSymbol.toUpperCase()]
+		})) as boolean;
+
+		// Get available liquidity
+		const availableLiquidity = (await publicClient.readContract({
+			address: SyntheticPerpetualContract,
+			abi: SyntheticAbi,
+			functionName: "getUnallocatedLiquidity",
+			args: []
+		})) as bigint;
+
+		console.log(`Market check for ${tokenSymbol}:`);
+		console.log(`- Market exists: ${marketExists}`);
+		console.log(`- Available liquidity: ${availableLiquidity.toString()}`);
+
+		return { marketExists, availableLiquidity };
+	} catch (error) {
+		console.error("Error checking market and liquidity:", error);
+		// If we can't check, assume market exists to be safe (virtual funding = 0)
+		return { marketExists: true, availableLiquidity: BigInt(0) };
 	}
 }
 
@@ -248,36 +310,17 @@ export async function POST(request: NextRequest) {
 		// Fetch current price from oracle
 		let tokenPrice;
 		try {
-			// Use pair address for more accurate pricing if available
-			if (body.pairAddress) {
+			// Use the token price service to get current token price
+			const tokenPriceService = getTokenPriceService();
+			tokenPrice = await tokenPriceService.getTokenPrice(
+				body.tokenSymbol
+			);
+
+			if (tokenPrice) {
 				console.log(
-					`Fetching price using pair address: ${body.pairAddress} for ${body.tokenSymbol}`
+					`Successfully fetched price: $${tokenPrice.priceUSD} for ${body.tokenSymbol}`,
+					`(source: ${tokenPrice.source}, confidence: ${tokenPrice.confidence})`
 				);
-				// For Ethereum mainnet, use 'ethereum' as chainId for DexScreener
-				tokenPrice = await getTokenPriceByPair(body.pairAddress, "bsc");
-
-				if (tokenPrice) {
-					console.log(
-						`Successfully fetched price from pair: $${tokenPrice.priceUsd} for ${tokenPrice.symbol}`
-					);
-				}
-			}
-
-			// Fallback to token symbol if pair address fails or not provided
-			if (!tokenPrice) {
-				console.log(
-					`Fetching price using token symbol: ${body.tokenSymbol} (fallback method)`
-				);
-				tokenPrice = await getTokenPrice(
-					body.tokenSymbol.toLowerCase(),
-					"bsc"
-				);
-
-				if (tokenPrice) {
-					console.log(
-						`Successfully fetched price from symbol: $${tokenPrice.priceUsd} for ${tokenPrice.symbol}`
-					);
-				}
 			}
 		} catch (error) {
 			console.error("Oracle price fetch error:", error);
@@ -290,7 +333,11 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		if (!tokenPrice || !tokenPrice.priceUsd || tokenPrice.priceUsd <= 0) {
+		if (
+			!tokenPrice ||
+			!tokenPrice.priceUSD ||
+			parseFloat(tokenPrice.priceUSD) <= 0
+		) {
 			return NextResponse.json(
 				{
 					success: false,
@@ -305,13 +352,46 @@ export async function POST(request: NextRequest) {
 		const nonce = generateNonce();
 
 		// Convert price to appropriate decimals (18 decimals for price oracle)
-		const priceInWei = parseUnits(tokenPrice.priceUsd.toFixed(18), 18);
+		const priceValue = parseFloat(tokenPrice.priceUSD);
+		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
+
+		const volatilityTier = getVolatilityTierForToken(body.tokenSymbol);
+
+		// Check if market exists and get available liquidity to calculate virtual funding
+		const { marketExists, availableLiquidity } =
+			await checkMarketAndLiquidity(body.tokenSymbol);
+
+		// Calculate virtual funding based on market existence and available liquidity
+		const virtualFunding = calculateVirtualFundingForMarket(
+			availableLiquidity,
+			marketExists
+		);
+
+		console.log(
+			`Virtual funding calculated for ${
+				body.tokenSymbol
+			}: ${virtualFunding.toString()}`
+		);
+		if (marketExists) {
+			console.log("Market already exists - virtual funding set to zero");
+		} else if (availableLiquidity <= BigInt(0)) {
+			console.log(
+				"No allocatable funds available - virtual funding set to zero"
+			);
+		} else {
+			const masterFund = (availableLiquidity * BigInt(3)) / BigInt(100);
+			console.log(
+				`Master fund amount (3% of ${availableLiquidity.toString()}): ${masterFund.toString()}`
+			);
+		}
 
 		const oracleData: OracleData = {
 			tokenSymbol: body.tokenSymbol.toUpperCase(),
 			price: priceInWei,
 			timestamp: currentTimestamp,
-			nonce: nonce
+			nonce: nonce,
+			volatilityTier: volatilityTier,
+			virtualFunding: virtualFunding
 		};
 
 		// Sign the oracle data
@@ -320,8 +400,7 @@ export async function POST(request: NextRequest) {
 			signature = await signOracleData(oracleData, body.userAddress);
 
 			// Verify signature locally for debugging
-			const privateKey =
-				"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as `0x${string}`;
+			const privateKey = process.env.ADMIN_PRIVATE_KEY as `0x${string}`;
 			const signerAddress = privateKeyToAccount(privateKey).address;
 			const isValid = await verifySignatureLocallyWithTrader(
 				oracleData,
@@ -356,7 +435,9 @@ export async function POST(request: NextRequest) {
 						tokenSymbol: oracleData.tokenSymbol,
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
-						nonce: oracleData.nonce
+						nonce: oracleData.nonce,
+						volatilityTier: oracleData.volatilityTier,
+						virtualFunding: oracleData.virtualFunding
 					},
 					signature
 				]
