@@ -17,7 +17,9 @@ const isDevelopment = process.env.NODE_ENV === "development";
 export const config = getDefaultConfig({
 	appName: "Lemon Markets",
 	projectId: projectId,
-	chains: isDevelopment ? [hardhat, localhost] : [sepolia],
+	chains: isDevelopment
+		? [hardhat, localhost, sepolia, mainnet, polygon]
+		: [sepolia],
 	ssr: true // If your dApp uses server side rendering (SSR)
 });
 

@@ -41,7 +41,7 @@ import {
 	recoverMessageAddress
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { hardhat, sepolia } from "viem/chains";
+import { hardhat, localhost, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
 import { getTokenPriceService } from "@/lib/token-price-service";
 import {
@@ -80,7 +80,7 @@ interface CreatePositionResponse {
 
 // Initialize clients
 const publicClient = createPublicClient({
-	chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
+	chain: localhost,
 	transport: http()
 });
 
@@ -95,13 +95,17 @@ async function signOracleData(
 		throw new Error("Admin private key not found");
 	}
 
+	console.log("Using admin private key for signing:", privateKey);
+
 	const account = privateKeyToAccount(privateKey);
 
 	const walletClient = createWalletClient({
 		account,
-		chain: process.env.NODE_ENV === "development" ? hardhat : sepolia, // Match the chain used for the client
+		chain: localhost, // Match the chain used for the client
 		transport: http()
 	});
+
+	console.log({ oracleData, traderAddress });
 
 	// Updated format without volatilityTier
 	const message = encodePacked(
@@ -212,16 +216,29 @@ async function checkMarketAndLiquidity(tokenSymbol: string): Promise<{
 			args: [tokenSymbol.toUpperCase()]
 		})) as boolean;
 
-		// Get available liquidity
-		const availableLiquidity = (await publicClient.readContract({
+		// Get available liquidity using the formula: availableLiquidity = totalLiquidity - totalAllocatedLiquidity
+		const totalLiquidity = (await publicClient.readContract({
 			address: SyntheticPerpetualContract,
 			abi: SyntheticAbi,
-			functionName: "getUnallocatedLiquidity",
+			functionName: "totalLiquidity",
 			args: []
 		})) as bigint;
 
+		const totalAllocatedLiquidity = (await publicClient.readContract({
+			address: SyntheticPerpetualContract,
+			abi: SyntheticAbi,
+			functionName: "totalAllocatedLiquidity",
+			args: []
+		})) as bigint;
+
+		const availableLiquidity = totalLiquidity - totalAllocatedLiquidity;
+
 		console.log(`Market check for ${tokenSymbol}:`);
 		console.log(`- Market exists: ${marketExists}`);
+		console.log(`- Total liquidity: ${totalLiquidity.toString()}`);
+		console.log(
+			`- Total allocated liquidity: ${totalAllocatedLiquidity.toString()}`
+		);
 		console.log(`- Available liquidity: ${availableLiquidity.toString()}`);
 
 		return { marketExists, availableLiquidity };
@@ -337,6 +354,11 @@ export async function POST(request: NextRequest) {
 		const { marketExists, availableLiquidity } =
 			await checkMarketAndLiquidity(body.tokenSymbol);
 
+		console.log(
+			`Calculating virtual funding for ${body.tokenSymbol}...`,
+			`Market exists: ${marketExists}, Available liquidity: ${availableLiquidity.toString()}`
+		);
+
 		// Calculate virtual funding based on market existence and available liquidity
 		const virtualFunding = calculateVirtualFundingForMarket(
 			availableLiquidity,
@@ -360,6 +382,9 @@ export async function POST(request: NextRequest) {
 				`Master fund amount (3% of ${availableLiquidity.toString()}): ${masterFund.toString()}`
 			);
 		}
+		console.log(
+			`Final virtual funding to be used in oracle data: ${virtualFunding.toString()}`
+		);
 
 		const oracleData: OracleData = {
 			tokenSymbol: body.tokenSymbol.toUpperCase(),
