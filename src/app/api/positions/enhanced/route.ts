@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
 		// Fetch positions from subgraph
 		const response = await fetch(
-			"https://api.studio.thegraph.com/query/107029/lemon/version/latest",
+			"http://173.249.36.164:8000/subgraphs/name/lemon-v11",
 			{
 				method: "POST",
 				headers: {
