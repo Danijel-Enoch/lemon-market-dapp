@@ -1,6 +1,6 @@
-const usdc = process.env.USDC_CONTRACT_ADDRESS as `0x${string}`;
-const SyntheticPerpetualContract = process.env
-	.SYNTHETIC_PERPETUAL_CONTRACT_ADDRESS as `0x${string}`;
+const usdc = "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f" as `0x${string}`;
+const SyntheticPerpetualContract =
+	"0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6" as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -901,11 +901,6 @@ const SyntheticAbi = [
 						internalType: "uint256",
 						name: "nonce",
 						type: "uint256"
-					},
-					{
-						internalType: "uint8",
-						name: "volatilityTier",
-						type: "uint8"
 					},
 					{
 						internalType: "uint256",

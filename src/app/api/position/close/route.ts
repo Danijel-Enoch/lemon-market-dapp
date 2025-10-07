@@ -39,10 +39,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { hardhat, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
 import { getTokenPriceService } from "@/lib/token-price-service";
-import {
-	getVolatilityTierForToken,
-	calculateVirtualFunding
-} from "@/lib/volatility-utils";
+import { calculateVirtualFunding } from "@/lib/volatility-utils";
 
 // Types for the API request and response
 interface ClosePositionRequest {
@@ -57,7 +54,6 @@ interface OracleData {
 	price: bigint;
 	timestamp: bigint;
 	nonce: bigint;
-	volatilityTier: number;
 	virtualFunding: bigint;
 }
 
@@ -97,23 +93,14 @@ async function signOracleData(
 		transport: http()
 	});
 
-	// Match the exact format from the test - updated to include volatilityTier and virtualFunding
+	// Match the exact format from the test - updated to remove volatilityTier
 	const message = encodePacked(
-		[
-			"string",
-			"uint256",
-			"uint256",
-			"uint256",
-			"uint8",
-			"uint256",
-			"address"
-		],
+		["string", "uint256", "uint256", "uint256", "uint256", "address"],
 		[
 			oracleData.tokenSymbol,
 			oracleData.price,
 			oracleData.timestamp,
 			oracleData.nonce,
-			oracleData.volatilityTier,
 			oracleData.virtualFunding,
 			traderAddress as `0x${string}`
 		]
@@ -124,7 +111,6 @@ async function signOracleData(
 	console.log("- Price:", oracleData.price.toString());
 	console.log("- Timestamp:", oracleData.timestamp.toString());
 	console.log("- Nonce:", oracleData.nonce.toString());
-	console.log("- Volatility Tier:", oracleData.volatilityTier);
 	console.log("- Virtual Funding:", oracleData.virtualFunding.toString());
 	console.log("- Trader address:", traderAddress);
 
@@ -238,8 +224,6 @@ export async function POST(request: NextRequest) {
 		const priceValue = parseFloat(tokenPriceData.priceUSD);
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
-		const volatilityTier = getVolatilityTierForToken(body.tokenSymbol);
-
 		// For closing positions, market should already exist, so virtual funding is zero
 		const virtualFunding = BigInt(0);
 
@@ -248,7 +232,6 @@ export async function POST(request: NextRequest) {
 			price: priceInWei,
 			timestamp: currentTimestamp,
 			nonce: nonce,
-			volatilityTier: volatilityTier,
 			virtualFunding: virtualFunding
 		};
 
@@ -277,7 +260,6 @@ export async function POST(request: NextRequest) {
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
 						nonce: oracleData.nonce,
-						volatilityTier: oracleData.volatilityTier,
 						virtualFunding: oracleData.virtualFunding
 					},
 					signature

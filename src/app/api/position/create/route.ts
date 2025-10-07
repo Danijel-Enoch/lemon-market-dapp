@@ -45,10 +45,8 @@ import { hardhat, sepolia } from "viem/chains";
 import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
 import { getTokenPriceService } from "@/lib/token-price-service";
 import {
-	getVolatilityTierForToken,
 	calculateVirtualFunding,
-	calculateVirtualFundingForMarket,
-	VolatilityTier
+	calculateVirtualFundingForMarket
 } from "@/lib/volatility-utils";
 
 // Types for the API request and response
@@ -66,7 +64,6 @@ interface OracleData {
 	price: bigint;
 	timestamp: bigint;
 	nonce: bigint;
-	volatilityTier: number;
 	virtualFunding: bigint;
 }
 
@@ -106,23 +103,14 @@ async function signOracleData(
 		transport: http()
 	});
 
-	// Updated format to include volatilityTier and virtualFunding
+	// Updated format without volatilityTier
 	const message = encodePacked(
-		[
-			"string",
-			"uint256",
-			"uint256",
-			"uint256",
-			"uint8",
-			"uint256",
-			"address"
-		],
+		["string", "uint256", "uint256", "uint256", "uint256", "address"],
 		[
 			oracleData.tokenSymbol,
 			oracleData.price,
 			oracleData.timestamp,
 			oracleData.nonce,
-			oracleData.volatilityTier,
 			oracleData.virtualFunding,
 			traderAddress as `0x${string}` // This is the trader address, not admin address!
 		]
@@ -133,7 +121,6 @@ async function signOracleData(
 	console.log("- Price:", oracleData.price.toString());
 	console.log("- Timestamp:", oracleData.timestamp.toString());
 	console.log("- Nonce:", oracleData.nonce.toString());
-	console.log("- Volatility Tier:", oracleData.volatilityTier);
 	console.log("- Virtual Funding:", oracleData.virtualFunding.toString());
 	console.log("- Trader address:", traderAddress);
 	console.log("- Admin signer address:", account.address);
@@ -176,21 +163,12 @@ async function verifySignatureLocallyWithTrader(
 	try {
 		// Match the exact format: oracle data + trader address (updated format)
 		const message = encodePacked(
-			[
-				"string",
-				"uint256",
-				"uint256",
-				"uint256",
-				"uint8",
-				"uint256",
-				"address"
-			],
+			["string", "uint256", "uint256", "uint256", "uint256", "address"],
 			[
 				oracleData.tokenSymbol,
 				oracleData.price,
 				oracleData.timestamp,
 				oracleData.nonce,
-				oracleData.volatilityTier,
 				oracleData.virtualFunding,
 				traderAddress as `0x${string}`
 			]
@@ -355,8 +333,6 @@ export async function POST(request: NextRequest) {
 		const priceValue = parseFloat(tokenPrice.priceUSD);
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
-		const volatilityTier = getVolatilityTierForToken(body.tokenSymbol);
-
 		// Check if market exists and get available liquidity to calculate virtual funding
 		const { marketExists, availableLiquidity } =
 			await checkMarketAndLiquidity(body.tokenSymbol);
@@ -390,7 +366,6 @@ export async function POST(request: NextRequest) {
 			price: priceInWei,
 			timestamp: currentTimestamp,
 			nonce: nonce,
-			volatilityTier: volatilityTier,
 			virtualFunding: virtualFunding
 		};
 
@@ -436,7 +411,6 @@ export async function POST(request: NextRequest) {
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
 						nonce: oracleData.nonce,
-						volatilityTier: oracleData.volatilityTier,
 						virtualFunding: oracleData.virtualFunding
 					},
 					signature
