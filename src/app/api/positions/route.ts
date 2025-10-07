@@ -76,22 +76,19 @@ export async function GET(request: NextRequest) {
 		}
 
 		// Make GraphQL request to the subgraph
-		const response = await fetch(
-			"http://173.249.36.164:32711/subgraphs/name/lemon-v11",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b"
-				},
-				body: JSON.stringify({
-					query: POSITIONS_QUERY,
-					variables: {
-						trader: trader.toLowerCase() // Ensure lowercase for consistency
-					}
-				})
-			}
-		);
+		const response = await fetch(process.env.SUBGRAPH_URL || "", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b"
+			},
+			body: JSON.stringify({
+				query: POSITIONS_QUERY,
+				variables: {
+					trader: trader.toLowerCase() // Ensure lowercase for consistency
+				}
+			})
+		});
 
 		if (!response.ok) {
 			throw new Error(

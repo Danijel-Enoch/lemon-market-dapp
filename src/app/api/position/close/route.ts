@@ -78,8 +78,7 @@ async function signOracleData(
 	oracleData: OracleData,
 	traderAddress: string
 ): Promise<string> {
-	const privateKey =
-		"0xf3d594c80d011b791c862b9e0cb42984a3b6d766ab426a57e4d50462e5926bbc" as `0x${string}`;
+	const privateKey = process.env.ADMIN_PRIVATE_KEY as `0x${string}`;
 
 	if (!privateKey) {
 		throw new Error("Admin private key not found");

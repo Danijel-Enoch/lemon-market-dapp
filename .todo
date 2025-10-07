@@ -7,3 +7,17 @@ PNL picture
 implement swap and bridge
 implement trading leaderboard
 implement fourmemes/gra.fun  and FX 
+
+gra.fun graduation
+
+
+
+today 
+ refactor code .env 
+ setup local deployment 
+ update with with contracts and abis.
+ update open position function to use SYMBOL/CHAIN/ID
+ update and fix subgraph
+ test closing 
+ update liquidation bot,
+ deploy to testnet
