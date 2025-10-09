@@ -1,11 +1,59 @@
 "use client";
 
-import { LiFiWidget, type WidgetConfig } from "@lifi/widget";
+import {
+    LiFiWidget,
+    type WidgetConfig,
+    useWidgetEvents,
+    WidgetEvent,
+} from "@lifi/widget";
 import { ArrowLeftRight, Clock, Info, Repeat, Shield, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TokenPriceChart } from "@/components/trading/TokenPriceChart";
 
 export default function BridgeSwapPage() {
+    const [selectedToken, setSelectedToken] = useState<{
+        symbol: string;
+        address: string;
+        chainId: number;
+    } | null>(null);
+    const widgetEvents = useWidgetEvents();
+
+    useEffect(() => {
+        const handleSourceTokenSelected = (data: {
+            chainId: number;
+            tokenAddress: string;
+        }) => {
+            // For now, we'll use a simple mapping. In production, you'd fetch token details from the API
+            const tokenMap: Record<string, string> = {
+                "0x0000000000000000000000000000000000000000": "ETH",
+                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": "WETH",
+                "0xdAC17F958D2ee523a2206206994597C13D831ec7": "USDT",
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": "USDC",
+            };
+
+            const symbol = tokenMap[data.tokenAddress] || "TOKEN";
+            setSelectedToken({
+                symbol,
+                address: data.tokenAddress,
+                chainId: data.chainId,
+            });
+        };
+
+        widgetEvents.on(
+            WidgetEvent.SourceChainTokenSelected,
+            handleSourceTokenSelected,
+        );
+
+        return () => {
+            widgetEvents.off(
+                WidgetEvent.SourceChainTokenSelected,
+                handleSourceTokenSelected,
+            );
+        };
+    }, [widgetEvents]);
+
     const widgetConfig: WidgetConfig = {
         integrator: "omni-bot",
         fee: 0.02,
@@ -65,55 +113,10 @@ export default function BridgeSwapPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="space-y-6">
-                        <Card className="bg-neutral-900/60 border-white/10 backdrop-blur-sm">
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-green-500" />
-                                    Bridge Features
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <ArrowLeftRight className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h4 className="text-sm font-medium text-white">
-                                            Cross-Chain Transfers
-                                        </h4>
-                                        <p className="text-xs text-white/60 mt-1">
-                                            Seamlessly move assets between
-                                            multiple blockchains
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Shield className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h4 className="text-sm font-medium text-white">
-                                            Secure Bridging
-                                        </h4>
-                                        <p className="text-xs text-white/60 mt-1">
-                                            Powered by LiFi with best-in-class
-                                            security
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Clock className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <h4 className="text-sm font-medium text-white">
-                                            Fast Execution
-                                        </h4>
-                                        <p className="text-xs text-white/60 mt-1">
-                                            Optimized routes for quick
-                                            transactions
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    <div className="space-y-6 lg:col-span-2">
+                        <TokenPriceChart tokenSymbol={selectedToken?.symbol} />
                         <Card className="bg-gradient-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
-                            <CardContent className="p-4">
+                            <CardContent className="px-4">
                                 <div className="flex items-start gap-3">
                                     <Info className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                                     <div>
@@ -133,13 +136,11 @@ export default function BridgeSwapPage() {
                             </CardContent>
                         </Card>
                     </div>
-                    <div className="lg:col-span-2 w-full h-full">
-                        <div className="w-full h-full">
-                            <LiFiWidget
-                                integrator="omni-bot"
-                                config={widgetConfig}
-                            />
-                        </div>
+                    <div className="flex flex-col gap-2">
+                        <LiFiWidget
+                            integrator="omni-bot"
+                            config={widgetConfig}
+                        />
                     </div>
                 </div>
             </main>
