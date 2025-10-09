@@ -58,56 +58,82 @@ export default function BridgeSwapPage() {
     };
 
     useEffect(() => {
-        const handleSourceTokenSelected = (data: {
-            chainId: number;
-            tokenAddress: string;
-        }) => {
-            // Map token addresses to symbols and pair addresses for DexScreener
-            const tokenMap: Record<
-                string,
-                { symbol: string; pairAddress?: string }
-            > = {
-                "0x0000000000000000000000000000000000000000": {
-                    symbol: "ETH",
-                    pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+        const handleTokenSelected = (data: any) => {
+            console.log("Token selected event:", data);
+
+            // Normalize the token address to lowercase for consistent matching
+            const tokenAddress =
+                data.tokenAddress?.toLowerCase() || data.address?.toLowerCase();
+            const symbol = data.symbol?.toUpperCase();
+
+            console.log("Normalized address:", tokenAddress);
+            console.log("Token symbol:", symbol);
+
+            // Map by symbol (more reliable than address across chains)
+            // Using BSC pair addresses for DexScreener
+            const symbolToPairMap: Record<string, { pairAddress: string }> = {
+                BNB: {
+                    pairAddress: "0x16b9a82891338f9bA80E2D6970FddA79D1eb0daE", // BNB/BUSD on BSC
                 },
-                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": {
-                    symbol: "WETH",
-                    pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+                WBNB: {
+                    pairAddress: "0x16b9a82891338f9bA80E2D6970FddA79D1eb0daE", // WBNB/BUSD on BSC
                 },
-                "0xdAC17F958D2ee523a2206206994597C13D831ec7": {
-                    symbol: "USDT",
+                ETH: {
+                    pairAddress: "0x74E4716E431f45807DCF19f284c7aA99F18a4fbc", // ETH/BUSD on BSC
                 },
-                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": {
-                    symbol: "USDC",
+                BTCB: {
+                    pairAddress: "0xF45cd219aEF8618A92BAa7aD848364a158a24F33", // BTCB/BUSD on BSC
+                },
+                BTC: {
+                    pairAddress: "0xF45cd219aEF8618A92BAa7aD848364a158a24F33",
+                },
+                WBTC: {
+                    pairAddress: "0xF45cd219aEF8618A92BAa7aD848364a158a24F33",
+                },
+                USDT: {
+                    pairAddress: "0x16b9a82891338f9bA80E2D6970FddA79D1eb0daE", // Show BNB chart for stablecoins
+                },
+                USDC: {
+                    pairAddress: "0x16b9a82891338f9bA80E2D6970FddA79D1eb0daE",
                 },
             };
 
-            const tokenInfo = tokenMap[data.tokenAddress] || {
-                symbol: "TOKEN",
-            };
+            const pairInfo = symbol ? symbolToPairMap[symbol] : undefined;
+
+            console.log("Pair info found:", pairInfo);
+
             setSelectedToken({
-                symbol: tokenInfo.symbol,
-                address: data.tokenAddress,
-                chainId: data.chainId,
-                pairAddress: tokenInfo.pairAddress,
+                symbol: symbol || "TOKEN",
+                address: tokenAddress || data.tokenAddress || "",
+                chainId: data.chainId || 1,
+                pairAddress: pairInfo?.pairAddress,
             });
 
             // Fetch price if pair address exists
-            if (tokenInfo.pairAddress) {
-                fetchLatestPrice(tokenInfo.pairAddress);
+            if (pairInfo?.pairAddress) {
+                console.log("Fetching price for pair:", pairInfo.pairAddress);
+                fetchLatestPrice(pairInfo.pairAddress);
             }
         };
 
+        // Listen to multiple events to catch token selection
         widgetEvents.on(
             WidgetEvent.SourceChainTokenSelected,
-            handleSourceTokenSelected,
+            handleTokenSelected,
+        );
+        widgetEvents.on(
+            WidgetEvent.DestinationChainTokenSelected,
+            handleTokenSelected,
         );
 
         return () => {
             widgetEvents.off(
                 WidgetEvent.SourceChainTokenSelected,
-                handleSourceTokenSelected,
+                handleTokenSelected,
+            );
+            widgetEvents.off(
+                WidgetEvent.DestinationChainTokenSelected,
+                handleTokenSelected,
             );
         };
     }, [widgetEvents]);
