@@ -1,14 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { createMarketLookupMap, type VirtualMarket } from "@/lib/virtual-markets-service";
+import {
+	createMarketLookupMap,
+	type VirtualMarket
+} from "@/lib/virtual-markets-service";
 import {
 	formatLiquidity,
 	extractTokenAddress,
 	normalizeAddress,
-	parseLiquidityWith6Decimals,
+	parseLiquidityWith6Decimals
 } from "@/lib/virtual-markets-utils";
 
 const pairs = [
 	"0x16969fa79651bae11736f2f6576a86fe2726b42b",
+	"0xbffec96e8f3b5058b1817c14e4380758fada01ef",
+	"0x534d3930edba2c0b90a7973549a0287141c987ef",
 	"0x3817ff61b34c5ff5dc89709b2db1f194299e3ba9",
 	"0xa1893c58a39c67f1e0f5d5ef6b8d673ef0448968",
 	"0xe288d9d664c1fa3f9a06d070d135030bbdd809a8",
@@ -42,12 +47,46 @@ const pairs = [
 	"0xf66f5adad3b8f0bd1f9b413e87b772914d05bf3a",
 	"0xd0160672b2ca764b8aff188ad806b4cd6ee29e8a",
 	"0xb2505b8a1ab470acfbc12dd255e7fa298a23ab67",
+	"0xcf084d9004c2fe328bf7819bdd37f3a5b179c0c6",
+	"0xa511dc3d8422ee0e2a2c4ec1ac8b893757f0dc77",
+	"0x5092a153895359ec9f77d3a66f95b53dcdf8025e",
+	"0x0223c711ea46107df0a325e882bf2f657ec10ba5",
+	"0x258b62531e0d6c8d1e2e7ff23904fd851def77ca",
+	"0x79733327603b067f6ec6a2f111a16799cfbaf99b",
+	"0xc33bacff9141da689875e6381c1932348ab4c5cb",
+	"0x01c0612fcf95aa3624269dafc4324a47ad7928fa",
+	"0x8e86a6c334ab270084bf8273d5293488f2578207",
+	"0x126fadb82cc4ab91e6cd03accaf209fb6d1ffaab",
+	"0xff0a8df8c4a0332e28a4c94ebb3f633944b08a94",
+	"0x2269d2305830e3c3e7c05c26d46dd3790cd7314d",
+	"0xca5e9d88c2ef13052435e8320747832731239f13",
+	"0x2b69ae7cd715fec1a22908a04661406c0f95829f",
+	"0x87a2cb3ffb71ea9940ba3b602047700eaaf8e24b",
+	"0x9d60d308878d56c4aa4f89081421e6720bf3e8b2",
+	"0x8fc2cc651c0543d5d45034365cdd83018d51523c",
+	"0x0ec12db33551afba853b691b4edf49196ea0e99a",
+	"0x468ab8fd260878ebd44b7a28ceab5f052e4833d2",
+	"0x7874f0ecd450a5f06acb85543fe1d0d48e1c525f",
+	"0xa0c7f9b6e1218344d2c06ca301e11ea3b797a8c7",
+	"0x7cb113b487e025b3a69537fca579559433240cb5",
+	"0x7f51c8aaa6b0599abd16674e2b17fec7a9f674a1",
+	"0xa424c24c5cbfc377c3b6ae7355c3f30984664b16",
+	"0xa341e8e8ee6bf97fa1d18c2d12f00555dc78207e",
+	"0xe1799b52c010ad415325d19af139e20b8aa8aab0",
+	"0x5db04ea767d9fa92b9c06d7752226be7bc2e546f",
+	"0x5092a153895359ec9f77d3a66f95b53dcdf8025e",
+	"0x0223c711ea46107df0a325e882bf2f657ec10ba5",
+	"0x9e40a810debd1bb3113fd39d0080b2361c279e50",
+	"0x8907f25be4878f68d0a968def4ad4b66d1f06226"
 ];
 
 const poolsDetails = pairs.map(async (pair) => {
-	const response = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${"bsc"}/${pair}`, {
-		method: "GET",
-	});
+	const response = await fetch(
+		`https://api.dexscreener.com/latest/dex/pairs/${"bsc"}/${pair}`,
+		{
+			method: "GET"
+		}
+	);
 
 	const data = await response.json();
 	// Return the first pair from the pairs array, or the pair object directly
@@ -56,12 +95,6 @@ const poolsDetails = pairs.map(async (pair) => {
 
 export async function GET(req: Request) {
 	try {
-		// Parse query parameters for pagination
-		const { searchParams } = new URL(req.url);
-		const page = parseInt(searchParams.get("page") || "1");
-		const limit = parseInt(searchParams.get("limit") || "10");
-		const offset = (page - 1) * limit;
-
 		// Fetch DexScreener data
 		const results = await Promise.all(poolsDetails);
 
@@ -78,7 +111,9 @@ export async function GET(req: Request) {
 		const transformedData = results.filter(Boolean).map((pair, index) => {
 			const tokenSymbol = pair?.baseToken?.symbol;
 			const tokenAddress = extractTokenAddress(pair);
-			const virtualMarket = tokenSymbol ? marketLookupMap.get(tokenSymbol.toUpperCase()) : null;
+			const virtualMarket = tokenSymbol
+				? marketLookupMap.get(tokenSymbol.toUpperCase())
+				: null;
 
 			// Get total liquidity from virtual market, fallback to DEX liquidity if no market exists
 			const totalLiquidity = virtualMarket
@@ -93,13 +128,24 @@ export async function GET(req: Request) {
 			return {
 				id: index + 1,
 				symbol: pair.baseToken?.symbol || "UNKNOWN",
-				name: pair.baseToken?.name || pair.baseToken?.symbol || "Unknown Token",
-				price: pair.priceUsd ? `$${parseFloat(pair.priceUsd).toFixed(6)}` : "$0.00",
+				name:
+					pair.baseToken?.name ||
+					pair.baseToken?.symbol ||
+					"Unknown Token",
+				price: pair.priceUsd
+					? `$${parseFloat(pair.priceUsd).toFixed(6)}`
+					: "$0.00",
 				change24h: pair.priceChange?.h24
-					? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
+					? `${
+							pair.priceChange.h24 >= 0 ? "+" : ""
+					  }${pair.priceChange.h24.toFixed(2)}%`
 					: "0.00%",
-				volume: pair.volume?.h24 ? `$${(pair.volume.h24 / 1000000).toFixed(2)}M` : "$0.00",
-				marketCap: pair.marketCap ? `$${(pair.marketCap / 1000000).toFixed(2)}M` : "N/A",
+				volume: pair.volume?.h24
+					? `$${(pair.volume.h24 / 1000000).toFixed(2)}M`
+					: "$0.00",
+				marketCap: pair.marketCap
+					? `$${(pair.marketCap / 1000000).toFixed(2)}M`
+					: "N/A",
 				trend: pair.priceChange?.h24 >= 0 ? "up" : "down",
 				logo: pair.info?.imageUrl || "🪙",
 				// Virtual market specific fields
@@ -109,32 +155,27 @@ export async function GET(req: Request) {
 				hasMarket: !!virtualMarket,
 				marketId: virtualMarket?.marketId || null,
 				virtualLiquidity: virtualMarket
-					? formatLiquidity(parseLiquidityWith6Decimals(virtualMarket.virtualLiquidity))
+					? formatLiquidity(
+							parseLiquidityWith6Decimals(
+								virtualMarket.virtualLiquidity
+							)
+					  )
 					: "$0.00",
 				// Additional fields for potential future use
 				pairAddress: pair.pairAddress,
 				tokenAddress: tokenAddress,
 				liquidity: pair.liquidity?.usd,
 				dexId: pair.dexId,
-				chainId: pair.chainId,
+				chainId: pair.chainId
 			};
 		});
 
-		// Apply pagination to the transformed data
-		const paginatedData = transformedData.slice(offset, offset + limit);
-		const hasMore = offset + limit < transformedData.length;
-
-		return Response.json({
-			data: paginatedData,
-			pagination: {
-				page,
-				limit,
-				total: transformedData.length,
-				hasMore,
-			},
-		});
+		return Response.json({ data: transformedData });
 	} catch (error) {
 		console.error("Error fetching token data:", error);
-		return Response.json({ error: "Failed to fetch token data" }, { status: 500 });
+		return Response.json(
+			{ error: "Failed to fetch token data" },
+			{ status: 500 }
+		);
 	}
 }
