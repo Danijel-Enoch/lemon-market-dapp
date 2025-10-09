@@ -126,23 +126,24 @@ export function calculateVirtualFundingForMarket(
 	marketExists: boolean
 ): bigint {
 	// If market already exists, virtual funding is zero
-	if (marketExists) {
-		return BigInt(0);
-	}
+	// if (marketExists) {
+	// 	return BigInt(0);
+	// }
 
-	// If no available liquidity, virtual funding is zero
-	if (availableLiquidity <= BigInt(0)) {
-		return BigInt(0);
-	}
+	// // If no available liquidity, virtual funding is zero
+	// if (availableLiquidity <= BigInt(0)) {
+	// 	return BigInt(0);
+	// }
 
-	// Calculate 3% of available liquidity as master fund amount
-	const masterFundAmount = (availableLiquidity * BigInt(3)) / BigInt(100);
+	// // Calculate 3% of available liquidity as master fund amount
+	// const masterFundAmount = (availableLiquidity * BigInt(3)) / BigInt(100);
 
-	// Generate allocation array starting with masterFundAmount, each subsequent value divided by 2
-	const allocations = generateFundingAllocationArray(masterFundAmount);
+	// // Generate allocation array starting with masterFundAmount, each subsequent value divided by 2
+	// const allocations = generateFundingAllocationArray(masterFundAmount);
 
-	// Pick a random value from the array (can be zero)
-	return pickRandomFundingAmount(allocations);
+	// // Pick a random value from the array (can be zero)
+	// return pickRandomFundingAmount(allocations);
+	return BigInt(0);
 }
 
 /**
