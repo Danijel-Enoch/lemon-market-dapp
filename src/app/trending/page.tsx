@@ -308,7 +308,7 @@ export default function Home() {
 					</div>
 				) : (
 					<div className="space-y-8">
-						<Card className="overflow-hidden">
+						<Card className="overflow-hidden border-gray-100/10">
 							<CardHeader className="border-b border-gray-100/10">
 								<CardTitle className="text-lg font-semibold">
 									Top Trending Tokens

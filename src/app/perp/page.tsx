@@ -341,12 +341,14 @@ function PerpContent() {
 
     return (
         <div className="min-h-screen">
-            <main className="container mx-auto px-6 py-8">
+            <main className="container mx-auto px-4 py-8">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-foreground mb-2">
-                        Perpetual Trading
+                    <h1 className="text-3xl font-bold mb-2">
+                        <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                            Perpetual Trading
+                        </span>
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-white/70">
                         Trade cryptocurrency perpetual futures with up to{" "}
                         {maxLeverage}x leverage
                     </p>
