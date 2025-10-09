@@ -5,7 +5,7 @@ import {
 	formatLiquidity,
 	validateVirtualMarket,
 	debugMarketLookup,
-	parseLiquidityWith6Decimals
+	parseLiquidityWith6Decimals,
 } from "./virtual-markets-utils";
 export interface VirtualMarket {
 	id: string;
@@ -75,27 +75,22 @@ class VirtualMarketsService {
 		this.subgraphUrl = process.env.SUBGRAPH_URL!!;
 	}
 
-	private async makeGraphQLRequest(
-		query: string,
-		variables?: any
-	): Promise<GraphQLResponse> {
+	private async makeGraphQLRequest(query: string, variables?: any): Promise<GraphQLResponse> {
 		try {
 			const response = await fetch(this.subgraphUrl, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b"
+					Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
 				},
 				body: JSON.stringify({
 					query,
-					variables
-				})
+					variables,
+				}),
 			});
 
 			if (!response.ok) {
-				throw new Error(
-					`GraphQL request failed: ${response.status} ${response.statusText}`
-				);
+				throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
 			}
 
 			return await response.json();
@@ -107,17 +102,11 @@ class VirtualMarketsService {
 
 	async getAllVirtualMarkets(): Promise<VirtualMarket[]> {
 		try {
-			const result = await this.makeGraphQLRequest(
-				ALL_VIRTUAL_MARKETS_QUERY
-			);
+			const result = await this.makeGraphQLRequest(ALL_VIRTUAL_MARKETS_QUERY);
 
 			if (result.errors && result.errors.length > 0) {
 				console.error("GraphQL errors:", result.errors);
-				throw new Error(
-					`GraphQL errors: ${result.errors
-						.map((e) => e.message)
-						.join(", ")}`
-				);
+				throw new Error(`GraphQL errors: ${result.errors.map((e) => e.message).join(", ")}`);
 			}
 
 			return result.data?.virtualMarkets || [];
@@ -127,31 +116,19 @@ class VirtualMarketsService {
 		}
 	}
 
-	async getVirtualMarketById(
-		marketId: string
-	): Promise<VirtualMarket | null> {
+	async getVirtualMarketById(marketId: string): Promise<VirtualMarket | null> {
 		try {
-			const result = await this.makeGraphQLRequest(
-				VIRTUAL_MARKET_BY_ID_QUERY,
-				{ marketId }
-			);
+			const result = await this.makeGraphQLRequest(VIRTUAL_MARKET_BY_ID_QUERY, { marketId });
 
 			if (result.errors && result.errors.length > 0) {
 				console.error("GraphQL errors:", result.errors);
-				throw new Error(
-					`GraphQL errors: ${result.errors
-						.map((e) => e.message)
-						.join(", ")}`
-				);
+				throw new Error(`GraphQL errors: ${result.errors.map((e) => e.message).join(", ")}`);
 			}
 
 			const markets = result.data?.virtualMarkets || [];
 			return markets.length > 0 ? markets[0] : null;
 		} catch (error) {
-			console.error(
-				`Failed to fetch virtual market for ID ${marketId}:`,
-				error
-			);
+			console.error(`Failed to fetch virtual market for ID ${marketId}:`, error);
 			return null;
 		}
 	}
@@ -161,9 +138,7 @@ class VirtualMarketsService {
 	 * @param tokenSymbols Array of token symbols to create lookup for
 	 * @returns Map of token symbol to virtual market data
 	 */
-	async createMarketLookupMap(
-		tokenSymbols: string[]
-	): Promise<Map<string, VirtualMarket>> {
+	async createMarketLookupMap(tokenSymbols: string[]): Promise<Map<string, VirtualMarket>> {
 		const markets = await this.getAllVirtualMarkets();
 		const marketMap = new Map<string, VirtualMarket>();
 
@@ -183,9 +158,7 @@ class VirtualMarketsService {
 	 * Returns 0 if no market exists for the token
 	 */
 	async getTotalLiquidityForToken(tokenSymbol: string): Promise<number> {
-		const market = await this.getVirtualMarketById(
-			tokenSymbol.toUpperCase()
-		);
+		const market = await this.getVirtualMarketById(tokenSymbol.toUpperCase());
 		return market ? parseLiquidityWith6Decimals(market.totalLiquidity) : 0;
 	}
 
@@ -194,9 +167,7 @@ class VirtualMarketsService {
 	 * Returns 0 if no market exists for the token
 	 */
 	async getRealLiquidityForToken(tokenSymbol: string): Promise<number> {
-		const market = await this.getVirtualMarketById(
-			tokenSymbol.toUpperCase()
-		);
+		const market = await this.getVirtualMarketById(tokenSymbol.toUpperCase());
 		return market ? parseLiquidityWith6Decimals(market.realLiquidity) : 0;
 	}
 }
@@ -209,26 +180,20 @@ export async function getAllVirtualMarkets(): Promise<VirtualMarket[]> {
 	return virtualMarketsService.getAllVirtualMarkets();
 }
 
-export async function getVirtualMarketById(
-	marketId: string
-): Promise<VirtualMarket | null> {
+export async function getVirtualMarketById(marketId: string): Promise<VirtualMarket | null> {
 	return virtualMarketsService.getVirtualMarketById(marketId);
 }
 
 export async function createMarketLookupMap(
-	tokenSymbols: string[]
+	tokenSymbols: string[],
 ): Promise<Map<string, VirtualMarket>> {
 	return virtualMarketsService.createMarketLookupMap(tokenSymbols);
 }
 
-export async function getTotalLiquidityForToken(
-	tokenSymbol: string
-): Promise<number> {
+export async function getTotalLiquidityForToken(tokenSymbol: string): Promise<number> {
 	return virtualMarketsService.getTotalLiquidityForToken(tokenSymbol);
 }
 
-export async function getRealLiquidityForToken(
-	tokenSymbol: string
-): Promise<number> {
+export async function getRealLiquidityForToken(tokenSymbol: string): Promise<number> {
 	return virtualMarketsService.getRealLiquidityForToken(tokenSymbol);
 }

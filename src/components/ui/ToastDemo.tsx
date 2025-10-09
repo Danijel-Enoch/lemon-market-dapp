@@ -8,9 +8,7 @@ import { Toast } from "@/components/ui/toast";
 
 export function ToastDemo() {
 	const [message, setMessage] = useState("Hello from toast!");
-	const [txHash, setTxHash] = useState(
-		"0x1234567890abcdef1234567890abcdef12345678"
-	);
+	const [txHash, setTxHash] = useState("0x1234567890abcdef1234567890abcdef12345678");
 
 	return (
 		<Card className="max-w-md mx-auto m-4">
@@ -69,11 +67,7 @@ export function ToastDemo() {
 					<h3 className="font-medium">Transaction Toasts:</h3>
 					<div className="grid grid-cols-2 gap-2">
 						<Button
-							onClick={() =>
-								Toast.transaction.pending(
-									"Transaction pending..."
-								)
-							}
+							onClick={() => Toast.transaction.pending("Transaction pending...")}
 							variant="outline"
 							size="sm"
 						>
@@ -82,13 +76,10 @@ export function ToastDemo() {
 
 						<Button
 							onClick={() =>
-								Toast.transaction.success(
-									"Transaction successful!",
-									{
-										hash: txHash,
-										explorerUrl: `https://etherscan.io/tx/${txHash}`
-									}
-								)
+								Toast.transaction.success("Transaction successful!", {
+									hash: txHash,
+									explorerUrl: `https://etherscan.io/tx/${txHash}`,
+								})
 							}
 							variant="outline"
 							size="sm"
@@ -97,9 +88,7 @@ export function ToastDemo() {
 						</Button>
 
 						<Button
-							onClick={() =>
-								Toast.transaction.failed("Transaction failed")
-							}
+							onClick={() => Toast.transaction.failed("Transaction failed")}
 							variant="outline"
 							size="sm"
 						>
@@ -108,13 +97,10 @@ export function ToastDemo() {
 
 						<Button
 							onClick={() =>
-								Toast.transaction.confirmed(
-									"Transaction confirmed!",
-									{
-										hash: txHash,
-										explorerUrl: `https://etherscan.io/tx/${txHash}`
-									}
-								)
+								Toast.transaction.confirmed("Transaction confirmed!", {
+									hash: txHash,
+									explorerUrl: `https://etherscan.io/tx/${txHash}`,
+								})
 							}
 							variant="outline"
 							size="sm"
@@ -124,12 +110,7 @@ export function ToastDemo() {
 					</div>
 				</div>
 
-				<Button
-					onClick={() => Toast.dismiss()}
-					variant="destructive"
-					size="sm"
-					className="w-full"
-				>
+				<Button onClick={() => Toast.dismiss()} variant="destructive" size="sm" className="w-full">
 					Dismiss All
 				</Button>
 			</CardContent>

@@ -8,48 +8,48 @@ import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
 const inter = Inter({
-    variable: "--font-inter",
-    subsets: ["latin"],
-    weight: ["400", "500", "600", "700", "800"],
+	variable: "--font-inter",
+	subsets: ["latin"],
+	weight: ["400", "500", "600", "700", "800"],
 });
 
 const robotoMono = Roboto_Mono({
-    variable: "--font-roboto-mono",
-    subsets: ["latin"],
-    weight: ["400", "500", "600", "700"],
+	variable: "--font-roboto-mono",
+	subsets: ["latin"],
+	weight: ["400", "500", "600", "700"],
 });
 
 const raleway = Raleway({
-    variable: "--font-raleway",
-    subsets: ["latin"],
-    weight: ["400", "500", "600", "700", "800", "900"],
+	variable: "--font-raleway",
+	subsets: ["latin"],
+	weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
-    title: "Lemon Markets",
-    description: "A decentralized trading platform",
+	title: "Lemon Markets",
+	description: "A decentralized trading platform",
 };
 
 export default function RootLayout({
-    children,
+	children,
 }: Readonly<{
-    children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-    return (
-        <html lang="en">
-            <body
-                className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
-            >
-                <BProgressProvider />
-                <ToastProvider>
-                    <WalletProvider>
-                        <AppProvider>
-                            <Header />
-                            {children}
-                        </AppProvider>
-                    </WalletProvider>
-                </ToastProvider>
-            </body>
-        </html>
-    );
+	return (
+		<html lang="en">
+			<body
+				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
+			>
+				<BProgressProvider />
+				<ToastProvider>
+					<WalletProvider>
+						<AppProvider>
+							<Header />
+							{children}
+						</AppProvider>
+					</WalletProvider>
+				</ToastProvider>
+			</body>
+		</html>
+	);
 }

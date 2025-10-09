@@ -8,14 +8,14 @@ export enum VolatilityTier {
 	STABLE = 0,
 	AVERAGE = 1,
 	VOLATILE = 2,
-	AGGRESSIVELY_VOLATILE = 3
+	AGGRESSIVELY_VOLATILE = 3,
 }
 
 export const VOLATILITY_TIER_NAMES = {
 	[VolatilityTier.STABLE]: "Stable",
 	[VolatilityTier.AVERAGE]: "Average",
 	[VolatilityTier.VOLATILE]: "Volatile",
-	[VolatilityTier.AGGRESSIVELY_VOLATILE]: "Aggressively Volatile"
+	[VolatilityTier.AGGRESSIVELY_VOLATILE]: "Aggressively Volatile",
 };
 
 /**
@@ -61,9 +61,7 @@ export function getVolatilityTierName(tier: VolatilityTier): string {
  * Generates a funding allocation array based on master fund amount
  * Each value after the first is divided by half until zero
  */
-export function generateFundingAllocationArray(
-	masterFundAmount: bigint
-): bigint[] {
+export function generateFundingAllocationArray(masterFundAmount: bigint): bigint[] {
 	const allocations: bigint[] = [];
 	let currentAmount = masterFundAmount;
 
@@ -104,7 +102,7 @@ export function pickRandomFundingAmount(allocations: bigint[]): bigint {
 export function calculateVirtualFunding(
 	tokenSymbol: string,
 	positionSize: bigint,
-	leverage: number
+	leverage: number,
 ): bigint {
 	// This is a basic fallback implementation
 	// In the API routes, this will be replaced with contract-based logic
@@ -123,7 +121,7 @@ export function calculateVirtualFunding(
  */
 export function calculateVirtualFundingForMarket(
 	availableLiquidity: bigint,
-	marketExists: boolean
+	marketExists: boolean,
 ): bigint {
 	// If market already exists, virtual funding is zero
 	// if (marketExists) {
@@ -150,9 +148,7 @@ export function calculateVirtualFundingForMarket(
  * Example function to demonstrate virtual funding allocation
  * This shows how the allocation array is generated and how random selection works
  */
-export function demonstrateVirtualFundingAllocation(
-	availableLiquidity: string
-): {
+export function demonstrateVirtualFundingAllocation(availableLiquidity: string): {
 	masterFundAmount: string;
 	allocationArray: string[];
 	exampleSelections: string[];
@@ -170,6 +166,6 @@ export function demonstrateVirtualFundingAllocation(
 	return {
 		masterFundAmount: masterFund.toString(),
 		allocationArray: allocations.map((a) => a.toString()),
-		exampleSelections: examples
+		exampleSelections: examples,
 	};
 }

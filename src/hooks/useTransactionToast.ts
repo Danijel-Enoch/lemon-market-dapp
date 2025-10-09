@@ -6,7 +6,7 @@ import { Toast } from "@/components/ui/toast";
 import {
 	getExplorerUrl,
 	parseTransactionError,
-	type TransactionStatus
+	type TransactionStatus,
 } from "@/lib/transaction-utils";
 
 interface UseTransactionOptions {
@@ -28,7 +28,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 	const handleTransaction = useCallback(
 		async (
 			transactionFn: () => Promise<string>, // Function that returns transaction hash
-			customOptions?: Partial<UseTransactionOptions>
+			customOptions?: Partial<UseTransactionOptions>,
 		) => {
 			const opts = { ...options, ...customOptions };
 
@@ -39,9 +39,8 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				const loadingToastId = Toast.transaction.pending(
 					opts.pendingMessage || "Transaction pending...",
 					{
-						description:
-							"Please confirm the transaction in your wallet"
-					}
+						description: "Please confirm the transaction in your wallet",
+					},
 				);
 
 				// Execute the transaction
@@ -54,15 +53,11 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				setStatus({ status: "success", hash });
 
 				// Show success toast
-				Toast.transaction.success(
-					opts.successMessage ||
-						"Transaction submitted successfully!",
-					{
-						hash,
-						explorerUrl: getExplorerUrl(hash, chainId),
-						description: "Your transaction is being processed"
-					}
-				);
+				Toast.transaction.success(opts.successMessage || "Transaction submitted successfully!", {
+					hash,
+					explorerUrl: getExplorerUrl(hash, chainId),
+					description: "Your transaction is being processed",
+				});
 
 				// Call success callback
 				if (opts.onSuccess) {
@@ -75,14 +70,13 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 
 				setStatus({
 					status: "error",
-					error: errorMessage
+					error: errorMessage,
 				});
 
 				// Show error toast
-				Toast.transaction.failed(
-					opts.errorMessage || "Transaction failed",
-					{ description: errorMessage }
-				);
+				Toast.transaction.failed(opts.errorMessage || "Transaction failed", {
+					description: errorMessage,
+				});
 
 				// Call error callback
 				if (opts.onError) {
@@ -92,7 +86,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				throw error;
 			}
 		},
-		[options, chainId]
+		[options, chainId],
 	);
 
 	const showConfirmation = useCallback(
@@ -100,11 +94,10 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 			Toast.transaction.confirmed(message || "Transaction confirmed!", {
 				hash,
 				explorerUrl: getExplorerUrl(hash, chainId),
-				description:
-					"Your transaction has been confirmed on the blockchain"
+				description: "Your transaction has been confirmed on the blockchain",
 			});
 		},
-		[chainId]
+		[chainId],
 	);
 
 	return {
@@ -116,6 +109,6 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 		isSuccess: status.status === "success",
 		isError: status.status === "error",
 		hash: status.hash,
-		error: status.error
+		error: status.error,
 	};
 }

@@ -18,18 +18,18 @@ export const SUPPORTED_NETWORKS: Record<number, NetworkConfig> = {
 	1: {
 		name: "Ethereum Mainnet",
 		explorerUrl: "https://etherscan.io",
-		chainId: 1
+		chainId: 1,
 	},
 	11155111: {
 		name: "Sepolia Testnet",
 		explorerUrl: "https://sepolia.etherscan.io",
-		chainId: 11155111
+		chainId: 11155111,
 	},
 	31337: {
 		name: "Hardhat Local",
 		explorerUrl: "https://etherscan.io", // fallback to mainnet
-		chainId: 31337
-	}
+		chainId: 31337,
+	},
 };
 
 /**
@@ -43,10 +43,7 @@ export function getExplorerUrl(hash: string, chainId: number = 1): string {
 /**
  * Get explorer URL for an address
  */
-export function getAddressExplorerUrl(
-	address: string,
-	chainId: number = 1
-): string {
+export function getAddressExplorerUrl(address: string, chainId: number = 1): string {
 	const network = SUPPORTED_NETWORKS[chainId] || SUPPORTED_NETWORKS[1];
 	return `${network.explorerUrl}/address/${address}`;
 }
@@ -54,11 +51,7 @@ export function getAddressExplorerUrl(
 /**
  * Format transaction hash for display
  */
-export function formatTxHash(
-	hash: string,
-	startChars: number = 6,
-	endChars: number = 4
-): string {
+export function formatTxHash(hash: string, startChars: number = 6, endChars: number = 4): string {
 	if (hash.length <= startChars + endChars) {
 		return hash;
 	}

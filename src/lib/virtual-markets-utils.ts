@@ -28,7 +28,7 @@ export function extractTokenAddress(item: any): string | null {
 		"baseToken?.address",
 		"pairAddress",
 		"address",
-		"contractAddress"
+		"contractAddress",
 	];
 
 	for (const field of possibleFields) {
@@ -46,12 +46,7 @@ export function extractTokenAddress(item: any): string | null {
  */
 export function extractTokenSymbol(item: any): string | null {
 	// Try different possible fields where token symbol might be stored
-	const possibleFields = [
-		"baseToken.symbol",
-		"baseToken?.symbol",
-		"symbol",
-		"tokenSymbol"
-	];
+	const possibleFields = ["baseToken.symbol", "baseToken?.symbol", "symbol", "tokenSymbol"];
 
 	for (const field of possibleFields) {
 		const value = getNestedProperty(item, field);
@@ -76,8 +71,7 @@ function getNestedProperty(obj: any, path: string): any {
  * Format liquidity amount for display
  */
 export function formatLiquidity(liquidity: string | number): string {
-	const value =
-		typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
+	const value = typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
 
 	if (isNaN(value) || value === 0) return "$0.00";
 
@@ -107,13 +101,12 @@ export interface AddressMappingStrategy {
 
 export const addressMappingStrategies: AddressMappingStrategy = {
 	direct: (tokenAddress: string) => normalizeAddress(tokenAddress),
-	prefixed: (tokenAddress: string, prefix: string) =>
-		`${prefix}${normalizeAddress(tokenAddress)}`,
+	prefixed: (tokenAddress: string, prefix: string) => `${prefix}${normalizeAddress(tokenAddress)}`,
 	custom: (tokenAddress: string) => {
 		// Implement custom logic here if needed
 		// For example, if marketId is derived from token address in a specific way
 		return normalizeAddress(tokenAddress);
-	}
+	},
 };
 
 /**
@@ -130,7 +123,7 @@ export function parseLiquidityValue(liquidity: string): number {
 	const multipliers: { [key: string]: number } = {
 		B: 1000000000,
 		M: 1000000,
-		K: 1000
+		K: 1000,
 	};
 
 	const lastChar = cleaned.slice(-1).toUpperCase();
@@ -146,11 +139,8 @@ export function parseLiquidityValue(liquidity: string): number {
  * Parse liquidity value with 6 decimal precision
  * Handles both string and number inputs
  */
-export function parseLiquidityWith6Decimals(
-	liquidity: string | number
-): number {
-	const value =
-		typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
+export function parseLiquidityWith6Decimals(liquidity: string | number): number {
+	const value = typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
 	return isNaN(value) ? 0 : value / 1e6;
 }
 
@@ -158,16 +148,10 @@ export function parseLiquidityWith6Decimals(
  * Validate virtual market data structure
  */
 export function validateVirtualMarket(market: any): boolean {
-	const requiredFields = [
-		"id",
-		"marketId",
-		"totalLiquidity",
-		"realLiquidity",
-		"virtualLiquidity"
-	];
+	const requiredFields = ["id", "marketId", "totalLiquidity", "realLiquidity", "virtualLiquidity"];
 
 	return requiredFields.every(
-		(field) => market.hasOwnProperty(field) && market[field] !== undefined
+		(field) => market.hasOwnProperty(field) && market[field] !== undefined,
 	);
 }
 
@@ -186,39 +170,32 @@ export function calculateMarketStats(markets: any[]): MarketStats {
 	const validMarkets = markets.filter(validateVirtualMarket);
 
 	const totalLiquidity = validMarkets.reduce(
-		(sum, market) =>
-			sum + parseLiquidityWith6Decimals(market.totalLiquidity || "0"),
-		0
+		(sum, market) => sum + parseLiquidityWith6Decimals(market.totalLiquidity || "0"),
+		0,
 	);
 
 	const totalOpenInterest = validMarkets.reduce(
-		(sum, market) =>
-			sum + parseLiquidityWith6Decimals(market.realLiquidity || "0"),
-		0
+		(sum, market) => sum + parseLiquidityWith6Decimals(market.realLiquidity || "0"),
+		0,
 	);
 
 	const marketsWithLiquidity = validMarkets.filter(
-		(market) =>
-			parseLiquidityWith6Decimals(market.totalLiquidity || "0") > 0
+		(market) => parseLiquidityWith6Decimals(market.totalLiquidity || "0") > 0,
 	).length;
 
 	return {
 		totalMarkets: validMarkets.length,
 		totalLiquidity,
 		totalOpenInterest,
-		averageLiquidity:
-			validMarkets.length > 0 ? totalLiquidity / validMarkets.length : 0,
-		marketsWithLiquidity
+		averageLiquidity: validMarkets.length > 0 ? totalLiquidity / validMarkets.length : 0,
+		marketsWithLiquidity,
 	};
 }
 
 /**
  * Debug helper to log market lookup results
  */
-export function debugMarketLookup(
-	tokenAddresses: string[],
-	marketMap: Map<string, any>
-): void {
+export function debugMarketLookup(tokenAddresses: string[], marketMap: Map<string, any>): void {
 	console.log("🔍 Market Lookup Debug:");
 	console.log(`Total token addresses: ${tokenAddresses.length}`);
 	console.log(`Markets found: ${marketMap.size}`);
@@ -239,10 +216,7 @@ export function debugMarketLookup(
 /**
  * Debug helper to log market lookup results for symbols
  */
-export function debugSymbolMarketLookup(
-	tokenSymbols: string[],
-	marketMap: Map<string, any>
-): void {
+export function debugSymbolMarketLookup(tokenSymbols: string[], marketMap: Map<string, any>): void {
 	console.log("🔍 Symbol Market Lookup Debug:");
 	console.log(`Total token symbols: ${tokenSymbols.length}`);
 	console.log(`Markets found: ${marketMap.size}`);

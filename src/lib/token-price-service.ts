@@ -12,110 +12,102 @@
  * - Portfolio valuation
  */
 
-import {
-	LemonSpotPriceClient,
-	type AggregatedPrice,
-	type PriceRequest
-} from "./lemonOracleClient";
+import { LemonSpotPriceClient, type AggregatedPrice, type PriceRequest } from "./lemonOracleClient";
 
 // Configuration
 const LEMON_ORACLE_BASE_URL =
-	process.env.LEMON_ORACLE_API_URL ||
-	"https://app-override-mobile-alarm-fb3c86.kubesmith.app/";
+	process.env.LEMON_ORACLE_API_URL || "https://app-override-mobile-alarm-fb3c86.kubesmith.app/";
 const DEXSCREENER_BASE_URL = "https://api.dexscreener.com/latest";
 const COINGECKO_BASE_URL = "https://pro-api.coingecko.com/api/v3";
 const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 
 // Token mapping for common symbols to contract addresses
-const TOKEN_ADDRESS_MAP: Record<
-	string,
-	{ address: string; chain: string; decimals: number }
-> = {
+const TOKEN_ADDRESS_MAP: Record<string, { address: string; chain: string; decimals: number }> = {
 	BTC: {
 		address: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // BTCB on BSC
 	ETH: {
 		address: "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // ETH on BSC
 	BNB: {
 		address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // WBNB
 	USDT: {
 		address: "0x55d398326f99059fF775485246999027B3197955",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // USDT on BSC
 	USDC: {
 		address: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // USDC on BSC
 	ADA: {
 		address: "0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // ADA on BSC
 	DOT: {
 		address: "0x7083609fCE4d1d8Dc0C979AAb8c869Ea2C873402",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // DOT on BSC
 	LINK: {
 		address: "0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // LINK on BSC
 	XRP: {
 		address: "0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // XRP on BSC
 	SOL: {
 		address: "0x570A5D26f7765Ecb712C0924E4De545B89fD43dF",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	}, // SOL on BSC
 	TST: {
 		address: "0x86Bb94DdD16Efc8bc58e6b056e8df71D9e666429",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	ALU: {
 		address: "0x8263CD1601FE73C066bf49cc09841f35348e3be0",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	GIGGLE: {
 		address: "0x20d6015660b3fe52e6690a889b5C51F69902cE0e",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	RWA: {
 		address: "0x9C8B5CA345247396bDfAc0395638ca9045C6586E",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	"0G": {
 		address: "0x4B948d64dE1F71fCd12fB586f4c776421a35b3eE",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	BROCCOLI: {
 		address: "0x12B4356C65340Fb02cdff01293F95FEBb1512F3b",
 		chain: "bsc",
-		decimals: 18
+		decimals: 18,
 	},
 	priceless: {
 		address: "0x7d03759E5B41E36899833cb2E008455d69A24444",
 		chain: "bsc",
-		decimals: 18
-	}
+		decimals: 18,
+	},
 };
 
 export interface TokenMetadata {
@@ -157,10 +149,7 @@ export interface PnLCalculation {
 
 export class TokenPriceService {
 	private lemonClient: LemonSpotPriceClient;
-	private priceCache: Map<
-		string,
-		{ data: TokenPriceData; timestamp: number }
-	> = new Map();
+	private priceCache: Map<string, { data: TokenPriceData; timestamp: number }> = new Map();
 	private cacheTTL = 5000; // Reduced to 5 seconds for micro price changes
 
 	constructor() {
@@ -170,7 +159,7 @@ export class TokenPriceService {
 			enableCaching: true,
 			cacheTTL: 5000, // Reduced cache TTL for better price sensitivity
 			maxRetries: 2,
-			debug: process.env.NODE_ENV === "development"
+			debug: process.env.NODE_ENV === "development",
 		});
 	}
 
@@ -188,7 +177,7 @@ export class TokenPriceService {
 				name: upperSymbol,
 				address: tokenInfo.address,
 				chain: tokenInfo.chain,
-				decimals: tokenInfo.decimals
+				decimals: tokenInfo.decimals,
 			};
 		}
 
@@ -218,17 +207,12 @@ export class TokenPriceService {
 	/**
 	 * Search token on DexScreener
 	 */
-	private async searchTokenOnDexScreener(
-		symbol: string
-	): Promise<TokenMetadata | null> {
-		const response = await fetch(
-			`${DEXSCREENER_BASE_URL}/dex/search/?q=${symbol}`,
-			{
-				headers: {
-					Accept: "application/json"
-				}
-			}
-		);
+	private async searchTokenOnDexScreener(symbol: string): Promise<TokenMetadata | null> {
+		const response = await fetch(`${DEXSCREENER_BASE_URL}/dex/search/?q=${symbol}`, {
+			headers: {
+				Accept: "application/json",
+			},
+		});
 
 		if (!response.ok) {
 			throw new Error(`DexScreener API error: ${response.status}`);
@@ -239,10 +223,9 @@ export class TokenPriceService {
 		// Look for exact symbol match on BSC
 		const match = data.pairs?.find(
 			(pair: any) =>
-				pair.baseToken?.symbol?.toUpperCase() ===
-					symbol.toUpperCase() &&
+				pair.baseToken?.symbol?.toUpperCase() === symbol.toUpperCase() &&
 				pair.chainId === "bsc" &&
-				pair.baseToken?.address
+				pair.baseToken?.address,
 		);
 
 		if (match) {
@@ -252,7 +235,7 @@ export class TokenPriceService {
 				address: match.baseToken.address,
 				chain: "bsc",
 				decimals: 18, // Default for BSC tokens
-				logoUri: match.info?.imageUrl
+				logoUri: match.info?.imageUrl,
 			};
 		}
 
@@ -262,23 +245,18 @@ export class TokenPriceService {
 	/**
 	 * Search token on CoinGecko
 	 */
-	private async searchTokenOnCoinGecko(
-		symbol: string
-	): Promise<TokenMetadata | null> {
+	private async searchTokenOnCoinGecko(symbol: string): Promise<TokenMetadata | null> {
 		if (!COINGECKO_API_KEY) {
 			console.warn("CoinGecko API key not configured");
 			return null;
 		}
 
-		const response = await fetch(
-			`${COINGECKO_BASE_URL}/search?query=${symbol}`,
-			{
-				headers: {
-					Accept: "application/json",
-					"X-Cg-Pro-Api-Key": COINGECKO_API_KEY
-				}
-			}
-		);
+		const response = await fetch(`${COINGECKO_BASE_URL}/search?query=${symbol}`, {
+			headers: {
+				Accept: "application/json",
+				"X-Cg-Pro-Api-Key": COINGECKO_API_KEY,
+			},
+		});
 
 		if (!response.ok) {
 			throw new Error(`CoinGecko API error: ${response.status}`);
@@ -288,20 +266,17 @@ export class TokenPriceService {
 
 		// Look for exact symbol match
 		const match = data.coins?.find(
-			(coin: any) => coin.symbol?.toUpperCase() === symbol.toUpperCase()
+			(coin: any) => coin.symbol?.toUpperCase() === symbol.toUpperCase(),
 		);
 
 		if (match) {
 			// Get token details to find BSC contract address
-			const detailResponse = await fetch(
-				`${COINGECKO_BASE_URL}/coins/${match.id}`,
-				{
-					headers: {
-						Accept: "application/json",
-						"X-Cg-Pro-Api-Key": COINGECKO_API_KEY
-					}
-				}
-			);
+			const detailResponse = await fetch(`${COINGECKO_BASE_URL}/coins/${match.id}`, {
+				headers: {
+					Accept: "application/json",
+					"X-Cg-Pro-Api-Key": COINGECKO_API_KEY,
+				},
+			});
 
 			if (detailResponse.ok) {
 				const details = await detailResponse.json();
@@ -314,7 +289,7 @@ export class TokenPriceService {
 						address: bscAddress,
 						chain: "bsc",
 						decimals: 18,
-						logoUri: details.image?.large
+						logoUri: details.image?.large,
 					};
 				}
 			}
@@ -326,10 +301,7 @@ export class TokenPriceService {
 	/**
 	 * Get comprehensive price data for a token
 	 */
-	async getTokenPrice(
-		symbol: string,
-		pairAddress?: string
-	): Promise<TokenPriceData | null> {
+	async getTokenPrice(symbol: string, pairAddress?: string): Promise<TokenPriceData | null> {
 		// Check cache first
 		const cacheKey = `${symbol}-${pairAddress || "default"}`;
 		const cached = this.priceCache.get(cacheKey);
@@ -348,14 +320,11 @@ export class TokenPriceService {
 
 		// Try Lemon Oracle first (highest confidence)
 		try {
-			const oracleResponse = await this.lemonClient.getPrice(
-				tokenMetadata.address
-			);
+			const oracleResponse = await this.lemonClient.getPrice(tokenMetadata.address);
 
 			if (oracleResponse.success && oracleResponse.data) {
 				const aggregatedPrice = oracleResponse.data;
-				const bestPrice =
-					this.lemonClient.getBestPrice(aggregatedPrice);
+				const bestPrice = this.lemonClient.getBestPrice(aggregatedPrice);
 
 				if (bestPrice) {
 					priceData = {
@@ -371,8 +340,8 @@ export class TokenPriceService {
 							.map((p) => ({
 								dex: p.dex,
 								price: p.priceUSD || p.price,
-								liquidity: p.liquidity
-							}))
+								liquidity: p.liquidity,
+							})),
 					};
 				}
 			}
@@ -383,9 +352,7 @@ export class TokenPriceService {
 		// Fallback to DexScreener
 		if (!priceData) {
 			try {
-				const dexScreenerPrice = await this.getDexScreenerPrice(
-					tokenMetadata.address
-				);
+				const dexScreenerPrice = await this.getDexScreenerPrice(tokenMetadata.address);
 				if (dexScreenerPrice) {
 					priceData = {
 						tokenAddress: tokenMetadata.address,
@@ -393,23 +360,18 @@ export class TokenPriceService {
 						priceUSD: dexScreenerPrice.toString(),
 						timestamp: Date.now(),
 						source: "dexscreener",
-						confidence: "medium"
+						confidence: "medium",
 					};
 				}
 			} catch (error) {
-				console.warn(
-					`DexScreener fallback failed for ${symbol}:`,
-					error
-				);
+				console.warn(`DexScreener fallback failed for ${symbol}:`, error);
 			}
 		}
 
 		// Final fallback to CoinGecko
 		if (!priceData && COINGECKO_API_KEY) {
 			try {
-				const coinGeckoPrice = await this.getCoinGeckoPrice(
-					tokenMetadata.address
-				);
+				const coinGeckoPrice = await this.getCoinGeckoPrice(tokenMetadata.address);
 				if (coinGeckoPrice) {
 					priceData = {
 						tokenAddress: tokenMetadata.address,
@@ -417,7 +379,7 @@ export class TokenPriceService {
 						priceUSD: coinGeckoPrice.toString(),
 						timestamp: Date.now(),
 						source: "coingecko",
-						confidence: "low"
+						confidence: "low",
 					};
 				}
 			} catch (error) {
@@ -429,7 +391,7 @@ export class TokenPriceService {
 		if (priceData) {
 			this.priceCache.set(cacheKey, {
 				data: priceData,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			});
 		}
 
@@ -439,17 +401,12 @@ export class TokenPriceService {
 	/**
 	 * Get price from DexScreener
 	 */
-	private async getDexScreenerPrice(
-		tokenAddress: string
-	): Promise<number | null> {
-		const response = await fetch(
-			`${DEXSCREENER_BASE_URL}/dex/tokens/${tokenAddress}`,
-			{
-				headers: {
-					Accept: "application/json"
-				}
-			}
-		);
+	private async getDexScreenerPrice(tokenAddress: string): Promise<number | null> {
+		const response = await fetch(`${DEXSCREENER_BASE_URL}/dex/tokens/${tokenAddress}`, {
+			headers: {
+				Accept: "application/json",
+			},
+		});
 
 		if (!response.ok) {
 			throw new Error(`DexScreener API error: ${response.status}`);
@@ -460,13 +417,10 @@ export class TokenPriceService {
 		// Find the best pair (highest liquidity)
 		const pairs = data.pairs || [];
 		const bestPair = pairs
-			.filter(
-				(pair: any) => pair.priceUsd && parseFloat(pair.priceUsd) > 0
-			)
+			.filter((pair: any) => pair.priceUsd && parseFloat(pair.priceUsd) > 0)
 			.sort(
 				(a: any, b: any) =>
-					parseFloat(b.liquidity?.usd || "0") -
-					parseFloat(a.liquidity?.usd || "0")
+					parseFloat(b.liquidity?.usd || "0") - parseFloat(a.liquidity?.usd || "0"),
 			)[0];
 
 		return bestPair ? parseFloat(bestPair.priceUsd) : null;
@@ -475,9 +429,7 @@ export class TokenPriceService {
 	/**
 	 * Get price from CoinGecko
 	 */
-	private async getCoinGeckoPrice(
-		tokenAddress: string
-	): Promise<number | null> {
+	private async getCoinGeckoPrice(tokenAddress: string): Promise<number | null> {
 		if (!COINGECKO_API_KEY) return null;
 
 		const response = await fetch(
@@ -485,9 +437,9 @@ export class TokenPriceService {
 			{
 				headers: {
 					Accept: "application/json",
-					"X-Cg-Pro-Api-Key": COINGECKO_API_KEY
-				}
-			}
+					"X-Cg-Pro-Api-Key": COINGECKO_API_KEY,
+				},
+			},
 		);
 
 		if (!response.ok) {
@@ -503,9 +455,7 @@ export class TokenPriceService {
 	/**
 	 * Get multiple token prices efficiently
 	 */
-	async getMultipleTokenPrices(
-		symbols: string[]
-	): Promise<Map<string, TokenPriceData>> {
+	async getMultipleTokenPrices(symbols: string[]): Promise<Map<string, TokenPriceData>> {
 		const results = new Map<string, TokenPriceData>();
 
 		// Get token metadata for all symbols
@@ -514,50 +464,40 @@ export class TokenPriceService {
 			return { symbol, metadata };
 		});
 
-		const tokenMetadataResults = await Promise.allSettled(
-			tokenMetadataPromises
-		);
+		const tokenMetadataResults = await Promise.allSettled(tokenMetadataPromises);
 		const validTokens = tokenMetadataResults
 			.filter(
 				(
-					result
+					result,
 				): result is PromiseFulfilledResult<{
 					symbol: string;
 					metadata: TokenMetadata | null;
-				}> =>
-					result.status === "fulfilled" &&
-					result.value.metadata !== null
+				}> => result.status === "fulfilled" && result.value.metadata !== null,
 			)
 			.map((result) => ({
 				symbol: result.value.symbol,
-				metadata: result.value.metadata!
+				metadata: result.value.metadata!,
 			}));
 
 		// Batch request to Lemon Oracle
 		if (validTokens.length > 0) {
 			try {
-				const requests: PriceRequest[] = validTokens.map(
-					({ metadata }) => ({
-						tokenAddress: metadata.address
-					})
-				);
+				const requests: PriceRequest[] = validTokens.map(({ metadata }) => ({
+					tokenAddress: metadata.address,
+				}));
 
-				const oracleResponse = await this.lemonClient.getMultiplePrices(
-					requests
-				);
+				const oracleResponse = await this.lemonClient.getMultiplePrices(requests);
 
 				if (oracleResponse.success && oracleResponse.data) {
 					oracleResponse.data.forEach((aggregatedPrice, index) => {
 						const token = validTokens[index];
 						if (token) {
-							const bestPrice =
-								this.lemonClient.getBestPrice(aggregatedPrice);
+							const bestPrice = this.lemonClient.getBestPrice(aggregatedPrice);
 							if (bestPrice) {
 								results.set(token.symbol.toUpperCase(), {
 									tokenAddress: token.metadata.address,
 									symbol: token.symbol.toUpperCase(),
-									priceUSD:
-										bestPrice.priceUSD || bestPrice.price,
+									priceUSD: bestPrice.priceUSD || bestPrice.price,
 									priceNative: bestPrice.price,
 									timestamp: Date.now(),
 									source: "lemon-oracle",
@@ -567,8 +507,8 @@ export class TokenPriceService {
 										.map((p) => ({
 											dex: p.dex,
 											price: p.priceUSD || p.price,
-											liquidity: p.liquidity
-										}))
+											liquidity: p.liquidity,
+										})),
 								});
 							}
 						}
@@ -580,22 +520,15 @@ export class TokenPriceService {
 		}
 
 		// Fallback for tokens that don't have oracle prices
-		const missingSymbols = symbols.filter(
-			(symbol) => !results.has(symbol.toUpperCase())
-		);
+		const missingSymbols = symbols.filter((symbol) => !results.has(symbol.toUpperCase()));
 
 		if (missingSymbols.length > 0) {
-			const fallbackPromises = missingSymbols.map((symbol) =>
-				this.getTokenPrice(symbol)
-			);
+			const fallbackPromises = missingSymbols.map((symbol) => this.getTokenPrice(symbol));
 			const fallbackResults = await Promise.allSettled(fallbackPromises);
 
 			fallbackResults.forEach((result, index) => {
 				if (result.status === "fulfilled" && result.value) {
-					results.set(
-						missingSymbols[index].toUpperCase(),
-						result.value
-					);
+					results.set(missingSymbols[index].toUpperCase(), result.value);
 				}
 			});
 		}
@@ -612,7 +545,7 @@ export class TokenPriceService {
 		margin: string,
 		leverage: string,
 		isLong: boolean,
-		liquidationPrice: string
+		liquidationPrice: string,
 	): Promise<PnLCalculation | null> {
 		const priceData = await this.getTokenPrice(tokenSymbol);
 
@@ -626,12 +559,7 @@ export class TokenPriceService {
 		const marginValue = parseFloat(margin.replace(/[\$,]/g, ""));
 		const leverageValue = parseFloat(leverage.replace(/x/g, ""));
 
-		if (
-			currentPrice === 0 ||
-			entryPriceValue === 0 ||
-			marginValue === 0 ||
-			leverageValue === 0
-		) {
+		if (currentPrice === 0 || entryPriceValue === 0 || marginValue === 0 || leverageValue === 0) {
 			return null;
 		}
 
@@ -645,8 +573,7 @@ export class TokenPriceService {
 		// Calculate PnL
 		const priceChange = currentPrice - entryPriceValue;
 		const pnlMultiplier = isLong ? 1 : -1;
-		const unrealizedPnL =
-			(priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
+		const unrealizedPnL = (priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
 		const unrealizedPnLPercentage = (unrealizedPnL / marginValue) * 100;
 
 		return {
@@ -659,7 +586,7 @@ export class TokenPriceService {
 			unrealizedPnLPercentage,
 			liquidationPrice,
 			tokenAmount,
-			currentValue
+			currentValue,
 		};
 	}
 
@@ -673,7 +600,7 @@ export class TokenPriceService {
 			leverage: string;
 			entryPrice: string;
 			isLong: boolean;
-		}>
+		}>,
 	): Promise<{
 		totalValue: number;
 		totalPnL: number;
@@ -701,7 +628,7 @@ export class TokenPriceService {
 					position.margin,
 					position.leverage,
 					position.isLong,
-					"0" // liquidationPrice not needed for this calculation
+					"0", // liquidationPrice not needed for this calculation
 				);
 
 				if (pnlCalc) {
@@ -712,7 +639,7 @@ export class TokenPriceService {
 						tokenSymbol: position.tokenSymbol,
 						currentPrice: pnlCalc.currentPrice,
 						unrealizedPnL: pnlCalc.unrealizedPnL,
-						currentValue: pnlCalc.currentValue
+						currentValue: pnlCalc.currentValue,
 					});
 				}
 			}
@@ -721,7 +648,7 @@ export class TokenPriceService {
 		return {
 			totalValue,
 			totalPnL,
-			positions: positionResults
+			positions: positionResults,
 		};
 	}
 
@@ -731,19 +658,19 @@ export class TokenPriceService {
 	startPriceStream(
 		symbols: string[],
 		onUpdate: (updates: Map<string, TokenPriceData>) => void,
-		onError?: (error: Error) => void
+		onError?: (error: Error) => void,
 	): string {
 		return this.lemonClient.startPriceStream(
 			{
 				tokenAddresses: [], // Will be populated after getting token addresses
 				interval: 5000,
-				includeUSD: true
+				includeUSD: true,
 			},
 			(update) => {
 				// Convert stream update to our format
 				// This would need the symbol mapping
 			},
-			onError
+			onError,
 		);
 	}
 
@@ -782,9 +709,7 @@ export function getTokenPriceService(): TokenPriceService {
 }
 
 // Convenience functions
-export async function getTokenPrice(
-	symbol: string
-): Promise<TokenPriceData | null> {
+export async function getTokenPrice(symbol: string): Promise<TokenPriceData | null> {
 	return getTokenPriceService().getTokenPrice(symbol);
 }
 
@@ -794,7 +719,7 @@ export async function calculatePositionPnL(
 	margin: string,
 	leverage: string,
 	isLong: boolean,
-	liquidationPrice: string = "0"
+	liquidationPrice: string = "0",
 ): Promise<PnLCalculation | null> {
 	return getTokenPriceService().calculatePositionPnL(
 		tokenSymbol,
@@ -802,6 +727,6 @@ export async function calculatePositionPnL(
 		margin,
 		leverage,
 		isLong,
-		liquidationPrice
+		liquidationPrice,
 	);
 }

@@ -1,13 +1,7 @@
 "use client";
 
 import { toast as sonnerToast } from "sonner";
-import {
-	CheckCircle,
-	XCircle,
-	AlertCircle,
-	Clock,
-	ExternalLink
-} from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Clock, ExternalLink } from "lucide-react";
 
 type ToastType = "success" | "error" | "warning" | "loading" | "info";
 
@@ -37,14 +31,14 @@ class Toast {
 			action: options?.action
 				? {
 						label: options.action.label,
-						onClick: options.action.onClick
-				  }
+						onClick: options.action.onClick,
+					}
 				: undefined,
 			style: {
 				background: "var(--background)",
 				border: "1px solid var(--border)",
-				color: "var(--foreground)"
-			}
+				color: "var(--foreground)",
+			},
 		});
 	}
 
@@ -63,7 +57,7 @@ class Toast {
 	static loading(message: string, options?: ToastOptions) {
 		return sonnerToast.loading(message, {
 			description: options?.description,
-			duration: options?.duration || Infinity
+			duration: options?.duration || Infinity,
 		});
 	}
 
@@ -81,80 +75,57 @@ class Toast {
 
 	// Transaction-specific toasts
 	static transaction = {
-		pending: (
-			message: string = "Transaction pending...",
-			options?: TransactionToastOptions
-		) => {
+		pending: (message: string = "Transaction pending...", options?: TransactionToastOptions) => {
 			return Toast.loading(message, {
 				description: options?.hash
-					? `Hash: ${options.hash.slice(
-							0,
-							10
-					  )}...${options.hash.slice(-8)}`
+					? `Hash: ${options.hash.slice(0, 10)}...${options.hash.slice(-8)}`
 					: options?.description,
-				...options
+				...options,
 			});
 		},
 
-		success: (
-			message: string = "Transaction successful!",
-			options?: TransactionToastOptions
-		) => {
+		success: (message: string = "Transaction successful!", options?: TransactionToastOptions) => {
 			Toast.success(message, {
 				description: options?.hash
-					? `Hash: ${options.hash.slice(
-							0,
-							10
-					  )}...${options.hash.slice(-8)}`
+					? `Hash: ${options.hash.slice(0, 10)}...${options.hash.slice(-8)}`
 					: options?.description,
 				action: options?.explorerUrl
 					? {
 							label: "View on Explorer",
-							onClick: () =>
-								window.open(options.explorerUrl, "_blank")
-					  }
+							onClick: () => window.open(options.explorerUrl, "_blank"),
+						}
 					: options?.action,
-				...options
+				...options,
 			});
 		},
 
-		failed: (
-			message: string = "Transaction failed",
-			options?: TransactionToastOptions
-		) => {
+		failed: (message: string = "Transaction failed", options?: TransactionToastOptions) => {
 			Toast.error(message, {
-				description:
-					options?.description ||
-					"Please try again or check your wallet",
+				description: options?.description || "Please try again or check your wallet",
 				action:
 					options?.explorerUrl && options?.hash
 						? {
 								label: "View on Explorer",
-								onClick: () =>
-									window.open(options.explorerUrl, "_blank")
-						  }
+								onClick: () => window.open(options.explorerUrl, "_blank"),
+							}
 						: options?.action,
-				...options
+				...options,
 			});
 		},
 
-		confirmed: (
-			message: string = "Transaction confirmed!",
-			options?: TransactionToastOptions
-		) => {
+		confirmed: (message: string = "Transaction confirmed!", options?: TransactionToastOptions) => {
 			Toast.success(message, {
 				description: options?.description,
 				action: options?.explorerUrl
 					? {
 							label: "View on Explorer",
-							onClick: () =>
-								window.open(options.explorerUrl, "_blank")
-					  }
+							onClick: () => window.open(options.explorerUrl, "_blank"),
+						}
 					: options?.action,
 				duration: 6000,
-				...options
+				...options,
 			});
-		}
+		},
 	};
 
 	private static getIcon(type: ToastType) {
