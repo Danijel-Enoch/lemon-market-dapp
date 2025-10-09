@@ -2,15 +2,15 @@
 const fxPairs = ["AUD-USD", "CNY-USD", "NGN-USD"];
 
 const fxDetails = fxPairs.map(async (pair) => {
-	const response = await fetch(
-		`https://api.diadata.org/v1/rwa/Fiat/${pair}`,
-		{
-			method: "GET"
-		}
-	);
+	// const response = await fetch(
+	// 	`https://api.diadata.org/v1/rwa/Fiat/${pair}`,
+	// 	{
+	// 		method: "GET"
+	// 	}
+	// );
 
-	const data = await response.json();
-	return data;
+	// const data = await response.json();
+	return {};
 });
 
 export async function GET(req: Request) {

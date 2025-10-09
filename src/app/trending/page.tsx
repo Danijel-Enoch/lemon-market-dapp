@@ -99,90 +99,12 @@ export default function Home() {
 				const tokensData: TokenAPIResponse =
 					await tokensResponse.json();
 
-				const stocksResponse = await fetch("/api/trending/stocks");
-				if (!stocksResponse.ok) {
-					throw new Error(
-						`Stocks API failed: ${stocksResponse.status}`
-					);
-				}
-				const stocksData: APIResponse = await stocksResponse.json();
-
-				const fxResponse = await fetch("/api/trending/fx");
-				if (!fxResponse.ok) {
-					throw new Error(`FX API failed: ${fxResponse.status}`);
-				}
-				const fxData: APIResponse = await fxResponse.json();
-
-				const transformedStocks: Token[] = stocksData.data.map(
-					(stock, index) => ({
-						id: index + 1,
-						symbol: stock.Ticker,
-						name:
-							stock.Ticker === "NFLX"
-								? "Netflix Inc."
-								: stock.Ticker === "TSLA"
-								? "Tesla Inc."
-								: stock.Ticker,
-						price: `$${stock.Price.toFixed(2)}`,
-						change24h: "N/A",
-						volume: "N/A",
-						marketCap: "N/A",
-						trend: "up",
-						logo:
-							stock.Ticker === "NFLX"
-								? "🎬"
-								: stock.Ticker === "TSLA"
-								? "🚗"
-								: "📈"
-					})
-				);
-
-				const transformedFX: ForexPair[] = fxData.data.map(
-					(fx, index) => {
-						const getDisplaySymbol = (ticker: string) => {
-							if (ticker.includes("AUD-USD")) return "AUD/USD";
-							if (ticker.includes("CNY-USD")) return "CNY/USD";
-							if (ticker.includes("NGN-USD")) return "NGN/USD";
-							return ticker;
-						};
-
-						const getDisplayName = (ticker: string) => {
-							if (ticker.includes("AUD"))
-								return "Australian Dollar/US Dollar";
-							if (ticker.includes("CNY"))
-								return "Chinese Yuan/US Dollar";
-							if (ticker.includes("NGN"))
-								return "Nigerian Naira/US Dollar";
-							return ticker;
-						};
-
-						const getLogo = (ticker: string) => {
-							if (ticker.includes("AUD")) return "🇦🇺";
-							if (ticker.includes("CNY")) return "🇨🇳";
-							if (ticker.includes("NGN")) return "🇳🇬";
-							return "💱";
-						};
-
-						return {
-							id: index + 1,
-							symbol: getDisplaySymbol(fx.Ticker),
-							name: getDisplayName(fx.Ticker),
-							price: fx.Price.toFixed(4),
-							change24h: "N/A",
-							volume: "N/A",
-							spread: "N/A",
-							trend: "up",
-							logo: getLogo(fx.Ticker)
-						};
-					}
-				);
-
 				const transformedTokens: Token[] = tokensData.data;
 
 				setApiData({
 					tokens: transformedTokens,
-					stocks: transformedStocks,
-					fx: transformedFX
+					stocks: [],
+					fx: []
 				});
 			} catch (error) {
 				console.error("Error fetching trending data:", error);
@@ -200,18 +122,6 @@ export default function Home() {
 	}, []);
 
 	const filteredTokens = apiData.tokens.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const filteredFX = apiData.fx.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const filteredStocks = apiData.stocks.filter(
 		(token) =>
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
