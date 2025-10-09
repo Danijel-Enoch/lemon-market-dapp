@@ -74,26 +74,29 @@ export default function PositionsPage() {
                     className="space-y-4"
                 >
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-4xl font-bold">
-                                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                                <Wallet className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-foreground">
                                     My Positions
-                                </span>
-                            </h1>
-                            <div className="flex items-center gap-2 mt-2">
-                                <p className="text-white/70">
-                                    Track your trading performance and manage
-                                    your positions
-                                </p>
-                                {!isConnected && (
-                                    <Badge
-                                        variant="outline"
-                                        className="border-orange-500/20 text-orange-400"
-                                    >
-                                        <Wallet className="w-3 h-3 mr-1" />
-                                        Connect Wallet
-                                    </Badge>
-                                )}
+                                </h1>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-muted-foreground text-sm">
+                                        Track your trading performance and
+                                        manage your positions
+                                    </p>
+                                    {!isConnected && (
+                                        <Badge
+                                            variant="outline"
+                                            className="border-orange-500/20 text-orange-400"
+                                        >
+                                            <Wallet className="w-3 h-3 mr-1" />
+                                            Connect Wallet
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">

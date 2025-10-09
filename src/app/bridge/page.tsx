@@ -191,19 +191,19 @@ export default function BridgeSwapPage() {
     return (
         <div className="min-h-screen">
             <main className="container mx-auto px-6 py-8 max-w-[1600px]">
-                <div className="mb-8 flex items-center gap-3">
-                    <div className="p-2 bg-green-600/10 rounded-lg">
-                        <Repeat className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold">
-                            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                <div className="mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Repeat className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">
                                 Bridge & Swap
-                            </span>
-                        </h1>
-                        <p className="text-white/70 text-sm">
-                            Bridge tokens across chains and swap assets
-                        </p>
+                            </h1>
+                            <p className="text-muted-foreground text-sm">
+                                Bridge tokens across chains and swap assets
+                            </p>
+                        </div>
                     </div>
                 </div>
 

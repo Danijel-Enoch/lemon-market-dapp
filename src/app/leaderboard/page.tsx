@@ -111,17 +111,19 @@ export default function LeaderboardPage() {
     return (
         <div className="min-h-screen">
             <main className="container mx-auto px-6 py-8 max-w-[1600px]">
-                <div className="mb-8 flex items-center gap-3">
-                    <div className="p-2 bg-green-600/10 rounded-lg">
-                        <Trophy className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold text-foreground">
-                            Leaderboard
-                        </h1>
-                        <p className="text-white/70 text-sm">
-                            Top performing traders and strategies
-                        </p>
+                <div className="mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Trophy className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">
+                                Leaderboard
+                            </h1>
+                            <p className="text-muted-foreground text-sm">
+                                Top performing traders and strategies
+                            </p>
+                        </div>
                     </div>
                 </div>
 
