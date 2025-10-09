@@ -3,7 +3,7 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 
-export function ConnectWallet() {
+export function ConnectWallet({ text = "Connect Wallet" }) {
     return (
         <ConnectButton.Custom>
             {({
@@ -36,9 +36,9 @@ export function ConnectWallet() {
                                         onClick={openConnectModal}
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        className="w-full hidden md:inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-8 py-4 bg-gradient-to-r from-[#9dea29] via-[#4dad31] to-[#004530] text-white font-bold text-xs"
+                                        className="w-full hidden md:inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-8 py-4 bg-gradient-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-sm"
                                     >
-                                        Get Started
+                                        {text}
                                     </motion.button>
                                 );
                             }

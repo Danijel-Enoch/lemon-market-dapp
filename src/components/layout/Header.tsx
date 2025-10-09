@@ -57,7 +57,7 @@ export function Header() {
 					})}
 				</nav>
 
-				<ConnectWallet />
+				<ConnectWallet text="Get Started" />
 
 				<button
 					type="button"
@@ -92,7 +92,7 @@ export function Header() {
 									</Link>
 								);
 							})}
-							<ConnectWallet />
+							<ConnectWallet text="Get Started" />
 						</nav>
 					</motion.div>
 				)}

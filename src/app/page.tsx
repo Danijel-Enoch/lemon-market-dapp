@@ -53,56 +53,51 @@ export default function Home() {
 
     return (
         <div className="bg-black text-white overflow-x-hidden">
-            <div className="w-full min-h-screen flex flex-col items-center px-4 md:px-32 py-24">
-                <div className="relative flex flex-col items-center justify-center w-full max-w-6xl mb-20">
-                    <div className="relative w-192 h-192 flex items-center justify-center">
-                        <Image
-                            src="/image/hero-background.svg"
-                            alt="Background"
-                            width={763}
-                            height={763}
-                            priority
-                        />
+            <div className="w-full min-h-screen flex flex-col items-center px-4 md:px-32">
+                <div className="relative flex flex-col items-center justify-center w-full mb-20">
+                    <Image
+                        src="/image/hero-background.svg"
+                        alt="Background"
+                        width={763}
+                        height={763}
+                        priority
+                    />
 
-                        <div className="absolute flex flex-col items-center gap-y-5 max-w-xl px-4">
-                            <div className="flex flex-col items-center gap-y-4">
-                                <motion.h1
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.8, delay: 0.2 }}
-                                    className="text-center text-black text-5xl md:text-7xl leading-normal font-normal"
-                                >
-                                    Get <span>ready</span>
-                                    <br />
-                                    for the new era of Trading
-                                </motion.h1>
-
-                                <motion.p
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.8, delay: 0.4 }}
-                                    className="text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent text-lg md:text-xl font-medium leading-loose"
-                                >
-                                    Lorem ipsum dolor sit amet consectetur. Nunc
-                                    commodo risus rutrum nulla in pellentesque
-                                    amet mattis. Sed malesuada commodo tincidunt
-                                    accumsan duis ac purus in diam.
-                                </motion.p>
-                            </div>
-
-                            <motion.button
+                    <div className="absolute flex flex-col items-center gap-y-5 px-4">
+                        <div className="flex flex-col items-center gap-y-4">
+                            <motion.h1
                                 initial={{ opacity: 0, y: 30 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.8, delay: 0.6 }}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="inline-flex items-center justify-center rounded-lg border border-white gap-x-2.5 px-10 py-4 bg-gradient-to-r from-lime-300 via-green-600 to-green-950"
+                                transition={{ duration: 0.8, delay: 0.2 }}
+                                className="text-center text-white text-5xl md:text-7xl leading-normal font-bold"
                             >
-                                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent text-base font-bold leading-tight">
-                                    Get Started
-                                </span>
-                            </motion.button>
+                                Unlimited{" "}
+                                <span className="text-primary">Markets</span>.
+                                <br />
+                                Unlimited Opportunities.
+                            </motion.h1>
+
+                            <motion.p
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, delay: 0.4 }}
+                                className="text-center bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent text-lg md:text-xl font-medium leading-loose max-w-xl"
+                            >
+                                Trade asset class with up to 100x leverage
+                            </motion.p>
                         </div>
+
+                        <motion.a
+                            href="/trending"
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: 0.6 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="inline-flex items-center justify-center rounded-xl border border-white/50 gap-x-2.5 px-10 py-4 bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 font-bold text-gray-100"
+                        >
+                            Launch App
+                        </motion.a>
                     </div>
                 </div>
             </div>
@@ -112,72 +107,70 @@ export default function Home() {
                 whileInView="animate"
                 viewport={{ once: true }}
                 variants={staggerContainer}
-                className="py-20 px-4 max-w-7xl mx-auto"
+                className="py-16 px-8 max-w-7xl mx-auto flex items-center  gap-20 bg-gradient-to-br from-green-800 via-green-800/60 to-[#004530] rounded-[80px] p-8 backdrop-blur-sm border border-white/10"
             >
-                <div className="grid md:grid-cols-3 gap-8">
-                    <motion.div
-                        variants={fadeInUp}
-                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
-                    >
-                        <div className="w-16 h-16 mb-6">
-                            <Image
-                                src="/image/wallet-icon.svg"
-                                alt="Wallet Icon"
-                                width={64}
-                                height={64}
-                            />
-                        </div>
+                <motion.div
+                    variants={fadeInUp}
+                    className="flex items-center gap-6"
+                >
+                    <Image
+                        src="/image/wallet-icon.svg"
+                        alt="Wallet Icon"
+                        width={64}
+                        height={64}
+                    />
+                    <div>
                         <h3 className="text-2xl font-bold mb-4">
                             Connect wallet
                         </h3>
                         <p className="text-white/70 leading-relaxed">
-                            Securely link your Web3 wallet (like MetaMask) to
-                            access DEXCISION.
+                            Securely link your Web3 wallet, such as MetaMask, to
+                            access the Lemon Markets protocol
                         </p>
-                    </motion.div>
+                    </div>
+                </motion.div>
 
-                    <motion.div
-                        variants={fadeInUp}
-                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
-                    >
-                        <div className="w-16 h-16 mb-6">
-                            <Image
-                                src="/image/leaf-icon.svg"
-                                alt="Leaf Icon"
-                                width={64}
-                                height={64}
-                            />
-                        </div>
+                <motion.div
+                    variants={fadeInUp}
+                    className="flex items-center gap-6"
+                >
+                    <Image
+                        src="/image/leaf-icon.svg"
+                        alt="Wallet Icon"
+                        width={64}
+                        height={64}
+                    />
+                    <div>
                         <h3 className="text-2xl font-bold mb-4">
                             Select a pair
                         </h3>
                         <p className="text-white/70 leading-relaxed">
-                            Choose an asset to predict like ETH or S&P 500
-                            tokens
+                            Predict markets on any asset, from ETH to S&P 500
+                            tokens.
                         </p>
-                    </motion.div>
+                    </div>
+                </motion.div>
 
-                    <motion.div
-                        variants={fadeInUp}
-                        className="bg-gradient-to-br from-yellow-500/10 to-green-500/10 rounded-3xl p-8 backdrop-blur-sm border border-white/10"
-                    >
-                        <div className="w-16 h-16 mb-6">
-                            <Image
-                                src="/image/trading-icon.svg"
-                                alt="Trading Icon"
-                                width={64}
-                                height={64}
-                            />
-                        </div>
+                <motion.div
+                    variants={fadeInUp}
+                    className="flex items-center gap-6"
+                >
+                    <Image
+                        src="/image/trading-icon.svg"
+                        alt="Wallet Icon"
+                        width={64}
+                        height={64}
+                    />
+                    <div>
                         <h3 className="text-2xl font-bold mb-4">
                             Start Trading
                         </h3>
                         <p className="text-white/70 leading-relaxed">
-                            Go long or short. If you&apos;re right, earn rewards
-                            instantly.
+                            Go long or short. If your call is right, you earn
+                            instantly, no middlemen, no delays.
                         </p>
-                    </motion.div>
-                </div>
+                    </div>
+                </motion.div>
             </motion.section>
 
             <motion.section
@@ -190,9 +183,9 @@ export default function Home() {
                 <div className="text-center mb-16">
                     <motion.div
                         variants={fadeInUp}
-                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                        className="inline-block bg-neutral-900/60 rounded-full px-6 py-3 mb-6"
                     >
-                        <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                        <span className="text-green-600/60 font-bold text-sm tracking-wider">
                             FEATURES
                         </span>
                     </motion.div>
@@ -200,14 +193,14 @@ export default function Home() {
                         variants={fadeInUp}
                         className="text-5xl md:text-6xl font-semibold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
                     >
-                        lorem Ipsum Dolor
+                        Built for Infinite Markets
                     </motion.h2>
                     <motion.p
                         variants={fadeInUp}
                         className="text-xl text-white/70 max-w-2xl mx-auto leading-relaxed"
                     >
-                        Lorem ipsum dolor sit amet consectetur. Nunc commodo
-                        risus rutrum nulla in pellentesque amet mattis. Samet
+                        Trade with confidence through the most efficient
+                        on-chain perpetual protocol.
                     </motion.p>
                 </div>
 
@@ -225,34 +218,33 @@ export default function Home() {
                     <motion.div variants={fadeInUp} className="space-y-12">
                         <div>
                             <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                                lorem Ipsum Dolor
+                                Unified Liquidity Model
                             </h3>
                             <p className="text-white/70 leading-relaxed">
-                                Lorem ipsum dolor sit amet consectetur. Nunc
-                                commodo risus rutrum nulla in pellentesque amet
-                                mattis. Samet
+                                All trades settle against a shared collateral
+                                reserve, unlocking deeper liquidity and capital
+                                efficiency across every asset.
                             </p>
                         </div>
                         <div className="h-px bg-white/20"></div>
                         <div>
                             <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                                lorem Ipsum Dolor
+                                Synthetic Asset Support
                             </h3>
                             <p className="text-white/70 leading-relaxed">
-                                Lorem ipsum dolor sit amet consectetur. Nunc
-                                commodo risus rutrum nulla in pellentesque amet
-                                mattis. Samet
+                                Access perpetual markets for crypto, forex, and
+                                commodities without depending on fragmented DEX
+                                liquidity.
                             </p>
                         </div>
                         <div className="h-px bg-white/20"></div>
                         <div>
                             <h3 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                                lorem Ipsum Dolor
+                                Oracle-Powered Precision
                             </h3>
                             <p className="text-white/70 leading-relaxed">
-                                Lorem ipsum dolor sit amet consectetur. Nunc
-                                commodo risus rutrum nulla in pellentesque amet
-                                mattis. Samet
+                                Reliable, cryptographically verified price data
+                                keeps every trade fair and secured.
                             </p>
                         </div>
                     </motion.div>
@@ -270,22 +262,24 @@ export default function Home() {
 
                 <div className="grid lg:grid-cols-2 gap-16 items-center">
                     <motion.div variants={fadeInUp}>
-                        <div className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6">
-                            <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
+                        <motion.div
+                            variants={fadeInUp}
+                            className="inline-block bg-neutral-900/60 rounded-full px-6 py-3 mb-6"
+                        >
+                            <span className="text-green-600/60 font-bold text-sm tracking-wider">
                                 ABOUT
                             </span>
-                        </div>
+                        </motion.div>
                         <h2 className="text-5xl md:text-6xl font-semibold mb-8 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                            lorem Ipsum Dolor Sit Connectre
+                            Reimagining Perpetual Trading
                         </h2>
                         <p className="text-white/70 leading-relaxed text-lg mb-8">
-                            Lorem ipsum dolor sit amet consectetur. Nunc commodo
-                            risus rutrum nulla in pellentesque amet mattis.
-                            Samet consectetur. Nunc commodo risus rutrum nulla
-                            in pellentesque amet mattis. Samet consectetur. Nunc
-                            commodo risus rutrum nulla in pellentesque amet
-                            mattis mattis. Samet consectetur. Nunc commodo risus
-                            rutrum nulla in pellentesque amet mattis.
+                            Lemon Markets is building the future of synthetic
+                            trading , one where liquidity, leverage, and
+                            accessibility converge into a single decentralized
+                            ecosystem. No market silos. No barriers to entry.
+                            Just a faster, fairer, and freer way to trade global
+                            assets.
                         </p>
                         <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -322,7 +316,7 @@ export default function Home() {
                     variants={fadeInUp}
                     className="text-3xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
                 >
-                    Watch How Lemon Perp Works
+                    Watch How Lemon Markets Works
                 </motion.h2>
                 <motion.p
                     variants={fadeInUp}
@@ -333,12 +327,12 @@ export default function Home() {
                 </motion.p>
                 <motion.div
                     variants={fadeInUp}
-                    className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center"
+                    className="aspect-video rounded-lg flex items-center justify-center"
                 >
                     <Image
                         src="/image/video-placeholder.svg"
                         alt="Video Placeholder"
-                        width={400}
+                        width={800}
                         height={300}
                         className="opacity-50"
                     />
@@ -355,7 +349,7 @@ export default function Home() {
                 <div className="text-center mb-16">
                     <motion.div
                         variants={fadeInUp}
-                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                        className="inline-block bg-neutral-900 rounded-full px-6 py-3 mb-6"
                     >
                         <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
                             GOALS
@@ -425,7 +419,7 @@ export default function Home() {
                 <div className="text-center mb-16">
                     <motion.div
                         variants={fadeInUp}
-                        className="inline-block bg-gray-900 rounded-full px-6 py-3 mb-6"
+                        className="inline-block bg-neutral-900 rounded-full px-6 py-3 mb-6"
                     >
                         <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-sm tracking-wider">
                             FAQ
@@ -584,7 +578,7 @@ export default function Home() {
                             </div>
                         </div>
 
-                        <div className="bg-gray-900 rounded-lg p-6">
+                        <div className="bg-neutral-900 rounded-lg p-6">
                             <div className="flex items-center space-x-3 mb-4">
                                 <Image
                                     src="/image/logo-newsletter.png"

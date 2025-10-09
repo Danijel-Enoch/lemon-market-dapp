@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Raleway, Roboto_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
+import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 import { AppProvider } from "@/contexts/AppContext";
@@ -39,6 +40,7 @@ export default function RootLayout({
             <body
                 className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
             >
+                <BProgressProvider />
                 <ToastProvider>
                     <WalletProvider>
                         <AppProvider>
