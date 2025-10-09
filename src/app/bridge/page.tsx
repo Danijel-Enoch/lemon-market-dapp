@@ -9,36 +9,94 @@ import {
 import { ArrowLeftRight, Clock, Info, Repeat, Shield, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TokenPriceChart } from "@/components/trading/TokenPriceChart";
+import {
+    formatPrice,
+    formatPriceChange,
+    getTokenPriceByPair,
+} from "@/lib/oracle";
 
 export default function BridgeSwapPage() {
     const [selectedToken, setSelectedToken] = useState<{
         symbol: string;
         address: string;
         chainId: number;
+        pairAddress?: string;
+    } | null>(null);
+    const [isLoadingPrice, setIsLoadingPrice] = useState(false);
+    const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
+    const [tokenPrice, setTokenPrice] = useState<{
+        price: string;
+        change: string;
     } | null>(null);
     const widgetEvents = useWidgetEvents();
+
+    const fetchLatestPrice = async (pairAddress: string) => {
+        if (!pairAddress) return;
+
+        setIsLoadingPrice(true);
+        try {
+            const tokenPriceData = await getTokenPriceByPair(
+                pairAddress,
+                "bsc",
+            );
+            if (tokenPriceData) {
+                setTokenPrice({
+                    price: formatPrice(tokenPriceData.priceUsd),
+                    change: tokenPriceData.priceChange24h
+                        ? formatPriceChange(tokenPriceData.priceChange24h)
+                        : "+0.00%",
+                });
+                setLastPriceUpdate(new Date());
+            }
+        } catch (error) {
+            console.error("Error fetching latest price:", error);
+        } finally {
+            setIsLoadingPrice(false);
+        }
+    };
 
     useEffect(() => {
         const handleSourceTokenSelected = (data: {
             chainId: number;
             tokenAddress: string;
         }) => {
-            // For now, we'll use a simple mapping. In production, you'd fetch token details from the API
-            const tokenMap: Record<string, string> = {
-                "0x0000000000000000000000000000000000000000": "ETH",
-                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": "WETH",
-                "0xdAC17F958D2ee523a2206206994597C13D831ec7": "USDT",
-                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": "USDC",
+            // Map token addresses to symbols and pair addresses for DexScreener
+            const tokenMap: Record<
+                string,
+                { symbol: string; pairAddress?: string }
+            > = {
+                "0x0000000000000000000000000000000000000000": {
+                    symbol: "ETH",
+                    pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+                },
+                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": {
+                    symbol: "WETH",
+                    pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+                },
+                "0xdAC17F958D2ee523a2206206994597C13D831ec7": {
+                    symbol: "USDT",
+                },
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": {
+                    symbol: "USDC",
+                },
             };
 
-            const symbol = tokenMap[data.tokenAddress] || "TOKEN";
+            const tokenInfo = tokenMap[data.tokenAddress] || {
+                symbol: "TOKEN",
+            };
             setSelectedToken({
-                symbol,
+                symbol: tokenInfo.symbol,
                 address: data.tokenAddress,
                 chainId: data.chainId,
+                pairAddress: tokenInfo.pairAddress,
             });
+
+            // Fetch price if pair address exists
+            if (tokenInfo.pairAddress) {
+                fetchLatestPrice(tokenInfo.pairAddress);
+            }
         };
 
         widgetEvents.on(
@@ -53,6 +111,17 @@ export default function BridgeSwapPage() {
             );
         };
     }, [widgetEvents]);
+
+    // Auto-refresh price every 30 seconds
+    useEffect(() => {
+        if (!selectedToken?.pairAddress) return;
+
+        const interval = setInterval(() => {
+            fetchLatestPrice(selectedToken.pairAddress!);
+        }, 30000); // 30 seconds
+
+        return () => clearInterval(interval);
+    }, [selectedToken?.pairAddress]);
 
     const widgetConfig: WidgetConfig = {
         integrator: "omni-bot",
@@ -114,7 +183,108 @@ export default function BridgeSwapPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="space-y-6 lg:col-span-2">
-                        <TokenPriceChart tokenSymbol={selectedToken?.symbol} />
+                        {selectedToken?.pairAddress ? (
+                            <Card className="bg-card border-gray-100/10">
+                                <CardHeader>
+                                    <CardTitle className="text-foreground flex items-center justify-between">
+                                        <span>
+                                            {selectedToken.symbol} Price Chart
+                                        </span>
+                                        <div className="flex items-center space-x-4">
+                                            <div className="flex items-center space-x-2">
+                                                {tokenPrice && (
+                                                    <>
+                                                        <div className="text-2xl font-bold text-success">
+                                                            {isLoadingPrice ? (
+                                                                <div className="animate-pulse">
+                                                                    Loading...
+                                                                </div>
+                                                            ) : (
+                                                                tokenPrice.price
+                                                            )}
+                                                        </div>
+                                                        <Badge
+                                                            className={`${
+                                                                tokenPrice.change.startsWith(
+                                                                    "+",
+                                                                )
+                                                                    ? "bg-primary hover:bg-primary/90"
+                                                                    : "bg-destructive hover:bg-destructive/90"
+                                                            }`}
+                                                        >
+                                                            {tokenPrice.change}
+                                                        </Badge>
+                                                    </>
+                                                )}
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                        fetchLatestPrice(
+                                                            selectedToken.pairAddress!,
+                                                        )
+                                                    }
+                                                    disabled={isLoadingPrice}
+                                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                                    title="Refresh price"
+                                                >
+                                                    <svg
+                                                        className={`h-4 w-4 ${isLoadingPrice ? "animate-spin" : ""}`}
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={2}
+                                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                                        />
+                                                    </svg>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {lastPriceUpdate && (
+                                        <div className="mb-2 text-xs text-gray-500 text-right">
+                                            Last updated:{" "}
+                                            {lastPriceUpdate.toLocaleTimeString()}
+                                        </div>
+                                    )}
+                                    <div
+                                        id="dexscreener-embed"
+                                        className="bg-[#0a0a0a] rounded-lg overflow-hidden"
+                                    >
+                                        <iframe
+                                            src={`https://dexscreener.com/bsc/${selectedToken.pairAddress}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15&background=0a0a0a`}
+                                            width="100%"
+                                            height="500"
+                                            style={{
+                                                border: "none",
+                                                background: "#0a0a0a",
+                                            }}
+                                            title={`${selectedToken.symbol} Chart`}
+                                        ></iframe>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="bg-card border-gray-100/10">
+                                <CardContent className="flex items-center justify-center h-[600px]">
+                                    <div className="text-center text-muted-foreground">
+                                        <p className="text-lg mb-2">
+                                            Select a token to view price chart
+                                        </p>
+                                        <p className="text-sm">
+                                            Choose a token from the bridge
+                                            widget to see live price data
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                         <Card className="bg-gradient-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
                             <CardContent className="px-4">
                                 <div className="flex items-start gap-3">

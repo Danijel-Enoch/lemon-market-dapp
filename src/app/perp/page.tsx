@@ -333,7 +333,7 @@ function PerpContent() {
             return (
                 "https://dexscreener.com/bsc/" +
                 tradingPair.pairAddress +
-                "?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"
+                "?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15&background=0a0a0a"
             );
         }
         return "";
@@ -417,12 +417,18 @@ function PerpContent() {
                                         {lastPriceUpdate.toLocaleTimeString()}
                                     </div>
                                 )}
-                                <div id="dexscreener-embed">
+                                <div
+                                    id="dexscreener-embed"
+                                    className="bg-[#0a0a0a] rounded-lg overflow-hidden"
+                                >
                                     <iframe
                                         src={getChartUrl()}
                                         width="100%"
                                         height="500"
-                                        style={{ border: "none" }}
+                                        style={{
+                                            border: "none",
+                                            background: "#0a0a0a",
+                                        }}
                                         title={`${tradingPair.symbol} Chart`}
                                     ></iframe>
                                 </div>

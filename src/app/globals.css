@@ -6,6 +6,7 @@
     position: relative;
     width: 100%;
     padding-bottom: 125%;
+    background: #0a0a0a;
 }
 
 @media (min-width: 1400px) {
@@ -21,6 +22,9 @@
     top: 0;
     left: 0;
     border: 0;
+    background-color: #0a0a0a;
+    /* Darken background while preserving chart colors */
+    filter: brightness(0.8) contrast(1.15);
 }
 
 @theme inline {

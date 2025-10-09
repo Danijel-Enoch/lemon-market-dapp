@@ -14,7 +14,6 @@ export function Header() {
 
     const navItems = [
         { href: "/trending", label: "Trending" },
-        { href: "/perp", label: "Trade" },
         { href: "/positions", label: "Positions" },
         { href: "/bridge", label: "Bridge" },
         { href: "/staking", label: "Stake" },
