@@ -24,6 +24,40 @@ export default function BridgeSwapPage() {
     const widgetConfig: WidgetConfig = {
         integrator: "omni-bot",
         fee: 0.02,
+        theme: {
+            container: {
+                boxShadow: "0 0 0 1px #333333",
+                borderRadius: "12px",
+            },
+            palette: {
+                primary: {
+                    main: "#a3e635",
+                },
+                secondary: {
+                    main: "#2d3748",
+                },
+                background: {
+                    default: "#0a0a0a",
+                    paper: "#1a1a1a",
+                },
+                grey: {
+                    300: "#333333",
+                    800: "#1a1a1a",
+                },
+                text: {
+                    primary: "#e8eaed",
+                    secondary: "#94a3b8",
+                },
+            },
+            shape: {
+                borderRadius: 8,
+                borderRadiusSecondary: 12,
+            },
+            typography: {
+                fontFamily: "var(--font-inter), Inter, sans-serif",
+            },
+        },
+        appearance: "dark",
     };
     return (
         <div className="min-h-screen">
