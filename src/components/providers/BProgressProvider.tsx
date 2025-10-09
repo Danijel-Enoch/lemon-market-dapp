@@ -6,7 +6,7 @@ export function BProgressProvider() {
     return (
         <ProgressProvider
             height="3px"
-            color="#10b981"
+            color="#004530"
             options={{ showSpinner: false }}
             shallowRouting
         />
