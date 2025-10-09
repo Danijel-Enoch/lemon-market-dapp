@@ -1,6 +1,6 @@
-const usdc = "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2" as `0x${string}`;
+const usdc = "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726" as `0x${string}`;
 const SyntheticPerpetualContract =
-	"0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD" as `0x${string}`;
+	"0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8" as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -393,6 +393,43 @@ const SyntheticAbi = [
 			{
 				indexed: true,
 				internalType: "address",
+				name: "trader",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "marginReturned",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "string",
+				name: "reason",
+				type: "string"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "MarginReturned",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
 				name: "previousOwner",
 				type: "address"
 			},
@@ -602,6 +639,80 @@ const SyntheticAbi = [
 			}
 		],
 		name: "PositionOpened",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "liquidated",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "marginDistributed",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "bool",
+				name: "distributedToOpposing",
+				type: "bool"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "PvPLiquidation",
+		type: "event"
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "winner",
+				type: "address"
+			},
+			{
+				indexed: true,
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "profitFromOpposing",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "profitFromMarket",
+				type: "uint256"
+			},
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "timestamp",
+				type: "uint256"
+			}
+		],
+		name: "PvPPayout",
 		type: "event"
 	},
 	{
@@ -871,6 +982,40 @@ const SyntheticAbi = [
 		name: "allocateVirtualMarketLiquidity",
 		outputs: [],
 		stateMutability: "nonpayable",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			},
+			{
+				internalType: "bool",
+				name: "isLong",
+				type: "bool"
+			}
+		],
+		name: "checkPvPBalance",
+		outputs: [
+			{
+				internalType: "bool",
+				name: "isProfitable",
+				type: "bool"
+			},
+			{
+				internalType: "uint256",
+				name: "opposingMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "sameDirectionMargin",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
 		type: "function"
 	},
 	{
@@ -1150,6 +1295,55 @@ const SyntheticAbi = [
 	{
 		inputs: [
 			{
+				internalType: "string",
+				name: "marketId",
+				type: "string"
+			}
+		],
+		name: "getPvPMarketInfo",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "longMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "shortMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "longCount",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "shortCount",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "reservedLong",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "reservedShort",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "availableForProfits",
+				type: "uint256"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
+		inputs: [
+			{
 				internalType: "address",
 				name: "trader",
 				type: "address"
@@ -1242,6 +1436,36 @@ const SyntheticAbi = [
 					{
 						internalType: "uint256",
 						name: "durationFeeRate",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "totalLongMargin",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "totalShortMargin",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "longPositionCount",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "shortPositionCount",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "reservedMarginLong",
+						type: "uint256"
+					},
+					{
+						internalType: "uint256",
+						name: "reservedMarginShort",
 						type: "uint256"
 					}
 				],
@@ -1730,6 +1954,50 @@ const SyntheticAbi = [
 		type: "function"
 	},
 	{
+		inputs: [
+			{
+				internalType: "uint256",
+				name: "positionId",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "currentPrice",
+				type: "uint256"
+			}
+		],
+		name: "simulatePvPClosure",
+		outputs: [
+			{
+				internalType: "uint256",
+				name: "payoutAmount",
+				type: "uint256"
+			},
+			{
+				internalType: "bool",
+				name: "canPayProfit",
+				type: "bool"
+			},
+			{
+				internalType: "uint256",
+				name: "profitFromOpposing",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "profitFromMarket",
+				type: "uint256"
+			},
+			{
+				internalType: "string",
+				name: "reasonIfLimited",
+				type: "string"
+			}
+		],
+		stateMutability: "view",
+		type: "function"
+	},
+	{
 		inputs: [],
 		name: "totalAllocatedLiquidity",
 		outputs: [
@@ -2111,6 +2379,36 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "durationFeeRate",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalLongMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "totalShortMargin",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "longPositionCount",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "shortPositionCount",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "reservedMarginLong",
+				type: "uint256"
+			},
+			{
+				internalType: "uint256",
+				name: "reservedMarginShort",
 				type: "uint256"
 			}
 		],
