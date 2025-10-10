@@ -29,7 +29,7 @@ export const config = getDefaultConfig({
 	projectId: projectId,
 	chains: isDevelopment
 		? [hardhat, localhost, sepolia, mainnet, polygon]
-		: [sepolia],
+		: [sepolia, mainnet],
 	ssr: true // If your dApp uses server side rendering (SSR)
 });
 
