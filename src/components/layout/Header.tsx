@@ -7,20 +7,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
+import { useMiniApp } from "@/components/providers/MiniAppProvider";
 
 export function Header() {
 	const pathname = usePathname();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const { isMiniApp, context } = useMiniApp();
 
 	const navItems = [
 		{ href: "/trending", label: "Trending" },
 		{ href: "/positions", label: "Positions" },
 		{ href: "/bridge", label: "Bridge" },
-		{ href: "/staking", label: "Stake" },
+		{ href: "/staking", label: "Stake" }
 	];
 
+	// Apply safe area insets if in Mini App
+	const safeAreaStyle =
+		isMiniApp && context?.client.safeAreaInsets
+			? {
+					paddingTop: context.client.safeAreaInsets.top
+			  }
+			: {};
+
 	return (
-		<div className="w-full p-4 md:p-8">
+		<div className="w-full p-4 md:p-8" style={safeAreaStyle}>
 			<motion.header
 				initial={{ opacity: 0.5 }}
 				animate={{ opacity: 1 }}
@@ -28,7 +38,12 @@ export function Header() {
 				className="max-w-screen-2xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-8 md:px-12 py-4 bg-[#13151b99] border border-gray-100/10"
 			>
 				<Link href="/" className="inline-flex items-center gap-3.5">
-					<Image src="/image/logo.png" alt="Lemon Markets" width={39} height={40} />
+					<Image
+						src="/image/logo.png"
+						alt="Lemon Markets"
+						width={39}
+						height={40}
+					/>
 					<span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 						Lemon Markets
 					</span>

@@ -1,0 +1,24 @@
+{
+	"accountAssociation": {
+		"header": "",
+		"payload": "",
+		"signature": ""
+	},
+	"miniapp": {
+		"version": "1",
+		"name": "Lemon Markets",
+		"iconUrl": "https://demo.lemonmarkets.xyz/image/logo.png",
+		"homeUrl": "https://demo.lemonmarkets.xyz",
+		"imageUrl": "https://demo.lemonmarkets.xyz/image/features-image.png",
+		"buttonTitle": "Start Trading",
+		"splashImageUrl": "https://demo.lemonmarkets.xyz/image/logo.png",
+		"splashBackgroundColor": "#000000",
+		"description": "A decentralized trading platform for perpetual futures",
+		"subtitle": "Trade perpetual futures with leverage",
+		"primaryCategory": "defi",
+		"tags": ["trading", "defi", "perpetuals", "leverage"],
+		"ogTitle": "Lemon Markets - Decentralized Perpetual Trading",
+		"ogDescription": "Trade perpetual futures with leverage on a decentralized platform",
+		"ogImageUrl": "https://demo.lemonmarkets.xyz/image/features-image.png"
+	}
+}

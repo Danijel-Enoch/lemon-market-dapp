@@ -3,57 +3,62 @@
 import { motion } from "framer-motion";
 import { ChevronDown, Menu, X } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMiniApp } from "@/components/providers/MiniAppProvider";
 
 export default function Home() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [openFaq, setOpenFaq] = useState<number | null>(null);
+	const { isMiniApp, context } = useMiniApp();
 
 	const fadeInUp = {
 		initial: { opacity: 0, y: 60 },
 		animate: { opacity: 1, y: 0 },
-		transition: { duration: 0.6 },
+		transition: { duration: 0.6 }
 	};
 
 	const staggerContainer = {
 		animate: {
 			transition: {
-				staggerChildren: 0.1,
-			},
-		},
+				staggerChildren: 0.1
+			}
+		}
 	};
+
+	useEffect(() => {
+		if (isMiniApp) {
+			console.log("Running as Farcaster Mini App", context);
+		} else {
+			console.log("Running as regular website");
+		}
+	}, [isMiniApp, context]);
 
 	const faqItems = [
 		{
-			question: "How does Lemon Perp use lemon markets in digital asset management?",
-			answer:
-				"Lemon Perp leverages advanced market mechanisms to provide efficient trading solutions for digital assets.",
+			question:
+				"How does Lemon Perp use lemon markets in digital asset management?",
+			answer: "Lemon Perp leverages advanced market mechanisms to provide efficient trading solutions for digital assets."
 		},
 		{
 			question: "Which cryptocurrencies does Lemon Perp support?",
-			answer:
-				"We support major cryptocurrencies including Bitcoin, Ethereum, and various ERC-20 tokens.",
+			answer: "We support major cryptocurrencies including Bitcoin, Ethereum, and various ERC-20 tokens."
 		},
 		{
 			question: "How do I get started with Lemon Perp?",
-			answer:
-				"Simply connect your Web3 wallet, select a trading pair, and start trading with our intuitive interface.",
+			answer: "Simply connect your Web3 wallet, select a trading pair, and start trading with our intuitive interface."
 		},
 		{
 			question: "Can I recover my wallet if I lose my device?",
-			answer:
-				"Yes, you can recover your wallet using your seed phrase or backup methods provided by your wallet provider.",
+			answer: "Yes, you can recover your wallet using your seed phrase or backup methods provided by your wallet provider."
 		},
 		{
 			question: "Is Lemon Perp available globally?",
-			answer:
-				"Lemon Perp is available in most countries, subject to local regulations and compliance requirements.",
+			answer: "Lemon Perp is available in most countries, subject to local regulations and compliance requirements."
 		},
 		{
 			question: "Does Lemon Perp offer customer support?",
-			answer:
-				"Yes, we provide 24/7 customer support through various channels including chat and email.",
-		},
+			answer: "Yes, we provide 24/7 customer support through various channels including chat and email."
+		}
 	];
 
 	return (
@@ -76,7 +81,8 @@ export default function Home() {
 								transition={{ duration: 0.8, delay: 0.2 }}
 								className="text-center text-white text-5xl md:text-7xl leading-normal font-bold"
 							>
-								Unlimited <span className="text-primary">Markets</span>.
+								Unlimited{" "}
+								<span className="text-primary">Markets</span>.
 								<br />
 								Unlimited Opportunities.
 							</motion.h1>
@@ -113,32 +119,65 @@ export default function Home() {
 				variants={staggerContainer}
 				className="py-16 px-8 max-w-7xl mx-auto flex items-center  gap-20 bg-gradient-to-br from-green-800 via-green-800/60 to-[#004530] rounded-[80px] p-8 backdrop-blur-sm border border-white/10"
 			>
-				<motion.div variants={fadeInUp} className="flex items-center gap-6">
-					<Image src="/image/wallet-icon.svg" alt="Wallet Icon" width={64} height={64} />
+				<motion.div
+					variants={fadeInUp}
+					className="flex items-center gap-6"
+				>
+					<Image
+						src="/image/wallet-icon.svg"
+						alt="Wallet Icon"
+						width={64}
+						height={64}
+					/>
 					<div>
-						<h3 className="text-2xl font-bold mb-4">Connect wallet</h3>
+						<h3 className="text-2xl font-bold mb-4">
+							Connect wallet
+						</h3>
 						<p className="text-white/70 leading-relaxed">
-							Securely link your Web3 wallet, such as MetaMask, to access the Lemon Markets protocol
+							Securely link your Web3 wallet, such as MetaMask, to
+							access the Lemon Markets protocol
 						</p>
 					</div>
 				</motion.div>
 
-				<motion.div variants={fadeInUp} className="flex items-center gap-6">
-					<Image src="/image/leaf-icon.svg" alt="Wallet Icon" width={64} height={64} />
+				<motion.div
+					variants={fadeInUp}
+					className="flex items-center gap-6"
+				>
+					<Image
+						src="/image/leaf-icon.svg"
+						alt="Wallet Icon"
+						width={64}
+						height={64}
+					/>
 					<div>
-						<h3 className="text-2xl font-bold mb-4">Select a pair</h3>
+						<h3 className="text-2xl font-bold mb-4">
+							Select a pair
+						</h3>
 						<p className="text-white/70 leading-relaxed">
-							Predict markets on any asset, from ETH to S&P 500 tokens.
+							Predict markets on any asset, from ETH to S&P 500
+							tokens.
 						</p>
 					</div>
 				</motion.div>
 
-				<motion.div variants={fadeInUp} className="flex items-center gap-6">
-					<Image src="/image/trading-icon.svg" alt="Wallet Icon" width={64} height={64} />
+				<motion.div
+					variants={fadeInUp}
+					className="flex items-center gap-6"
+				>
+					<Image
+						src="/image/trading-icon.svg"
+						alt="Wallet Icon"
+						width={64}
+						height={64}
+					/>
 					<div>
-						<h3 className="text-2xl font-bold mb-4">Start Trading</h3>
+						<h3 className="text-2xl font-bold mb-4">
+							Start Trading
+						</h3>
 						<p className="text-white/70 leading-relaxed">
-							Go long or short. If your call is right, you earn instantly, no middlemen, no delays.
+							Go long or short. If your call is right, you earn
+							instantly, no middlemen, no delays.
 						</p>
 					</div>
 				</motion.div>
@@ -156,7 +195,9 @@ export default function Home() {
 						variants={fadeInUp}
 						className="inline-block bg-neutral-900/60 rounded-full px-6 py-3 mb-6"
 					>
-						<span className="text-green-600/60 font-bold text-sm tracking-wider">FEATURES</span>
+						<span className="text-green-600/60 font-bold text-sm tracking-wider">
+							FEATURES
+						</span>
 					</motion.div>
 					<motion.h2
 						variants={fadeInUp}
@@ -168,7 +209,8 @@ export default function Home() {
 						variants={fadeInUp}
 						className="text-xl text-white/70 max-w-2xl mx-auto leading-relaxed"
 					>
-						Trade with confidence through the most efficient on-chain perpetual protocol.
+						Trade with confidence through the most efficient
+						on-chain perpetual protocol.
 					</motion.p>
 				</div>
 
@@ -189,8 +231,9 @@ export default function Home() {
 								Unified Liquidity Model
 							</h3>
 							<p className="text-white/70 leading-relaxed">
-								All trades settle against a shared collateral reserve, unlocking deeper liquidity
-								and capital efficiency across every asset.
+								All trades settle against a shared collateral
+								reserve, unlocking deeper liquidity and capital
+								efficiency across every asset.
 							</p>
 						</div>
 						<div className="h-px bg-white/20"></div>
@@ -199,8 +242,9 @@ export default function Home() {
 								Synthetic Asset Support
 							</h3>
 							<p className="text-white/70 leading-relaxed">
-								Access perpetual markets for crypto, forex, and commodities without depending on
-								fragmented DEX liquidity.
+								Access perpetual markets for crypto, forex, and
+								commodities without depending on fragmented DEX
+								liquidity.
 							</p>
 						</div>
 						<div className="h-px bg-white/20"></div>
@@ -209,7 +253,8 @@ export default function Home() {
 								Oracle-Powered Precision
 							</h3>
 							<p className="text-white/70 leading-relaxed">
-								Reliable, cryptographically verified price data keeps every trade fair and secured.
+								Reliable, cryptographically verified price data
+								keeps every trade fair and secured.
 							</p>
 						</div>
 					</motion.div>
@@ -231,15 +276,19 @@ export default function Home() {
 							variants={fadeInUp}
 							className="inline-block bg-neutral-900/60 rounded-full px-6 py-3 mb-6"
 						>
-							<span className="text-green-600/60 font-bold text-sm tracking-wider">ABOUT</span>
+							<span className="text-green-600/60 font-bold text-sm tracking-wider">
+								ABOUT
+							</span>
 						</motion.div>
 						<h2 className="text-5xl md:text-6xl font-semibold mb-8 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
 							Reimagining Perpetual Trading
 						</h2>
 						<p className="text-white/70 leading-relaxed text-lg mb-8">
-							Lemon Markets is building the future of synthetic trading , one where liquidity,
-							leverage, and accessibility converge into a single decentralized ecosystem. No market
-							silos. No barriers to entry. Just a faster, fairer, and freer way to trade global
+							Lemon Markets is building the future of synthetic
+							trading , one where liquidity, leverage, and
+							accessibility converge into a single decentralized
+							ecosystem. No market silos. No barriers to entry.
+							Just a faster, fairer, and freer way to trade global
 							assets.
 						</p>
 						<motion.button
@@ -279,8 +328,12 @@ export default function Home() {
 				>
 					Watch How Lemon Markets Works
 				</motion.h2>
-				<motion.p variants={fadeInUp} className="text-white/70 text-lg mb-12 max-w-2xl mx-auto">
-					A simple platform for traders who want clarity, speed, and control.
+				<motion.p
+					variants={fadeInUp}
+					className="text-white/70 text-lg mb-12 max-w-2xl mx-auto"
+				>
+					A simple platform for traders who want clarity, speed, and
+					control.
 				</motion.p>
 				<motion.div
 					variants={fadeInUp}
@@ -328,23 +381,23 @@ export default function Home() {
 							{
 								phase: "Phase I",
 								content:
-									"Finalize multi-chain support (Ethereum, Bitcoin, EVM chains).\n\nPartner with oracles (e.g., Chainlink) for secure data feeds.\n\nComplete third-party security audits.",
+									"Finalize multi-chain support (Ethereum, Bitcoin, EVM chains).\n\nPartner with oracles (e.g., Chainlink) for secure data feeds.\n\nComplete third-party security audits."
 							},
 							{
 								phase: "Phase II",
 								content:
-									"Invite 1,000+ users to test AI-driven insights and cross-chain swaps.\n\nOptimize UI/UX and resolve edge-case vulnerabilities.",
+									"Invite 1,000+ users to test AI-driven insights and cross-chain swaps.\n\nOptimize UI/UX and resolve edge-case vulnerabilities."
 							},
 							{
 								phase: "Phase III",
 								content:
-									"Release web and mobile platforms with core features (AI dashboards, self-custody).\n\nLaunch global marketing and partner with liquidity providers.",
+									"Release web and mobile platforms with core features (AI dashboards, self-custody).\n\nLaunch global marketing and partner with liquidity providers."
 							},
 							{
 								phase: "Phase IV",
 								content:
-									"Integrate DeFi protocols (Uniswap, Aave) and Layer-2 networks.\n\nAdd staking, governance, and institutional tools.",
-							},
+									"Integrate DeFi protocols (Uniswap, Aave) and Layer-2 networks.\n\nAdd staking, governance, and institutional tools."
+							}
 						].map((item, index) => (
 							<motion.div
 								key={index}
@@ -353,7 +406,9 @@ export default function Home() {
 							>
 								<div className="w-4 h-4 bg-gradient-to-r from-lime-300 to-green-950 rounded-full relative z-10"></div>
 								<div className="flex-1">
-									<h3 className="text-2xl font-bold mb-4 text-white">{item.phase}</h3>
+									<h3 className="text-2xl font-bold mb-4 text-white">
+										{item.phase}
+									</h3>
 									<p className="text-white/70 leading-relaxed whitespace-pre-line">
 										{item.content}
 									</p>
@@ -386,19 +441,30 @@ export default function Home() {
 					>
 						Frequently Asked Questions
 					</motion.h2>
-					<motion.p variants={fadeInUp} className="text-white/70 text-lg">
+					<motion.p
+						variants={fadeInUp}
+						className="text-white/70 text-lg"
+					>
 						How Can we Smoothen your journey?
 					</motion.p>
 				</div>
 
 				<motion.div variants={staggerContainer} className="space-y-4">
 					{faqItems.map((item, index) => (
-						<motion.div key={index} variants={fadeInUp} className="border-b border-white/20">
+						<motion.div
+							key={index}
+							variants={fadeInUp}
+							className="border-b border-white/20"
+						>
 							<button
-								onClick={() => setOpenFaq(openFaq === index ? null : index)}
+								onClick={() =>
+									setOpenFaq(openFaq === index ? null : index)
+								}
 								className="w-full flex items-center justify-between py-6 text-left"
 							>
-								<span className="text-lg font-medium text-white pr-4">{item.question}</span>
+								<span className="text-lg font-medium text-white pr-4">
+									{item.question}
+								</span>
 								<ChevronDown
 									className={`w-5 h-5 text-white/60 transition-transform ${
 										openFaq === index ? "rotate-180" : ""
@@ -412,7 +478,9 @@ export default function Home() {
 									exit={{ opacity: 0, height: 0 }}
 									className="pb-6"
 								>
-									<p className="text-white/70 leading-relaxed">{item.answer}</p>
+									<p className="text-white/70 leading-relaxed">
+										{item.answer}
+									</p>
 								</motion.div>
 							)}
 						</motion.div>
@@ -426,7 +494,10 @@ export default function Home() {
 				viewport={{ once: true }}
 				className="py-20 px-4 text-center"
 			>
-				<motion.h2 variants={fadeInUp} className="text-5xl md:text-6xl font-bold mb-8">
+				<motion.h2
+					variants={fadeInUp}
+					className="text-5xl md:text-6xl font-bold mb-8"
+				>
 					<span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
 						The future of Trading
 					</span>
@@ -463,34 +534,71 @@ export default function Home() {
 									</span>
 								</div>
 								<nav className="flex flex-wrap gap-6">
-									<a href="#home" className="text-white/60 hover:text-white transition-colors">
+									<a
+										href="#home"
+										className="text-white/60 hover:text-white transition-colors"
+									>
 										Home
 									</a>
-									<a href="#features" className="text-white/60 hover:text-white transition-colors">
+									<a
+										href="#features"
+										className="text-white/60 hover:text-white transition-colors"
+									>
 										Features
 									</a>
-									<a href="#about" className="text-white/60 hover:text-white transition-colors">
+									<a
+										href="#about"
+										className="text-white/60 hover:text-white transition-colors"
+									>
 										About
 									</a>
-									<a href="#roadmap" className="text-white/60 hover:text-white transition-colors">
+									<a
+										href="#roadmap"
+										className="text-white/60 hover:text-white transition-colors"
+									>
 										Roadmap
 									</a>
-									<a href="#faq" className="text-white/60 hover:text-white transition-colors">
+									<a
+										href="#faq"
+										className="text-white/60 hover:text-white transition-colors"
+									>
 										FAQ
 									</a>
 								</nav>
 								<div className="flex items-center space-x-4 mt-4 md:mt-0">
-									<Image src="/image/twitter.svg" alt="Twitter" width={24} height={24} />
-									<Image src="/image/telegram.svg" alt="Telegram" width={24} height={24} />
-									<Image src="/image/discord.svg" alt="Discord" width={24} height={24} />
+									<Image
+										src="/image/twitter.svg"
+										alt="Twitter"
+										width={24}
+										height={24}
+									/>
+									<Image
+										src="/image/telegram.svg"
+										alt="Telegram"
+										width={24}
+										height={24}
+									/>
+									<Image
+										src="/image/discord.svg"
+										alt="Discord"
+										width={24}
+										height={24}
+									/>
 								</div>
 							</div>
 						</div>
 
 						<div className="bg-neutral-900 rounded-lg p-6">
 							<div className="flex items-center space-x-3 mb-4">
-								<Image src="/image/logo-newsletter.png" alt="Logo" width={32} height={32} />
-								<h3 className="text-lg font-semibold">Join our Waitlist</h3>
+								<Image
+									src="/image/logo-newsletter.png"
+									alt="Logo"
+									width={32}
+									height={32}
+								/>
+								<h3 className="text-lg font-semibold">
+									Join our Waitlist
+								</h3>
 							</div>
 							<div className="flex">
 								<input
@@ -508,10 +616,16 @@ export default function Home() {
 					<div className="flex flex-col md:flex-row md:items-center md:justify-between pt-8 border-t border-white/20 text-white/60">
 						<p>Copyright © 2025 Lemon Perp. All rights reserved.</p>
 						<div className="flex space-x-6 mt-4 md:mt-0">
-							<a href="#" className="hover:text-white transition-colors">
+							<a
+								href="#"
+								className="hover:text-white transition-colors"
+							>
 								Privacy Policy
 							</a>
-							<a href="#" className="hover:text-white transition-colors">
+							<a
+								href="#"
+								className="hover:text-white transition-colors"
+							>
 								Terms and Conditions
 							</a>
 						</div>

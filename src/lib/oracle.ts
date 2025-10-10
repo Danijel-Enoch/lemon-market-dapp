@@ -71,15 +71,18 @@ export interface GeckoTerminalPool {
  */
 async function fetchFromDexScreener(
 	tokenAddress: string,
-	chainId: string = "bsc",
+	chainId: string = "bsc"
 ): Promise<TokenPrice | null> {
 	try {
-		const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
-			method: "GET",
-			headers: {
-				Accept: "application/json",
-			},
-		});
+		const response = await fetch(
+			`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`,
+			{
+				method: "GET",
+				headers: {
+					Accept: "application/json"
+				}
+			}
+		);
 
 		if (!response.ok) {
 			throw new Error(`DexScreener API error: ${response.status}`);
@@ -92,11 +95,13 @@ async function fetchFromDexScreener(
 		}
 
 		// Get the pair with highest liquidity for better price accuracy
-		const bestPair = data.pairs.reduce((best: DexScreenerPair, current: DexScreenerPair) => {
-			const bestLiquidity = best.liquidity?.usd || 0;
-			const currentLiquidity = current.liquidity?.usd || 0;
-			return currentLiquidity > bestLiquidity ? current : best;
-		});
+		const bestPair = data.pairs.reduce(
+			(best: DexScreenerPair, current: DexScreenerPair) => {
+				const bestLiquidity = best.liquidity?.usd || 0;
+				const currentLiquidity = current.liquidity?.usd || 0;
+				return currentLiquidity > bestLiquidity ? current : best;
+			}
+		);
 
 		return {
 			address: tokenAddress,
@@ -107,7 +112,7 @@ async function fetchFromDexScreener(
 			volume24h: bestPair.volume?.h24,
 			marketCap: bestPair.marketCap,
 			liquidity: bestPair.liquidity?.usd,
-			source: "dexscreener",
+			source: "dexscreener"
 		};
 	} catch (error) {
 		console.error("DexScreener API error:", error);
@@ -120,7 +125,7 @@ async function fetchFromDexScreener(
  */
 async function fetchFromGeckoTerminal(
 	tokenAddress: string,
-	chainId: string = "bsc",
+	chainId: string = "bsc"
 ): Promise<TokenPrice | null> {
 	console.log("Fetching from GeckoTerminal:", tokenAddress, chainId);
 	try {
@@ -132,6 +137,7 @@ async function fetchFromGeckoTerminal(
 			arbitrum: "arbitrum",
 			optimism: "optimism",
 			avalanche: "avax",
+			base: "base"
 		};
 
 		const network = networkMap[chainId] || "bsc";
@@ -141,9 +147,9 @@ async function fetchFromGeckoTerminal(
 			{
 				method: "GET",
 				headers: {
-					Accept: "application/json",
-				},
-			},
+					Accept: "application/json"
+				}
+			}
 		);
 
 		if (!response.ok) {
@@ -157,11 +163,15 @@ async function fetchFromGeckoTerminal(
 		}
 
 		// Get the pool with highest reserve (liquidity) for better price accuracy
-		const bestPool = data.data.reduce((best: GeckoTerminalPool, current: GeckoTerminalPool) => {
-			const bestReserve = parseFloat(best.attributes.reserve_in_usd);
-			const currentReserve = parseFloat(current.attributes.reserve_in_usd);
-			return currentReserve > bestReserve ? current : best;
-		});
+		const bestPool = data.data.reduce(
+			(best: GeckoTerminalPool, current: GeckoTerminalPool) => {
+				const bestReserve = parseFloat(best.attributes.reserve_in_usd);
+				const currentReserve = parseFloat(
+					current.attributes.reserve_in_usd
+				);
+				return currentReserve > bestReserve ? current : best;
+			}
+		);
 
 		// Get token info from included data
 		const tokenInfo = data.included?.find((item: unknown) => {
@@ -171,7 +181,8 @@ async function fetchFromGeckoTerminal(
 				attributes?: { symbol?: string; name?: string };
 			};
 			return (
-				typedItem.type === "token" && typedItem.id === bestPool.relationships.base_token.data.id
+				typedItem.type === "token" &&
+				typedItem.id === bestPool.relationships.base_token.data.id
 			);
 		}) as { attributes?: { symbol?: string; name?: string } } | undefined;
 
@@ -180,13 +191,15 @@ async function fetchFromGeckoTerminal(
 			symbol: tokenInfo?.attributes?.symbol || "UNKNOWN",
 			name: tokenInfo?.attributes?.name || "Unknown Token",
 			priceUsd: parseFloat(bestPool.attributes.base_token_price_usd),
-			priceChange24h: parseFloat(bestPool.attributes.base_token_price_change_percentage.h24),
+			priceChange24h: parseFloat(
+				bestPool.attributes.base_token_price_change_percentage.h24
+			),
 			volume24h: parseFloat(bestPool.attributes.volume_usd.h24),
 			marketCap: bestPool.attributes.market_cap_usd
 				? parseFloat(bestPool.attributes.market_cap_usd)
 				: undefined,
 			liquidity: parseFloat(bestPool.attributes.reserve_in_usd),
-			source: "geckoterminal",
+			source: "geckoterminal"
 		};
 	} catch (error) {
 		console.error("GeckoTerminal API error:", error);
@@ -199,7 +212,7 @@ async function fetchFromGeckoTerminal(
  */
 export async function getTokenPrice(
 	tokenAddress: string,
-	chainId: string = "bsc",
+	chainId: string = "bsc"
 ): Promise<TokenPrice | null> {
 	// Try DexScreener first
 	const dexScreenerResult = await fetchFromDexScreener(tokenAddress, chainId);
@@ -208,8 +221,13 @@ export async function getTokenPrice(
 	}
 
 	// Fallback to GeckoTerminal
-	console.log(`DexScreener failed for ${tokenAddress}, trying GeckoTerminal...`);
-	const geckoTerminalResult = await fetchFromGeckoTerminal(tokenAddress, chainId);
+	console.log(
+		`DexScreener failed for ${tokenAddress}, trying GeckoTerminal...`
+	);
+	const geckoTerminalResult = await fetchFromGeckoTerminal(
+		tokenAddress,
+		chainId
+	);
 	if (geckoTerminalResult) {
 		return geckoTerminalResult;
 	}
@@ -223,9 +241,11 @@ export async function getTokenPrice(
  */
 export async function getTokenPrices(
 	tokenAddresses: string[],
-	chainId: string = "bsc",
+	chainId: string = "bsc"
 ): Promise<(TokenPrice | null)[]> {
-	const promises = tokenAddresses.map((address) => getTokenPrice(address, chainId));
+	const promises = tokenAddresses.map((address) =>
+		getTokenPrice(address, chainId)
+	);
 	return Promise.all(promises);
 }
 
@@ -234,7 +254,7 @@ export async function getTokenPrices(
  */
 export async function getTokenPriceByPair(
 	pairAddress: string,
-	chainId: string = "bsc",
+	chainId: string = "bsc"
 ): Promise<TokenPrice | null> {
 	console.log("Fetching price by pair:", pairAddress, chainId);
 	try {
@@ -243,9 +263,9 @@ export async function getTokenPriceByPair(
 			{
 				method: "GET",
 				headers: {
-					Accept: "application/json",
-				},
-			},
+					Accept: "application/json"
+				}
+			}
 		);
 
 		if (!response.ok) {
@@ -268,7 +288,7 @@ export async function getTokenPriceByPair(
 			volume24h: pair.volume?.h24,
 			marketCap: pair.marketCap,
 			liquidity: pair.liquidity?.usd,
-			source: "dexscreener",
+			source: "dexscreener"
 		};
 	} catch (error) {
 		console.error("Error fetching pair data:", error);

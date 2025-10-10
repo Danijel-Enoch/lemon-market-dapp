@@ -10,7 +10,7 @@ import {
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
-	useWriteContract,
+	useWriteContract
 } from "wagmi";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +20,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
-import { formatPrice, formatPriceChange, getTokenPriceByPair } from "@/lib/oracle";
+import {
+	formatPrice,
+	formatPriceChange,
+	getTokenPriceByPair
+} from "@/lib/oracle";
 import {
 	createPosition,
 	extractTokenSymbol,
 	formatTxHash,
 	getEtherscanUrl,
 	validateLeverage,
-	validateMargin,
+	validateMargin
 } from "@/lib/position-api";
 
 function PerpContent() {
@@ -36,7 +40,7 @@ function PerpContent() {
 		symbol: "BTC/USDT",
 		price: "$45,234.56",
 		change: "+2.34%",
-		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
 	});
 	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
@@ -48,24 +52,34 @@ function PerpContent() {
 		refetch: fetchUserPositions,
 		openPositions,
 		totalPnl,
-		totalMargin,
+		totalMargin
 	} = useUserPositions();
 
 	const { address, isConnected } = useAccount();
-	const { sendTransaction, data: hash, error, isPending } = useSendTransaction();
-	const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-		hash,
-	});
+	const {
+		sendTransaction,
+		data: hash,
+		error,
+		isPending
+	} = useSendTransaction();
+	const { isLoading: isConfirming, isSuccess: isConfirmed } =
+		useWaitForTransactionReceipt({
+			hash
+		});
 
-	const { writeContract, data: approvalHash, isPending: isApproving } = useWriteContract();
+	const {
+		writeContract,
+		data: approvalHash,
+		isPending: isApproving
+	} = useWriteContract();
 	const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } =
 		useWaitForTransactionReceipt({
-			hash: approvalHash,
+			hash: approvalHash
 		});
 
 	const { data: ethBalance } = useBalance({
 		address: address,
-		query: { enabled: !!address },
+		query: { enabled: !!address }
 	});
 
 	const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
@@ -73,15 +87,17 @@ function PerpContent() {
 		abi: ERC20Abi,
 		functionName: "balanceOf",
 		args: address ? [address] : undefined,
-		query: { enabled: !!address },
+		query: { enabled: !!address }
 	});
 
 	const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
 		address: usdc as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "allowance",
-		args: address ? [address, SyntheticPerpetualContract as `0x${string}`] : undefined,
-		query: { enabled: !!address },
+		args: address
+			? [address, SyntheticPerpetualContract as `0x${string}`]
+			: undefined,
+		query: { enabled: !!address }
 	});
 
 	const [isLong, setIsLong] = useState(true);
@@ -90,7 +106,9 @@ function PerpContent() {
 	const [bnbAmount, setBnbAmount] = useState("0.51451404");
 	const [isCreatingPosition, setIsCreatingPosition] = useState(false);
 	const [apiError, setApiError] = useState<string | null>(null);
-	const [lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
+	const [lastTransactionHash, setLastTransactionHash] = useState<
+		string | null
+	>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
 	const maxLeverage = 2;
@@ -100,14 +118,17 @@ function PerpContent() {
 
 		setIsLoadingPrice(true);
 		try {
-			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, "bsc");
+			const tokenPrice = await getTokenPriceByPair(
+				tradingPair.pairAddress,
+				"base"
+			);
 			if (tokenPrice) {
 				setTradingPair((prev) => ({
 					...prev,
 					price: formatPrice(tokenPrice.priceUsd),
 					change: tokenPrice.priceChange24h
 						? formatPriceChange(tokenPrice.priceChange24h)
-						: prev.change,
+						: prev.change
 				}));
 				setLastPriceUpdate(new Date());
 			}
@@ -124,12 +145,14 @@ function PerpContent() {
 
 		if (symbol) {
 			// Format the symbol for display (add /USDT if not already present)
-			const formattedSymbol = symbol.includes("/") ? symbol : `${symbol}/USDT`;
+			const formattedSymbol = symbol.includes("/")
+				? symbol
+				: `${symbol}/USDT`;
 
 			setTradingPair((prev) => ({
 				...prev,
 				symbol: formattedSymbol,
-				pairAddress: pairAddress || prev.pairAddress,
+				pairAddress: pairAddress || prev.pairAddress
 			}));
 		}
 	}, [searchParams]);
@@ -149,7 +172,11 @@ function PerpContent() {
 	}, [tradingPair.pairAddress]);
 
 	useEffect(() => {
-		if (usdcAllowance !== undefined && valueUSDC && parseFloat(valueUSDC) > 0) {
+		if (
+			usdcAllowance !== undefined &&
+			valueUSDC &&
+			parseFloat(valueUSDC) > 0
+		) {
 			const marginInWei = parseUnits(valueUSDC, 6); // USDC has 6 decimals
 			const allowanceAmount = BigInt(usdcAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
@@ -202,7 +229,10 @@ function PerpContent() {
 	}, [isConfirmed, hash, address]);
 
 	const handleLeverageChange = (delta: number) => {
-		const newLeverage = Math.max(1, Math.min(maxLeverage, leverage + delta));
+		const newLeverage = Math.max(
+			1,
+			Math.min(maxLeverage, leverage + delta)
+		);
 		setLeverage(newLeverage);
 	};
 
@@ -220,11 +250,18 @@ function PerpContent() {
 				address: usdc as `0x${string}`,
 				abi: ERC20Abi,
 				functionName: "approve",
-				args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount],
+				args: [
+					SyntheticPerpetualContract as `0x${string}`,
+					approvalAmount
+				]
 			});
 		} catch (error) {
 			console.error("Error approving USDC:", error);
-			setApiError(error instanceof Error ? error.message : "Failed to approve USDC");
+			setApiError(
+				error instanceof Error
+					? error.message
+					: "Failed to approve USDC"
+			);
 		}
 	};
 
@@ -259,7 +296,7 @@ function PerpContent() {
 				margin: valueUSDC,
 				leverage,
 				userAddress: address,
-				pairAddress: tradingPair.pairAddress,
+				pairAddress: tradingPair.pairAddress
 			});
 
 			if (!result.success) {
@@ -273,12 +310,18 @@ function PerpContent() {
 					to: result.data.to as `0x${string}`,
 					data: result.data.data as `0x${string}`,
 					value: BigInt(0),
-					gas: result.data.gasEstimate ? BigInt(String(result.data.gasEstimate)) : undefined,
+					gas: result.data.gasEstimate
+						? BigInt(String(result.data.gasEstimate))
+						: undefined
 				});
 			}
 		} catch (error) {
 			console.error("Error creating position:", error);
-			setApiError(error instanceof Error ? error.message : "Failed to create position");
+			setApiError(
+				error instanceof Error
+					? error.message
+					: "Failed to create position"
+			);
 		} finally {
 			setIsCreatingPosition(false);
 		}
@@ -288,7 +331,7 @@ function PerpContent() {
 		if (tradingPair.pairAddress) {
 			console.log("Using pair address:", tradingPair.pairAddress);
 			return (
-				"https://dexscreener.com/bsc/" +
+				"https://dexscreener.com/base/" +
 				tradingPair.pairAddress +
 				"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15&background=0a0a0a"
 			);
@@ -305,9 +348,12 @@ function PerpContent() {
 							<TrendingUp className="w-6 h-6 text-primary" />
 						</div>
 						<div>
-							<h1 className="text-3xl font-bold text-foreground">Perpetual Trading</h1>
+							<h1 className="text-3xl font-bold text-foreground">
+								Perpetual Trading
+							</h1>
 							<p className="text-muted-foreground text-sm">
-								Trade cryptocurrency perpetual futures with up to {maxLeverage}x leverage
+								Trade cryptocurrency perpetual futures with up
+								to {maxLeverage}x leverage
 							</p>
 						</div>
 					</div>
@@ -325,7 +371,9 @@ function PerpContent() {
 										<div className="flex items-center space-x-2">
 											<div className="text-2xl font-bold text-success">
 												{isLoadingPrice ? (
-													<div className="animate-pulse">Loading...</div>
+													<div className="animate-pulse">
+														Loading...
+													</div>
 												) : (
 													tradingPair.price
 												)}
@@ -339,7 +387,11 @@ function PerpContent() {
 												title="Refresh price"
 											>
 												<svg
-													className={`h-4 w-4 ${isLoadingPrice ? "animate-spin" : ""}`}
+													className={`h-4 w-4 ${
+														isLoadingPrice
+															? "animate-spin"
+															: ""
+													}`}
 													fill="none"
 													stroke="currentColor"
 													viewBox="0 0 24 24"
@@ -355,7 +407,9 @@ function PerpContent() {
 										</div>
 										<Badge
 											className={`${
-												tradingPair.change.startsWith("+")
+												tradingPair.change.startsWith(
+													"+"
+												)
 													? "bg-primary hover:bg-primary/90"
 													: "bg-destructive hover:bg-destructive/90"
 											}`}
@@ -368,17 +422,21 @@ function PerpContent() {
 							<CardContent>
 								{lastPriceUpdate && (
 									<div className="mb-2 text-xs text-gray-500 text-right">
-										Last updated: {lastPriceUpdate.toLocaleTimeString()}
+										Last updated:{" "}
+										{lastPriceUpdate.toLocaleTimeString()}
 									</div>
 								)}
-								<div id="dexscreener-embed" className="bg-[#0a0a0a] rounded-lg overflow-hidden">
+								<div
+									id="dexscreener-embed"
+									className="bg-[#0a0a0a] rounded-lg overflow-hidden"
+								>
 									<iframe
 										src={getChartUrl()}
 										width="100%"
 										height="500"
 										style={{
 											border: "none",
-											background: "#0a0a0a",
+											background: "#0a0a0a"
 										}}
 										title={`${tradingPair.symbol} Chart`}
 									></iframe>
@@ -423,22 +481,34 @@ function PerpContent() {
 										</h4>
 										<div className="space-y-2">
 											<div className="flex justify-between items-center">
-												<span className="text-muted-foreground">ETH:</span>
+												<span className="text-muted-foreground">
+													ETH:
+												</span>
 												<span className="text-foreground font-medium">
 													{ethBalance
 														? `${parseFloat(
-																formatUnits(ethBalance.value, ethBalance.decimals),
-															).toFixed(4)} ETH`
+																formatUnits(
+																	ethBalance.value,
+																	ethBalance.decimals
+																)
+														  ).toFixed(4)} ETH`
 														: "0.0000 ETH"}
 												</span>
 											</div>
 											<div className="flex justify-between items-center">
-												<span className="text-muted-foreground">USDC:</span>
+												<span className="text-muted-foreground">
+													USDC:
+												</span>
 												<span className="text-foreground font-medium">
 													{usdcBalance
-														? `${parseFloat(formatUnits(BigInt(usdcBalance as string), 6)).toFixed(
-																2,
-															)} USDC`
+														? `${parseFloat(
+																formatUnits(
+																	BigInt(
+																		usdcBalance as string
+																	),
+																	6
+																)
+														  ).toFixed(2)} USDC`
 														: "0.00 USDC"}
 												</span>
 											</div>
@@ -460,31 +530,39 @@ function PerpContent() {
 														: "bg-green-900/50 text-success"
 												}`}
 											>
-												{needsApproval ? "Required" : "Approved"}
+												{needsApproval
+													? "Required"
+													: "Approved"}
 											</span>
 										</div>
 
 										{needsApproval ? (
 											<div className="space-y-3">
 												<p className="text-sm text-muted-foreground">
-													Approve USDC spending to create positions
+													Approve USDC spending to
+													create positions
 												</p>
 												<Button
 													onClick={handleApproveUSDC}
-													disabled={isApproving || isApprovalConfirming}
+													disabled={
+														isApproving ||
+														isApprovalConfirming
+													}
 													className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 												>
 													{isApproving
 														? "Confirm in Wallet..."
 														: isApprovalConfirming
-															? "Confirming..."
-															: "Approve USDC"}
+														? "Confirming..."
+														: "Approve USDC"}
 												</Button>
 											</div>
 										) : (
 											<div className="flex items-center space-x-2">
 												<div className="w-2 h-2 bg-green-400 rounded-full"></div>
-												<p className="text-sm text-success">USDC spending approved</p>
+												<p className="text-sm text-success">
+													USDC spending approved
+												</p>
 											</div>
 										)}
 									</div>
@@ -496,16 +574,24 @@ function PerpContent() {
 										<label className="text-sm text-primary uppercase font-medium">
 											Margin (USDC)
 										</label>
-										{valueUSDC && !validateMargin(valueUSDC).valid && (
-											<span className="text-xs text-destructive">
-												{validateMargin(valueUSDC).error}
-											</span>
-										)}
+										{valueUSDC &&
+											!validateMargin(valueUSDC)
+												.valid && (
+												<span className="text-xs text-destructive">
+													{
+														validateMargin(
+															valueUSDC
+														).error
+													}
+												</span>
+											)}
 									</div>
 									<div className="relative">
 										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
 											<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-												<span className="text-foreground text-xs font-bold">$</span>
+												<span className="text-foreground text-xs font-bold">
+													$
+												</span>
 											</div>
 										</div>
 										<Input
@@ -516,14 +602,17 @@ function PerpContent() {
 												setApiError(null); // Clear error when user types
 											}}
 											className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
-												valueUSDC && !validateMargin(valueUSDC).valid
+												valueUSDC &&
+												!validateMargin(valueUSDC).valid
 													? "border-red-500 focus:border-red-500"
 													: "focus:border-cyan-500"
 											}`}
 										/>
 										<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
 											<div className="w-6 h-6 bg-gray-300 rounded"></div>
-											<span className="text-primary font-medium">USDC</span>
+											<span className="text-primary font-medium">
+												USDC
+											</span>
 										</div>
 									</div>
 								</div>
@@ -531,13 +620,19 @@ function PerpContent() {
 								{/* Leverage */}
 								<div className="space-y-3">
 									<div className="flex justify-between items-center">
-										<label className="text-sm text-primary uppercase font-medium">Leverage</label>
-										<span className="text-success text-lg font-bold">{leverage}x</span>
+										<label className="text-sm text-primary uppercase font-medium">
+											Leverage
+										</label>
+										<span className="text-success text-lg font-bold">
+											{leverage}x
+										</span>
 									</div>
 									<div className="relative">
 										<div className="flex items-center space-x-4 bg-muted rounded-lg p-4">
 											<button
-												onClick={() => handleLeverageChange(-1)}
+												onClick={() =>
+													handleLeverageChange(-1)
+												}
 												className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
 											>
 												-
@@ -547,15 +642,28 @@ function PerpContent() {
 													<div
 														className="h-2 bg-gradient-to-r from-green-400 to-cyan-400 rounded-full"
 														style={{
-															width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
+															width: `${
+																((leverage -
+																	1) /
+																	(maxLeverage -
+																		1)) *
+																100
+															}%`
 														}}
 													></div>
 												</div>
 												<div className="flex justify-between text-xs text-muted-foreground mt-2">
-													{Array.from({ length: maxLeverage }, (_, i) => i + 1).map((lev) => (
+													{Array.from(
+														{ length: maxLeverage },
+														(_, i) => i + 1
+													).map((lev) => (
 														<span
 															key={lev}
-															className={leverage === lev ? "text-primary font-bold" : ""}
+															className={
+																leverage === lev
+																	? "text-primary font-bold"
+																	: ""
+															}
 														>
 															{lev}x
 														</span>
@@ -563,7 +671,9 @@ function PerpContent() {
 												</div>
 											</div>
 											<button
-												onClick={() => handleLeverageChange(1)}
+												onClick={() =>
+													handleLeverageChange(1)
+												}
 												className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
 											>
 												+
@@ -584,11 +694,15 @@ function PerpContent() {
 										<Input
 											placeholder="0.51451404"
 											value={bnbAmount}
-											onChange={(e) => setBnbAmount(e.target.value)}
+											onChange={(e) =>
+												setBnbAmount(e.target.value)
+											}
 											className="bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-16"
 										/>
 										<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-											<span className="text-primary font-medium">BNB</span>
+											<span className="text-primary font-medium">
+												BNB
+											</span>
 										</div>
 									</div>
 								</div>
@@ -597,59 +711,90 @@ function PerpContent() {
 								<div className="space-y-3 text-sm">
 									<div className="flex justify-between">
 										<span className="text-muted-foreground uppercase">
-											Position Size ({extractTokenSymbol(tradingPair.symbol)})
+											Position Size (
+											{extractTokenSymbol(
+												tradingPair.symbol
+											)}
+											)
 										</span>
 										<span className="text-foreground">
 											{(
-												(parseFloat(valueUSDC || "0") * leverage) /
-												parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+												(parseFloat(valueUSDC || "0") *
+													leverage) /
+												parseFloat(
+													tradingPair.price.replace(
+														/[$,]/g,
+														""
+													)
+												)
 											).toFixed(6)}
 										</span>
 									</div>
 									<div className="flex justify-between">
-										<span className="text-muted-foreground uppercase">Total Exposure</span>
+										<span className="text-muted-foreground uppercase">
+											Total Exposure
+										</span>
 										<span className="text-foreground">
-											${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
+											$
+											{(
+												parseFloat(valueUSDC || "0") *
+												leverage
+											).toLocaleString()}
 										</span>
 									</div>
 									<div className="flex justify-between">
-										<span className="text-muted-foreground uppercase">Open Fee</span>
+										<span className="text-muted-foreground uppercase">
+											Open Fee
+										</span>
 										<span className="text-foreground">
 											0.1% (~$
-											{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
+											{(
+												parseFloat(valueUSDC || "0") *
+												0.001
+											).toFixed(2)}
+											)
 										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-muted-foreground uppercase">
 											Close Fee (Applied only to profits)
 										</span>
-										<span className="text-foreground">2%</span>
+										<span className="text-foreground">
+											2%
+										</span>
 									</div>
 								</div>
 
 								{/* Error Display */}
 								{apiError && (
 									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
-										<p className="text-destructive text-sm">{apiError}</p>
+										<p className="text-destructive text-sm">
+											{apiError}
+										</p>
 									</div>
 								)}
 
 								{/* Approval Success Message */}
-								{isApprovalConfirmed && approvalHash && !needsApproval && (
-									<div className="p-3 bg-green-900/50 border border-success rounded-lg">
-										<p className="text-success text-sm">
-											✅ USDC approval confirmed! You can now create positions.
-											<a
-												href={getEtherscanUrl(approvalHash)}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="text-primary hover:text-cyan-300 underline ml-1"
-											>
-												View transaction
-											</a>
-										</p>
-									</div>
-								)}
+								{isApprovalConfirmed &&
+									approvalHash &&
+									!needsApproval && (
+										<div className="p-3 bg-green-900/50 border border-success rounded-lg">
+											<p className="text-success text-sm">
+												✅ USDC approval confirmed! You
+												can now create positions.
+												<a
+													href={getEtherscanUrl(
+														approvalHash
+													)}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-primary hover:text-cyan-300 underline ml-1"
+												>
+													View transaction
+												</a>
+											</p>
+										</div>
+									)}
 
 								{/* Transaction Status */}
 								{hash && (
@@ -666,14 +811,20 @@ function PerpContent() {
 											</a>
 										</p>
 										{isConfirming && (
-											<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
+											<p className="text-warning text-sm mt-1">
+												⏳ Waiting for confirmation...
+											</p>
 										)}
 										{isConfirmed && (
-											<p className="text-success text-sm mt-1">✅ Position created successfully!</p>
+											<p className="text-success text-sm mt-1">
+												✅ Position created
+												successfully!
+											</p>
 										)}
 										{error && (
 											<p className="text-destructive text-sm mt-1">
-												❌ Transaction failed: {String(error)}
+												❌ Transaction failed:{" "}
+												{String(error)}
 											</p>
 										)}
 									</div>
@@ -700,12 +851,16 @@ function PerpContent() {
 										{needsApproval
 											? "Approve USDC First"
 											: isCreatingPosition
-												? "Preparing Transaction..."
-												: isPending
-													? "Confirm in Wallet..."
-													: isConfirming
-														? "Confirming..."
-														: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`}
+											? "Preparing Transaction..."
+											: isPending
+											? "Confirm in Wallet..."
+											: isConfirming
+											? "Confirming..."
+											: `${isLong ? "Long" : "Short"} ${
+													tradingPair.symbol.split(
+														"/"
+													)[0]
+											  }`}
 									</Button>
 								)}
 							</CardContent>
@@ -723,15 +878,28 @@ function PerpContent() {
 						{positions.length > 0 && (
 							<div className="flex gap-4 text-sm">
 								<span className="text-muted-foreground">
-									Open: <span className="text-foreground">{openPositions.length}</span>
+									Open:{" "}
+									<span className="text-foreground">
+										{openPositions.length}
+									</span>
 								</span>
 								<span className="text-muted-foreground">
-									Total Margin: <span className="text-foreground">${totalMargin.toFixed(2)}</span>
+									Total Margin:{" "}
+									<span className="text-foreground">
+										${totalMargin.toFixed(2)}
+									</span>
 								</span>
 								<span className="text-muted-foreground">
 									Total PnL:{" "}
-									<span className={totalPnl >= 0 ? "text-success" : "text-destructive"}>
-										{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
+									<span
+										className={
+											totalPnl >= 0
+												? "text-success"
+												: "text-destructive"
+										}
+									>
+										{totalPnl >= 0 ? "+" : ""}$
+										{totalPnl.toFixed(2)}
 									</span>
 								</span>
 							</div>
