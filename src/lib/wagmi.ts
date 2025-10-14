@@ -27,9 +27,7 @@ try {
 export const config = getDefaultConfig({
 	appName: "Lemon Markets",
 	projectId: projectId,
-	chains: isDevelopment
-		? [hardhat, localhost, sepolia, mainnet, polygon]
-		: [sepolia, mainnet],
+	chains: [sepolia],
 	ssr: true // If your dApp uses server side rendering (SSR)
 });
 

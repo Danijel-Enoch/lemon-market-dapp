@@ -81,7 +81,7 @@ interface CreatePositionResponse {
 
 // Initialize clients
 const publicClient = createPublicClient({
-	chain: localhost,
+	chain: sepolia,
 	transport: http()
 });
 
@@ -102,7 +102,7 @@ async function signOracleData(
 
 	const walletClient = createWalletClient({
 		account,
-		chain: localhost, // Match the chain used for the client
+		chain: sepolia, // Match the chain used for the client
 		transport: http()
 	});
 
