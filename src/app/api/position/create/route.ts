@@ -251,6 +251,7 @@ async function checkMarketAndLiquidity(tokenSymbol: string): Promise<{
 }
 
 export async function POST(request: NextRequest) {
+	console.log("Received create position request");
 	try {
 		const body: CreatePositionRequest = await request.json();
 
@@ -261,6 +262,7 @@ export async function POST(request: NextRequest) {
 			!body.margin ||
 			body.leverage === undefined
 		) {
+			console.log("Missing required parameters");
 			return NextResponse.json(
 				{ success: false, error: "Missing required parameters" },
 				{ status: 400 }
@@ -268,21 +270,24 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Validate token symbol format
-		if (!isValidTokenSymbol(body.tokenSymbol)) {
-			return NextResponse.json(
-				{ success: false, error: "Invalid token symbol format" },
-				{ status: 400 }
-			);
-		}
+		// if (!(body.tokenSymbol)) {
+		// 	console.log("Invalid token symbol format");
+		// 	return NextResponse.json(
+		// 		{ success: false, error: "Invalid token symbol format" },
+		// 		{ status: 400 }
+		// 	);
+		// }
 
 		// Validate user address format
 		if (!/^0x[a-fA-F0-9]{40}$/.test(body.userAddress)) {
+			console.log("Invalid user address format");
 			return NextResponse.json(
 				{ success: false, error: "Invalid user address format" },
 				{ status: 400 }
 			);
 		}
 		if (!/^0x[a-fA-F0-9]{40}$/.test(body.tokenAddress)) {
+			console.log("Invalid token address format");
 			return NextResponse.json(
 				{ success: false, error: "Invalid token address format" },
 				{ status: 400 }
@@ -291,6 +296,7 @@ export async function POST(request: NextRequest) {
 
 		// Validate leverage bounds (check contract MAX_LEVERAGE)
 		if (body.leverage <= 0 || body.leverage > 100) {
+			console.log("Invalid leverage value");
 			return NextResponse.json(
 				{
 					success: false,
@@ -303,6 +309,7 @@ export async function POST(request: NextRequest) {
 		// Validate margin amount
 		const marginAmount = parseFloat(body.margin);
 		if (isNaN(marginAmount) || marginAmount <= 0) {
+			console.log("Invalid margin amount");
 			return NextResponse.json(
 				{ success: false, error: "Invalid margin amount" },
 				{ status: 400 }

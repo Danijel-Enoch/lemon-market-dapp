@@ -40,7 +40,8 @@ function PerpContent() {
 		symbol: "BTC/USDT",
 		price: "$45,234.56",
 		change: "+2.34%",
-		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D"
+		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
+		tokenAddress: "0xB31f66A3C7a7e7bEC12cCaCEd3DCCF4C0d4fE1f8"
 	});
 	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
@@ -142,6 +143,7 @@ function PerpContent() {
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
 		const pairAddress = searchParams.get("pairAddress");
+		const tokenAddress = searchParams.get("tokenAddress");
 
 		if (symbol) {
 			// Format the symbol for display (add /USDT if not already present)
@@ -152,7 +154,8 @@ function PerpContent() {
 			setTradingPair((prev) => ({
 				...prev,
 				symbol: formattedSymbol,
-				pairAddress: pairAddress || prev.pairAddress
+				pairAddress: pairAddress || prev.pairAddress,
+				tokenAddress: tokenAddress || prev.tokenAddress
 			}));
 		}
 	}, [searchParams]);
@@ -295,6 +298,7 @@ function PerpContent() {
 				isLong,
 				margin: valueUSDC,
 				leverage,
+				tokenAddress: tradingPair.tokenAddress,
 				userAddress: address,
 				pairAddress: tradingPair.pairAddress
 			});

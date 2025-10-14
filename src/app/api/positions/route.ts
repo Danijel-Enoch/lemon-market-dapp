@@ -61,12 +61,18 @@ export async function GET(request: NextRequest) {
 		const trader = searchParams.get("trader");
 
 		if (!trader) {
-			return NextResponse.json({ error: "trader address is required" }, { status: 400 });
+			return NextResponse.json(
+				{ error: "trader address is required" },
+				{ status: 400 }
+			);
 		}
 
 		// Validate trader address format (basic check)
 		if (!trader.match(/^0x[a-fA-F0-9]{40}$/)) {
-			return NextResponse.json({ error: "Invalid trader address format" }, { status: 400 });
+			return NextResponse.json(
+				{ error: "Invalid trader address format" },
+				{ status: 400 }
+			);
 		}
 
 		// Make GraphQL request to the subgraph
@@ -74,18 +80,20 @@ export async function GET(request: NextRequest) {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
+				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b"
 			},
 			body: JSON.stringify({
 				query: POSITIONS_QUERY,
 				variables: {
-					trader: trader.toLowerCase(), // Ensure lowercase for consistency
-				},
-			}),
+					trader: trader.toLowerCase() // Ensure lowercase for consistency
+				}
+			})
 		});
 
 		if (!response.ok) {
-			throw new Error(`Subgraph request failed: ${response.status} ${response.statusText}`);
+			throw new Error(
+				`Subgraph request failed: ${response.status} ${response.statusText}`
+			);
 		}
 
 		const result: GraphQLResponse = await response.json();
@@ -95,9 +103,9 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json(
 				{
 					error: "Failed to fetch positions from subgraph",
-					details: result.errors,
+					details: result.errors
 				},
-				{ status: 500 },
+				{ status: 500 }
 			);
 		}
 
@@ -107,24 +115,34 @@ export async function GET(request: NextRequest) {
 		const transformedPositions = positions.map((position) => ({
 			id: position.id,
 			positionId: position.positionId,
-			pair: `${position.tokenSymbol}/USDT`,
+			pair: `${position.tokenSymbol.split("_")[0] || "c"}/USDT`,
 			side: position.isLong ? "Long" : "Short",
-			tokenSymbol: position.tokenSymbol,
+			tokenSymbol: position.tokenSymbol.split("_")[0] || "c",
+			tokenaddress: position.tokenSymbol.split("_")[2] || "",
 			isLong: position.isLong,
 			entryPrice: formatPrice(position.entryPrice),
-			exitPrice: position.exitPrice ? formatPrice(position.exitPrice) : null,
+			exitPrice: position.exitPrice
+				? formatPrice(position.exitPrice)
+				: null,
 			margin: formatAmount(position.margin),
 			leverage: `${position.leverage}x`,
 			leverageValue: parseFloat(position.leverage),
 			liquidationPrice: formatPrice(position.liquidationPrice),
 			status: position.status,
 			// Don't use subgraph PnL for open positions - let frontend calculate real-time PnL
-			pnl: position.status === "CLOSED" ? formatAmount(position.finalPnl) : "$0.00",
+			pnl:
+				position.status === "CLOSED"
+					? formatAmount(position.finalPnl)
+					: "$0.00",
 			pnlRaw: position.status === "CLOSED" ? position.finalPnl : null,
-			openedAt: new Date(parseInt(position.openedAt) * 1000).toISOString(),
-			lastUpdatedAt: new Date(parseInt(position.lastUpdatedAt) * 1000).toISOString(),
+			openedAt: new Date(
+				parseInt(position.openedAt) * 1000
+			).toISOString(),
+			lastUpdatedAt: new Date(
+				parseInt(position.lastUpdatedAt) * 1000
+			).toISOString(),
 			lastTransactionHash: position.lastTransactionHash,
-			trader: position.trader,
+			trader: position.trader
 		}));
 
 		// Check if enhanced mode is requested (with real-time PnL)
@@ -133,14 +151,24 @@ export async function GET(request: NextRequest) {
 		if (enhanced && transformedPositions.length > 0) {
 			try {
 				const tokenPriceService = getTokenPriceService();
-
+				console.log("Fetching real-time prices for enhanced mode");
 				// Get unique token symbols for open positions
-				const openPositions = transformedPositions.filter((p) => p.status === "OPEN");
-				const uniqueSymbols = [...new Set(openPositions.map((pos) => pos.tokenSymbol))];
+				const openPositions = transformedPositions.filter(
+					(p) => p.status === "OPEN"
+				);
+				const uniqueSymbols = [
+					...new Set(openPositions.map((pos) => pos.tokenaddress))
+				];
+
+				//console.log("Unique symbols:", uniqueSymbols);
 
 				if (uniqueSymbols.length > 0) {
 					// Fetch current prices
-					const priceMap = await tokenPriceService.getMultipleTokenPrices(uniqueSymbols);
+					const priceMap =
+						await tokenPriceService.getMultipleTokenPrices(
+							uniqueSymbols
+						);
+					//console.log("Fetched price map:", priceMap);
 
 					// Enhance positions with real-time data
 					const enhancedPositions = await Promise.all(
@@ -149,44 +177,66 @@ export async function GET(request: NextRequest) {
 								return position; // Don't enhance closed positions
 							}
 
-							const priceData = priceMap.get(position.tokenSymbol.toUpperCase());
+							const priceData = priceMap.get(
+								position.tokenaddress
+							);
+
+							console.log("Fetched price data:", priceData);
 
 							if (!priceData) {
 								return position; // Return original if no price data
 							}
 
 							// Calculate real-time PnL
-							const pnlCalculation = await tokenPriceService.calculatePositionPnL(
+							const pnlCalculation =
+								await tokenPriceService.calculatePositionPnL(
+									position.tokenaddress,
+									position.entryPrice,
+									position.margin,
+									position.leverage,
+									position.isLong,
+									position.liquidationPrice
+								);
+							console.log(
+								"PnL calculation for",
 								position.tokenSymbol,
-								position.entryPrice,
-								position.margin,
-								position.leverage,
-								position.isLong,
-								position.liquidationPrice,
+								pnlCalculation
 							);
-
 							return {
 								...position,
-								currentPrice: `$${parseFloat(priceData.priceUSD).toFixed(12)}`, // Increased precision for micro changes
-								unrealizedPnL: pnlCalculation?.unrealizedPnL || 0,
-								unrealizedPnLPercentage: pnlCalculation?.unrealizedPnLPercentage || 0,
+								currentPrice: `$${parseFloat(
+									priceData.priceUSD
+								).toFixed(12)}`, // Increased precision for micro changes
+								unrealizedPnL:
+									pnlCalculation?.unrealizedPnL || 0,
+								unrealizedPnLPercentage:
+									pnlCalculation?.unrealizedPnLPercentage ||
+									0,
 								tokenAmount: pnlCalculation?.tokenAmount || 0,
 								currentValue: pnlCalculation?.currentValue || 0,
 								priceSource: priceData.source,
 								priceConfidence: priceData.confidence,
-								lastPriceUpdate: Date.now(),
+								lastPriceUpdate: Date.now()
 							};
-						}),
+						})
 					);
 
 					// Calculate portfolio totals
 					const totalUnrealizedPnL = enhancedPositions
 						.filter((p) => p.status === "OPEN")
-						.reduce((sum, pos) => sum + ((pos as any).unrealizedPnL || 0), 0);
+						.reduce(
+							(sum, pos) =>
+								sum + ((pos as any).unrealizedPnL || 0),
+							0
+						);
 
 					const totalPortfolioValue = enhancedPositions
 						.filter((p) => p.status === "OPEN")
-						.reduce((sum, pos) => sum + ((pos as any).currentValue || 0), 0);
+						.reduce(
+							(sum, pos) =>
+								sum + ((pos as any).currentValue || 0),
+							0
+						);
 
 					return NextResponse.json({
 						success: true,
@@ -195,11 +245,14 @@ export async function GET(request: NextRequest) {
 						enhanced: true,
 						totalUnrealizedPnL,
 						totalPortfolioValue,
-						priceUpdateTimestamp: Date.now(),
+						priceUpdateTimestamp: Date.now()
 					});
 				}
 			} catch (error) {
-				console.warn("Error fetching real-time prices, falling back to basic positions:", error);
+				console.warn(
+					"Error fetching real-time prices, falling back to basic positions:",
+					error
+				);
 				// Fall through to return basic positions
 			}
 		}
@@ -208,16 +261,17 @@ export async function GET(request: NextRequest) {
 			success: true,
 			positions: transformedPositions,
 			count: transformedPositions.length,
-			enhanced: false,
+			enhanced: false
 		});
 	} catch (error) {
 		console.error("Error fetching positions:", error);
 		return NextResponse.json(
 			{
 				error: "Internal server error",
-				details: error instanceof Error ? error.message : "Unknown error",
+				details:
+					error instanceof Error ? error.message : "Unknown error"
 			},
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 }
@@ -252,7 +306,7 @@ function formatAmount(amountWei: string | null): string {
 		}
 		return `$${amount.toLocaleString("en-US", {
 			minimumFractionDigits: 2,
-			maximumFractionDigits: 2,
+			maximumFractionDigits: 2
 		})}`;
 	} catch {
 		return "$0.00";

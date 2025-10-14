@@ -4,15 +4,16 @@
  * A comprehensive TypeScript client for interacting with the Lemon Spot Price API.
  * Features:
  * - Type-safe methods for fetching token prices from multiple DEXes
+ * - Multi-chain support (BSC, Base)
+ * - USD pricing with Chainlink/CoinGecko oracle integration
  * - Price streaming and real-time updates
- * - Price history and analytics
- * - Arbitrage opportunity detection
- * - Portfolio value calculation
- * - Price alerts management
+ * - Token information and metadata fetching
+ * - Chain-specific price endpoints
  * - Built-in caching and retry logic
  * - Comprehensive error handling
+ * - Backwards compatibility with legacy endpoints
  *
- * @version 2.0.0
+ * @version 2.1.0
  * @author Lemon Team
  */
 
@@ -62,8 +63,14 @@ export interface AggregatedPrice {
 export interface HealthResponse {
 	status: string;
 	timestamp: string;
+	multiChain: boolean;
 	dexes: string[];
 	cache: any;
+	supportedChains: number[];
+	features: {
+		usdPricing: boolean;
+		priceOracle: string;
+	};
 }
 
 export interface DexesResponse {
@@ -73,6 +80,7 @@ export interface DexesResponse {
 export interface PriceRequest {
 	tokenAddress: string;
 	pairAddress?: string;
+	chainId?: number;
 }
 
 export interface ClientOptions {
@@ -96,6 +104,8 @@ export interface ClientOptions {
 	enableCaching?: boolean;
 	/** Cache TTL in milliseconds (default: 30000) */
 	cacheTTL?: number;
+	/** Default chain ID to use for requests (default: 56 for BSC) */
+	defaultChainId?: number;
 }
 
 export interface ApiError {
@@ -117,6 +127,19 @@ export interface TokenMetadata {
 	symbol?: string;
 	decimals?: number;
 	totalSupply?: string;
+	pricing?: AggregatedPrice;
+}
+
+export interface OracleResponse {
+	wbnbUSDPrice: number;
+	source: string;
+	timestamp: string;
+	note: string;
+}
+
+export interface ChainsResponse {
+	multiChain: boolean;
+	supportedChains: Record<number, { chainId: number; name: string }>;
 }
 
 export interface PriceHistory {
@@ -194,6 +217,7 @@ export class LemonSpotPriceClient {
 	private readonly retryDelay: number;
 	private readonly enableCaching: boolean;
 	private readonly cacheTTL: number;
+	private readonly defaultChainId: number;
 	private readonly cache: Map<string, { data: any; timestamp: number }>;
 	private activeStreams: Map<string, NodeJS.Timeout>;
 
@@ -202,7 +226,7 @@ export class LemonSpotPriceClient {
 		this.timeout = options.timeout ?? 30000;
 		this.headers = {
 			"Content-Type": "application/json",
-			...options.headers,
+			...options.headers
 		};
 		this.throwOnError = options.throwOnError ?? true;
 		this.debug = options.debug ?? false;
@@ -211,6 +235,7 @@ export class LemonSpotPriceClient {
 		this.retryDelay = options.retryDelay ?? 1000;
 		this.enableCaching = options.enableCaching ?? true;
 		this.cacheTTL = options.cacheTTL ?? 30000;
+		this.defaultChainId = options.defaultChainId ?? 56; // Default to BSC
 		this.cache = new Map();
 		this.activeStreams = new Map();
 
@@ -223,9 +248,13 @@ export class LemonSpotPriceClient {
 	/**
 	 * Make a request to the API with caching and retry logic
 	 */
-	private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+	private async request<T>(
+		endpoint: string,
+		options: RequestInit = {}
+	): Promise<ApiResponse<T>> {
 		const method = options.method || "GET";
-		const cacheKey = method === "GET" ? `${endpoint}:${JSON.stringify(options)}` : null;
+		const cacheKey =
+			method === "GET" ? `${endpoint}:${JSON.stringify(options)}` : null;
 
 		// Check cache for GET requests
 		if (this.enableCaching && cacheKey && method === "GET") {
@@ -245,7 +274,12 @@ export class LemonSpotPriceClient {
 				const result = await this.makeRequest<T>(endpoint, options);
 
 				// Cache successful GET responses
-				if (this.enableCaching && cacheKey && method === "GET" && result.success) {
+				if (
+					this.enableCaching &&
+					cacheKey &&
+					method === "GET" &&
+					result.success
+				) {
 					this.setCached(cacheKey, result.data!);
 				}
 
@@ -256,7 +290,11 @@ export class LemonSpotPriceClient {
 				if (attempt < this.maxRetries) {
 					const delay = this.retryDelay * Math.pow(2, attempt); // Exponential backoff
 					if (this.debug) {
-						console.log(`[LemonClient] Retry ${attempt + 1}/${this.maxRetries} after ${delay}ms`);
+						console.log(
+							`[LemonClient] Retry ${attempt + 1}/${
+								this.maxRetries
+							} after ${delay}ms`
+						);
 					}
 					await new Promise((resolve) => setTimeout(resolve, delay));
 				}
@@ -270,8 +308,8 @@ export class LemonSpotPriceClient {
 			status: 0,
 			error: {
 				error: "NetworkError",
-				message: lastError?.message || "Unknown error after retries",
-			},
+				message: lastError?.message || "Unknown error after retries"
+			}
 		};
 	}
 
@@ -280,7 +318,7 @@ export class LemonSpotPriceClient {
 	 */
 	private async makeRequest<T>(
 		endpoint: string,
-		options: RequestInit = {},
+		options: RequestInit = {}
 	): Promise<ApiResponse<T>> {
 		const url = `${this.baseUrl}${endpoint}`;
 		const controller = new AbortController();
@@ -297,7 +335,7 @@ export class LemonSpotPriceClient {
 			const response = await fetch(url, {
 				...options,
 				headers: { ...this.headers, ...options.headers },
-				signal: controller.signal,
+				signal: controller.signal
 			});
 
 			clearTimeout(timeoutId);
@@ -310,7 +348,7 @@ export class LemonSpotPriceClient {
 
 			const result: ApiResponse<T> = {
 				success: response.ok,
-				status: response.status,
+				status: response.status
 			};
 
 			if (response.ok) {
@@ -327,7 +365,9 @@ export class LemonSpotPriceClient {
 			clearTimeout(timeoutId);
 
 			if (error instanceof Error && error.name === "AbortError") {
-				const timeoutError = new Error(`Request timeout after ${this.timeout}ms`);
+				const timeoutError = new Error(
+					`Request timeout after ${this.timeout}ms`
+				);
 				throw timeoutError;
 			}
 
@@ -356,7 +396,7 @@ export class LemonSpotPriceClient {
 	private setCached<T>(key: string, data: T): void {
 		this.cache.set(key, {
 			data,
-			timestamp: Date.now(),
+			timestamp: Date.now()
 		});
 	}
 
@@ -380,6 +420,7 @@ export class LemonSpotPriceClient {
 	async getPrice(
 		tokenAddress: string,
 		pairAddress?: string,
+		chainId?: number
 	): Promise<ApiResponse<AggregatedPrice>> {
 		if (!this.isValidAddress(tokenAddress)) {
 			const error = new Error("Invalid token address format");
@@ -389,8 +430,8 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
@@ -402,12 +443,21 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
 		const params = new URLSearchParams({ token: tokenAddress });
+		if (pairAddress) {
+			params.append("pair", pairAddress);
+		}
+		if (chainId || this.defaultChainId !== 56) {
+			params.append(
+				"chainId",
+				(chainId || this.defaultChainId).toString()
+			);
+		}
 
 		return this.request<AggregatedPrice>(`/price?${params.toString()}`);
 	}
@@ -415,7 +465,9 @@ export class LemonSpotPriceClient {
 	/**
 	 * Get prices for multiple tokens
 	 */
-	async getMultiplePrices(requests: PriceRequest[]): Promise<ApiResponse<AggregatedPrice[]>> {
+	async getMultiplePrices(
+		requests: PriceRequest[]
+	): Promise<ApiResponse<AggregatedPrice[]>> {
 		if (!Array.isArray(requests) || requests.length === 0) {
 			const error = new Error("Requests must be a non-empty array");
 			if (this.throwOnError) throw error;
@@ -424,43 +476,53 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
 		// Validate all requests
 		for (const request of requests) {
-			if (!request.tokenAddress || !this.isValidAddress(request.tokenAddress)) {
-				const error = new Error("Each request must have a valid tokenAddress");
+			if (
+				!request.tokenAddress ||
+				!this.isValidAddress(request.tokenAddress)
+			) {
+				const error = new Error(
+					"Each request must have a valid tokenAddress"
+				);
 				if (this.throwOnError) throw error;
 				return {
 					success: false,
 					status: 400,
 					error: {
 						error: "ValidationError",
-						message: error.message,
-					},
+						message: error.message
+					}
 				};
 			}
 
-			if (request.pairAddress && !this.isValidAddress(request.pairAddress)) {
-				const error = new Error("Invalid pair address format in request");
+			if (
+				request.pairAddress &&
+				!this.isValidAddress(request.pairAddress)
+			) {
+				const error = new Error(
+					"Invalid pair address format in request"
+				);
 				if (this.throwOnError) throw error;
 				return {
 					success: false,
 					status: 400,
 					error: {
 						error: "ValidationError",
-						message: error.message,
-					},
+						message: error.message
+					}
 				};
 			}
 		}
 
 		return this.request<AggregatedPrice[]>("/prices", {
 			method: "POST",
-			body: JSON.stringify(requests),
+			body: JSON.stringify(requests)
 		});
 	}
 
@@ -476,14 +538,16 @@ export class LemonSpotPriceClient {
 	 */
 	async clearCache(): Promise<ApiResponse<{ message: string }>> {
 		return this.request<{ message: string }>("/cache/clear", {
-			method: "POST",
+			method: "POST"
 		});
 	}
 
 	/**
-	 * Get token metadata
+	 * Get token information including metadata and pricing
 	 */
-	async getTokenMetadata(tokenAddress: string): Promise<ApiResponse<TokenMetadata>> {
+	async getTokenInfo(
+		tokenAddress: string
+	): Promise<ApiResponse<TokenMetadata>> {
 		if (!this.isValidAddress(tokenAddress)) {
 			const error = new Error("Invalid token address format");
 			if (this.throwOnError) throw error;
@@ -492,22 +556,130 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
-		return this.request<TokenMetadata>(`/token/${tokenAddress}/metadata`);
+		const params = new URLSearchParams({ ca: tokenAddress });
+		return this.request<TokenMetadata>(`/token-info?${params.toString()}`);
 	}
 
 	/**
-	 * Get price history for a token
+	 * Get token metadata (alias for getTokenInfo for backward compatibility)
+	 */
+	async getTokenMetadata(
+		tokenAddress: string
+	): Promise<ApiResponse<TokenMetadata>> {
+		return this.getTokenInfo(tokenAddress);
+	}
+
+	/**
+	 * Get oracle information (wBNB/USD price)
+	 */
+	async getOracle(): Promise<ApiResponse<OracleResponse>> {
+		return this.request<OracleResponse>("/oracle");
+	}
+
+	/**
+	 * Get supported chains information
+	 */
+	async getChains(): Promise<ApiResponse<ChainsResponse>> {
+		return this.request<ChainsResponse>("/chains");
+	}
+
+	/**
+	 * Get price for a token on Base chain (convenience method)
+	 */
+	async getPriceBase(
+		tokenAddress: string,
+		pairAddress?: string
+	): Promise<ApiResponse<AggregatedPrice>> {
+		if (!this.isValidAddress(tokenAddress)) {
+			const error = new Error("Invalid token address format");
+			if (this.throwOnError) throw error;
+			return {
+				success: false,
+				status: 400,
+				error: {
+					error: "ValidationError",
+					message: error.message
+				}
+			};
+		}
+
+		if (pairAddress && !this.isValidAddress(pairAddress)) {
+			const error = new Error("Invalid pair address format");
+			if (this.throwOnError) throw error;
+			return {
+				success: false,
+				status: 400,
+				error: {
+					error: "ValidationError",
+					message: error.message
+				}
+			};
+		}
+
+		const params = new URLSearchParams({ token: tokenAddress });
+		if (pairAddress) {
+			params.append("pair", pairAddress);
+		}
+
+		return this.request<AggregatedPrice>(
+			`/price/base?${params.toString()}`
+		);
+	}
+
+	/**
+	 * Get price for a token on BSC chain (convenience method)
+	 */
+	async getPriceBSC(
+		tokenAddress: string,
+		pairAddress?: string
+	): Promise<ApiResponse<AggregatedPrice>> {
+		if (!this.isValidAddress(tokenAddress)) {
+			const error = new Error("Invalid token address format");
+			if (this.throwOnError) throw error;
+			return {
+				success: false,
+				status: 400,
+				error: {
+					error: "ValidationError",
+					message: error.message
+				}
+			};
+		}
+
+		if (pairAddress && !this.isValidAddress(pairAddress)) {
+			const error = new Error("Invalid pair address format");
+			if (this.throwOnError) throw error;
+			return {
+				success: false,
+				status: 400,
+				error: {
+					error: "ValidationError",
+					message: error.message
+				}
+			};
+		}
+
+		const params = new URLSearchParams({ token: tokenAddress });
+		if (pairAddress) {
+			params.append("pair", pairAddress);
+		}
+
+		return this.request<AggregatedPrice>(`/price/bsc?${params.toString()}`);
+	}
+
+	/**
+	 * Get price history for a token (Note: This endpoint is not currently implemented in the API)
 	 */
 	async getPriceHistory(
 		tokenAddress: string,
 		interval: string = "1h",
 		from?: number,
-		to?: number,
+		to?: number
 	): Promise<ApiResponse<PriceHistory>> {
 		if (!this.isValidAddress(tokenAddress)) {
 			const error = new Error("Invalid token address format");
@@ -517,22 +689,28 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
 		const params = new URLSearchParams({ interval });
 		if (from) params.append("from", from.toString());
 		if (to) params.append("to", to.toString());
 
-		return this.request<PriceHistory>(`/token/${tokenAddress}/history?${params.toString()}`);
+		return this.request<PriceHistory>(
+			`/token/${tokenAddress}/history?${params.toString()}`
+		);
 	}
 
 	/**
-	 * Get price comparison across different DEXes
+	 * Get price comparison across different DEXes (Note: This endpoint is not currently implemented in the API)
 	 */
-	async getPriceComparison(tokenAddress: string): Promise<ApiResponse<PriceComparison>> {
+	async getPriceComparison(
+		tokenAddress: string
+	): Promise<ApiResponse<PriceComparison>> {
 		if (!this.isValidAddress(tokenAddress)) {
 			const error = new Error("Invalid token address format");
 			if (this.throwOnError) throw error;
@@ -541,21 +719,25 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
-		return this.request<PriceComparison>(`/token/${tokenAddress}/comparison`);
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
+		return this.request<PriceComparison>(
+			`/token/${tokenAddress}/comparison`
+		);
 	}
 
 	/**
-	 * Create a price alert
+	 * Create a price alert (Note: This endpoint is not currently implemented in the API)
 	 */
 	async createPriceAlert(
 		tokenAddress: string,
 		targetPrice: string,
-		condition: "above" | "below",
+		condition: "above" | "below"
 	): Promise<ApiResponse<PriceAlert>> {
 		if (!this.isValidAddress(tokenAddress)) {
 			const error = new Error("Invalid token address format");
@@ -565,34 +747,42 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
 		return this.request<PriceAlert>("/alerts", {
 			method: "POST",
 			body: JSON.stringify({
 				tokenAddress,
 				targetPrice,
-				condition,
-			}),
+				condition
+			})
 		});
 	}
 
 	/**
-	 * Get active price alerts
+	 * Get active price alerts (Note: This endpoint is not currently implemented in the API)
 	 */
 	async getPriceAlerts(): Promise<ApiResponse<PriceAlert[]>> {
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
 		return this.request<PriceAlert[]>("/alerts");
 	}
 
 	/**
-	 * Delete a price alert
+	 * Delete a price alert (Note: This endpoint is not currently implemented in the API)
 	 */
-	async deletePriceAlert(alertId: string): Promise<ApiResponse<{ message: string }>> {
+	async deletePriceAlert(
+		alertId: string
+	): Promise<ApiResponse<{ message: string }>> {
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
 		return this.request<{ message: string }>(`/alerts/${alertId}`, {
-			method: "DELETE",
+			method: "DELETE"
 		});
 	}
 
@@ -602,15 +792,17 @@ export class LemonSpotPriceClient {
 	startPriceStream(
 		options: StreamOptions,
 		onUpdate: (update: PriceStream) => void,
-		onError?: (error: Error) => void,
+		onError?: (error: Error) => void
 	): string {
-		const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const streamId = `stream_${Date.now()}_${Math.random()
+			.toString(36)
+			.substr(2, 9)}`;
 		const interval = options.interval || 5000; // Default 5 seconds
 
 		const poll = async () => {
 			try {
 				const requests = options.tokenAddresses.map((address) => ({
-					tokenAddress: address,
+					tokenAddress: address
 				}));
 				const response = await this.getMultiplePrices(requests);
 
@@ -622,7 +814,7 @@ export class LemonSpotPriceClient {
 								tokenAddress: aggregatedPrice.tokenAddress,
 								price: bestPrice.price,
 								priceUSD: bestPrice.priceUSD,
-								timestamp: Date.now(),
+								timestamp: Date.now()
 							};
 							onUpdate(update);
 						}
@@ -669,9 +861,11 @@ export class LemonSpotPriceClient {
 	}
 
 	/**
-	 * Get portfolio value for multiple tokens
+	 * Get portfolio value for multiple tokens (Note: This endpoint is not currently implemented in the API)
 	 */
-	async getPortfolioValue(holdings: Array<{ tokenAddress: string; amount: string }>): Promise<
+	async getPortfolioValue(
+		holdings: Array<{ tokenAddress: string; amount: string }>
+	): Promise<
 		ApiResponse<{
 			totalValueUSD: string;
 			positions: Array<{
@@ -690,27 +884,34 @@ export class LemonSpotPriceClient {
 				status: 400,
 				error: {
 					error: "ValidationError",
-					message: error.message,
-				},
+					message: error.message
+				}
 			};
 		}
 
 		// Validate all holdings
 		for (const holding of holdings) {
-			if (!holding.tokenAddress || !this.isValidAddress(holding.tokenAddress)) {
-				const error = new Error("Each holding must have a valid tokenAddress");
+			if (
+				!holding.tokenAddress ||
+				!this.isValidAddress(holding.tokenAddress)
+			) {
+				const error = new Error(
+					"Each holding must have a valid tokenAddress"
+				);
 				if (this.throwOnError) throw error;
 				return {
 					success: false,
 					status: 400,
 					error: {
 						error: "ValidationError",
-						message: error.message,
-					},
+						message: error.message
+					}
 				};
 			}
 		}
 
+		// Note: This endpoint is not implemented in the current API
+		// Keeping for future compatibility
 		return this.request<{
 			totalValueUSD: string;
 			positions: Array<{
@@ -721,7 +922,7 @@ export class LemonSpotPriceClient {
 			}>;
 		}>("/portfolio/value", {
 			method: "POST",
-			body: JSON.stringify({ holdings }),
+			body: JSON.stringify({ holdings })
 		});
 	}
 
@@ -735,8 +936,77 @@ export class LemonSpotPriceClient {
 	/**
 	 * Utility method to get just the data from a response, throwing on error
 	 */
-	async getPriceData(tokenAddress: string, pairAddress?: string): Promise<AggregatedPrice> {
-		const response = await this.getPrice(tokenAddress, pairAddress);
+	async getPriceData(
+		tokenAddress: string,
+		pairAddress?: string,
+		chainId?: number
+	): Promise<AggregatedPrice> {
+		const response = await this.getPrice(
+			tokenAddress,
+			pairAddress,
+			chainId
+		);
+		if (!response.success) {
+			throw new Error(response.error?.message || "Unknown error");
+		}
+		return response.data!;
+	}
+
+	/**
+	 * Utility method to get oracle data
+	 */
+	async getOracleData(): Promise<OracleResponse> {
+		const response = await this.getOracle();
+		if (!response.success) {
+			throw new Error(response.error?.message || "Unknown error");
+		}
+		return response.data!;
+	}
+
+	/**
+	 * Utility method to get chains data
+	 */
+	async getChainsData(): Promise<ChainsResponse> {
+		const response = await this.getChains();
+		if (!response.success) {
+			throw new Error(response.error?.message || "Unknown error");
+		}
+		return response.data!;
+	}
+
+	/**
+	 * Utility method to get token info data
+	 */
+	async getTokenInfoData(tokenAddress: string): Promise<TokenMetadata> {
+		const response = await this.getTokenInfo(tokenAddress);
+		if (!response.success) {
+			throw new Error(response.error?.message || "Unknown error");
+		}
+		return response.data!;
+	}
+
+	/**
+	 * Utility method to get Base chain price data
+	 */
+	async getPriceBaseData(
+		tokenAddress: string,
+		pairAddress?: string
+	): Promise<AggregatedPrice> {
+		const response = await this.getPriceBase(tokenAddress, pairAddress);
+		if (!response.success) {
+			throw new Error(response.error?.message || "Unknown error");
+		}
+		return response.data!;
+	}
+
+	/**
+	 * Utility method to get BSC chain price data
+	 */
+	async getPriceBSCData(
+		tokenAddress: string,
+		pairAddress?: string
+	): Promise<AggregatedPrice> {
+		const response = await this.getPriceBSC(tokenAddress, pairAddress);
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
@@ -746,7 +1016,9 @@ export class LemonSpotPriceClient {
 	/**
 	 * Utility method to get just the data from multiple prices request
 	 */
-	async getMultiplePricesData(requests: PriceRequest[]): Promise<AggregatedPrice[]> {
+	async getMultiplePricesData(
+		requests: PriceRequest[]
+	): Promise<AggregatedPrice[]> {
 		const response = await this.getMultiplePrices(requests);
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
@@ -781,7 +1053,7 @@ export class LemonSpotPriceClient {
 	 */
 	async getPricesBatch(
 		tokenAddresses: string[],
-		batchSize: number = 10,
+		batchSize: number = 10
 	): Promise<Map<string, AggregatedPrice>> {
 		const results = new Map<string, AggregatedPrice>();
 		const batches: string[][] = [];
@@ -794,7 +1066,7 @@ export class LemonSpotPriceClient {
 		// Process batches concurrently
 		for (const batch of batches) {
 			const requests = batch.map((address) => ({
-				tokenAddress: address,
+				tokenAddress: address
 			}));
 
 			try {
@@ -811,9 +1083,12 @@ export class LemonSpotPriceClient {
 							const result = await this.getPriceData(address);
 							results.set(address, result);
 						} catch (err) {
-							console.warn(`Failed to fetch price for ${address}:`, err);
+							console.warn(
+								`Failed to fetch price for ${address}:`,
+								err
+							);
 						}
-					}),
+					})
 				);
 			}
 
@@ -837,14 +1112,21 @@ export class LemonSpotPriceClient {
 	 * Get successful prices only
 	 */
 	getSuccessfulPrices(aggregatedPrice: AggregatedPrice): PriceData[] {
-		return aggregatedPrice.prices.filter((price) => price.success && parseFloat(price.price) > 0);
+		return aggregatedPrice.prices.filter(
+			(price) => price.success && parseFloat(price.price) > 0
+		);
 	}
 
 	/**
 	 * Calculate weighted average price based on DEX reliability
 	 */
-	calculateWeightedAverage(prices: PriceData[], weights?: Record<string, number>): string {
-		const successfulPrices = prices.filter((p) => p.success && parseFloat(p.price) > 0);
+	calculateWeightedAverage(
+		prices: PriceData[],
+		weights?: Record<string, number>
+	): string {
+		const successfulPrices = prices.filter(
+			(p) => p.success && parseFloat(p.price) > 0
+		);
 
 		if (successfulPrices.length === 0) return "0";
 
@@ -854,7 +1136,7 @@ export class LemonSpotPriceClient {
 			"Uniswap V2": 0.9,
 			"Uniswap V3": 0.9,
 			Thena: 0.8,
-			"Four Meme": 0.6,
+			"Four Meme": 0.6
 		};
 
 		const combinedWeights = { ...defaultWeights, ...weights };
@@ -890,7 +1172,7 @@ export class LemonSpotPriceClient {
 				max: "0",
 				median: "0",
 				standardDeviation: "0",
-				variance: "0",
+				variance: "0"
 			};
 		}
 
@@ -907,9 +1189,11 @@ export class LemonSpotPriceClient {
 			median = sorted[Math.floor(sorted.length / 2)] ?? 0;
 		}
 
-		const mean = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+		const mean =
+			prices.reduce((sum, price) => sum + price, 0) / prices.length;
 		const variance =
-			prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / prices.length;
+			prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) /
+			prices.length;
 		const standardDeviation = Math.sqrt(variance);
 
 		return {
@@ -917,7 +1201,7 @@ export class LemonSpotPriceClient {
 			max: max.toString(),
 			median: median.toString(),
 			standardDeviation: standardDeviation.toString(),
-			variance: variance.toString(),
+			variance: variance.toString()
 		};
 	}
 
@@ -956,14 +1240,16 @@ export class LemonSpotPriceClient {
 
 					// Only include opportunities with > 0.1% profit to account for fees
 					if (profitPercent > 0.1) {
-						const buyDex = price1 < price2 ? priceData1.dex : priceData2.dex;
-						const sellDex = price1 > price2 ? priceData1.dex : priceData2.dex;
+						const buyDex =
+							price1 < price2 ? priceData1.dex : priceData2.dex;
+						const sellDex =
+							price1 > price2 ? priceData1.dex : priceData2.dex;
 
 						opportunities.push({
 							buyFrom: buyDex,
 							sellTo: sellDex,
 							profit: profit.toString(),
-							profitPercent,
+							profitPercent
 						});
 					}
 				}
@@ -980,20 +1266,21 @@ export class LemonSpotPriceClient {
 		size: number;
 		entries: Array<{ key: string; timestamp: number; age: number }>;
 	} {
-		const entries: Array<{ key: string; timestamp: number; age: number }> = [];
+		const entries: Array<{ key: string; timestamp: number; age: number }> =
+			[];
 		const now = Date.now();
 
 		this.cache.forEach((value, key) => {
 			entries.push({
 				key,
 				timestamp: value.timestamp,
-				age: now - value.timestamp,
+				age: now - value.timestamp
 			});
 		});
 
 		return {
 			size: this.cache.size,
-			entries: entries.sort((a, b) => b.timestamp - a.timestamp),
+			entries: entries.sort((a, b) => b.timestamp - a.timestamp)
 		};
 	}
 
@@ -1032,7 +1319,7 @@ export class LemonSpotPriceClient {
 
 		return num.toLocaleString(undefined, {
 			minimumFractionDigits: 2,
-			maximumFractionDigits: 2,
+			maximumFractionDigits: 2
 		});
 	}
 
@@ -1041,7 +1328,7 @@ export class LemonSpotPriceClient {
 	 */
 	calculatePriceChange(
 		oldPrice: string,
-		newPrice: string,
+		newPrice: string
 	): {
 		absolute: string;
 		percentage: number;
@@ -1058,7 +1345,7 @@ export class LemonSpotPriceClient {
 
 		return {
 			absolute: absolute.toString(),
-			percentage,
+			percentage
 		};
 	}
 
@@ -1074,7 +1361,9 @@ export class LemonSpotPriceClient {
 /**
  * Factory function to create a client instance
  */
-export function createLemonSpotPriceClient(options: ClientOptions): LemonSpotPriceClient {
+export function createLemonSpotPriceClient(
+	options: ClientOptions
+): LemonSpotPriceClient {
 	return new LemonSpotPriceClient(options);
 }
 
@@ -1085,9 +1374,10 @@ export async function getTokenPrice(
 	baseUrl: string,
 	tokenAddress: string,
 	pairAddress?: string,
+	chainId?: number
 ): Promise<AggregatedPrice> {
 	const client = new LemonSpotPriceClient({ baseUrl });
-	return client.getPriceData(tokenAddress, pairAddress);
+	return client.getPriceData(tokenAddress, pairAddress, chainId);
 }
 
 /**
@@ -1096,42 +1386,94 @@ export async function getTokenPrice(
 export async function getMultipleTokenPrices(
 	baseUrl: string,
 	tokenAddresses: string[],
+	chainId?: number
 ): Promise<AggregatedPrice[]> {
 	const client = new LemonSpotPriceClient({ baseUrl });
 	const requests = tokenAddresses.map((address) => ({
 		tokenAddress: address,
+		chainId
 	}));
 	return client.getMultiplePricesData(requests);
 }
 
 /**
- * Convenience function for price comparison
+ * Convenience function for price comparison (Note: Not currently implemented in API)
  */
 export async function compareTokenPrices(
 	baseUrl: string,
-	tokenAddress: string,
+	tokenAddress: string
 ): Promise<PriceComparison> {
 	const client = new LemonSpotPriceClient({ baseUrl });
 	const response = await client.getPriceComparison(tokenAddress);
 	if (!response.success) {
-		throw new Error(response.error?.message || "Failed to get price comparison");
+		throw new Error(
+			response.error?.message || "Failed to get price comparison"
+		);
 	}
 	return response.data!;
 }
 
 /**
- * Convenience function for getting token metadata
+ * Convenience function for getting token information
+ */
+export async function getTokenInfo(
+	baseUrl: string,
+	tokenAddress: string
+): Promise<TokenMetadata> {
+	const client = new LemonSpotPriceClient({ baseUrl });
+	return client.getTokenInfoData(tokenAddress);
+}
+
+/**
+ * Convenience function for getting token metadata (alias for getTokenInfo)
  */
 export async function getTokenMetadata(
 	baseUrl: string,
-	tokenAddress: string,
+	tokenAddress: string
 ): Promise<TokenMetadata> {
+	return getTokenInfo(baseUrl, tokenAddress);
+}
+
+/**
+ * Convenience function for getting oracle data
+ */
+export async function getOracle(baseUrl: string): Promise<OracleResponse> {
 	const client = new LemonSpotPriceClient({ baseUrl });
-	const response = await client.getTokenMetadata(tokenAddress);
-	if (!response.success) {
-		throw new Error(response.error?.message || "Failed to get token metadata");
-	}
-	return response.data!;
+	return client.getOracleData();
+}
+
+/**
+ * Convenience function for getting supported chains
+ */
+export async function getSupportedChains(
+	baseUrl: string
+): Promise<ChainsResponse> {
+	const client = new LemonSpotPriceClient({ baseUrl });
+	return client.getChainsData();
+}
+
+/**
+ * Convenience function for getting Base chain price
+ */
+export async function getTokenPriceBase(
+	baseUrl: string,
+	tokenAddress: string,
+	pairAddress?: string
+): Promise<AggregatedPrice> {
+	const client = new LemonSpotPriceClient({ baseUrl });
+	return client.getPriceBaseData(tokenAddress, pairAddress);
+}
+
+/**
+ * Convenience function for getting BSC chain price
+ */
+export async function getTokenPriceBSC(
+	baseUrl: string,
+	tokenAddress: string,
+	pairAddress?: string
+): Promise<AggregatedPrice> {
+	const client = new LemonSpotPriceClient({ baseUrl });
+	return client.getPriceBSCData(tokenAddress, pairAddress);
 }
 
 // Default export

@@ -29,6 +29,7 @@ interface Token {
 	marketCap: string;
 	trend: "up" | "down";
 	logo: string;
+	tokenAddress: string;
 	pairAddress?: string;
 	// Virtual market fields
 	totalLiquidity?: string;
@@ -37,7 +38,6 @@ interface Token {
 	hasMarket?: boolean;
 	marketId?: string | null;
 	virtualLiquidity?: string;
-	tokenAddress?: string;
 }
 
 interface ForexPair {
@@ -98,14 +98,15 @@ export default function Home() {
 		chains: ["base"]
 	});
 
-	const handleTradeClick = (item: Token | ForexPair) => {
+	const handleTradeClick = (item: Token) => {
 		const params = new URLSearchParams();
 		params.set("symbol", item.symbol);
 
 		if ("pairAddress" in item && item.pairAddress) {
 			params.set("pairAddress", item.pairAddress);
 		}
-
+		console.log({ item });
+		params.set("tokenAddress", item.tokenAddress);
 		router.push(`/perp?${params.toString()}`);
 	};
 
@@ -190,30 +191,6 @@ export default function Home() {
 				}
 				const fxData: APIResponse = await fxResponse.json();
 
-				const transformedStocks: Token[] = stocksData.data.map(
-					(stock, index) => ({
-						id: index + 1,
-						symbol: stock.Ticker,
-						name:
-							stock.Ticker === "NFLX"
-								? "Netflix Inc."
-								: stock.Ticker === "TSLA"
-								? "Tesla Inc."
-								: stock.Ticker,
-						price: `$${stock.Price.toFixed(2)}`,
-						change24h: "N/A",
-						volume: "N/A",
-						marketCap: "N/A",
-						trend: "up",
-						logo:
-							stock.Ticker === "NFLX"
-								? "🎬"
-								: stock.Ticker === "TSLA"
-								? "🚗"
-								: "📈"
-					})
-				);
-
 				const transformedFX: ForexPair[] = fxData.data.map(
 					(fx, index) => {
 						const getDisplaySymbol = (ticker: string) => {
@@ -256,7 +233,7 @@ export default function Home() {
 
 				setApiData((prev) => ({
 					...prev,
-					stocks: transformedStocks,
+					stocks: [],
 					fx: transformedFX
 				}));
 			} catch (error) {
