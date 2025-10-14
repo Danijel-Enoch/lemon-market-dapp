@@ -646,9 +646,9 @@ export class TokenPriceService {
 		isLong: boolean,
 		liquidationPrice: string
 	): Promise<PnLCalculation | null> {
-		console.log(
-			"===============================================================>"
-		);
+		// console.log(
+		// 	"===============================================================>"
+		// );
 		// Extract the actual token symbol (first part before underscore, or the whole string if no underscore)
 		const tokenAddress = tokenSymbol;
 
@@ -692,15 +692,15 @@ export class TokenPriceService {
 			(priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
 		const unrealizedPnLPercentage = (unrealizedPnL / marginValue) * 100;
 
-		console.log(`PnL calculation results for ${tokenSymbol}:`, {
-			currentPrice,
-			entryPriceValue,
-			priceChange,
-			totalExposure,
-			tokenAmount,
-			unrealizedPnL,
-			unrealizedPnLPercentage
-		});
+		// console.log(`PnL calculation results for ${tokenSymbol}:`, {
+		// 	currentPrice,
+		// 	entryPriceValue,
+		// 	priceChange,
+		// 	totalExposure,
+		// 	tokenAmount,
+		// 	unrealizedPnL,
+		// 	unrealizedPnLPercentage
+		// });
 
 		return {
 			currentPrice: currentPrice.toString(),

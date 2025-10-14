@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
 		if (enhanced && transformedPositions.length > 0) {
 			try {
 				const tokenPriceService = getTokenPriceService();
-				console.log("Fetching real-time prices for enhanced mode");
+				//console.log("Fetching real-time prices for enhanced mode");
 				// Get unique token symbols for open positions
 				const openPositions = transformedPositions.filter(
 					(p) => p.status === "OPEN"
@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
 								position.tokenaddress
 							);
 
-							console.log("Fetched price data:", priceData);
+							//console.log("Fetched price data:", priceData);
 
 							if (!priceData) {
 								return position; // Return original if no price data
@@ -197,11 +197,11 @@ export async function GET(request: NextRequest) {
 									position.isLong,
 									position.liquidationPrice
 								);
-							console.log(
-								"PnL calculation for",
-								position.tokenSymbol,
-								pnlCalculation
-							);
+							// console.log(
+							// 	"PnL calculation for",
+							// 	position.tokenSymbol,
+							// 	pnlCalculation
+							// );
 							return {
 								...position,
 								currentPrice: `$${parseFloat(

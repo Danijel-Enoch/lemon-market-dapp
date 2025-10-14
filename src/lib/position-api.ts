@@ -397,6 +397,7 @@ export function calculatePositionCurrentValue(
 export interface ClosePositionRequest {
 	positionId: string;
 	tokenSymbol: string;
+	tokenAddress: string;
 	userAddress: string;
 	pairAddress?: string; // optional pair address for accurate pricing
 }

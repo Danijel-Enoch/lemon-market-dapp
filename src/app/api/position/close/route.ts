@@ -33,7 +33,7 @@ import {
 	encodeFunctionData,
 	encodePacked,
 	keccak256,
-	parseUnits,
+	parseUnits
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { hardhat, sepolia } from "viem/chains";
@@ -46,6 +46,7 @@ interface ClosePositionRequest {
 	positionId: string;
 	tokenSymbol: string;
 	userAddress: string;
+	tokenAddress: string;
 	pairAddress?: string; // Optional pair address for more accurate price fetching
 }
 
@@ -71,11 +72,14 @@ interface ClosePositionResponse {
 // Initialize clients
 const publicClient = createPublicClient({
 	chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
-	transport: http(),
+	transport: http()
 });
 
 // Helper function to create oracle signature
-async function signOracleData(oracleData: OracleData, traderAddress: string): Promise<string> {
+async function signOracleData(
+	oracleData: OracleData,
+	traderAddress: string
+): Promise<string> {
 	const privateKey = process.env.ADMIN_PRIVATE_KEY as `0x${string}`;
 
 	if (!privateKey) {
@@ -87,7 +91,7 @@ async function signOracleData(oracleData: OracleData, traderAddress: string): Pr
 	const walletClient = createWalletClient({
 		account,
 		chain: process.env.NODE_ENV === "development" ? hardhat : sepolia,
-		transport: http(),
+		transport: http()
 	});
 
 	// Match the exact format from the test - updated to remove volatilityTier
@@ -99,8 +103,8 @@ async function signOracleData(oracleData: OracleData, traderAddress: string): Pr
 			oracleData.timestamp,
 			oracleData.nonce,
 			oracleData.virtualFunding,
-			traderAddress as `0x${string}`,
-		],
+			traderAddress as `0x${string}`
+		]
 	);
 
 	console.log("Signing oracle data for close position:");
@@ -114,7 +118,7 @@ async function signOracleData(oracleData: OracleData, traderAddress: string): Pr
 	const messageHash = keccak256(message);
 	const signature = await walletClient.signMessage({
 		account,
-		message: { raw: messageHash },
+		message: { raw: messageHash }
 	});
 
 	console.log("Generated signature:", signature);
@@ -141,7 +145,13 @@ export async function POST(request: NextRequest) {
 		if (!body.positionId || !body.tokenSymbol || !body.userAddress) {
 			return NextResponse.json(
 				{ success: false, error: "Missing required parameters" },
-				{ status: 400 },
+				{ status: 400 }
+			);
+		}
+		if (!body.tokenAddress) {
+			return NextResponse.json(
+				{ success: false, error: "Missing token address parameter" },
+				{ status: 400 }
 			);
 		}
 
@@ -150,38 +160,43 @@ export async function POST(request: NextRequest) {
 		if (isNaN(positionIdNum) || positionIdNum < 0) {
 			return NextResponse.json(
 				{ success: false, error: "Invalid position ID format" },
-				{ status: 400 },
+				{ status: 400 }
 			);
 		}
 
 		// Validate token symbol format
-		if (!isValidTokenSymbol(body.tokenSymbol)) {
-			return NextResponse.json(
-				{ success: false, error: "Invalid token symbol format" },
-				{ status: 400 },
-			);
-		}
+		// if (!isValidTokenSymbol(body.tokenSymbol)) {
+		// 	return NextResponse.json(
+		// 		{ success: false, error: "Invalid token symbol format" },
+		// 		{ status: 400 }
+		// 	);
+		// }
 
 		// Validate user address format
 		if (!/^0x[a-fA-F0-9]{40}$/.test(body.userAddress)) {
 			return NextResponse.json(
 				{ success: false, error: "Invalid user address format" },
-				{ status: 400 },
+				{ status: 400 }
 			);
 		}
 
 		// Fetch current price using enhanced token price service
 		let tokenPriceData;
 		try {
-			console.log(`Fetching current price for ${body.tokenSymbol} to close position`);
+			console.log(
+				`Fetching current price for ${body.tokenSymbol} to close position`
+			);
 
 			const tokenPriceService = getTokenPriceService();
-			tokenPriceData = await tokenPriceService.getTokenPrice(body.tokenSymbol);
+			tokenPriceData = await tokenPriceService.getTokenPriceWithAddress(
+				body.tokenAddress
+			);
 
 			if (tokenPriceData) {
 				console.log(
-					`Successfully fetched price: $${tokenPriceData.priceUSD} for ${body.tokenSymbol}`,
-					`(source: ${tokenPriceData.source}, confidence: ${tokenPriceData.confidence})`,
+					`Successfully fetched price: $${tokenPriceData.data
+						?.averagePrice!} for ${body.tokenSymbol}`,
+					`(source: ${tokenPriceData.data?.bestPriceUSD?.dex}, confidence: ${tokenPriceData.success})`
 				);
 			}
 		} catch (error) {
@@ -189,19 +204,23 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json(
 				{
 					success: false,
-					error: "Failed to fetch current token price from oracle service",
+					error: "Failed to fetch current token price from oracle service"
 				},
-				{ status: 503 },
+				{ status: 503 }
 			);
 		}
 
-		if (!tokenPriceData || !tokenPriceData.priceUSD || parseFloat(tokenPriceData.priceUSD) <= 0) {
+		if (
+			!tokenPriceData ||
+			!tokenPriceData.data?.averagePrice! ||
+			parseFloat(tokenPriceData.data.averagePrice) <= 0
+		) {
 			return NextResponse.json(
 				{
 					success: false,
-					error: `Unable to get valid price for token: ${body.tokenSymbol}`,
+					error: `Unable to get valid price for token: ${body.tokenSymbol}`
 				},
-				{ status: 404 },
+				{ status: 404 }
 			);
 		}
 
@@ -210,18 +229,19 @@ export async function POST(request: NextRequest) {
 		const nonce = generateNonce();
 
 		// Convert price to appropriate decimals (18 decimals for price oracle)
-		const priceValue = parseFloat(tokenPriceData.priceUSD);
+		const priceValue = parseFloat(tokenPriceData.data.averagePrice);
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
 		// For closing positions, market should already exist, so virtual funding is zero
 		const virtualFunding = BigInt(0);
 
 		const oracleData: OracleData = {
-			tokenSymbol: body.tokenSymbol.toUpperCase(),
+			tokenSymbol:
+				body.tokenSymbol.toUpperCase() + "_PERP_" + body.tokenAddress,
 			price: priceInWei,
 			timestamp: currentTimestamp,
 			nonce: nonce,
-			virtualFunding: virtualFunding,
+			virtualFunding: virtualFunding
 		};
 
 		// Sign the oracle data
@@ -232,7 +252,7 @@ export async function POST(request: NextRequest) {
 			console.error("Oracle signing error:", error);
 			return NextResponse.json(
 				{ success: false, error: "Failed to sign oracle data" },
-				{ status: 500 },
+				{ status: 500 }
 			);
 		}
 
@@ -249,16 +269,16 @@ export async function POST(request: NextRequest) {
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
 						nonce: oracleData.nonce,
-						virtualFunding: oracleData.virtualFunding,
+						virtualFunding: oracleData.virtualFunding
 					},
-					signature,
-				],
+					signature
+				]
 			});
 		} catch (error) {
 			console.error("Calldata encoding error:", error);
 			return NextResponse.json(
 				{ success: false, error: "Failed to encode transaction data" },
-				{ status: 500 },
+				{ status: 500 }
 			);
 		}
 
@@ -268,7 +288,7 @@ export async function POST(request: NextRequest) {
 			gasEstimate = await publicClient.estimateGas({
 				account: body.userAddress as `0x${string}`,
 				to: SyntheticPerpetualContract as `0x${string}`,
-				data: calldata,
+				data: calldata
 			});
 		} catch (error) {
 			console.warn("Gas estimation failed:", error);
@@ -281,8 +301,8 @@ export async function POST(request: NextRequest) {
 				to: SyntheticPerpetualContract,
 				data: calldata,
 				value: "0x0", // No ETH value needed
-				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined,
-			},
+				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined
+			}
 		};
 
 		return NextResponse.json(response);
@@ -292,9 +312,12 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json(
 			{
 				success: false,
-				error: error instanceof Error ? error.message : "Internal server error",
+				error:
+					error instanceof Error
+						? error.message
+						: "Internal server error"
 			},
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 }
@@ -311,17 +334,17 @@ export async function GET() {
 				positionId: 'string (e.g., "123")',
 				tokenSymbol: 'string (e.g., "ETH", "BTC")',
 				userAddress: "string (0x...)",
-				pairAddress: "string (optional, for accurate pricing)",
-			},
+				pairAddress: "string (optional, for accurate pricing)"
+			}
 		});
 	} catch (error) {
 		return NextResponse.json(
 			{
 				success: false,
 				status: "unhealthy",
-				error: error instanceof Error ? error.message : "Unknown error",
+				error: error instanceof Error ? error.message : "Unknown error"
 			},
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 }
