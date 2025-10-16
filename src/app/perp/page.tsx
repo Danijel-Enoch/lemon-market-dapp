@@ -687,29 +687,6 @@ function PerpContent() {
 								</div>
 
 								{/* You Pay */}
-								<div className="space-y-2">
-									<label className="text-sm text-primary uppercase font-medium">
-										You Pay (BNB)
-									</label>
-									<div className="relative">
-										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-											<div className="w-6 h-6 bg-yellow-500 rounded-full"></div>
-										</div>
-										<Input
-											placeholder="0.51451404"
-											value={bnbAmount}
-											onChange={(e) =>
-												setBnbAmount(e.target.value)
-											}
-											className="bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-16"
-										/>
-										<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-											<span className="text-primary font-medium">
-												BNB
-											</span>
-										</div>
-									</div>
-								</div>
 
 								{/* Position Details */}
 								<div className="space-y-3 text-sm">
