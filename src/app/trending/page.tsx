@@ -336,13 +336,15 @@ export default function Home() {
 									</div>
 									<div className="flex flex-wrap gap-2">
 										{[
-											"PancakeSwap V2",
-											"PancakeSwap V3",
-											"SushiSwap BSC",
-											"MDEX BSC",
-											"BiSwap",
-											"BakerySwap",
-											"Uniswap V2 BNB"
+											"UniswapV2",
+											"UniswapV3",
+											"SwapBased",
+											"DackieSwap",
+											"HorizonDex",
+											"SushiSwapV3",
+											"VelocimeterV2",
+											"Aerodrome",
+											"Slipstream"
 										].map((dex) => (
 											<Badge
 												key={dex}
