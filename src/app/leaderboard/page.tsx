@@ -1,118 +1,187 @@
-import { Award, Target, TrendingUp, Trophy, Users, Volume2 } from "lucide-react";
+"use client";
+
+import {
+	Award,
+	Target,
+	TrendingUp,
+	Trophy,
+	Users,
+	Volume2,
+	RefreshCw,
+	Crown,
+	Medal,
+	Award as AwardIcon
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useState } from "react";
 
-const topTraders = [
-	{
-		id: 1,
-		rank: 1,
-		username: "CryptoKing123",
-		avatar: "👑",
-		pnl: "+$125,450.00",
-		pnlPercent: "+45.67%",
-		winRate: "78.5%",
-		totalTrades: 1250,
-		volume: "$2.5M",
-		followers: 4520,
-	},
-	{
-		id: 2,
-		rank: 2,
-		username: "DefiMaster",
-		avatar: "🚀",
-		pnl: "+$89,230.00",
-		pnlPercent: "+32.14%",
-		winRate: "73.2%",
-		totalTrades: 980,
-		volume: "$1.8M",
-		followers: 3210,
-	},
-	{
-		id: 3,
-		rank: 3,
-		username: "WhaleWatcher",
-		avatar: "🐋",
-		pnl: "+$76,890.00",
-		pnlPercent: "+28.93%",
-		winRate: "69.8%",
-		totalTrades: 1450,
-		volume: "$3.2M",
-		followers: 5680,
-	},
-	{
-		id: 4,
-		rank: 4,
-		username: "TradingBot",
-		avatar: "🤖",
-		pnl: "+$65,340.00",
-		pnlPercent: "+25.18%",
-		winRate: "82.1%",
-		totalTrades: 2340,
-		volume: "$1.5M",
-		followers: 2890,
-	},
-	{
-		id: 5,
-		rank: 5,
-		username: "AltcoinAlpha",
-		avatar: "⚡",
-		pnl: "+$54,670.00",
-		pnlPercent: "+21.84%",
-		winRate: "66.4%",
-		totalTrades: 890,
-		volume: "$980K",
-		followers: 1540,
-	},
-];
+interface LeaderboardEntry {
+	id: string;
+	rank: number;
+	trader: string;
+	totalPoints: string;
+	totalPointsFormatted: string;
+	totalTrades: number;
+	pointsPerTrade: string;
+	pointsPerTradeFormatted: string;
+	currentTier: string;
+	firstTradeTimestamp: string;
+	lastTradeTimestamp: string;
+	lastPointsAwarded: string;
+	lastPointsAwardedFormatted: string;
+	bronzeTierAt: string | null;
+	silverTierAt: string | null;
+	goldTierAt: string | null;
+	lastTransactionHash: string;
+	lastBlockNumber: number;
+	lastBlockTimestamp: string;
+}
 
-const topVolume = [
-	{
-		id: 1,
-		rank: 1,
-		username: "VolumeKing",
-		avatar: "💎",
-		volume: "$12.5M",
-		trades: 5640,
-		avgTradeSize: "$2,216",
-		pnl: "+$45,230.00",
-	},
-	{
-		id: 2,
-		rank: 2,
-		username: "BigMoney",
-		avatar: "💰",
-		volume: "$8.9M",
-		trades: 2340,
-		avgTradeSize: "$3,803",
-		pnl: "+$32,100.00",
-	},
-	{
-		id: 3,
-		rank: 3,
-		username: "InstitutionalFlow",
-		avatar: "🏦",
-		volume: "$7.2M",
-		trades: 1890,
-		avgTradeSize: "$3,810",
-		pnl: "+$28,670.00",
-	},
-];
+interface LeaderboardResponse {
+	success: boolean;
+	data: LeaderboardEntry[];
+	total: number;
+	limit: number | null;
+	sortBy: string;
+	order: string;
+}
+
+const getTierIcon = (tier: string) => {
+	switch (tier.toLowerCase()) {
+		case "gold":
+			return <Crown className="w-4 h-4 text-yellow-500" />;
+		case "silver":
+			return <Medal className="w-4 h-4 text-gray-400" />;
+		case "bronze":
+			return <AwardIcon className="w-4 h-4 text-orange-600" />;
+		default:
+			return <Badge className="w-4 h-4 text-gray-500" />;
+	}
+};
+
+const getTierColor = (tier: string) => {
+	switch (tier.toLowerCase()) {
+		case "gold":
+			return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+		case "silver":
+			return "bg-gray-400/10 text-gray-500 border-gray-400/20";
+		case "bronze":
+			return "bg-orange-600/10 text-orange-600 border-orange-600/20";
+		default:
+			return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+	}
+};
+
+const formatAddress = (address: string) => {
+	return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
 
 export default function LeaderboardPage() {
+	const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>(
+		[]
+	);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [sortBy, setSortBy] = useState("totalPoints");
+	const [order, setOrder] = useState("desc");
+	const [limit, setLimit] = useState<number>(50);
+
+	const fetchLeaderboard = async () => {
+		try {
+			setLoading(true);
+			setError(null);
+
+			const params = new URLSearchParams({
+				sortBy,
+				order,
+				limit: limit.toString()
+			});
+
+			const response = await fetch(`/api/leaderboard?${params}`);
+
+			if (!response.ok) {
+				throw new Error(
+					`Failed to fetch leaderboard: ${response.statusText}`
+				);
+			}
+
+			const result: LeaderboardResponse = await response.json();
+
+			if (result.success) {
+				setLeaderboardData(result.data);
+			} else {
+				throw new Error("Failed to fetch leaderboard data");
+			}
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Unknown error");
+			console.error("Error fetching leaderboard:", err);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		fetchLeaderboard();
+	}, [sortBy, order, limit]);
+
+	const handleSort = (newSortBy: string) => {
+		if (sortBy === newSortBy) {
+			setOrder(order === "desc" ? "asc" : "desc");
+		} else {
+			setSortBy(newSortBy);
+			setOrder("desc");
+		}
+	};
+
+	const totalTraders = leaderboardData.length;
+	const totalTrades = leaderboardData.reduce(
+		(sum, entry) => sum + entry.totalTrades,
+		0
+	);
+	const avgPointsPerTrade =
+		leaderboardData.length > 0
+			? (
+					leaderboardData.reduce(
+						(sum, entry) => sum + parseFloat(entry.pointsPerTrade),
+						0
+					) / leaderboardData.length
+			  ).toFixed(0)
+			: "0";
+
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-[1600px]">
 				<div className="mb-8">
-					<div className="flex items-center gap-3">
-						<div className="p-2 bg-primary/10 rounded-lg">
-							<Trophy className="w-6 h-6 text-primary" />
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-3">
+							<div className="p-2 bg-primary/10 rounded-lg">
+								<Trophy className="w-6 h-6 text-primary" />
+							</div>
+							<div>
+								<h1 className="text-3xl font-bold text-foreground">
+									Leaderboard
+								</h1>
+								<p className="text-muted-foreground text-sm">
+									Top performing traders and strategies
+								</p>
+							</div>
 						</div>
-						<div>
-							<h1 className="text-3xl font-bold text-foreground">Leaderboard</h1>
-							<p className="text-muted-foreground text-sm">Top performing traders and strategies</p>
-						</div>
+						<Button
+							onClick={fetchLeaderboard}
+							disabled={loading}
+							variant="outline"
+							size="sm"
+							className="gap-2"
+						>
+							<RefreshCw
+								className={`w-4 h-4 ${
+									loading ? "animate-spin" : ""
+								}`}
+							/>
+							Refresh
+						</Button>
 					</div>
 				</div>
 
@@ -127,8 +196,12 @@ export default function LeaderboardPage() {
 									Total Traders
 								</div>
 							</div>
-							<div className="text-2xl font-bold">12,847</div>
-							<div className="text-xs text-success mt-1">+5.2% this week</div>
+							<div className="text-2xl font-bold">
+								{totalTraders.toLocaleString()}
+							</div>
+							<div className="text-xs text-success mt-1">
+								Real-time data
+							</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -138,11 +211,15 @@ export default function LeaderboardPage() {
 									<Volume2 className="w-4 h-4 text-primary" />
 								</div>
 								<div className="text-xs font-medium text-muted-foreground uppercase">
-									Total Volume
+									Total Trades
 								</div>
 							</div>
-							<div className="text-2xl font-bold">$125.6M</div>
-							<div className="text-xs text-success mt-1">+12.8% this week</div>
+							<div className="text-2xl font-bold">
+								{totalTrades.toLocaleString()}
+							</div>
+							<div className="text-xs text-success mt-1">
+								Across all traders
+							</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -152,11 +229,15 @@ export default function LeaderboardPage() {
 									<TrendingUp className="w-4 h-4 text-primary" />
 								</div>
 								<div className="text-xs font-medium text-muted-foreground uppercase">
-									Profitable
+									Avg Points/Trade
 								</div>
 							</div>
-							<div className="text-2xl font-bold">68.4%</div>
-							<div className="text-xs text-success mt-1">+2.1% this week</div>
+							<div className="text-2xl font-bold">
+								{avgPointsPerTrade}
+							</div>
+							<div className="text-xs text-muted-foreground mt-1">
+								Average reward
+							</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -166,250 +247,239 @@ export default function LeaderboardPage() {
 									<Target className="w-4 h-4 text-primary" />
 								</div>
 								<div className="text-xs font-medium text-muted-foreground uppercase">
-									Avg Win Rate
+									Active Tiers
 								</div>
 							</div>
-							<div className="text-2xl font-bold">62.3%</div>
-							<div className="text-xs text-destructive mt-1">-0.8% this week</div>
+							<div className="text-2xl font-bold">
+								{
+									new Set(
+										leaderboardData.map(
+											(entry) => entry.currentTier
+										)
+									).size
+								}
+							</div>
+							<div className="text-xs text-muted-foreground mt-1">
+								Tier diversity
+							</div>
 						</CardContent>
 					</Card>
 				</div>
 
+				{error && (
+					<Card className="mb-8 border-destructive">
+						<CardContent className="p-4">
+							<div className="text-destructive">
+								Error: {error}
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
 				<Card>
 					<CardHeader className="border-b border-gray-100/10">
-						<Tabs defaultValue="pnl" className="w-full">
-							<TabsList className="grid w-full grid-cols-3">
-								<TabsTrigger value="pnl">Top PnL</TabsTrigger>
-								<TabsTrigger value="volume">Top Volume</TabsTrigger>
-								<TabsTrigger value="winrate">Top Win Rate</TabsTrigger>
-							</TabsList>
-						</Tabs>
+						<div className="flex items-center justify-between">
+							<CardTitle>Trading Leaderboard</CardTitle>
+							<div className="flex items-center gap-2">
+								<select
+									value={limit}
+									onChange={(e) =>
+										setLimit(Number(e.target.value))
+									}
+									className="text-sm bg-background border border-border rounded px-2 py-1"
+								>
+									<option value={25}>Top 25</option>
+									<option value={50}>Top 50</option>
+									<option value={100}>Top 100</option>
+								</select>
+							</div>
+						</div>
 					</CardHeader>
 					<CardContent className="p-0">
-						<Tabs defaultValue="pnl" className="w-full">
-							<TabsContent value="pnl" className="m-0">
-								<div className="overflow-x-auto">
-									<table className="w-full">
-										<thead>
-											<tr className="border-b border-gray-100/10 bg-muted/30">
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Rank
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Trader
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													PnL
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Win Rate
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Trades
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Volume
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Followers
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Action
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{topTraders.map((trader) => (
-												<tr
-													key={trader.id}
-													className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
-												>
-													<td className="p-3">
-														<div className="flex items-center gap-2">
-															{trader.rank <= 3 && (
-																<span className="text-lg">
-																	{trader.rank === 1 ? "🥇" : trader.rank === 2 ? "🥈" : "🥉"}
-																</span>
-															)}
-															<span className="font-bold text-sm">#{trader.rank}</span>
-														</div>
-													</td>
-													<td className="p-3">
-														<div className="flex items-center gap-3">
-															<div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center text-lg">
-																{trader.avatar}
-															</div>
-															<div>
-																<div className="font-medium text-sm">{trader.username}</div>
-																<div className="text-muted-foreground text-xs">
-																	{trader.followers} followers
-																</div>
-															</div>
-														</div>
-													</td>
-													<td className="p-3">
-														<div className="text-success font-bold text-sm">{trader.pnl}</div>
-														<div className="text-success text-xs">{trader.pnlPercent}</div>
-													</td>
-													<td className="p-3">
-														<Badge className="bg-primary/10 text-primary border-primary/40">
-															{trader.winRate}
-														</Badge>
-													</td>
-													<td className="p-3 text-muted-foreground text-sm">
-														{trader.totalTrades}
-													</td>
-													<td className="p-3 font-medium text-sm">{trader.volume}</td>
-													<td className="p-3 text-muted-foreground text-sm">{trader.followers}</td>
-													<td className="p-3">
-														<Button size="sm">Follow</Button>
-													</td>
-												</tr>
-											))}
-										</tbody>
-									</table>
-								</div>
-							</TabsContent>
-
-							<TabsContent value="volume" className="m-0">
-								<div className="overflow-x-auto">
-									<table className="w-full">
-										<thead>
-											<tr className="border-b border-gray-100/10 bg-muted/30">
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Rank
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Trader
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Volume
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Trades
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Avg Size
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													PnL
-												</th>
-												<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
-													Action
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{topVolume.map((trader) => (
-												<tr
-													key={trader.id}
-													className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
-												>
-													<td className="p-3">
-														<div className="flex items-center gap-2">
-															{trader.rank <= 3 && (
-																<span className="text-lg">
-																	{trader.rank === 1 ? "🥇" : trader.rank === 2 ? "🥈" : "🥉"}
-																</span>
-															)}
-															<span className="font-bold text-sm">#{trader.rank}</span>
-														</div>
-													</td>
-													<td className="p-3">
-														<div className="flex items-center gap-3">
-															<div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center text-lg">
-																{trader.avatar}
-															</div>
-															<div className="font-medium text-sm">{trader.username}</div>
-														</div>
-													</td>
-													<td className="p-3 font-bold text-sm">{trader.volume}</td>
-													<td className="p-3 text-muted-foreground text-sm">{trader.trades}</td>
-													<td className="p-3 text-muted-foreground text-sm">
-														{trader.avgTradeSize}
-													</td>
-													<td className="p-3 text-success font-medium text-sm">{trader.pnl}</td>
-													<td className="p-3">
-														<Button size="sm">Follow</Button>
-													</td>
-												</tr>
-											))}
-										</tbody>
-									</table>
-								</div>
-							</TabsContent>
-
-							<TabsContent value="winrate" className="m-0">
-								<div className="text-center py-16">
-									<Award className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-									<div className="text-xl font-bold mb-2">Win Rate Leaderboard</div>
-									<div className="text-muted-foreground text-sm">
-										Coming soon - Track the most consistent traders
-									</div>
-								</div>
-							</TabsContent>
-						</Tabs>
-					</CardContent>
-				</Card>
-
-				<div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-					{[
-						{
-							title: "Momentum Trading",
-							description: "Following strong price trends with technical indicators",
-							traders: 245,
-							avgReturn: "+18.5%",
-							risk: "Medium",
-						},
-						{
-							title: "Mean Reversion",
-							description: "Buying oversold and selling overbought conditions",
-							traders: 189,
-							avgReturn: "+12.3%",
-							risk: "Low",
-						},
-						{
-							title: "Breakout Strategy",
-							description: "Trading breakouts from key support/resistance levels",
-							traders: 156,
-							avgReturn: "+24.7%",
-							risk: "High",
-						},
-					].map((strategy, index) => (
-						<Card key={index}>
-							<CardHeader className="border-b border-gray-100/10">
-								<CardTitle className="text-base">{strategy.title}</CardTitle>
-							</CardHeader>
-							<CardContent className="p-4 space-y-3">
-								<p className="text-muted-foreground text-sm">{strategy.description}</p>
-								<div className="space-y-2 text-sm">
-									<div className="flex justify-between">
-										<span className="text-muted-foreground">Traders:</span>
-										<span className="font-medium">{strategy.traders}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-muted-foreground">Avg Return:</span>
-										<span className="text-success font-medium">{strategy.avgReturn}</span>
-									</div>
-									<div className="flex justify-between">
-										<span className="text-muted-foreground">Risk Level:</span>
-										<Badge
-											className={
-												strategy.risk === "Low"
-													? "bg-success/10 text-success border-success/20"
-													: strategy.risk === "Medium"
-														? "bg-warning/10 text-warning border-warning/20"
-														: "bg-destructive/10 text-destructive border-destructive/20"
+						<div className="overflow-x-auto">
+							<table className="w-full">
+								<thead>
+									<tr className="border-b border-gray-100/10 bg-muted/30">
+										<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
+											Rank
+										</th>
+										<th
+											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
+											onClick={() => handleSort("trader")}
+										>
+											Trader{" "}
+											{sortBy === "trader" &&
+												(order === "desc" ? "↓" : "↑")}
+										</th>
+										<th
+											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
+											onClick={() =>
+												handleSort("totalPoints")
 											}
 										>
-											{strategy.risk}
-										</Badge>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					))}
-				</div>
+											Total Points{" "}
+											{sortBy === "totalPoints" &&
+												(order === "desc" ? "↓" : "↑")}
+										</th>
+										<th
+											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
+											onClick={() =>
+												handleSort("totalTrades")
+											}
+										>
+											Trades{" "}
+											{sortBy === "totalTrades" &&
+												(order === "desc" ? "↓" : "↑")}
+										</th>
+										<th
+											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
+											onClick={() =>
+												handleSort("pointsPerTrade")
+											}
+										>
+											Points/Trade{" "}
+											{sortBy === "pointsPerTrade" &&
+												(order === "desc" ? "↓" : "↑")}
+										</th>
+										<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
+											Tier
+										</th>
+										<th
+											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
+											onClick={() =>
+												handleSort("lastTradeTimestamp")
+											}
+										>
+											Last Trade{" "}
+											{sortBy === "lastTradeTimestamp" &&
+												(order === "desc" ? "↓" : "↑")}
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{loading ? (
+										<tr>
+											<td
+												colSpan={8}
+												className="text-center p-8"
+											>
+												<div className="flex items-center justify-center gap-2">
+													<RefreshCw className="w-4 h-4 animate-spin" />
+													Loading leaderboard...
+												</div>
+											</td>
+										</tr>
+									) : leaderboardData.length === 0 ? (
+										<tr>
+											<td
+												colSpan={8}
+												className="text-center p-8 text-muted-foreground"
+											>
+												No leaderboard data available
+											</td>
+										</tr>
+									) : (
+										leaderboardData.map((entry) => (
+											<tr
+												key={entry.id}
+												className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
+											>
+												<td className="p-3">
+													<div className="flex items-center gap-2">
+														{entry.rank <= 3 && (
+															<span className="text-lg">
+																{entry.rank ===
+																1
+																	? "🥇"
+																	: entry.rank ===
+																	  2
+																	? "🥈"
+																	: "🥉"}
+															</span>
+														)}
+														<span className="font-bold text-sm">
+															#{entry.rank}
+														</span>
+													</div>
+												</td>
+												<td className="p-3">
+													<div className="flex items-center gap-3">
+														<div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+															<Users className="w-4 h-4" />
+														</div>
+														<div>
+															<div className="font-medium text-sm font-mono">
+																{formatAddress(
+																	entry.trader
+																)}
+															</div>
+															<div className="text-muted-foreground text-xs">
+																Since{" "}
+																{new Date(
+																	entry.firstTradeTimestamp
+																).toLocaleDateString()}
+															</div>
+														</div>
+													</div>
+												</td>
+												<td className="p-3">
+													<div className="font-bold text-success">
+														{
+															entry.totalPointsFormatted
+														}
+													</div>
+													<div className="text-muted-foreground text-xs">
+														Last:{" "}
+														{
+															entry.lastPointsAwardedFormatted
+														}
+													</div>
+												</td>
+												<td className="p-3">
+													<div className="font-medium">
+														{entry.totalTrades.toLocaleString()}
+													</div>
+												</td>
+												<td className="p-3">
+													<div className="font-medium">
+														{
+															entry.pointsPerTradeFormatted
+														}
+													</div>
+												</td>
+												<td className="p-3">
+													<Badge
+														variant="outline"
+														className={`gap-1 ${getTierColor(
+															entry.currentTier
+														)}`}
+													>
+														{getTierIcon(
+															entry.currentTier
+														)}
+														{entry.currentTier}
+													</Badge>
+												</td>
+												<td className="p-3">
+													<div className="text-sm">
+														{new Date(
+															entry.lastTradeTimestamp
+														).toLocaleDateString()}
+													</div>
+													<div className="text-muted-foreground text-xs">
+														{new Date(
+															entry.lastTradeTimestamp
+														).toLocaleTimeString()}
+													</div>
+												</td>
+											</tr>
+										))
+									)}
+								</tbody>
+							</table>
+						</div>
+					</CardContent>
+				</Card>
 			</main>
 		</div>
 	);
