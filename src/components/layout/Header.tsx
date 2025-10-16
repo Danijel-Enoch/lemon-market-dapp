@@ -1,7 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TrendingUp, Wallet, ArrowLeftRight, Coins } from "lucide-react";
+import {
+	TrendingUp,
+	Wallet,
+	ArrowLeftRight,
+	Coins,
+	Trophy
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -15,6 +21,7 @@ export function Header() {
 	const navItems = [
 		{ href: "/trending", label: "Trending", icon: TrendingUp },
 		{ href: "/positions", label: "Positions", icon: Wallet },
+		{ href: "/leaderboard", label: "Leaderboard", icon: Trophy },
 		{ href: "/bridge", label: "Bridge", icon: ArrowLeftRight },
 		{ href: "/staking", label: "Stake", icon: Coins }
 	];
