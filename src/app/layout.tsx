@@ -5,6 +5,7 @@ import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
+import { ReferralInitializer } from "@/components/providers/ReferralInitializer";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
@@ -69,6 +70,7 @@ export default function RootLayout({
 			<body
 				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
 			>
+				<ReferralInitializer />
 				<BProgressProvider />
 				<MiniAppProvider>
 					<ToastProvider>

@@ -6,7 +6,8 @@ import {
 	Wallet,
 	ArrowLeftRight,
 	Coins,
-	Trophy
+	Trophy,
+	BarChart3
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,6 +23,7 @@ export function Header() {
 		{ href: "/trending", label: "Trending", icon: TrendingUp },
 		{ href: "/positions", label: "Positions", icon: Wallet },
 		{ href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+		{ href: "/dashboard", label: "Dashboard", icon: BarChart3 },
 		{ href: "/bridge", label: "Bridge", icon: ArrowLeftRight },
 		{ href: "/staking", label: "Stake", icon: Coins }
 	];
