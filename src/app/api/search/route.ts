@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
 		const chains = searchParams.get("chains")?.split(",") || [
 			"ethereum",
 			"bsc",
-			"polygon"
+			"solana",
+			"base"
 		];
 
 		if (!query) {

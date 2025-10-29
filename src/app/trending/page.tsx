@@ -38,6 +38,8 @@ interface Token {
 	hasMarket?: boolean;
 	marketId?: string | null;
 	virtualLiquidity?: string;
+	chain?: string;
+	chainId?: string;
 }
 
 interface ForexPair {
@@ -107,6 +109,7 @@ export default function Home() {
 		}
 		console.log({ item });
 		params.set("tokenAddress", item.tokenAddress);
+		params.set("chain", item.chain!);
 		router.push(`/perp?${params.toString()}`);
 	};
 
@@ -299,6 +302,7 @@ export default function Home() {
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
 	);
+	console.log({ filteredTokens, filteredFX, filteredStocks });
 
 	const isForex = true;
 

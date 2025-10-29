@@ -399,6 +399,30 @@ export function PositionsTable({
 											</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
+													{/* Generate PNL Button */}
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() => {
+															// Handle generate PNL action
+															console.log(
+																"Generate PNL for position:",
+																position.id
+															);
+														}}
+														className="border-green-600 text-green-400 hover:bg-green-600 hover:text-white flex items-center gap-1"
+													>
+														<svg
+															width="16"
+															height="16"
+															viewBox="0 0 24 24"
+															fill="currentColor"
+															className="flex-shrink-0"
+														>
+															<path d="M12 2L13.09 8.26L19 7L17.91 13.26L22 14L16.96 20.74L11 19L5.04 20.74L0 14L4.09 13.26L3 7L8.91 8.26L12 2Z" />
+														</svg>
+														PnL
+													</Button>
 													{/* <Button
 														size="sm"
 														variant="outline"

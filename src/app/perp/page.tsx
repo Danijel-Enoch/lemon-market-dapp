@@ -41,7 +41,8 @@ function PerpContent() {
 		price: "$45,234.56",
 		change: "+2.34%",
 		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
-		tokenAddress: "0xB31f66A3C7a7e7bEC12cCaCEd3DCCF4C0d4fE1f8"
+		tokenAddress: "0xB31f66A3C7a7e7bEC12cCaCEd3DCCF4C0d4fE1f8",
+		chain: "base" // Default to base chain
 	});
 	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
@@ -119,9 +120,10 @@ function PerpContent() {
 
 		setIsLoadingPrice(true);
 		try {
+			const chain = tradingPair.chain || "base";
 			const tokenPrice = await getTokenPriceByPair(
 				tradingPair.pairAddress,
-				"base"
+				chain
 			);
 			if (tokenPrice) {
 				setTradingPair((prev) => ({
@@ -144,6 +146,7 @@ function PerpContent() {
 		const symbol = searchParams.get("symbol");
 		const pairAddress = searchParams.get("pairAddress");
 		const tokenAddress = searchParams.get("tokenAddress");
+		const chain = searchParams.get("chain")!;
 
 		if (symbol) {
 			// Format the symbol for display (add /USDT if not already present)
@@ -155,7 +158,8 @@ function PerpContent() {
 				...prev,
 				symbol: formattedSymbol,
 				pairAddress: pairAddress || prev.pairAddress,
-				tokenAddress: tokenAddress || prev.tokenAddress
+				tokenAddress: tokenAddress || prev.tokenAddress,
+				chain: chain
 			}));
 		}
 	}, [searchParams]);
@@ -335,7 +339,9 @@ function PerpContent() {
 		if (tradingPair.pairAddress) {
 			console.log("Using pair address:", tradingPair.pairAddress);
 			return (
-				"https://dexscreener.com/base/" +
+				"https://dexscreener.com/" +
+				tradingPair.chain +
+				"/" +
 				tradingPair.pairAddress +
 				"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15&background=0a0a0a"
 			);
