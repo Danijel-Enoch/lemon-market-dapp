@@ -13,6 +13,7 @@ import {
 	useWriteContract
 } from "wagmi";
 import { PositionsTable } from "@/components/trading/PositionsTable";
+import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
@@ -23,7 +24,9 @@ import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import {
 	formatPrice,
 	formatPriceChange,
-	getTokenPriceByPair
+	getTokenPriceByPair,
+	getStockPrice,
+	getForexPrice
 } from "@/lib/oracle";
 import {
 	createPosition,
@@ -37,12 +40,13 @@ import {
 function PerpContent() {
 	const searchParams = useSearchParams();
 	const [tradingPair, setTradingPair] = useState({
-		symbol: "BTC/USDT",
-		price: "$45,234.56",
-		change: "+2.34%",
-		pairAddress: "0x638f567d445E60E1aC1AfD369f53176FE9D5F93D",
-		tokenAddress: "0xB31f66A3C7a7e7bEC12cCaCEd3DCCF4C0d4fE1f8",
-		chain: "base" // Default to base chain
+		symbol: "",
+		price: "",
+		change: "",
+		pairAddress: "",
+		tokenAddress: "",
+		chain: "base", // Default to base chain
+		assetType: "crypto" as "crypto" | "stock" | "forex" // Track asset type
 	});
 	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
 	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
@@ -116,24 +120,52 @@ function PerpContent() {
 	const maxLeverage = 2;
 
 	const fetchLatestPrice = async () => {
-		if (!tradingPair.pairAddress) return;
+		if (!tradingPair.symbol && !tradingPair.pairAddress) return;
 
 		setIsLoadingPrice(true);
 		try {
-			const chain = tradingPair.chain || "base";
-			const tokenPrice = await getTokenPriceByPair(
-				tradingPair.pairAddress,
-				chain
-			);
-			if (tokenPrice) {
-				setTradingPair((prev) => ({
-					...prev,
-					price: formatPrice(tokenPrice.priceUsd),
-					change: tokenPrice.priceChange24h
-						? formatPriceChange(tokenPrice.priceChange24h)
-						: prev.change
-				}));
-				setLastPriceUpdate(new Date());
+			const assetType = tradingPair.assetType;
+
+			if (assetType === "stock") {
+				// Fetch stock price using price API
+				const stockPrice = await getStockPrice(tradingPair.symbol);
+				if (stockPrice?.success) {
+					setTradingPair((prev) => ({
+						...prev,
+						price: formatPrice(stockPrice.price),
+						change: "N/A" // Stock API doesn't provide change data
+					}));
+					setLastPriceUpdate(new Date());
+				}
+			} else if (assetType === "forex") {
+				// Fetch forex price using price API
+				const forexPrice = await getForexPrice(tradingPair.symbol);
+				if (forexPrice?.success) {
+					setTradingPair((prev) => ({
+						...prev,
+						price: formatPrice(forexPrice.price),
+						change: "N/A" // Forex API doesn't provide change data
+					}));
+					setLastPriceUpdate(new Date());
+				}
+			} else {
+				// Fetch crypto price using pair address
+				if (!tradingPair.pairAddress) return;
+				const chain = tradingPair.chain || "base";
+				const tokenPrice = await getTokenPriceByPair(
+					tradingPair.pairAddress,
+					chain
+				);
+				if (tokenPrice) {
+					setTradingPair((prev) => ({
+						...prev,
+						price: formatPrice(tokenPrice.priceUsd),
+						change: tokenPrice.priceChange24h
+							? formatPriceChange(tokenPrice.priceChange24h)
+							: prev.change
+					}));
+					setLastPriceUpdate(new Date());
+				}
 			}
 		} catch (error) {
 			console.error("Error fetching latest price:", error);
@@ -147,19 +179,29 @@ function PerpContent() {
 		const pairAddress = searchParams.get("pairAddress");
 		const tokenAddress = searchParams.get("tokenAddress");
 		const chain = searchParams.get("chain")!;
+		const assetType = (searchParams.get("assetType") || "crypto") as
+			| "crypto"
+			| "stock"
+			| "forex";
 
 		if (symbol) {
-			// Format the symbol for display (add /USDT if not already present)
-			const formattedSymbol = symbol.includes("/")
-				? symbol
-				: `${symbol}/USDT`;
+			// Format the symbol for display
+			// For stocks and forex, use symbol as-is
+			// For crypto, add /USDT if not already present
+			const formattedSymbol =
+				assetType === "crypto"
+					? symbol.includes("/")
+						? symbol
+						: `${symbol}/USDT`
+					: symbol;
 
 			setTradingPair((prev) => ({
 				...prev,
 				symbol: formattedSymbol,
 				pairAddress: pairAddress || prev.pairAddress,
 				tokenAddress: tokenAddress || prev.tokenAddress,
-				chain: chain
+				chain: chain,
+				assetType: assetType
 			}));
 		}
 	}, [searchParams]);
@@ -167,7 +209,7 @@ function PerpContent() {
 	useEffect(() => {
 		fetchLatestPrice();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [tradingPair.pairAddress]);
+	}, [tradingPair.pairAddress, tradingPair.symbol, tradingPair.assetType]);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
@@ -313,7 +355,6 @@ function PerpContent() {
 
 			if (result.data) {
 				console.log("Executing transaction with data:", result.data);
-
 				sendTransaction({
 					to: result.data.to as `0x${string}`,
 					data: result.data.data as `0x${string}`,
@@ -388,32 +429,35 @@ function PerpContent() {
 													tradingPair.price
 												)}
 											</div>
-											<Button
-												size="sm"
-												variant="ghost"
-												onClick={fetchLatestPrice}
-												disabled={isLoadingPrice}
-												className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-												title="Refresh price"
-											>
-												<svg
-													className={`h-4 w-4 ${
-														isLoadingPrice
-															? "animate-spin"
-															: ""
-													}`}
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
+											{tradingPair.assetType ===
+												"crypto" && (
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={fetchLatestPrice}
+													disabled={isLoadingPrice}
+													className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+													title="Refresh price"
 												>
-													<path
-														strokeLinecap="round"
-														strokeLinejoin="round"
-														strokeWidth={2}
-														d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-													/>
-												</svg>
-											</Button>
+													<svg
+														className={`h-4 w-4 ${
+															isLoadingPrice
+																? "animate-spin"
+																: ""
+														}`}
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={2}
+															d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+														/>
+													</svg>
+												</Button>
+											)}
 										</div>
 										<Badge
 											className={`${
@@ -430,27 +474,38 @@ function PerpContent() {
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								{lastPriceUpdate && (
-									<div className="mb-2 text-xs text-gray-500 text-right">
-										Last updated:{" "}
-										{lastPriceUpdate.toLocaleTimeString()}
+								{lastPriceUpdate &&
+									tradingPair.assetType === "crypto" && (
+										<div className="mb-2 text-xs text-gray-500 text-right">
+											Last updated:{" "}
+											{lastPriceUpdate.toLocaleTimeString()}
+										</div>
+									)}
+								{tradingPair.assetType === "crypto" ? (
+									<div
+										id="dexscreener-embed"
+										className="bg-[#0a0a0a] rounded-lg overflow-hidden"
+									>
+										<iframe
+											src={getChartUrl()}
+											width="100%"
+											height="500"
+											style={{
+												border: "none",
+												background: "#0a0a0a"
+											}}
+											title={`${tradingPair.symbol} Chart`}
+										></iframe>
+									</div>
+								) : (
+									<div style={{ height: "500px" }}>
+										<TradingViewWidget
+											symbol={tradingPair.symbol}
+											theme="dark"
+											interval="D"
+										/>
 									</div>
 								)}
-								<div
-									id="dexscreener-embed"
-									className="bg-[#0a0a0a] rounded-lg overflow-hidden"
-								>
-									<iframe
-										src={getChartUrl()}
-										width="100%"
-										height="500"
-										style={{
-											border: "none",
-											background: "#0a0a0a"
-										}}
-										title={`${tradingPair.symbol} Chart`}
-									></iframe>
-								</div>
 							</CardContent>
 						</Card>
 					</div>

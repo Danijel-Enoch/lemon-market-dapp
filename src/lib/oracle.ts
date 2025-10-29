@@ -10,6 +10,29 @@ export interface TokenPrice {
 	source: "dexscreener" | "geckoterminal";
 }
 
+export interface StockPrice {
+	success: boolean;
+	symbol: string;
+	price: number;
+	timestamp: string;
+	source: string;
+	priceUsd: number;
+	lastUpdate: string;
+	error?: string;
+}
+
+export interface ForexPrice {
+	success: boolean;
+	ticker: string;
+	symbol: string;
+	price: number;
+	timestamp: string;
+	source: string;
+	priceUsd: number;
+	lastUpdate: string;
+	error?: string;
+}
+
 export interface DexScreenerPair {
 	pairAddress: string;
 	baseToken: {
@@ -318,7 +341,7 @@ export function formatPriceChange(change: number): string {
 }
 
 /**
- * Utility function to format volume/market cap
+ * Utility function to format large number
  */
 export function formatLargeNumber(num: number): string {
 	if (num >= 1000000000) {
@@ -329,4 +352,117 @@ export function formatLargeNumber(num: number): string {
 		return `$${(num / 1000).toFixed(2)}K`;
 	}
 	return `$${num.toFixed(2)}`;
+}
+
+/**
+ * Fetch stock price using the price API endpoint
+ * @param symbol - Stock symbol (e.g., "AAPL")
+ * @returns StockPrice object with price and metadata
+ */
+export async function getStockPrice(
+	symbol: string
+): Promise<StockPrice | null> {
+	try {
+		const response = await fetch(
+			`/api/trending/stocks?symbol=${encodeURIComponent(
+				symbol
+			)}&action=price`,
+			{
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json"
+				}
+			}
+		);
+
+		if (!response.ok) {
+			console.error(
+				`Failed to fetch stock price for ${symbol}:`,
+				response.status
+			);
+			return null;
+		}
+
+		const data: StockPrice = await response.json();
+
+		if (!data.success) {
+			console.error(
+				`Failed to get stock price for ${symbol}:`,
+				data.error
+			);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error(`Error fetching stock price for ${symbol}:`, error);
+		return null;
+	}
+}
+
+/**
+ * Fetch forex price using the price API endpoint
+ * @param ticker - FX pair ticker (e.g., "AUD-USD")
+ * @returns ForexPrice object with price and metadata
+ */
+export async function getForexPrice(
+	ticker: string
+): Promise<ForexPrice | null> {
+	try {
+		const response = await fetch(
+			`/api/trending/fx?ticker=${encodeURIComponent(
+				ticker
+			)}&action=price`,
+			{
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json"
+				}
+			}
+		);
+
+		if (!response.ok) {
+			console.error(
+				`Failed to fetch FX price for ${ticker}:`,
+				response.status
+			);
+			return null;
+		}
+
+		const data: ForexPrice = await response.json();
+
+		if (!data.success) {
+			console.error(`Failed to get FX price for ${ticker}:`, data.error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error(`Error fetching FX price for ${ticker}:`, error);
+		return null;
+	}
+}
+
+/**
+ * Fetch multiple stock prices concurrently
+ * @param symbols - Array of stock symbols
+ * @returns Array of StockPrice objects
+ */
+export async function getStockPrices(
+	symbols: string[]
+): Promise<(StockPrice | null)[]> {
+	const promises = symbols.map((symbol) => getStockPrice(symbol));
+	return Promise.all(promises);
+}
+
+/**
+ * Fetch multiple forex prices concurrently
+ * @param tickers - Array of FX pair tickers
+ * @returns Array of ForexPrice objects
+ */
+export async function getForexPrices(
+	tickers: string[]
+): Promise<(ForexPrice | null)[]> {
+	const promises = tickers.map((ticker) => getForexPrice(ticker));
+	return Promise.all(promises);
 }
