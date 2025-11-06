@@ -24,24 +24,28 @@ export function useDashboard() {
 		isLoading: true,
 		error: null
 	});
+	const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
-	const fetchDashboardData = async () => {
+	// Cache data for 30 seconds to prevent unnecessary refetches
+	const CACHE_DURATION = 30000;
+
+	const fetchDashboardData = async (force = false) => {
 		if (!isConnected || !address) {
 			setStats((prev) => ({ ...prev, isLoading: false }));
+			return;
+		}
+
+		// Check if we need to fetch (respect cache unless forced)
+		const now = Date.now();
+		if (!force && now - lastFetchTime < CACHE_DURATION) {
 			return;
 		}
 
 		try {
 			setStats((prev) => ({ ...prev, isLoading: true, error: null }));
 
-			const [
-				referralCode,
-				points,
-				feesEarned,
-				volume,
-				referralStats,
-				rank
-			] = await Promise.all([
+			// Use Promise.allSettled to handle partial failures gracefully
+			const results = await Promise.allSettled([
 				getUserReferralCode(address),
 				getUserPoints(address),
 				getUserFeesEarned(address),
@@ -49,6 +53,35 @@ export function useDashboard() {
 				getUserReferralStats(address),
 				getUserLeaderboardRank(address)
 			]);
+
+			// Extract successful results with fallback values
+			const [
+				referralCodeResult,
+				pointsResult,
+				feesEarnedResult,
+				volumeResult,
+				referralStatsResult,
+				rankResult
+			] = results;
+
+			const referralCode =
+				referralCodeResult.status === "fulfilled"
+					? referralCodeResult.value
+					: null;
+			const points =
+				pointsResult.status === "fulfilled" ? pointsResult.value : 0;
+			const feesEarned =
+				feesEarnedResult.status === "fulfilled"
+					? feesEarnedResult.value
+					: 0;
+			const volume =
+				volumeResult.status === "fulfilled" ? volumeResult.value : 0;
+			const referralStats =
+				referralStatsResult.status === "fulfilled"
+					? referralStatsResult.value
+					: { totalReferrals: 0, referralEarnings: 0 };
+			const rank =
+				rankResult.status === "fulfilled" ? rankResult.value : 0;
 
 			setStats({
 				pointsEarned: points,
@@ -61,6 +94,19 @@ export function useDashboard() {
 				isLoading: false,
 				error: null
 			});
+
+			// Update last fetch time
+			setLastFetchTime(now);
+
+			// Check if any requests failed and log for debugging
+			const failedRequests = results.filter(
+				(result) => result.status === "rejected"
+			);
+			if (failedRequests.length > 0) {
+				console.warn(
+					`${failedRequests.length} dashboard API requests failed, but showing available data`
+				);
+			}
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error
@@ -99,14 +145,14 @@ export function useDashboard() {
 
 	useEffect(() => {
 		fetchDashboardData();
-		// Refresh data every 30 seconds
-		const interval = setInterval(fetchDashboardData, 30000);
+		// Refresh data every 60 seconds (increased from 30 to reduce load)
+		const interval = setInterval(fetchDashboardData, 60000);
 		return () => clearInterval(interval);
 	}, [isConnected, address]);
 
 	return {
 		...stats,
-		refetch: fetchDashboardData,
+		refetch: () => fetchDashboardData(true), // Force refresh when manually triggered
 		generateReferralCode,
 		isWalletConnected: isConnected,
 		walletAddress: address

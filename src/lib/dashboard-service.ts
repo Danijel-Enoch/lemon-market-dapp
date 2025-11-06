@@ -1,5 +1,27 @@
 import { getTokenPriceService } from "./token-price-service";
 
+// Utility function for making fetch requests with timeout
+async function fetchWithTimeout(
+	url: string,
+	options: RequestInit = {},
+	timeout = 5000
+) {
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+	try {
+		const response = await fetch(url, {
+			...options,
+			signal: controller.signal
+		});
+		clearTimeout(timeoutId);
+		return response;
+	} catch (error) {
+		clearTimeout(timeoutId);
+		throw error;
+	}
+}
+
 export interface DashboardStats {
 	pointsEarned: number;
 	feesEarned: number;
@@ -19,7 +41,9 @@ export async function getUserReferralCode(
 	address: string
 ): Promise<string | null> {
 	try {
-		const response = await fetch(`/api/referral/code?address=${address}`);
+		const response = await fetchWithTimeout(
+			`/api/referral/code?address=${address}`
+		);
 		if (!response.ok) return null;
 		const data = await response.json();
 		return data.code || null;
@@ -55,7 +79,7 @@ export async function createReferralCode(
  */
 export async function getUserPoints(address: string): Promise<number> {
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`/api/dashboard/points?address=${address}`
 		);
 		if (!response.ok) return 0;
@@ -72,7 +96,9 @@ export async function getUserPoints(address: string): Promise<number> {
  */
 export async function getUserFeesEarned(address: string): Promise<number> {
 	try {
-		const response = await fetch(`/api/dashboard/fees?address=${address}`);
+		const response = await fetchWithTimeout(
+			`/api/dashboard/fees?address=${address}`
+		);
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.feesEarned || 0;
@@ -87,7 +113,7 @@ export async function getUserFeesEarned(address: string): Promise<number> {
  */
 export async function getUserTradingVolume(address: string): Promise<number> {
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`/api/dashboard/volume?address=${address}`
 		);
 		if (!response.ok) return 0;
@@ -106,7 +132,9 @@ export async function getUserReferralStats(
 	address: string
 ): Promise<{ totalReferrals: number; referralEarnings: number }> {
 	try {
-		const response = await fetch(`/api/referral/stats?address=${address}`);
+		const response = await fetchWithTimeout(
+			`/api/referral/stats?address=${address}`
+		);
 		if (!response.ok) return { totalReferrals: 0, referralEarnings: 0 };
 		const data = await response.json();
 		return {
@@ -124,7 +152,7 @@ export async function getUserReferralStats(
  */
 export async function getUserLeaderboardRank(address: string): Promise<number> {
 	try {
-		const response = await fetch(
+		const response = await fetchWithTimeout(
 			`/api/leaderboard/rank?address=${address}`
 		);
 		if (!response.ok) return 0;
