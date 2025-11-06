@@ -82,9 +82,14 @@ export async function getUserPoints(address: string): Promise<number> {
 		const response = await fetchWithTimeout(
 			`/api/dashboard/points?address=${address}`
 		);
+		console.log(
+			"............................]\nResponse from points API:",
+			response
+		);
 		if (!response.ok) return 0;
 		const data = await response.json();
-		return data.points || 0;
+		console.log("Points data:", data);
+		return data.points;
 	} catch (error) {
 		console.error("Error fetching points:", error);
 		return 0;
@@ -130,20 +135,26 @@ export async function getUserTradingVolume(address: string): Promise<number> {
  */
 export async function getUserReferralStats(
 	address: string
-): Promise<{ totalReferrals: number; referralEarnings: number }> {
+): Promise<{
+	totalReferrals: number;
+	referralEarnings: number;
+	points: number;
+}> {
 	try {
 		const response = await fetchWithTimeout(
 			`/api/referral/stats?address=${address}`
 		);
-		if (!response.ok) return { totalReferrals: 0, referralEarnings: 0 };
+		if (!response.ok)
+			return { totalReferrals: 0, referralEarnings: 0, points: 0 };
 		const data = await response.json();
 		return {
 			totalReferrals: data.totalReferrals || 0,
-			referralEarnings: data.referralEarnings || 0
+			referralEarnings: data.referralEarnings || 0,
+			points: data.points || 0
 		};
 	} catch (error) {
 		console.error("Error fetching referral stats:", error);
-		return { totalReferrals: 0, referralEarnings: 0 };
+		return { totalReferrals: 0, referralEarnings: 0, points: 0 };
 	}
 }
 
@@ -167,7 +178,15 @@ export async function getUserLeaderboardRank(address: string): Promise<number> {
 /**
  * Format large numbers for display
  */
-export function formatNumber(num: number, decimals = 2): string {
+export function formatNumber(
+	num: number | undefined | null,
+	decimals = 2
+): string {
+	// Handle undefined, null, or non-numeric values
+	if (num == null || typeof num !== "number" || isNaN(num)) {
+		return "0";
+	}
+
 	if (num >= 1e6) {
 		return (num / 1e6).toFixed(decimals) + "M";
 	}

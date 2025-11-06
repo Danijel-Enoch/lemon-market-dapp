@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 				{ status: 404 }
 			);
 		}
-
+		console.log("Fetched referral stats for user:", user);
 		return NextResponse.json({
 			address: user.address,
 			referralCode: user.referralCode,

@@ -79,12 +79,14 @@ export function useDashboard() {
 			const referralStats =
 				referralStatsResult.status === "fulfilled"
 					? referralStatsResult.value
-					: { totalReferrals: 0, referralEarnings: 0 };
+					: { totalReferrals: 0, referralEarnings: 0, points: 0 };
 			const rank =
 				rankResult.status === "fulfilled" ? rankResult.value : 0;
 
+			console.log({ results, points, referralStats });
+
 			setStats({
-				pointsEarned: points,
+				pointsEarned: referralStats.points,
 				feesEarned: feesEarned,
 				tradingVolume: volume,
 				referralCode: referralCode,
