@@ -15,6 +15,10 @@ export async function POST(request: NextRequest) {
 	try {
 		const { address, referralCode } = await request.json();
 
+		console.log("=== REFERRAL REDEEM API CALLED ===");
+		console.log("referralCode", referralCode);
+		console.log("address", address);
+
 		if (!address) {
 			return NextResponse.json(
 				{ error: "Address is required" },
@@ -22,57 +26,45 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Normalize address to lowercase
 		const normalizedAddress = address.toLowerCase();
-
-		// Check if user trying to refer themselves
-		if (referralCode) {
-			const referrer = await prisma.user.findUnique({
-				where: { referralCode }
-			});
-
-			if (
-				referrer &&
-				referrer.address.toLowerCase() === normalizedAddress
-			) {
-				return NextResponse.json(
-					{ error: "You cannot refer yourself" },
-					{ status: 400 }
-				);
-			}
-		}
 
 		// Check if user already exists
 		let user = await prisma.user.findUnique({
 			where: { address: normalizedAddress }
 		});
 
-		if (user) {
-			return NextResponse.json({
-				code: user.referralCode,
-				address: normalizedAddress,
-				points: user.points,
-				message: "User already exists"
-			});
-		}
-
-		// Generate unique referral code
-		let newReferralCode = generateReferralCode();
-		let codeExists = true;
-		while (codeExists) {
-			const existing = await prisma.user.findUnique({
-				where: { referralCode: newReferralCode }
-			});
-			if (!existing) {
-				codeExists = false;
-			} else {
-				newReferralCode = generateReferralCode();
+		// If user doesn't exist, create them
+		if (!user) {
+			// Generate unique referral code for new user
+			let newReferralCode = generateReferralCode();
+			let codeExists = true;
+			while (codeExists) {
+				const existing = await prisma.user.findUnique({
+					where: { referralCode: newReferralCode }
+				});
+				if (!existing) {
+					codeExists = false;
+				} else {
+					newReferralCode = generateReferralCode();
+				}
 			}
+
+			// Create new user
+			user = await prisma.user.create({
+				data: {
+					address: normalizedAddress,
+					referralCode: newReferralCode,
+					points: 0
+				}
+			});
+			console.log("Created new user:", user.address);
 		}
 
-		// Get referrer if referral code is provided
-		let referrerId: string | undefined;
-		if (referralCode) {
+		// Process referral if referral code provided and user doesn't already have a referrer
+		if (referralCode && !user.referredBy) {
+			console.log("Processing referral code:", referralCode);
+
+			// Find referrer
 			const referrer = await prisma.user.findUnique({
 				where: { referralCode }
 			});
@@ -84,47 +76,54 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			referrerId = referrer.id;
-		}
-
-		// Create new user with referral code
-		user = await prisma.user.create({
-			data: {
-				address: normalizedAddress,
-				referralCode: newReferralCode,
-				points: 0,
-				referredBy: referrerId
+			// Check if user trying to refer themselves
+			if (referrer.address.toLowerCase() === normalizedAddress) {
+				return NextResponse.json(
+					{ error: "You cannot refer yourself" },
+					{ status: 400 }
+				);
 			}
-		});
 
-		// If user was referred, award points to referrer and create referral record
-		if (referrerId) {
+			// Update user with referrer ID
+			user = await prisma.user.update({
+				where: { address: normalizedAddress },
+				data: { referredBy: referrer.id }
+			});
+
 			// Award 100 points to referrer
 			await prisma.user.update({
-				where: { id: referrerId },
+				where: { referralCode },
 				data: { points: { increment: 100 } }
 			});
 
 			// Create referral record
 			await prisma.referral.create({
 				data: {
-					referrerId,
+					referrerId: referrer.id,
 					referredAddress: normalizedAddress,
 					pointsAwarded: true
 				}
 			});
+
+			console.log("Referral processed successfully:");
+			console.log("- Referred user:", normalizedAddress);
+			console.log("- Referrer:", referrer.address);
+			console.log("- Points awarded to referrer: 100");
 		}
 
 		return NextResponse.json({
 			code: user.referralCode,
 			address: normalizedAddress,
 			points: user.points,
-			message: "User created successfully"
+			referredBy: user.referredBy,
+			message: user.referredBy
+				? "User created/updated with referral"
+				: "User created without referral"
 		});
 	} catch (error) {
-		console.error("Error redeeming referral code:", error);
+		console.error("Error processing referral:", error);
 		return NextResponse.json(
-			{ error: "Failed to redeem referral code" },
+			{ error: "Failed to process referral" },
 			{ status: 500 }
 		);
 	}

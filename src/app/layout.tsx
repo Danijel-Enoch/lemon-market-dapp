@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/providers/ToastProvider";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
 import { ReferralInitializer } from "@/components/providers/ReferralInitializer";
+import { ReferralHandler } from "@/components/providers/ReferralHandler";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
@@ -76,6 +77,7 @@ export default function RootLayout({
 					<ToastProvider>
 						<WalletProvider>
 							<AppProvider>
+								<ReferralHandler />
 								<Header />
 								{children}
 							</AppProvider>
