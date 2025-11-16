@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+import fs from "fs";
+import path from "path";
 
 // Pair addresses from the route file
 const pairs = [
@@ -459,15 +459,4 @@ async function main() {
 }
 
 // Run the script
-if (require.main === module) {
-    main();
-}
-
-module.exports = {
-    fetchFromDexScreener,
-    fetchFromGeckoTerminal,
-    fetchPoolsFromGeckoTerminal,
-    fetchTokenDecimalsFromBSCScan,
-    fetchTokenDecimals,
-    fetchAllTokenDetails
-};
+main();

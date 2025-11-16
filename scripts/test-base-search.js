@@ -3,7 +3,7 @@
  * Run with: npm run test-search
  */
 
-const { searchService } = require('../src/lib/search-service');
+import { searchService } from "../src/lib/search-service";
 
 async function testBaseSearch() {
     console.log('🧪 Testing Base chain search functionality...\n');
@@ -47,8 +47,4 @@ async function testBaseSearch() {
 }
 
 // Run the test
-if (require.main === module) {
-    testBaseSearch().catch(console.error);
-}
-
-module.exports = { testBaseSearch };
+testBaseSearch().catch(console.error);

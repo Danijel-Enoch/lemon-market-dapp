@@ -117,7 +117,7 @@ export function parseLiquidityValue(liquidity: string): number {
 	if (!liquidity) return 0;
 
 	// Remove currency symbols and spaces
-	let cleaned = liquidity.replace(/[$,\s]/g, "");
+	const cleaned = liquidity.replace(/[$,\s]/g, "");
 
 	// Handle M, K, B suffixes
 	const multipliers: { [key: string]: number } = {

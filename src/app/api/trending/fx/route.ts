@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 const fxPairs = [
 	"AUD-USD",
 	"CNY-USD",

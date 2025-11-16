@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 const TRENDING_ASSETS = [
 	{ symbol: "AAPL", type: "Equities" },

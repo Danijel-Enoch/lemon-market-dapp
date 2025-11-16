@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		let leaderboardEntries = result.data?.leaderboardEntries || [];
+		const leaderboardEntries = result.data?.leaderboardEntries || [];
 
 		// Transform leaderboard entries for frontend consumption
 		const transformedEntries = leaderboardEntries.map((entry, index) => ({

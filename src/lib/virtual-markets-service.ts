@@ -72,7 +72,7 @@ class VirtualMarketsService {
 	private subgraphUrl: string;
 
 	constructor() {
-		this.subgraphUrl = process.env.SUBGRAPH_URL!!;
+		this.subgraphUrl = process.env.SUBGRAPH_URL!;
 	}
 
 	private async makeGraphQLRequest(query: string, variables?: any): Promise<GraphQLResponse> {
