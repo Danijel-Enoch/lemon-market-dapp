@@ -1,7 +1,6 @@
 "use client";
 
 import { toast as sonnerToast } from "sonner";
-import { CheckCircle, XCircle, AlertCircle, Clock, ExternalLink } from "lucide-react";
 
 type ToastType = "success" | "error" | "warning" | "loading" | "info";
 
@@ -22,7 +21,7 @@ interface TransactionToastOptions extends ToastOptions {
 
 class Toast {
 	static show(type: ToastType, message: string, options?: ToastOptions) {
-		const icon = this.getIcon(type);
+		const icon = Toast.getIcon(type);
 
 		sonnerToast(message, {
 			description: options?.description,
@@ -43,15 +42,15 @@ class Toast {
 	}
 
 	static success(message: string, options?: ToastOptions) {
-		this.show("success", message, options);
+		Toast.show("success", message, options);
 	}
 
 	static error(message: string, options?: ToastOptions) {
-		this.show("error", message, options);
+		Toast.show("error", message, options);
 	}
 
 	static warning(message: string, options?: ToastOptions) {
-		this.show("warning", message, options);
+		Toast.show("warning", message, options);
 	}
 
 	static loading(message: string, options?: ToastOptions) {
@@ -62,7 +61,7 @@ class Toast {
 	}
 
 	static info(message: string, options?: ToastOptions) {
-		this.show("info", message, options);
+		Toast.show("info", message, options);
 	}
 
 	static dismiss(toastId?: string | number) {
@@ -127,22 +126,6 @@ class Toast {
 			});
 		},
 	};
-
-	private static getIcon(type: ToastType) {
-		switch (type) {
-			case "success":
-				return <CheckCircle className="w-4 h-4 text-green-500" />;
-			case "error":
-				return <XCircle className="w-4 h-4 text-red-500" />;
-			case "warning":
-				return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-			case "loading":
-				return <Clock className="w-4 h-4 text-blue-500 animate-spin" />;
-			case "info":
-			default:
-				return <AlertCircle className="w-4 h-4 text-blue-500" />;
-		}
-	}
 }
 
 export { Toast };

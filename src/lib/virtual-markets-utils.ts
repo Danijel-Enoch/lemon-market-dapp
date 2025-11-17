@@ -73,7 +73,7 @@ function getNestedProperty(obj: any, path: string): any {
 export function formatLiquidity(liquidity: string | number): string {
 	const value = typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
 
-	if (isNaN(value) || value === 0) return "$0.00";
+	if (Number.isNaN(value) || value === 0) return "$0.00";
 
 	if (value >= 1000000000) {
 		return `$${(value / 1000000000).toFixed(2)}B`;
@@ -117,7 +117,7 @@ export function parseLiquidityValue(liquidity: string): number {
 	if (!liquidity) return 0;
 
 	// Remove currency symbols and spaces
-	let cleaned = liquidity.replace(/[$,\s]/g, "");
+	const cleaned = liquidity.replace(/[$,\s]/g, "");
 
 	// Handle M, K, B suffixes
 	const multipliers: { [key: string]: number } = {
@@ -141,7 +141,7 @@ export function parseLiquidityValue(liquidity: string): number {
  */
 export function parseLiquidityWith6Decimals(liquidity: string | number): number {
 	const value = typeof liquidity === "string" ? parseFloat(liquidity) : liquidity;
-	return isNaN(value) ? 0 : value / 1e6;
+	return Number.isNaN(value) ? 0 : value / 1e6;
 }
 
 /**
@@ -151,7 +151,7 @@ export function validateVirtualMarket(market: any): boolean {
 	const requiredFields = ["id", "marketId", "totalLiquidity", "realLiquidity", "virtualLiquidity"];
 
 	return requiredFields.every(
-		(field) => market.hasOwnProperty(field) && market[field] !== undefined,
+		(field) => Object.hasOwn(market, field) && market[field] !== undefined,
 	);
 }
 
@@ -196,20 +196,13 @@ export function calculateMarketStats(markets: any[]): MarketStats {
  * Debug helper to log market lookup results
  */
 export function debugMarketLookup(tokenAddresses: string[], marketMap: Map<string, any>): void {
-	console.log("🔍 Market Lookup Debug:");
-	console.log(`Total token addresses: ${tokenAddresses.length}`);
-	console.log(`Markets found: ${marketMap.size}`);
-
 	tokenAddresses.forEach((address) => {
 		const normalizedAddress = normalizeAddress(address);
-		const market = marketMap.get(normalizedAddress);
-		console.log(`${address}: ${market ? "✓ Found" : "✗ Not found"}`);
+		const _market = marketMap.get(normalizedAddress);
 	});
 
 	if (marketMap.size > 0) {
-		console.log("Sample market data:");
-		const firstMarket = Array.from(marketMap.values())[0];
-		console.log(JSON.stringify(firstMarket, null, 2));
+		const _firstMarket = Array.from(marketMap.values())[0];
 	}
 }
 
@@ -217,20 +210,13 @@ export function debugMarketLookup(tokenAddresses: string[], marketMap: Map<strin
  * Debug helper to log market lookup results for symbols
  */
 export function debugSymbolMarketLookup(tokenSymbols: string[], marketMap: Map<string, any>): void {
-	console.log("🔍 Symbol Market Lookup Debug:");
-	console.log(`Total token symbols: ${tokenSymbols.length}`);
-	console.log(`Markets found: ${marketMap.size}`);
-
 	tokenSymbols.forEach((symbol) => {
 		const normalizedSymbol = normalizeSymbol(symbol);
-		const market = marketMap.get(normalizedSymbol);
-		console.log(`${symbol}: ${market ? "✓ Found" : "✗ Not found"}`);
+		const _market = marketMap.get(normalizedSymbol);
 	});
 
 	if (marketMap.size > 0) {
-		console.log("Sample market data:");
-		const firstMarket = Array.from(marketMap.values())[0];
-		console.log(JSON.stringify(firstMarket, null, 2));
+		const _firstMarket = Array.from(marketMap.values())[0];
 	}
 }
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 const fxPairs = [
 	"AUD-USD",
 	"CNY-USD",
@@ -9,23 +8,19 @@ const fxPairs = [
 	"JPY-USD",
 	"EUR-USD",
 	"USD-BRL",
-	"GBP-USD"
+	"GBP-USD",
 ];
 
 async function fetchFXData(pair: string) {
 	try {
-		const response = await fetch(
-			`https://api.diadata.org/v1/rwa/Fiat/${pair}`,
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json"
-				}
-			}
-		);
+		const response = await fetch(`https://api.diadata.org/v1/rwa/Fiat/${pair}`, {
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json",
+			},
+		});
 
 		if (!response.ok) {
-			console.error(`Failed to fetch FX pair ${pair}:`, response.status);
 			return { ticker: pair, error: "Failed to fetch data" };
 		}
 
@@ -35,13 +30,12 @@ async function fetchFXData(pair: string) {
 			price: data.Price,
 			timestamp: data.Timestamp,
 			source: data.Source,
-			...data
+			...data,
 		};
 	} catch (error) {
-		console.error(`Error fetching FX pair ${pair}:`, error);
 		return {
 			ticker: pair,
-			error: error instanceof Error ? error.message : "Unknown error"
+			error: error instanceof Error ? error.message : "Unknown error",
 		};
 	}
 }
@@ -58,15 +52,11 @@ async function fetchFXPrice(ticker: string) {
 		const response = await fetch(url, {
 			method: "GET",
 			headers: {
-				"Content-Type": "application/json"
-			}
+				"Content-Type": "application/json",
+			},
 		});
 
 		if (!response.ok) {
-			console.error(
-				`Failed to fetch FX price for ${ticker}:`,
-				response.status
-			);
 			throw new Error(`Failed to fetch price for ${ticker}`);
 		}
 
@@ -80,16 +70,14 @@ async function fetchFXPrice(ticker: string) {
 			timestamp: data.Timestamp,
 			source: data.Source,
 			priceUsd: data.Price, // For position API compatibility
-			lastUpdate: new Date(data.Timestamp).toISOString()
+			lastUpdate: new Date(data.Timestamp).toISOString(),
 		};
 	} catch (error) {
-		console.error(`Error fetching FX price for ${ticker}:`, error);
 		return {
 			success: false,
 			ticker,
 			symbol: ticker,
-			error:
-				error instanceof Error ? error.message : "Failed to fetch price"
+			error: error instanceof Error ? error.message : "Failed to fetch price",
 		};
 	}
 }
@@ -107,9 +95,9 @@ export async function GET(req: Request) {
 			return Response.json(
 				{
 					error: "Failed to fetch FX price",
-					details: priceData.error
+					details: priceData.error,
 				},
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 
@@ -118,23 +106,19 @@ export async function GET(req: Request) {
 
 	// Default: fetch trending FX pairs
 	try {
-		const fxDetails = await Promise.all(
-			fxPairs.map((pair) => fetchFXData(pair))
-		);
+		const fxDetails = await Promise.all(fxPairs.map((pair) => fetchFXData(pair)));
 
 		return Response.json({
 			data: fxDetails,
-			timestamp: new Date().toISOString()
+			timestamp: new Date().toISOString(),
 		});
 	} catch (error) {
-		console.error("Error in trending FX endpoint:", error);
 		return Response.json(
 			{
 				error: "Failed to fetch trending FX pairs",
-				message:
-					error instanceof Error ? error.message : "Unknown error"
+				message: error instanceof Error ? error.message : "Unknown error",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

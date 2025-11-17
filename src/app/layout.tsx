@@ -2,30 +2,35 @@ import type { Metadata } from "next";
 import { Inter, Raleway, Roboto_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { BProgressProvider } from "@/components/providers/BProgressProvider";
-import { ToastProvider } from "@/components/providers/ToastProvider";
-import { WalletProvider } from "@/components/providers/WalletProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
-import { ReferralInitializer } from "@/components/providers/ReferralInitializer";
 import { ReferralHandler } from "@/components/providers/ReferralHandler";
+import { ToastProvider } from "@/components/providers/ToastProvider";
+import { PageTransition } from "@/components/providers/PageTransition";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
 const inter = Inter({
 	variable: "--font-inter",
 	subsets: ["latin"],
-	weight: ["400", "500", "600", "700", "800"]
+	weight: ["400", "500", "600", "700", "800"],
+	display: "swap",
+	preload: true,
 });
 
 const robotoMono = Roboto_Mono({
 	variable: "--font-roboto-mono",
 	subsets: ["latin"],
-	weight: ["400", "500", "600", "700"]
+	weight: ["400", "500", "600", "700"],
+	display: "swap",
+	preload: true,
 });
 
 const raleway = Raleway({
 	variable: "--font-raleway",
 	subsets: ["latin"],
-	weight: ["400", "500", "600", "700", "800", "900"]
+	weight: ["400", "500", "600", "700", "800", "900"],
+	display: "swap",
+	preload: true,
 });
 
 const miniAppEmbed = {
@@ -38,9 +43,9 @@ const miniAppEmbed = {
 			name: "Lemon Markets",
 			url: "https://demo.lemonmarkets.xyz",
 			splashImageUrl: "https://demo.lemonmarkets.xyz/image/logo.png",
-			splashBackgroundColor: "#000000"
-		}
-	}
+			splashBackgroundColor: "#000000",
+		},
+	},
 };
 
 export const metadata: Metadata = {
@@ -48,18 +53,17 @@ export const metadata: Metadata = {
 	description: "A decentralized trading platform for perpetual futures",
 	other: {
 		"fc:miniapp": JSON.stringify(miniAppEmbed),
-		"fc:frame": JSON.stringify(miniAppEmbed)
+		"fc:frame": JSON.stringify(miniAppEmbed),
 	},
 	openGraph: {
 		title: "Lemon Markets - Decentralized Perpetual Trading",
-		description:
-			"Trade perpetual futures with leverage on a decentralized platform",
-		images: ["https://demo.lemonmarkets.xyz/image/features-image.png"]
-	}
+		description: "Trade perpetual futures with leverage on a decentralized platform",
+		images: ["https://demo.lemonmarkets.xyz/image/features-image.png"],
+	},
 };
 
 export default function RootLayout({
-	children
+	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
@@ -67,21 +71,19 @@ export default function RootLayout({
 		<html lang="en">
 			<head>
 				<link rel="preconnect" href="https://auth.farcaster.xyz" />
+				<link rel="dns-prefetch" href="https://auth.farcaster.xyz" />
 			</head>
 			<body
 				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
 			>
-				<ReferralInitializer />
-				<BProgressProvider />
 				<MiniAppProvider>
 					<ToastProvider>
-						<WalletProvider>
-							<AppProvider>
-								<ReferralHandler />
-								<Header />
-								{children}
-							</AppProvider>
-						</WalletProvider>
+						<AppProvider>
+							<ReferralHandler />
+							<BProgressProvider />
+							<Header />
+							<PageTransition>{children}</PageTransition>
+						</AppProvider>
 					</ToastProvider>
 				</MiniAppProvider>
 			</body>

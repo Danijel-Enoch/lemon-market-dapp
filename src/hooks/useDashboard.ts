@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import {
-	getUserReferralCode,
 	createReferralCode,
-	getUserPoints,
+	type DashboardStats,
 	getUserFeesEarned,
-	getUserTradingVolume,
-	getUserReferralStats,
 	getUserLeaderboardRank,
-	type DashboardStats
+	getUserPoints,
+	getUserReferralCode,
+	getUserReferralStats,
+	getUserTradingVolume,
 } from "@/lib/dashboard-service";
 
 export function useDashboard() {
@@ -22,7 +22,7 @@ export function useDashboard() {
 		referralEarnings: 0,
 		leaderboardRank: 0,
 		isLoading: true,
-		error: null
+		error: null,
 	});
 	const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
@@ -51,7 +51,7 @@ export function useDashboard() {
 				getUserFeesEarned(address),
 				getUserTradingVolume(address),
 				getUserReferralStats(address),
-				getUserLeaderboardRank(address)
+				getUserLeaderboardRank(address),
 			]);
 
 			// Extract successful results with fallback values
@@ -94,7 +94,7 @@ export function useDashboard() {
 				referralEarnings: referralStats.referralEarnings,
 				leaderboardRank: rank,
 				isLoading: false,
-				error: null
+				error: null,
 			});
 
 			// Update last fetch time
@@ -111,13 +111,11 @@ export function useDashboard() {
 			}
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Failed to fetch dashboard data";
+				error instanceof Error ? error.message : "Failed to fetch dashboard data";
 			setStats((prev) => ({
 				...prev,
 				isLoading: false,
-				error: errorMessage
+				error: errorMessage,
 			}));
 		}
 	};
@@ -137,9 +135,7 @@ export function useDashboard() {
 			return code;
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Failed to generate referral code";
+				error instanceof Error ? error.message : "Failed to generate referral code";
 			setStats((prev) => ({ ...prev, error: errorMessage }));
 			return null;
 		}
@@ -150,13 +146,13 @@ export function useDashboard() {
 		// Refresh data every 60 seconds (increased from 30 to reduce load)
 		const interval = setInterval(fetchDashboardData, 60000);
 		return () => clearInterval(interval);
-	}, [isConnected, address]);
+	}, [fetchDashboardData]);
 
 	return {
 		...stats,
 		refetch: () => fetchDashboardData(true), // Force refresh when manually triggered
 		generateReferralCode,
 		isWalletConnected: isConnected,
-		walletAddress: address
+		walletAddress: address,
 	};
 }

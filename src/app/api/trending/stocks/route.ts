@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 const TRENDING_ASSETS = [
 	{ symbol: "AAPL", type: "Equities" },
 	{ symbol: "NVDA", type: "Equities" },
@@ -11,7 +9,7 @@ const TRENDING_ASSETS = [
 	{ symbol: "PEP", type: "Equities" },
 	{ symbol: "AMD", type: "Equities" },
 	{ symbol: "TMUS", type: "Equities" },
-	{ symbol: "DIS", type: "Equities" }
+	{ symbol: "DIS", type: "Equities" },
 ];
 
 async function fetchAssetData(symbol: string, type: string) {
@@ -20,7 +18,6 @@ async function fetchAssetData(symbol: string, type: string) {
 		const response = await fetch(url);
 
 		if (!response.ok) {
-			console.error(`Failed to fetch ${symbol}:`, response.status);
 			return { symbol, type, error: "Failed to fetch data" };
 		}
 
@@ -31,14 +28,13 @@ async function fetchAssetData(symbol: string, type: string) {
 			price: data.Price,
 			timestamp: data.Timestamp,
 			source: data.Source,
-			...data
+			...data,
 		};
 	} catch (error) {
-		console.error(`Error fetching ${symbol}:`, error);
 		return {
 			symbol,
 			type,
-			error: error instanceof Error ? error.message : "Unknown error"
+			error: error instanceof Error ? error.message : "Unknown error",
 		};
 	}
 }
@@ -54,15 +50,11 @@ async function fetchStockPrice(symbol: string) {
 		const url = `https://api.diadata.org/v1/rwa/Equities/${symbol}`;
 		const response = await fetch(url, {
 			headers: {
-				"Content-Type": "application/json"
-			}
+				"Content-Type": "application/json",
+			},
 		});
 
 		if (!response.ok) {
-			console.error(
-				`Failed to fetch stock price for ${symbol}:`,
-				response.status
-			);
 			throw new Error(`Failed to fetch price for ${symbol}`);
 		}
 
@@ -75,15 +67,13 @@ async function fetchStockPrice(symbol: string) {
 			timestamp: data.Timestamp,
 			source: data.Source,
 			priceUsd: data.Price, // For position API compatibility
-			lastUpdate: new Date(data.Timestamp).toISOString()
+			lastUpdate: new Date(data.Timestamp).toISOString(),
 		};
 	} catch (error) {
-		console.error(`Error fetching stock price for ${symbol}:`, error);
 		return {
 			success: false,
 			symbol,
-			error:
-				error instanceof Error ? error.message : "Failed to fetch price"
+			error: error instanceof Error ? error.message : "Failed to fetch price",
 		};
 	}
 }
@@ -101,9 +91,9 @@ export async function GET(req: Request) {
 			return Response.json(
 				{
 					error: "Failed to fetch stock price",
-					details: priceData.error
+					details: priceData.error,
 				},
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 
@@ -113,24 +103,20 @@ export async function GET(req: Request) {
 	// Default: fetch trending stocks
 	try {
 		const stocksDetails = await Promise.all(
-			TRENDING_ASSETS.map((asset) =>
-				fetchAssetData(asset.symbol, asset.type)
-			)
+			TRENDING_ASSETS.map((asset) => fetchAssetData(asset.symbol, asset.type)),
 		);
 
 		return Response.json({
 			data: stocksDetails,
-			timestamp: new Date().toISOString()
+			timestamp: new Date().toISOString(),
 		});
 	} catch (error) {
-		console.error("Error in trending stocks endpoint:", error);
 		return Response.json(
 			{
 				error: "Failed to fetch trending stocks",
-				message:
-					error instanceof Error ? error.message : "Unknown error"
+				message: error instanceof Error ? error.message : "Unknown error",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

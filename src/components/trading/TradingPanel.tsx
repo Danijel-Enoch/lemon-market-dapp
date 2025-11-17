@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TradingForm } from "./TradingForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { TradingForm } from "./TradingForm";
 
 const leverageOptions = ["1x", "2x", "3x", "4x", "Max"];
 

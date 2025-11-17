@@ -29,25 +29,22 @@
  * GET /api/position/create - Health check and API info
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
 	createPublicClient,
 	createWalletClient,
-	http,
 	encodeFunctionData,
 	encodePacked,
+	http,
 	keccak256,
 	parseUnits,
-	recoverMessageAddress
+	recoverMessageAddress,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { hardhat, localhost, sepolia } from "viem/chains";
-import { SyntheticPerpetualContract, SyntheticAbi } from "@/lib/contracts";
+import { sepolia } from "viem/chains";
+import { SyntheticAbi, SyntheticPerpetualContract } from "@/lib/contracts";
 import { getTokenPriceService } from "@/lib/token-price-service";
-import {
-	calculateVirtualFunding,
-	calculateVirtualFundingForMarket
-} from "@/lib/volatility-utils";
+import { calculateVirtualFundingForMarket } from "@/lib/volatility-utils";
 
 // Types for the API request and response
 interface CreatePositionRequest {
@@ -82,31 +79,24 @@ interface CreatePositionResponse {
 // Initialize clients
 const publicClient = createPublicClient({
 	chain: sepolia,
-	transport: http()
+	transport: http(),
 });
 
 // Helper function to create oracle signature
-async function signOracleData(
-	oracleData: OracleData,
-	traderAddress: string
-): Promise<string> {
+async function signOracleData(oracleData: OracleData, traderAddress: string): Promise<string> {
 	const privateKey = process.env.ADMIN_PRIVATE_KEY as `0x${string}`;
 
 	if (!privateKey) {
 		throw new Error("Admin private key not found");
 	}
 
-	console.log("Using admin private key for signing:", privateKey);
-
 	const account = privateKeyToAccount(privateKey);
 
 	const walletClient = createWalletClient({
 		account,
 		chain: sepolia, // Match the chain used for the client
-		transport: http()
+		transport: http(),
 	});
-
-	console.log({ oracleData, traderAddress });
 
 	// Updated format without volatilityTier
 	const message = encodePacked(
@@ -117,31 +107,18 @@ async function signOracleData(
 			oracleData.timestamp,
 			oracleData.nonce,
 			oracleData.virtualFunding,
-			traderAddress as `0x${string}` // This is the trader address, not admin address!
-		]
+			traderAddress as `0x${string}`, // This is the trader address, not admin address!
+		],
 	);
 
-	console.log("Signing oracle data (updated format):");
-	console.log("- Token:", oracleData.tokenSymbol);
-	console.log("- Price:", oracleData.price.toString());
-	console.log("- Timestamp:", oracleData.timestamp.toString());
-	console.log("- Nonce:", oracleData.nonce.toString());
-	console.log("- Virtual Funding:", oracleData.virtualFunding.toString());
-	console.log("- Trader address:", traderAddress);
-	console.log("- Admin signer address:", account.address);
-	console.log("- Message to sign:", message);
-
 	const messageHash = keccak256(message);
-	console.log("- Message hash:", messageHash);
 
 	// Use signMessage (not sign) to match ethers.signMessage behavior
 	// This adds the Ethereum signed message prefix like the test does
 	const signature = await walletClient.signMessage({
 		account,
-		message: { raw: messageHash }
+		message: { raw: messageHash },
 	});
-
-	console.log("Generated signature:", signature);
 	return signature;
 }
 
@@ -153,7 +130,7 @@ function generateNonce(): bigint {
 }
 
 // Helper function to validate token symbol
-function isValidTokenSymbol(symbol: string): boolean {
+function _isValidTokenSymbol(symbol: string): boolean {
 	// Basic validation for token symbols (alphanumeric, 1-10 characters)
 	return /^[A-Za-z0-9]{1,10}$/.test(symbol);
 }
@@ -163,7 +140,7 @@ async function verifySignatureLocallyWithTrader(
 	oracleData: OracleData,
 	signature: string,
 	expectedSigner: `0x${string}`,
-	traderAddress: string
+	traderAddress: string,
 ): Promise<boolean> {
 	try {
 		// Match the exact format: oracle data + trader address (updated format)
@@ -175,8 +152,8 @@ async function verifySignatureLocallyWithTrader(
 				oracleData.timestamp,
 				oracleData.nonce,
 				oracleData.virtualFunding,
-				traderAddress as `0x${string}`
-			]
+				traderAddress as `0x${string}`,
+			],
 		);
 
 		const messageHash = keccak256(message);
@@ -184,21 +161,11 @@ async function verifySignatureLocallyWithTrader(
 		// Try to recover the signer address from the signature
 		const recoveredAddress = await recoverMessageAddress({
 			message: { raw: messageHash },
-			signature: signature as `0x${string}`
+			signature: signature as `0x${string}`,
 		});
 
-		console.log("Local signature verification:");
-		console.log("- Expected signer:", expectedSigner);
-		console.log("- Recovered address:", recoveredAddress);
-		console.log("- Trader address in message:", traderAddress);
-		console.log(
-			"- Signature valid:",
-			recoveredAddress.toLowerCase() === expectedSigner.toLowerCase()
-		);
-
 		return recoveredAddress.toLowerCase() === expectedSigner.toLowerCase();
-	} catch (error) {
-		console.error("Local signature verification failed:", error);
+	} catch (_error) {
 		return false;
 	}
 }
@@ -214,7 +181,7 @@ async function checkMarketAndLiquidity(tokenSymbol: string): Promise<{
 			address: SyntheticPerpetualContract,
 			abi: SyntheticAbi,
 			functionName: "virtualMarketExists",
-			args: [tokenSymbol.toUpperCase()]
+			args: [tokenSymbol.toUpperCase()],
 		})) as boolean;
 
 		// Get available liquidity using the formula: availableLiquidity = totalLiquidity - totalAllocatedLiquidity
@@ -222,50 +189,34 @@ async function checkMarketAndLiquidity(tokenSymbol: string): Promise<{
 			address: SyntheticPerpetualContract,
 			abi: SyntheticAbi,
 			functionName: "totalLiquidity",
-			args: []
+			args: [],
 		})) as bigint;
 
 		const totalAllocatedLiquidity = (await publicClient.readContract({
 			address: SyntheticPerpetualContract,
 			abi: SyntheticAbi,
 			functionName: "totalAllocatedLiquidity",
-			args: []
+			args: [],
 		})) as bigint;
 
 		const availableLiquidity = totalLiquidity - totalAllocatedLiquidity;
 
-		console.log(`Market check for ${tokenSymbol}:`);
-		console.log(`- Market exists: ${marketExists}`);
-		console.log(`- Total liquidity: ${totalLiquidity.toString()}`);
-		console.log(
-			`- Total allocated liquidity: ${totalAllocatedLiquidity.toString()}`
-		);
-		console.log(`- Available liquidity: ${availableLiquidity.toString()}`);
-
 		return { marketExists, availableLiquidity };
-	} catch (error) {
-		console.error("Error checking market and liquidity:", error);
+	} catch (_error) {
 		// If we can't check, assume market exists to be safe (virtual funding = 0)
 		return { marketExists: true, availableLiquidity: BigInt(0) };
 	}
 }
 
 export async function POST(request: NextRequest) {
-	console.log("Received create position request");
 	try {
 		const body: CreatePositionRequest = await request.json();
 
 		// Validate request parameters
-		if (
-			!body.tokenSymbol ||
-			!body.userAddress ||
-			!body.margin ||
-			body.leverage === undefined
-		) {
-			console.log("Missing required parameters");
+		if (!body.tokenSymbol || !body.userAddress || !body.margin || body.leverage === undefined) {
 			return NextResponse.json(
 				{ success: false, error: "Missing required parameters" },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
@@ -280,40 +231,33 @@ export async function POST(request: NextRequest) {
 
 		// Validate user address format
 		if (!/^0x[a-fA-F0-9]{40}$/.test(body.userAddress)) {
-			console.log("Invalid user address format");
 			return NextResponse.json(
 				{ success: false, error: "Invalid user address format" },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 		if (!/^0x[a-fA-F0-9]{40}$/.test(body.tokenAddress)) {
-			console.log("Invalid token address format");
 			return NextResponse.json(
 				{ success: false, error: "Invalid token address format" },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
 		// Validate leverage bounds (check contract MAX_LEVERAGE)
 		if (body.leverage <= 0 || body.leverage > 100) {
-			console.log("Invalid leverage value");
 			return NextResponse.json(
 				{
 					success: false,
-					error: "Invalid leverage value. Must be between 1 and 100"
+					error: "Invalid leverage value. Must be between 1 and 100",
 				},
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
 		// Validate margin amount
 		const marginAmount = parseFloat(body.margin);
-		if (isNaN(marginAmount) || marginAmount <= 0) {
-			console.log("Invalid margin amount");
-			return NextResponse.json(
-				{ success: false, error: "Invalid margin amount" },
-				{ status: 400 }
-			);
+		if (Number.isNaN(marginAmount) || marginAmount <= 0) {
+			return NextResponse.json({ success: false, error: "Invalid margin amount" }, { status: 400 });
 		}
 
 		// Fetch current price from oracle
@@ -321,24 +265,17 @@ export async function POST(request: NextRequest) {
 		try {
 			// Use the token price service to get current token price
 			const tokenPriceService = getTokenPriceService();
-			tokenPrice = await tokenPriceService.getTokenPriceWithAddress(
-				body.tokenAddress
-			);
+			tokenPrice = await tokenPriceService.getTokenPriceWithAddress(body.tokenAddress);
 
 			if (tokenPrice) {
-				console.log(
-					`Successfully fetched price: $${tokenPrice.data?.averagePriceUSD} for ${body.tokenSymbol}`,
-					`(source: ${tokenPrice.data?.bestPrice?.dex}, confidence: ${tokenPrice.data?.bestPrice?.success})`
-				);
 			}
-		} catch (error) {
-			console.error("Oracle price fetch error:", error);
+		} catch (_error) {
 			return NextResponse.json(
 				{
 					success: false,
-					error: "Failed to fetch current token price"
+					error: "Failed to fetch current token price",
 				},
-				{ status: 503 }
+				{ status: 503 },
 			);
 		}
 
@@ -350,9 +287,9 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json(
 				{
 					success: false,
-					error: `Unable to get valid price for token: ${body.tokenSymbol}`
+					error: `Unable to get valid price for token: ${body.tokenSymbol}`,
 				},
-				{ status: 500 }
+				{ status: 500 },
 			);
 		}
 
@@ -365,48 +302,22 @@ export async function POST(request: NextRequest) {
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
 		// Check if market exists and get available liquidity to calculate virtual funding
-		const { marketExists, availableLiquidity } =
-			await checkMarketAndLiquidity(body.tokenSymbol);
-
-		console.log(
-			`Calculating virtual funding for ${body.tokenSymbol}...`,
-			`Market exists: ${marketExists}, Available liquidity: ${availableLiquidity.toString()}`
-		);
+		const { marketExists, availableLiquidity } = await checkMarketAndLiquidity(body.tokenSymbol);
 
 		// Calculate virtual funding based on market existence and available liquidity
-		const virtualFunding = calculateVirtualFundingForMarket(
-			availableLiquidity,
-			marketExists
-		);
-
-		console.log(
-			`Virtual funding calculated for ${
-				body.tokenSymbol
-			}: ${virtualFunding.toString()}`
-		);
+		const virtualFunding = calculateVirtualFundingForMarket(availableLiquidity, marketExists);
 		if (marketExists) {
-			console.log("Market already exists - virtual funding set to zero");
 		} else if (availableLiquidity <= BigInt(0)) {
-			console.log(
-				"No allocatable funds available - virtual funding set to zero"
-			);
 		} else {
-			const masterFund = (availableLiquidity * BigInt(3)) / BigInt(100);
-			console.log(
-				`Master fund amount (3% of ${availableLiquidity.toString()}): ${masterFund.toString()}`
-			);
+			const _masterFund = (availableLiquidity * BigInt(3)) / BigInt(100);
 		}
-		console.log(
-			`Final virtual funding to be used in oracle data: ${virtualFunding.toString()}`
-		);
 
 		const oracleData: OracleData = {
-			tokenSymbol:
-				body.tokenSymbol.toUpperCase() + "_PERP_" + body.tokenAddress,
+			tokenSymbol: `${body.tokenSymbol.toUpperCase()}_PERP_${body.tokenAddress}`,
 			price: priceInWei,
 			timestamp: currentTimestamp,
 			nonce: nonce,
-			virtualFunding: virtualFunding
+			virtualFunding: virtualFunding,
 		};
 
 		// Sign the oracle data
@@ -417,18 +328,16 @@ export async function POST(request: NextRequest) {
 			// Verify signature locally for debugging
 			const privateKey = process.env.ADMIN_PRIVATE_KEY as `0x${string}`;
 			const signerAddress = privateKeyToAccount(privateKey).address;
-			const isValid = await verifySignatureLocallyWithTrader(
+			const _isValid = await verifySignatureLocallyWithTrader(
 				oracleData,
 				signature,
 				signerAddress,
-				body.userAddress
+				body.userAddress,
 			);
-			console.log("Local signature verification result:", isValid);
-		} catch (error) {
-			console.error("Oracle signing error:", error);
+		} catch (_error) {
 			return NextResponse.json(
 				{ success: false, error: "Failed to sign oracle data" },
-				{ status: 500 }
+				{ status: 500 },
 			);
 		}
 
@@ -451,16 +360,15 @@ export async function POST(request: NextRequest) {
 						price: oracleData.price,
 						timestamp: oracleData.timestamp,
 						nonce: oracleData.nonce,
-						virtualFunding: oracleData.virtualFunding
+						virtualFunding: oracleData.virtualFunding,
 					},
-					signature
-				]
+					signature,
+				],
 			});
-		} catch (error) {
-			console.error("Calldata encoding error:", error);
+		} catch (_error) {
 			return NextResponse.json(
 				{ success: false, error: "Failed to encode transaction data" },
-				{ status: 500 }
+				{ status: 500 },
 			);
 		}
 
@@ -470,10 +378,9 @@ export async function POST(request: NextRequest) {
 			gasEstimate = await publicClient.estimateGas({
 				account: body.userAddress as `0x${string}`,
 				to: SyntheticPerpetualContract as `0x${string}`,
-				data: calldata
+				data: calldata,
 			});
-		} catch (error) {
-			console.warn("Gas estimation failed:", error);
+		} catch (_error) {
 			// Gas estimation failure is not critical, continue without it
 		}
 
@@ -483,23 +390,18 @@ export async function POST(request: NextRequest) {
 				to: SyntheticPerpetualContract,
 				data: calldata,
 				value: "0x0", // No ETH value needed
-				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined
-			}
+				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined,
+			},
 		};
 
 		return NextResponse.json(response);
 	} catch (error) {
-		console.error("Error creating position:", error);
-
 		return NextResponse.json(
 			{
 				success: false,
-				error:
-					error instanceof Error
-						? error.message
-						: "Internal server error"
+				error: error instanceof Error ? error.message : "Internal server error",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -514,9 +416,7 @@ export async function GET() {
 		let blockNumber: bigint | null = null;
 		try {
 			blockNumber = await publicClient.getBlockNumber();
-		} catch (error) {
-			console.error("Blockchain connection error:", error);
-		}
+		} catch (_error) {}
 
 		return NextResponse.json({
 			success: true,
@@ -528,7 +428,7 @@ export async function GET() {
 			currentBlock: blockNumber?.toString(),
 			endpoints: {
 				create: "POST /api/position/create",
-				healthCheck: "GET /api/position/create"
+				healthCheck: "GET /api/position/create",
 			},
 			requiredParams: {
 				tokenSymbol: 'string (e.g., "ETH", "BTC")',
@@ -536,17 +436,17 @@ export async function GET() {
 				margin: "string (amount in USDC)",
 				leverage: "number (1-100)",
 				userAddress: "string (0x...)",
-				pairAddress: "string (optional, for accurate pricing)"
-			}
+				pairAddress: "string (optional, for accurate pricing)",
+			},
 		});
 	} catch (error) {
 		return NextResponse.json(
 			{
 				success: false,
 				status: "unhealthy",
-				error: error instanceof Error ? error.message : "Unknown error"
+				error: error instanceof Error ? error.message : "Unknown error",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

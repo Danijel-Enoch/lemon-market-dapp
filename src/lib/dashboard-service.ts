@@ -1,4 +1,3 @@
-import { getTokenPriceService } from "./token-price-service";
 
 // Utility function for making fetch requests with timeout
 async function fetchWithTimeout(
@@ -37,9 +36,7 @@ export interface DashboardStats {
 /**
  * Fetch user's referral code from API
  */
-export async function getUserReferralCode(
-	address: string
-): Promise<string | null> {
+export async function getUserReferralCode(address: string): Promise<string | null> {
 	try {
 		const response = await fetchWithTimeout(
 			`/api/referral/code?address=${address}`
@@ -47,8 +44,7 @@ export async function getUserReferralCode(
 		if (!response.ok) return null;
 		const data = await response.json();
 		return data.code || null;
-	} catch (error) {
-		console.error("Error fetching referral code:", error);
+	} catch (_error) {
 		return null;
 	}
 }
@@ -56,20 +52,17 @@ export async function getUserReferralCode(
 /**
  * Create a new referral code for the user
  */
-export async function createReferralCode(
-	address: string
-): Promise<string | null> {
+export async function createReferralCode(address: string): Promise<string | null> {
 	try {
 		const response = await fetch("/api/referral/create", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ address })
+			body: JSON.stringify({ address }),
 		});
 		if (!response.ok) return null;
 		const data = await response.json();
 		return data.code || null;
-	} catch (error) {
-		console.error("Error creating referral code:", error);
+	} catch (_error) {
 		return null;
 	}
 }
@@ -89,7 +82,7 @@ export async function getUserPoints(address: string): Promise<number> {
 		if (!response.ok) return 0;
 		const data = await response.json();
 		console.log("Points data:", data);
-		return data.points;
+		return data.points || 0;
 	} catch (error) {
 		console.error("Error fetching points:", error);
 		return 0;
@@ -107,8 +100,7 @@ export async function getUserFeesEarned(address: string): Promise<number> {
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.feesEarned || 0;
-	} catch (error) {
-		console.error("Error fetching fees:", error);
+	} catch (_error) {
 		return 0;
 	}
 }
@@ -124,8 +116,7 @@ export async function getUserTradingVolume(address: string): Promise<number> {
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.volume || 0;
-	} catch (error) {
-		console.error("Error fetching trading volume:", error);
+	} catch (_error) {
 		return 0;
 	}
 }
@@ -169,8 +160,7 @@ export async function getUserLeaderboardRank(address: string): Promise<number> {
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.rank || 0;
-	} catch (error) {
-		console.error("Error fetching leaderboard rank:", error);
+	} catch (_error) {
 		return 0;
 	}
 }
@@ -188,10 +178,10 @@ export function formatNumber(
 	}
 
 	if (num >= 1e6) {
-		return (num / 1e6).toFixed(decimals) + "M";
+		return `${(num / 1e6).toFixed(decimals)}M`;
 	}
 	if (num >= 1e3) {
-		return (num / 1e3).toFixed(decimals) + "K";
+		return `${(num / 1e3).toFixed(decimals)}K`;
 	}
 	return num.toFixed(decimals);
 }
@@ -199,12 +189,6 @@ export function formatNumber(
 /**
  * Format currency for display
  */
-export function formatCurrency(
-	amount: number,
-	symbol = "$",
-	decimals = 2
-): string {
-	return (
-		symbol + amount.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-	);
+export function formatCurrency(amount: number, symbol = "$", decimals = 2): string {
+	return symbol + amount.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }

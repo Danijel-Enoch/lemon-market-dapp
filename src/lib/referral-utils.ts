@@ -56,10 +56,7 @@ export function initializeReferralTracking(): void {
 /**
  * Generate a shareable referral URL
  */
-export function generateReferralUrl(
-	baseUrl: string,
-	referralCode: string
-): string {
+export function generateReferralUrl(baseUrl: string, referralCode: string): string {
 	const url = new URL(baseUrl);
 	url.searchParams.set(REFERRAL_PARAM, referralCode);
 	return url.toString();

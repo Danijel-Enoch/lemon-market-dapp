@@ -4,8 +4,8 @@
  * Utilities for handling multi-chain support in the Lemon Markets application
  */
 
-import { base, bsc, mainnet, sepolia } from "wagmi/chains";
 import type { Chain } from "wagmi/chains";
+import { base, bsc, mainnet, sepolia } from "wagmi/chains";
 
 export interface ChainInfo {
 	id: number;
@@ -27,7 +27,7 @@ export const SUPPORTED_CHAIN_INFO: Record<number, ChainInfo> = {
 		symbol: "ETH",
 		icon: "https://cryptologos.cc/logos/ethereum-eth-logo.svg",
 		explorerUrl: "https://etherscan.io",
-		isTestnet: false
+		isTestnet: false,
 	},
 	8453: {
 		id: 8453,
@@ -36,7 +36,7 @@ export const SUPPORTED_CHAIN_INFO: Record<number, ChainInfo> = {
 		symbol: "ETH",
 		icon: "https://avatars.githubusercontent.com/u/108554348?s=280&v=4",
 		explorerUrl: "https://basescan.org",
-		isTestnet: false
+		isTestnet: false,
 	},
 	56: {
 		id: 56,
@@ -45,7 +45,7 @@ export const SUPPORTED_CHAIN_INFO: Record<number, ChainInfo> = {
 		symbol: "BNB",
 		icon: "https://cryptologos.cc/logos/bnb-bnb-logo.svg",
 		explorerUrl: "https://bscscan.com",
-		isTestnet: false
+		isTestnet: false,
 	},
 	11155111: {
 		id: 11155111,
@@ -54,8 +54,8 @@ export const SUPPORTED_CHAIN_INFO: Record<number, ChainInfo> = {
 		symbol: "ETH",
 		icon: "https://cryptologos.cc/logos/ethereum-eth-logo.svg",
 		explorerUrl: "https://sepolia.etherscan.io",
-		isTestnet: true
-	}
+		isTestnet: true,
+	},
 };
 
 // Map of wagmi chains to our chain info
@@ -63,7 +63,7 @@ export const WAGMI_CHAIN_MAP: Record<number, Chain> = {
 	1: mainnet,
 	8453: base,
 	56: bsc,
-	11155111: sepolia
+	11155111: sepolia,
 };
 
 /**
@@ -84,18 +84,14 @@ export function getAllSupportedChains(): ChainInfo[] {
  * Get production chains only (excluding testnets)
  */
 export function getProductionChains(): ChainInfo[] {
-	return Object.values(SUPPORTED_CHAIN_INFO).filter(
-		(chain) => !chain.isTestnet
-	);
+	return Object.values(SUPPORTED_CHAIN_INFO).filter((chain) => !chain.isTestnet);
 }
 
 /**
  * Get testnet chains only
  */
 export function getTestnetChains(): ChainInfo[] {
-	return Object.values(SUPPORTED_CHAIN_INFO).filter(
-		(chain) => chain.isTestnet
-	);
+	return Object.values(SUPPORTED_CHAIN_INFO).filter((chain) => chain.isTestnet);
 }
 
 /**
@@ -132,10 +128,7 @@ export function getChainExplorerUrl(hash: string, chainId: number): string {
 /**
  * Get explorer URL for an address
  */
-export function getChainAddressExplorerUrl(
-	address: string,
-	chainId: number
-): string {
+export function getChainAddressExplorerUrl(address: string, chainId: number): string {
 	const chainInfo = getChainInfo(chainId);
 	const explorerUrl = chainInfo?.explorerUrl || "https://etherscan.io";
 	return `${explorerUrl}/address/${address}`;

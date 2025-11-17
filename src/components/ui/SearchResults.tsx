@@ -1,16 +1,11 @@
 "use client";
 
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-	Loader2,
-	ArrowUpRight,
-	ArrowDownRight,
-	ExternalLink
-} from "lucide-react";
 import { TokenImage } from "@/components/ui/TokenImage";
-import { type SearchResult } from "@/lib/search-service";
+import type { SearchResult } from "@/lib/search-service";
 
 interface SearchResultsProps {
 	results: SearchResult[];
@@ -25,7 +20,7 @@ export function SearchResults({
 	isLoading,
 	error,
 	query,
-	onTradeClick
+	onTradeClick,
 }: SearchResultsProps) {
 	const formatPrice = (price: string) => {
 		const num = parseFloat(price);
@@ -34,7 +29,7 @@ export function SearchResults({
 		if (num < 1) return `$${num.toFixed(4)}`;
 		return `$${num.toLocaleString(undefined, {
 			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
+			maximumFractionDigits: 2,
 		})}`;
 	};
 
@@ -165,15 +160,9 @@ export function SearchResults({
 								>
 									<td className="p-3">
 										<div className="flex items-center gap-3">
-											<TokenImage
-												src={result.imageUrl}
-												symbol={result.symbol}
-												size={32}
-											/>
+											<TokenImage src={result.imageUrl} symbol={result.symbol} size={32} />
 											<div>
-												<div className="font-medium text-foreground">
-													{result.symbol}
-												</div>
+												<div className="font-medium text-foreground">{result.symbol}</div>
 												<div className="text-xs text-muted-foreground truncate max-w-[120px]">
 													{result.name}
 												</div>
@@ -189,45 +178,30 @@ export function SearchResults({
 
 									<td className="p-3">
 										<div
-											className={`flex items-center gap-1 ${getChangeColor(
-												result.priceChange24h
-											)}`}
+											className={`flex items-center gap-1 ${getChangeColor(result.priceChange24h)}`}
 										>
-											{parseFloat(result.priceChange24h) >
-											0 ? (
+											{parseFloat(result.priceChange24h) > 0 ? (
 												<ArrowUpRight className="w-3 h-3" />
-											) : parseFloat(
-													result.priceChange24h
-											  ) < 0 ? (
+											) : parseFloat(result.priceChange24h) < 0 ? (
 												<ArrowDownRight className="w-3 h-3" />
 											) : null}
-											{formatChange(
-												result.priceChange24h
-											)}
+											{formatChange(result.priceChange24h)}
 										</div>
 									</td>
 
-									<td className="p-3 text-muted-foreground">
-										{formatVolume(result.volume24h)}
-									</td>
+									<td className="p-3 text-muted-foreground">{formatVolume(result.volume24h)}</td>
 
-									<td className="p-3 text-muted-foreground">
-										{formatVolume(result.liquidity)}
-									</td>
+									<td className="p-3 text-muted-foreground">{formatVolume(result.liquidity)}</td>
 
 									<td className="p-3">
 										<div className="flex flex-col gap-1">
 											<Badge
 												variant="outline"
-												className={`text-xs w-fit ${getChainBadgeColor(
-													result.chain
-												)}`}
+												className={`text-xs w-fit ${getChainBadgeColor(result.chain)}`}
 											>
 												{result.chain.toUpperCase()}
 											</Badge>
-											<div className="text-xs text-muted-foreground capitalize">
-												{result.dex}
-											</div>
+											<div className="text-xs text-muted-foreground capitalize">{result.dex}</div>
 										</div>
 									</td>
 
@@ -235,9 +209,7 @@ export function SearchResults({
 										<div className="flex items-center gap-2">
 											<Button
 												size="sm"
-												onClick={() =>
-													onTradeClick(result)
-												}
+												onClick={() => onTradeClick(result)}
 												className="bg-primary hover:bg-primary/90 text-black font-medium"
 											>
 												Trade
@@ -248,7 +220,7 @@ export function SearchResults({
 												onClick={() =>
 													window.open(
 														`https://dexscreener.com/${result.chain}/${result.pairAddress}`,
-														"_blank"
+														"_blank",
 													)
 												}
 												className="p-2"
@@ -266,8 +238,7 @@ export function SearchResults({
 				{results.length > 0 && (
 					<div className="p-3 border-t border-gray-100/10 bg-muted/10">
 						<div className="text-xs text-muted-foreground text-center">
-							Found {results.length} results on Base network from
-							DexScreener and GeckoTerminal
+							Found {results.length} results on Base network from DexScreener and GeckoTerminal
 						</div>
 					</div>
 				)}

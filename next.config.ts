@@ -2,23 +2,52 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
 	images: {
-		domains: [
-			"via.placeholder.com",
-			"dd.dexscreener.com",
-			"assets.coingecko.com",
-			"coin-images.coingecko.com",
-			"s2.coinmarketcap.com",
-			"assets.geckoterminal.com"
-		]
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "via.placeholder.com",
+			},
+			{
+				protocol: "https",
+				hostname: "dd.dexscreener.com",
+			},
+			{
+				protocol: "https",
+				hostname: "assets.coingecko.com",
+			},
+			{
+				protocol: "https",
+				hostname: "coin-images.coingecko.com",
+			},
+			{
+				protocol: "https",
+				hostname: "s2.coinmarketcap.com",
+			},
+			{
+				protocol: "https",
+				hostname: "assets.geckoterminal.com",
+			},
+			{
+				protocol: "https",
+				hostname: "cdn.dexscreener.com",
+			},
+		],
 	},
 	typescript: {
 		// Ignore TypeScript errors during build
-		ignoreBuildErrors: true
+		ignoreBuildErrors: true,
 	},
 	eslint: {
 		// Ignore ESLint errors during build
-		ignoreDuringBuilds: true
-	}
+		ignoreDuringBuilds: true,
+	},
+	// Enable React Strict Mode for better development experience
+	reactStrictMode: true,
+	// Ensure Fast Refresh is enabled (default in development)
+	experimental: {
+		// This helps with HMR in some edge cases
+		optimizePackageImports: ["@/components"],
+	},
 };
 
 export default nextConfig;

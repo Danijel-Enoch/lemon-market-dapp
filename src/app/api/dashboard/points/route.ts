@@ -1,14 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
 	const address = request.nextUrl.searchParams.get("address");
 
 	if (!address) {
-		return NextResponse.json(
-			{ error: "Address parameter is required" },
-			{ status: 400 }
-		);
+		return NextResponse.json({ error: "Address parameter is required" }, { status: 400 });
 	}
 
 	try {
@@ -30,13 +27,9 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			points,
-			address
+			address,
 		});
-	} catch (error) {
-		console.error("Error fetching points:", error);
-		return NextResponse.json(
-			{ error: "Failed to fetch points" },
-			{ status: 500 }
-		);
+	} catch (_error) {
+		return NextResponse.json({ error: "Failed to fetch points" }, { status: 500 });
 	}
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { sdk } from "@farcaster/miniapp-sdk";
 import { useCallback } from "react";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
 
@@ -10,32 +9,29 @@ export function useMiniAppActions() {
 	const composeCast = useCallback(
 		async (options: any) => {
 			if (!isMiniApp) {
-				console.warn("Not in Mini App environment");
 				return null;
 			}
 
 			try {
+				const { sdk } = await import("@farcaster/miniapp-sdk");
 				const result = await sdk.actions.composeCast(options);
 				return result;
-			} catch (error) {
-				console.error("Failed to compose cast:", error);
+			} catch (_error) {
 				return null;
 			}
 		},
-		[isMiniApp]
+		[isMiniApp],
 	);
 
 	const addMiniApp = useCallback(async () => {
 		if (!isMiniApp) {
-			console.warn("Not in Mini App environment");
 			return;
 		}
 
 		try {
+			const { sdk } = await import("@farcaster/miniapp-sdk");
 			await sdk.actions.addMiniApp();
-		} catch (error) {
-			console.error("Failed to add Mini App:", error);
-		}
+		} catch (_error) {}
 	}, [isMiniApp]);
 
 	const openUrl = useCallback(
@@ -47,18 +43,17 @@ export function useMiniAppActions() {
 			}
 
 			try {
+				const { sdk } = await import("@farcaster/miniapp-sdk");
 				await sdk.actions.openUrl(url);
-			} catch (error) {
-				console.error("Failed to open URL:", error);
-			}
+			} catch (_error) {}
 		},
-		[isMiniApp]
+		[isMiniApp],
 	);
 
 	return {
 		composeCast,
 		addMiniApp,
 		openUrl,
-		isMiniApp
+		isMiniApp,
 	};
 }

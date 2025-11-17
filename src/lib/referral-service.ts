@@ -43,9 +43,9 @@ export class ReferralService {
 		const response = await fetch(`${this.baseUrl}/api/referral/create`, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json"
+				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ address })
+			body: JSON.stringify({ address }),
 		});
 
 		if (!response.ok) {
@@ -61,17 +61,17 @@ export class ReferralService {
 	 */
 	async redeemReferralCode(
 		address: string,
-		referralCode?: string
+		referralCode?: string,
 	): Promise<RedeemReferralResponse> {
 		const response = await fetch(`${this.baseUrl}/api/referral/redeem`, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json"
+				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
 				address,
-				referralCode: referralCode || undefined
-			})
+				referralCode: referralCode || undefined,
+			}),
 		});
 
 		if (!response.ok) {
@@ -86,9 +86,7 @@ export class ReferralService {
 	 * Get referral statistics for a user
 	 */
 	async getReferralStats(address: string): Promise<ReferralStatsResponse> {
-		const response = await fetch(
-			`${this.baseUrl}/api/referral/stats?address=${address}`
-		);
+		const response = await fetch(`${this.baseUrl}/api/referral/stats?address=${address}`);
 
 		if (!response.ok) {
 			const error = await response.json();
@@ -126,6 +124,4 @@ export class ReferralService {
 }
 
 // Export singleton instance
-export const referralService = new ReferralService(
-	process.env.NEXT_PUBLIC_APP_URL || ""
-);
+export const referralService = new ReferralService(process.env.NEXT_PUBLIC_APP_URL || "");

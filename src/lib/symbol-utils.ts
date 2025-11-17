@@ -14,10 +14,7 @@
  * @param contractAddress - The full contract address
  * @returns Market symbol in format "SYMBOL+0x1234567890abcdef..." (using full address)
  */
-export function createMarketSymbol(
-	symbol: string,
-	contractAddress: string
-): string {
+export function createMarketSymbol(symbol: string, contractAddress: string): string {
 	// Use full contract address for complete uniqueness
 	return `${symbol.toUpperCase()}+${contractAddress}`;
 }
@@ -62,10 +59,7 @@ export function formatTokenSymbolForDisplay(tokenSymbol: string): string {
 		const fullAddress = extractAddressSuffix(tokenSymbol);
 		if (fullAddress && fullAddress.length >= 10) {
 			// Show first 6 and last 4 characters of address for UI display
-			const shortAddress = `${fullAddress.slice(
-				0,
-				6
-			)}...${fullAddress.slice(-4)}`;
+			const shortAddress = `${fullAddress.slice(0, 6)}...${fullAddress.slice(-4)}`;
 			return `${displaySymbol} (${shortAddress})`;
 		}
 	}

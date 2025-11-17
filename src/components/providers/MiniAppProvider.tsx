@@ -1,13 +1,7 @@
 "use client";
 
-import { sdk } from "@farcaster/miniapp-sdk";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useState,
-	type ReactNode
-} from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
+import { useAsync } from "react-use";
 
 // Define the context type based on what sdk.context resolves to
 interface MiniAppUser {
@@ -43,7 +37,7 @@ interface MiniAppStateType {
 
 const MiniAppContextState = createContext<MiniAppStateType>({
 	isMiniApp: false,
-	isLoading: true
+	isLoading: true,
 });
 
 export function useMiniApp() {
@@ -55,40 +49,45 @@ interface MiniAppProviderProps {
 }
 
 export function MiniAppProvider({ children }: MiniAppProviderProps) {
-	const [isMiniApp, setIsMiniApp] = useState(false);
-	const [isLoading, setIsLoading] = useState(true);
 	const [context, setContext] = useState<MiniAppContextData>();
 
-	useEffect(() => {
-		async function initMiniApp() {
-			try {
-				// Check if we're in a Mini App environment
-				const inMiniApp = await sdk.isInMiniApp();
-				setIsMiniApp(inMiniApp);
-
-				if (inMiniApp) {
-					// Get the context
-					const ctx = await sdk.context;
-					setContext(ctx as MiniAppContextData);
-
-					// Signal that the app is ready (hide splash screen)
-					await sdk.actions.ready();
-
-					console.log("Farcaster Mini App initialized", ctx);
-				}
-			} catch (error) {
-				console.error("Failed to initialize Mini App:", error);
-				setIsMiniApp(false);
-			} finally {
-				setIsLoading(false);
-			}
+	const { loading, value } = useAsync(async () => {
+		// Wait until component is mounted and we're in the browser
+		if (typeof window === "undefined") {
+			return false;
 		}
 
-		initMiniApp();
+		// Quick check: Skip SDK initialization on desktop browsers
+		// Farcaster Mini Apps typically run in mobile WebView or have specific user agents
+		const isMobileOrWebView =
+			/Mobile|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+			// Check for common WebView indicators
+			/wv|WebView/i.test(navigator.userAgent) ||
+			// Check if running in Farcaster app (they might set specific properties)
+			"farcasterContext" in window;
+
+		if (!isMobileOrWebView) {
+			return false;
+		}
+		// Dynamically import the SDK only in mobile/WebView environments
+		const { sdk } = await import("@farcaster/miniapp-sdk");
+
+		// Check if we're in a Mini App environment
+		const inMiniApp = await sdk.isInMiniApp();
+
+		if (inMiniApp) {
+			// Get the context
+			const ctx = await sdk.context;
+			setContext(ctx as MiniAppContextData);
+
+			// Signal that the app is ready (hide splash screen)
+			await sdk.actions.ready();
+			return true;
+		}
 	}, []);
 
 	return (
-		<MiniAppContextState.Provider value={{ isMiniApp, isLoading, context }}>
+		<MiniAppContextState.Provider value={{ isMiniApp: !!value, isLoading: loading, context }}>
 			{children}
 		</MiniAppContextState.Provider>
 	);

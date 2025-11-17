@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, memo } from "react";
+import { memo, useEffect, useRef } from "react";
 
 interface TradingViewWidgetProps {
 	symbol: string;
@@ -6,11 +6,7 @@ interface TradingViewWidgetProps {
 	interval?: string;
 }
 
-function TradingViewWidget({
-	symbol,
-	theme = "dark",
-	interval = "D"
-}: TradingViewWidgetProps) {
+function TradingViewWidget({ symbol, theme = "dark", interval = "D" }: TradingViewWidgetProps) {
 	const container = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -20,8 +16,7 @@ function TradingViewWidget({
 		container.current.innerHTML = "";
 
 		const script = document.createElement("script");
-		script.src =
-			"https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+		script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 		script.type = "text/javascript";
 		script.async = true;
 		script.innerHTML = JSON.stringify({
@@ -46,7 +41,7 @@ function TradingViewWidget({
 			withdateranges: false,
 			compareSymbols: [],
 			studies: [],
-			autosize: true
+			autosize: true,
 		});
 
 		container.current.appendChild(script);

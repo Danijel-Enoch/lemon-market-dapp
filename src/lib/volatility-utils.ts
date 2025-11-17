@@ -100,8 +100,8 @@ export function pickRandomFundingAmount(allocations: bigint[]): bigint {
  * your actual virtual funding calculation logic
  */
 export function calculateVirtualFunding(
-	tokenSymbol: string,
-	positionSize: bigint,
+	_tokenSymbol: string,
+	_positionSize: bigint,
 	leverage: number,
 ): bigint {
 	// This is a basic fallback implementation
@@ -120,8 +120,8 @@ export function calculateVirtualFunding(
  * @returns Virtual funding amount
  */
 export function calculateVirtualFundingForMarket(
-	availableLiquidity: bigint,
-	marketExists: boolean,
+	_availableLiquidity: bigint,
+	_marketExists: boolean,
 ): bigint {
 	// If market already exists, virtual funding is zero
 	// if (marketExists) {

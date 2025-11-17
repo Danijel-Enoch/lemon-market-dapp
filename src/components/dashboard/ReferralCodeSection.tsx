@@ -2,10 +2,10 @@
 
 import { Copy, RefreshCw, Link } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
 
 interface ReferralCodeSectionProps {
 	referralCode: string | null;
@@ -16,7 +16,7 @@ interface ReferralCodeSectionProps {
 export function ReferralCodeSection({
 	referralCode,
 	isGenerating,
-	onGenerate
+	onGenerate,
 }: ReferralCodeSectionProps) {
 	const [copied, setCopied] = useState(false);
 	const [linkCopied, setLinkCopied] = useState(false);
@@ -28,7 +28,7 @@ export function ReferralCodeSection({
 			setCopied(true);
 			toast.success("Referral code copied to clipboard!");
 			setTimeout(() => setCopied(false), 2000);
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Failed to copy referral code");
 		}
 	};
@@ -59,19 +59,13 @@ export function ReferralCodeSection({
 	return (
 		<Card className="border-accent/20">
 			<CardHeader className="border-b border-accent/10 pb-4">
-				<CardTitle className="text-base font-semibold">
-					Referral Code
-				</CardTitle>
+				<CardTitle className="text-base font-semibold">Referral Code</CardTitle>
 			</CardHeader>
 			<CardContent className="pt-6">
 				{referralCode ? (
 					<div className="space-y-4">
 						<div className="flex items-center gap-2">
-							<Input
-								value={referralCode}
-								readOnly
-								className="bg-input/50 font-mono text-sm"
-							/>
+							<Input value={referralCode} readOnly className="bg-input/50 font-mono text-sm" />
 							<Button
 								size="icon"
 								variant="outline"
@@ -79,11 +73,7 @@ export function ReferralCodeSection({
 								className="shrink-0"
 								title="Copy referral code"
 							>
-								{copied ? (
-									<span className="text-xs">✓</span>
-								) : (
-									<Copy className="size-4" />
-								)}
+								{copied ? <span className="text-xs">✓</span> : <Copy className="size-4" />}
 							</Button>
 						</div>
 						<div className="space-y-2">
@@ -131,14 +121,9 @@ export function ReferralCodeSection({
 				) : (
 					<div className="space-y-4">
 						<p className="text-sm text-muted-foreground">
-							Create your unique referral code to start earning
-							rewards when your friends trade!
+							Create your unique referral code to start earning rewards when your friends trade!
 						</p>
-						<Button
-							onClick={handleGenerateCode}
-							disabled={isGenerating}
-							className="w-full"
-						>
+						<Button onClick={handleGenerateCode} disabled={isGenerating} className="w-full">
 							{isGenerating ? (
 								<>
 									<RefreshCw className="size-4 animate-spin" />

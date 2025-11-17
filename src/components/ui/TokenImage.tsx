@@ -14,7 +14,7 @@ export function TokenImage({
 	src,
 	symbol,
 	size = 32,
-	className = "rounded-full"
+	className = "rounded-full",
 }: TokenImageProps) {
 	const [imageError, setImageError] = useState(false);
 
@@ -26,7 +26,7 @@ export function TokenImage({
 				style={{
 					width: size,
 					height: size,
-					fontSize: `${size * 0.4}px`
+					fontSize: `${size * 0.4}px`,
 				}}
 			>
 				{symbol.slice(0, 2).toUpperCase()}

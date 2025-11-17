@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // Generate a random alphanumeric referral code
@@ -20,17 +20,14 @@ export async function POST(request: NextRequest) {
 		console.log("address", address);
 
 		if (!address) {
-			return NextResponse.json(
-				{ error: "Address is required" },
-				{ status: 400 }
-			);
+			return NextResponse.json({ error: "Address is required" }, { status: 400 });
 		}
 
 		const normalizedAddress = address.toLowerCase();
 
 		// Check if user already exists
 		let user = await prisma.user.findUnique({
-			where: { address: normalizedAddress }
+			where: { address: normalizedAddress },
 		});
 
 		// If user doesn't exist, create them
@@ -66,14 +63,11 @@ export async function POST(request: NextRequest) {
 
 			// Find referrer
 			const referrer = await prisma.user.findUnique({
-				where: { referralCode }
+				where: { referralCode },
 			});
 
 			if (!referrer) {
-				return NextResponse.json(
-					{ error: "Invalid referral code" },
-					{ status: 400 }
-				);
+				return NextResponse.json({ error: "Invalid referral code" }, { status: 400 });
 			}
 
 			// Check if user trying to refer themselves
@@ -101,8 +95,8 @@ export async function POST(request: NextRequest) {
 				data: {
 					referrerId: referrer.id,
 					referredAddress: normalizedAddress,
-					pointsAwarded: true
-				}
+					pointsAwarded: true,
+				},
 			});
 
 			console.log("Referral processed successfully:");

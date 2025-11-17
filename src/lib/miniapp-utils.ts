@@ -11,8 +11,7 @@ interface EmbedOptions {
 }
 
 export function generateMiniAppEmbed(options: EmbedOptions) {
-	const baseUrl =
-		process.env.NEXT_PUBLIC_APP_URL || "https://lemon-loopa-ui.vercel.app";
+	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lemon-loopa-ui.vercel.app";
 
 	return {
 		version: "1" as const,
@@ -24,32 +23,27 @@ export function generateMiniAppEmbed(options: EmbedOptions) {
 				name: "Lemon Markets",
 				url: options.url || baseUrl,
 				splashImageUrl: `${baseUrl}/image/logo.png`,
-				splashBackgroundColor: "#000000"
-			}
-		}
+				splashBackgroundColor: "#000000",
+			},
+		},
 	};
 }
 
-export function generateMetadata(
-	options: EmbedOptions & { pageTitle?: string }
-) {
+export function generateMetadata(options: EmbedOptions & { pageTitle?: string }) {
 	const embed = generateMiniAppEmbed(options);
 
 	return {
 		title: options.pageTitle || options.title,
-		description:
-			options.description || "Trade perpetual futures on Lemon Markets",
+		description: options.description || "Trade perpetual futures on Lemon Markets",
 		other: {
 			"fc:miniapp": JSON.stringify(embed),
-			"fc:frame": JSON.stringify(embed)
+			"fc:frame": JSON.stringify(embed),
 		},
 		openGraph: {
 			title: options.pageTitle || options.title,
-			description:
-				options.description ||
-				"Trade perpetual futures on Lemon Markets",
-			images: [embed.imageUrl]
-		}
+			description: options.description || "Trade perpetual futures on Lemon Markets",
+			images: [embed.imageUrl],
+		},
 	};
 }
 
