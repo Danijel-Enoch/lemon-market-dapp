@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { CTASection } from "@/components/homepage/CTASection";
 import { FAQSection } from "@/components/homepage/FAQSection";
 import { FeaturesSection } from "@/components/homepage/FeaturesSection";
@@ -8,12 +7,11 @@ import { RoadmapSection } from "@/components/homepage/RoadmapSection";
 import { TestimonialsSection } from "@/components/homepage/TestimonialsSection";
 import { TrendingCoinsSection } from "@/components/homepage/TrendingCoinsSection";
 import { VideoSection } from "@/components/homepage/VideoSection";
-
 export default function Homepage() {
 	return (
 		<main className="bg-black text-white">
 			<HeroSection />
-			<section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
+			{/* <section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
 				<div className="flex items-center justify-center gap-6 opacity-80">
 					<Image
 						src="/assets/homepage/partner-1.png"
@@ -37,7 +35,7 @@ export default function Homepage() {
 						style={{ width: "auto", height: "auto" }}
 					/>
 				</div>
-			</section>
+			</section> */}
 			<TrendingCoinsSection />
 			<FeaturesSection />
 			<TestimonialsSection />
