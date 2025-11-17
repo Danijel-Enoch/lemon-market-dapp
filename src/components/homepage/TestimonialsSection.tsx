@@ -144,6 +144,7 @@ export const TestimonialsSection: FC = () => {
 								))}
 						</div>
 					</div>
+					<div className="absolute inset-x-0 top-0 h-[40%] [background:linear-gradient(to_top,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_60%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
 					<div className="absolute inset-x-0 bottom-0 h-[40%] [background:linear-gradient(to_bottom,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_60%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
 				</div>
 			</div>

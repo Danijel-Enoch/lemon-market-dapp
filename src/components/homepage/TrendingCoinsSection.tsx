@@ -174,11 +174,8 @@ export const TrendingCoinsSection: FC = () => {
 	];
 
 	return (
-		<section className="relative w-full">
+		<section className="relative w-full overflow-hidden">
 			<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center">
-				<div className="absolute inset-y-0 left-0 w-[351px] h-[273px] bg-[linear-gradient(90deg,#000_0%,#000000eb_100%)] blur-[20px]" />
-				<div className="absolute inset-y-0 right-0 w-[352px] h-[273px] rotate-180 bg-[linear-gradient(90deg,#000_0%,#000000eb_100%)] blur-[20px]" />
-
 				<div className="inline-flex items-center gap-5 ml-[152px] mr-[34px]">
 					{top.map((p, i) => (
 						<PillItem key={`top-${i}`} {...p} />
@@ -191,6 +188,8 @@ export const TrendingCoinsSection: FC = () => {
 					))}
 				</div>
 			</div>
+			<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
+			<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 		</section>
 	);
 };
