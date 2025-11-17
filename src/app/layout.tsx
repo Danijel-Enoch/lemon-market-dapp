@@ -5,7 +5,6 @@ import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
 import { ReferralInitializer } from "@/components/providers/ReferralInitializer";
 import { ToastProvider } from "@/components/providers/ToastProvider";
-import { WalletProvider } from "@/components/providers/WalletProvider";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
@@ -71,14 +70,12 @@ export default function RootLayout({
 			>
 				<MiniAppProvider>
 					<ToastProvider>
-						<WalletProvider>
-							<AppProvider>
-								<ReferralInitializer />
-								<BProgressProvider />
-								<Header />
-								{children}
-							</AppProvider>
-						</WalletProvider>
+						<AppProvider>
+							<ReferralInitializer />
+							<BProgressProvider />
+							<Header />
+							{children}
+						</AppProvider>
 					</ToastProvider>
 				</MiniAppProvider>
 			</body>

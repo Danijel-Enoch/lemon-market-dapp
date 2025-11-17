@@ -13,14 +13,16 @@ type Pill = {
 };
 
 const basePill =
-	"flex shrink-0 items-start justify-between border-2 border-[#686868] rounded-4xl bg-[#0a0a0a] overflow-hidden backdrop-blur-md";
+	"flex shrink-0 items-center justify-between border-2 border-[#686868] rounded-4xl bg-[#0a0a0a] backdrop-blur-md";
 
 const Title = ({ children }: { children: string }) => (
-	<p className="text-[15px] leading-[18px] font-semibold text-white">{children}</p>
+	<span className="text-xs font-semibold text-white whitespace-nowrap">{children}</span>
 );
 
 const Sub = ({ children, color = "#dedede" }: { children: string; color?: string }) => (
-	<p className={cn("text-[13px] leading-[16px] font-semibold", `text-[${color}]`)}>{children}</p>
+	<span className={cn("text-sm font-semibold", `text-[${color}]`)}>
+		{children}
+	</span>
 );
 
 const Change = ({ value, color }: { value: string; color?: Pill["changeColor"] }) => {
@@ -30,14 +32,9 @@ const Change = ({ value, color }: { value: string; color?: Pill["changeColor"] }
 		gray: "text-[#dedede]",
 	};
 	return (
-		<p
-			className={cn(
-				"text-[13px] leading-[16px] font-semibold",
-				color ? map[color] : "text-[#dedede]",
-			)}
-		>
+		<span className={cn("text-sm font-semibold", color ? map[color] : "text-[#dedede]")}>
 			{value}
-		</p>
+		</span>
 	);
 };
 
@@ -46,17 +43,14 @@ const PillItem: FC<Pill> = ({
 	title,
 	price,
 	change,
-	changeColor = "gray",
 	width,
+	changeColor = "gray",
 	largeIcon,
 }) => {
 	return (
 		<div
-			className={cn(basePill, largeIcon ? "px-3 py-2" : "px-3.5 py-2")}
-			style={{
-				width: width ? `${width}px` : undefined,
-				minWidth: width ? `${width}px` : undefined,
-			}}
+			className={cn(basePill, largeIcon ? "pl-3" : "pl-2", "pr-6 py-2")}
+			style={{ minWidth: width }}
 		>
 			<Image
 				src={icon}
@@ -69,7 +63,7 @@ const PillItem: FC<Pill> = ({
 			/>
 			<div className="flex flex-col items-start self-stretch ml-2">
 				<Title>{title}</Title>
-				<div className="flex items-center justify-between self-stretch mt-1">
+				<div className="flex items-center justify-between self-stretch gap-2 mt-0.5">
 					{price ? <Sub>{price}</Sub> : null}
 					{change ? <Change value={change} color={changeColor} /> : null}
 				</div>

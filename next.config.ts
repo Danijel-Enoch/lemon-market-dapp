@@ -2,13 +2,31 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
 	images: {
-		domains: [
-			"via.placeholder.com",
-			"dd.dexscreener.com",
-			"assets.coingecko.com",
-			"coin-images.coingecko.com",
-			"s2.coinmarketcap.com",
-			"assets.geckoterminal.com",
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "via.placeholder.com",
+			},
+			{
+				protocol: "https",
+				hostname: "dd.dexscreener.com",
+			},
+			{
+				protocol: "https",
+				hostname: "assets.coingecko.com",
+			},
+			{
+				protocol: "https",
+				hostname: "coin-images.coingecko.com",
+			},
+			{
+				protocol: "https",
+				hostname: "s2.coinmarketcap.com",
+			},
+			{
+				protocol: "https",
+				hostname: "assets.geckoterminal.com",
+			},
 		],
 	},
 	typescript: {

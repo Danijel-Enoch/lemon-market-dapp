@@ -1,6 +1,13 @@
 "use client";
 
 import { Toaster } from "sonner";
+import dynamic from "next/dynamic";
+
+// Dynamically import WalletProvider with SSR disabled to avoid localStorage issues
+const WalletProvider = dynamic(
+	() => import("@/components/providers/WalletProvider").then((mod) => mod.WalletProvider),
+	{ ssr: false },
+);
 
 interface ToastProviderProps {
 	children: React.ReactNode;
@@ -8,7 +15,7 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
 	return (
-		<>
+		<WalletProvider>
 			{children}
 			<Toaster
 				position="top-right"
@@ -26,6 +33,6 @@ export function ToastProvider({ children }: ToastProviderProps) {
 				visibleToasts={5}
 				duration={4000}
 			/>
-		</>
+		</WalletProvider>
 	);
 }
