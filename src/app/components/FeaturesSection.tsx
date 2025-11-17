@@ -1,14 +1,15 @@
 import type { FC } from "react";
 import { FeatureCard } from "./FeatureCard";
+import Image from "next/image";
 
 export const FeaturesSection: FC = () => {
   return (
     <section className="py-20 px-6 md:px-10 max-w-7xl mx-auto">
       <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-3 rounded-full px-6 py-2 bg-neutral-900/60">
-          <img src="/assets/homepage/section-features-icon.svg" alt="Features icon" className="h-5 w-5" />
-          <span className="text-green-500/70 font-semibold text-xs tracking-wider">FEATURES</span>
-          <img src="/assets/homepage/section-features-divider.png" alt="Divider" className="h-3 w-12 opacity-80" />
+        <div className="inline-flex items-center gap-8">
+          <Image src="/assets/homepage/section-features-divider.png" alt="Divider" width={72} height={10} className="opacity-90" />
+          <span className="text-[#9DEA29] font-medium text-sm leading-[19px]">Features</span>
+          <Image src="/assets/homepage/section-features-divider.png" alt="Divider" width={72} height={10} className="opacity-90 rotate-180" />
         </div>
         <h2 className="mt-6 text-4xl md:text-5xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
           Built For Infinite Markets
