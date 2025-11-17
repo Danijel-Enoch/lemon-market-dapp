@@ -15,6 +15,7 @@ import { ReferralStats } from "@/components/dashboard/ReferralStats";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatCurrency, formatNumber } from "@/lib/dashboard-service";
 
@@ -105,8 +106,8 @@ function DashboardContent() {
 		<div className="space-y-8 pb-12 animate-in fade-in-50 duration-500">
 			{/* Header skeleton */}
 			<div className="space-y-2">
-				<div className="h-9 w-48 animate-pulse rounded bg-muted/60" />
-				<div className="h-5 w-80 animate-pulse rounded bg-muted/40" />
+				<Skeleton className="h-9 w-48" />
+				<Skeleton className="h-5 w-80" />
 			</div>
 
 			{/* Stats grid skeleton */}
@@ -115,13 +116,13 @@ function DashboardContent() {
 					<Card key={i} className="border-accent/20">
 						<CardHeader className="pb-2">
 							<div className="flex items-center justify-between">
-								<div className="h-4 w-20 animate-pulse rounded bg-muted/40" />
-								<div className="h-8 w-8 animate-pulse rounded-lg bg-muted/40" />
+								<Skeleton className="h-4 w-20" />
+								<Skeleton className="h-8 w-8 rounded-lg" />
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-2">
-							<div className="h-8 w-16 animate-pulse rounded bg-muted/60" />
-							<div className="h-3 w-24 animate-pulse rounded bg-muted/30" />
+							<Skeleton className="h-8 w-16" />
+							<Skeleton className="h-3 w-24" />
 						</CardContent>
 					</Card>
 				))}
@@ -132,13 +133,13 @@ function DashboardContent() {
 				{[...Array(2)].map((_, i) => (
 					<Card key={i} className="border-accent/20">
 						<CardHeader className="border-b border-accent/10 pb-4">
-							<div className="h-5 w-32 animate-pulse rounded bg-muted/50" />
+							<Skeleton className="h-5 w-32" />
 						</CardHeader>
 						<CardContent className="pt-6">
 							<div className="space-y-4">
-								<div className="h-4 w-full animate-pulse rounded bg-muted/40" />
-								<div className="h-4 w-3/4 animate-pulse rounded bg-muted/40" />
-								<div className="h-10 w-full animate-pulse rounded bg-muted/30" />
+								<Skeleton className="h-4 w-full" />
+								<Skeleton className="h-4 w-3/4" />
+								<Skeleton className="h-10 w-full" />
 							</div>
 						</CardContent>
 					</Card>
@@ -221,9 +222,7 @@ function DashboardContent() {
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				<StatCard
 					title="Points Earned"
-					value={
-						isLoading ? "Loading..." : formatNumber(pointsEarned)
-					}
+					value={formatNumber(pointsEarned)}
 					icon={TrendingUp}
 					isLoading={isLoading}
 					change={pointsEarned > 0 ? "↑ Active" : "No points yet"}
@@ -231,9 +230,7 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Fees Earned"
-					value={
-						isLoading ? "Loading..." : formatCurrency(feesEarned)
-					}
+					value={formatCurrency(feesEarned)}
 					icon={Zap}
 					isLoading={isLoading}
 					change={feesEarned > 0 ? "From trading" : "Start trading"}
@@ -241,9 +238,7 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Trading Volume"
-					value={
-						isLoading ? "Loading..." : formatCurrency(tradingVolume)
-					}
+					value={formatCurrency(tradingVolume)}
 					icon={Volume2}
 					isLoading={isLoading}
 					change="Lifetime volume"
@@ -251,13 +246,7 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Leaderboard Rank"
-					value={
-						isLoading
-							? "Loading..."
-							: leaderboardRank > 0
-							? `#${leaderboardRank}`
-							: "—"
-					}
+					value={leaderboardRank > 0 ? `#${leaderboardRank}` : "—"}
 					icon={Trophy}
 					isLoading={isLoading}
 					change={leaderboardRank > 0 ? "Your rank" : "No rank yet"}

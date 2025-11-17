@@ -8,6 +8,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { formatTokenSymbolForDisplay } from "@/lib/symbol-utils";
 
@@ -88,9 +89,18 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 		return (
 			<Card className={className}>
 				<CardContent className="pt-6">
-					<div className="flex items-center justify-center py-8">
-						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-						<span className="ml-2">Loading positions...</span>
+					<div className="space-y-4 py-8">
+						<div className="flex items-center justify-center gap-3 mb-6">
+							<Skeleton className="h-8 w-8 rounded-full" />
+							<Skeleton className="h-4 w-40" />
+						</div>
+						{Array.from({ length: 3 }).map((_, i) => (
+							<div key={i} className="flex items-center gap-4">
+								<Skeleton className="h-16 flex-1" />
+								<Skeleton className="h-16 w-24" />
+								<Skeleton className="h-16 w-32" />
+							</div>
+						))}
 					</div>
 				</CardContent>
 			</Card>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SearchResults } from "@/components/ui/SearchResults";
 import { useSearch } from "@/hooks/useSearch";
 import type { SearchResult } from "@/lib/search-service";
@@ -725,10 +726,34 @@ export default function Home() {
 				{!searchQuery && (
 					<div className="space-y-8">
 						{isLoading ? (
-							<div className="flex flex-col items-center justify-center py-24 gap-4">
-								<Loader2 className="w-8 h-8 text-primary animate-spin" />
-								<div className="text-foreground font-medium">Loading trending assets...</div>
-								<div className="text-muted-foreground text-sm">Fetching real-time market data</div>
+							<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+								{Array.from({ length: 9 }).map((_, i) => (
+									<Card key={i} className="border-accent/20">
+										<CardHeader className="pb-3">
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-3">
+													<Skeleton className="h-10 w-10 rounded-full" />
+													<div className="space-y-2">
+														<Skeleton className="h-4 w-16" />
+														<Skeleton className="h-3 w-24" />
+													</div>
+												</div>
+												<Skeleton className="h-6 w-16" />
+											</div>
+										</CardHeader>
+										<CardContent className="space-y-2">
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-12" />
+												<Skeleton className="h-4 w-20" />
+											</div>
+											<div className="flex justify-between">
+												<Skeleton className="h-4 w-16" />
+												<Skeleton className="h-4 w-16" />
+											</div>
+											<Skeleton className="h-9 w-full mt-4" />
+										</CardContent>
+									</Card>
+								))}
 							</div>
 						) : (
 							<>

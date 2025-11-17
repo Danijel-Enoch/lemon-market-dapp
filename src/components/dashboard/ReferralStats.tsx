@@ -2,6 +2,7 @@
 
 import { Gift, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/dashboard-service";
 
 interface ReferralStatsProps {
@@ -28,7 +29,7 @@ export function ReferralStats({
 							<span className="text-xs text-muted-foreground">Total Referrals</span>
 						</div>
 						{isLoading ? (
-							<div className="h-8 w-12 animate-pulse rounded bg-accent/20" />
+							<Skeleton className="h-8 w-12" />
 						) : (
 							<div className="text-2xl font-bold">{totalReferrals}</div>
 						)}
@@ -39,7 +40,7 @@ export function ReferralStats({
 							<span className="text-xs text-muted-foreground">Referral Earnings</span>
 						</div>
 						{isLoading ? (
-							<div className="h-8 w-20 animate-pulse rounded bg-accent/20" />
+							<Skeleton className="h-8 w-20" />
 						) : (
 							<div className="text-2xl font-bold">{formatCurrency(referralEarnings)}</div>
 						)}

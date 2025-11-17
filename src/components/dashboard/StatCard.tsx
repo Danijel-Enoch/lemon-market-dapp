@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -37,7 +38,7 @@ export function StatCard({
 			</CardHeader>
 			<CardContent className="space-y-2">
 				{isLoading ? (
-					<div className="h-8 w-20 animate-pulse rounded bg-accent/20" />
+					<Skeleton className="h-8 w-20" />
 				) : (
 					<div className="text-2xl font-bold">{value}</div>
 				)}

@@ -5,6 +5,7 @@ import type { FC } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAsync } from "react-use";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Pill = {
 	icon: string;
@@ -125,9 +126,40 @@ export const TrendingCoinsSection: FC = () => {
 	if (loading || pills.length === 0) {
 		return (
 			<section className="relative w-full overflow-hidden">
-				<div className="relative mx-auto max-w-[1248px] h-[273px] flex items-center justify-center">
-					<div className="text-white/60 text-sm">Loading trending markets...</div>
+				<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center gap-5">
+					{/* Top row skeleton */}
+					<div className="inline-flex items-center gap-5 ml-[152px] mr-[34px]">
+						{Array.from({ length: 6 }).map((_, i) => (
+							<div key={`skeleton-top-${i}`} className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth: 153 }}>
+								<Skeleton className="w-10 h-10 rounded-full" />
+								<div className="flex flex-col gap-2 ml-2">
+									<Skeleton className="h-3 w-16" />
+									<div className="flex gap-2">
+										<Skeleton className="h-3 w-12" />
+										<Skeleton className="h-3 w-12" />
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+					{/* Bottom row skeleton */}
+					<div className="inline-flex items-center gap-5">
+						{Array.from({ length: 6 }).map((_, i) => (
+							<div key={`skeleton-bottom-${i}`} className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth: 170 }}>
+								<Skeleton className="w-10 h-10 rounded-full" />
+								<div className="flex flex-col gap-2 ml-2">
+									<Skeleton className="h-3 w-20" />
+									<div className="flex gap-2">
+										<Skeleton className="h-3 w-14" />
+										<Skeleton className="h-3 w-12" />
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
 				</div>
+				<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
+				<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 			</section>
 		);
 	}

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import {
@@ -367,13 +368,13 @@ function PerpContent() {
 								<CardTitle className="text-foreground flex items-center justify-between">
 									<span>{tradingPair.symbol} Perpetual</span>
 									<div className="flex items-center space-x-4">
-										<div className="flex items-center space-x-2">
-											<div className="text-2xl font-bold text-success">
-												{isLoadingPrice ? (
-													<div className="animate-pulse">Loading...</div>
-												) : (
-													tradingPair.price
-												)}
+									<div className="flex items-center space-x-2">
+										<div className="text-2xl font-bold text-success">
+											{isLoadingPrice ? (
+												<Skeleton className="h-8 w-24" />
+											) : (
+												tradingPair.price
+											)}
 											</div>
 											{tradingPair.assetType === "crypto" && (
 												<Button
@@ -789,7 +790,10 @@ export default function PerpPage() {
 		<Suspense
 			fallback={
 				<div className="min-h-screen bg-black text-foreground flex items-center justify-center">
-					Loading...
+					<div className="flex flex-col items-center gap-4">
+						<Skeleton className="h-12 w-48 mb-4" />
+						<Skeleton className="h-96 w-full max-w-4xl" />
+					</div>
 				</div>
 			}
 		>

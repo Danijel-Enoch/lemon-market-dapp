@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatPriceChange, getTokenPriceByPair } from "@/lib/oracle";
 
 export default function BridgeSwapPage() {
@@ -184,7 +185,7 @@ export default function BridgeSwapPage() {
 													<>
 														<div className="text-2xl font-bold text-success">
 															{isLoadingPrice ? (
-																<div className="animate-pulse">Loading...</div>
+																<Skeleton className="h-8 w-24" />
 															) : (
 																tokenPrice.price
 															)}
