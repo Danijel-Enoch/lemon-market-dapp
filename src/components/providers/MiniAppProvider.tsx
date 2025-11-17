@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
+import { useAsync } from "react-use";
 
 // Define the context type based on what sdk.context resolves to
 interface MiniAppUser {
@@ -48,46 +49,45 @@ interface MiniAppProviderProps {
 }
 
 export function MiniAppProvider({ children }: MiniAppProviderProps) {
-	const [isMiniApp, setIsMiniApp] = useState(false);
-	const [isLoading, setIsLoading] = useState(true);
 	const [context, setContext] = useState<MiniAppContextData>();
 
-	useEffect(() => {
-		// Only import and initialize SDK in the browser
+	const { loading, value } = useAsync(async () => {
+		// Wait until component is mounted and we're in the browser
 		if (typeof window === "undefined") {
-			setIsLoading(false);
-			return;
+			return false;
 		}
 
-		async function initMiniApp() {
-			try {
-				// Dynamically import the SDK only in the browser
-				const { sdk } = await import("@farcaster/miniapp-sdk");
+		// Quick check: Skip SDK initialization on desktop browsers
+		// Farcaster Mini Apps typically run in mobile WebView or have specific user agents
+		const isMobileOrWebView =
+			/Mobile|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+			// Check for common WebView indicators
+			/wv|WebView/i.test(navigator.userAgent) ||
+			// Check if running in Farcaster app (they might set specific properties)
+			"farcasterContext" in window;
 
-				// Check if we're in a Mini App environment
-				const inMiniApp = await sdk.isInMiniApp();
-				setIsMiniApp(inMiniApp);
-
-				if (inMiniApp) {
-					// Get the context
-					const ctx = await sdk.context;
-					setContext(ctx as MiniAppContextData);
-
-					// Signal that the app is ready (hide splash screen)
-					await sdk.actions.ready();
-				}
-			} catch (_error) {
-				setIsMiniApp(false);
-			} finally {
-				setIsLoading(false);
-			}
+		if (!isMobileOrWebView) {
+			return false;
 		}
+		// Dynamically import the SDK only in mobile/WebView environments
+		const { sdk } = await import("@farcaster/miniapp-sdk");
 
-		initMiniApp();
+		// Check if we're in a Mini App environment
+		const inMiniApp = await sdk.isInMiniApp();
+
+		if (inMiniApp) {
+			// Get the context
+			const ctx = await sdk.context;
+			setContext(ctx as MiniAppContextData);
+
+			// Signal that the app is ready (hide splash screen)
+			await sdk.actions.ready();
+			return true;
+		}
 	}, []);
 
 	return (
-		<MiniAppContextState.Provider value={{ isMiniApp, isLoading, context }}>
+		<MiniAppContextState.Provider value={{ isMiniApp: !!value, isLoading: loading, context }}>
 			{children}
 		</MiniAppContextState.Provider>
 	);

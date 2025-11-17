@@ -13,7 +13,7 @@ type Pill = {
 };
 
 const basePill =
-	"flex shrink-0 items-start justify-between border-2 border-[#686868] rounded-2xl bg-[#0a0a0a] overflow-hidden backdrop-blur-md";
+	"flex shrink-0 items-start justify-between border-2 border-[#686868] rounded-4xl bg-[#0a0a0a] overflow-hidden backdrop-blur-md";
 
 const Title = ({ children }: { children: string }) => (
 	<p className="text-[15px] leading-[18px] font-semibold text-white">{children}</p>
