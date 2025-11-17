@@ -15,9 +15,9 @@ export default function Homepage() {
       <HeroSection />
       <section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
         <div className="flex items-center justify-center gap-6 opacity-80">
-          <Image src="/assets/homepage/partner-1.png" alt="Partner 1" width={120} height={32} />
-          <Image src="/assets/homepage/partner-2.png" alt="Partner 2" width={120} height={32} />
-          <Image src="/assets/homepage/partner-3.png" alt="Partner 3" width={120} height={32} />
+          <Image src="/assets/homepage/partner-1.png" alt="Partner 1" width={120} height={32} style={{ width: 'auto', height: 'auto' }} />
+          <Image src="/assets/homepage/partner-2.png" alt="Partner 2" width={120} height={32} style={{ width: 'auto', height: 'auto' }} />
+          <Image src="/assets/homepage/partner-3.png" alt="Partner 3" width={120} height={32} style={{ width: 'auto', height: 'auto' }} />
         </div>
       </section>
       <TrendingCoinsSection />

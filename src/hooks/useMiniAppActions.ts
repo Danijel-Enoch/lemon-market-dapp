@@ -1,6 +1,5 @@
 "use client";
 
-import { sdk } from "@farcaster/miniapp-sdk";
 import { useCallback } from "react";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
 
@@ -15,6 +14,7 @@ export function useMiniAppActions() {
 			}
 
 			try {
+				const { sdk } = await import("@farcaster/miniapp-sdk");
 				const result = await sdk.actions.composeCast(options);
 				return result;
 			} catch (error) {
@@ -32,6 +32,7 @@ export function useMiniAppActions() {
 		}
 
 		try {
+			const { sdk } = await import("@farcaster/miniapp-sdk");
 			await sdk.actions.addMiniApp();
 		} catch (error) {
 			console.error("Failed to add Mini App:", error);
@@ -47,6 +48,7 @@ export function useMiniAppActions() {
 			}
 
 			try {
+				const { sdk } = await import("@farcaster/miniapp-sdk");
 				await sdk.actions.openUrl(url);
 			} catch (error) {
 				console.error("Failed to open URL:", error);

@@ -1,6 +1,5 @@
 "use client";
 
-import { sdk } from "@farcaster/miniapp-sdk";
 import {
 	createContext,
 	useContext,
@@ -60,8 +59,17 @@ export function MiniAppProvider({ children }: MiniAppProviderProps) {
 	const [context, setContext] = useState<MiniAppContextData>();
 
 	useEffect(() => {
+		// Only import and initialize SDK in the browser
+		if (typeof window === "undefined") {
+			setIsLoading(false);
+			return;
+		}
+
 		async function initMiniApp() {
 			try {
+				// Dynamically import the SDK only in the browser
+				const { sdk } = await import("@farcaster/miniapp-sdk");
+				
 				// Check if we're in a Mini App environment
 				const inMiniApp = await sdk.isInMiniApp();
 				setIsMiniApp(inMiniApp);
