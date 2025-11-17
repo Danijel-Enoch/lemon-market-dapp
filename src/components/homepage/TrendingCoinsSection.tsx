@@ -124,39 +124,61 @@ export const TrendingCoinsSection: FC = () => {
 
 	// Show loading state
 	if (loading || pills.length === 0) {
+		const SkeletonPill = ({ minWidth }: { minWidth: number }) => (
+			<div className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth }}>
+				<Skeleton className="w-10 h-10 rounded-full" />
+				<div className="flex flex-col gap-2 ml-2">
+					<Skeleton className="h-3 w-16" />
+					<div className="flex gap-2">
+						<Skeleton className="h-3 w-12" />
+						<Skeleton className="h-3 w-12" />
+					</div>
+				</div>
+			</div>
+		);
+
 		return (
 			<section className="relative w-full overflow-hidden">
-				<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center gap-5">
-					{/* Top row skeleton */}
-					<div className="inline-flex items-center gap-5 ml-[152px] mr-[34px]">
-						{Array.from({ length: 6 }).map((_, i) => (
-							<div key={`skeleton-top-${i}`} className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth: 153 }}>
-								<Skeleton className="w-10 h-10 rounded-full" />
-								<div className="flex flex-col gap-2 ml-2">
-									<Skeleton className="h-3 w-16" />
-									<div className="flex gap-2">
-										<Skeleton className="h-3 w-12" />
-										<Skeleton className="h-3 w-12" />
-									</div>
-								</div>
-							</div>
+				<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center">
+					{/* Top row skeleton with animation */}
+					<motion.div
+						className="inline-flex items-center gap-5 ml-[152px] mr-[34px]"
+						animate={{
+							x: [0, -1000],
+						}}
+						transition={{
+							x: {
+								repeat: Infinity,
+								repeatType: "loop",
+								duration: 30,
+								ease: "linear",
+							},
+						}}
+					>
+						{Array.from({ length: 18 }).map((_, i) => (
+							<SkeletonPill key={`skeleton-top-${i}`} minWidth={153} />
 						))}
-					</div>
-					{/* Bottom row skeleton */}
-					<div className="inline-flex items-center gap-5">
-						{Array.from({ length: 6 }).map((_, i) => (
-							<div key={`skeleton-bottom-${i}`} className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth: 170 }}>
-								<Skeleton className="w-10 h-10 rounded-full" />
-								<div className="flex flex-col gap-2 ml-2">
-									<Skeleton className="h-3 w-20" />
-									<div className="flex gap-2">
-										<Skeleton className="h-3 w-14" />
-										<Skeleton className="h-3 w-12" />
-									</div>
-								</div>
-							</div>
+					</motion.div>
+
+					{/* Bottom row skeleton with animation */}
+					<motion.div
+						className="inline-flex items-center gap-5 mt-5"
+						animate={{
+							x: [-1000, 0],
+						}}
+						transition={{
+							x: {
+								repeat: Infinity,
+								repeatType: "loop",
+								duration: 30,
+								ease: "linear",
+							},
+						}}
+					>
+						{Array.from({ length: 18 }).map((_, i) => (
+							<SkeletonPill key={`skeleton-bottom-${i}`} minWidth={170} />
 						))}
-					</div>
+					</motion.div>
 				</div>
 				<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 				<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
