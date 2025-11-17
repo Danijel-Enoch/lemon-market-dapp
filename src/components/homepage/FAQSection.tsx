@@ -32,11 +32,11 @@ const items = [
 ];
 
 export const FAQSection: FC = () => {
-	const [open, setOpen] = useState<number | null>(null);
+	const [open, setOpen] = useState<number>(0);
 
 	return (
-		<section className="flex items-center gap-8 py-20 px-6 md:px-10 max-w-5xl mx-auto">
-			<div className="text-center mb-12">
+		<section className="md:flex items-center gap-20 py-20 px-6 md:px-10 max-w-7xl mx-auto">
+			<div className="w-sm">
 				<div className="inline-flex items-center gap-8">
 					<Image
 						src="/assets/homepage/section-features-divider.png"
@@ -70,11 +70,11 @@ export const FAQSection: FC = () => {
 				</a>
 			</div>
 
-			<div className="space-y-2">
+			<div className="sm:w-2/3 flex flex-col gap-4">
 				{items.map((it, i) => (
 					<div key={i} className="rounded-xl border border-white/10 bg-neutral-900/40">
 						<button
-							onClick={() => setOpen(open === i ? null : i)}
+							onClick={() => setOpen(i)}
 							className="w-full flex items-center justify-between px-4 md:px-6 py-4 text-left hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
 						>
 							<span className="text-white/90">{it.q}</span>
