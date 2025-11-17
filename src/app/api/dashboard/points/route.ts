@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
 	const address = request.nextUrl.searchParams.get("address");
@@ -8,12 +9,21 @@ export async function GET(request: NextRequest) {
 	}
 
 	try {
-		// TODO: Replace with actual backend call to fetch user's points
-		// Example: const points = await fetchFromBackend(`/users/${address}/points`);
-		// You can fetch this from your subgraph or database
+		// Fetch user points from database using Prisma
+		const user = await prisma.user.findUnique({
+			where: {
+				address: address
+			},
+			select: {
+				points: true,
+				address: true
+			}
+		});
 
-		// Mock response
-		const points = 0;
+		// If user doesn't exist, return 0 points
+		const points = user?.points || 0;
+
+		console.log("Fetched points for user:", user, points);
 
 		return NextResponse.json({
 			points,

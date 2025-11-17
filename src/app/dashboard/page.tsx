@@ -1,10 +1,17 @@
 "use client";
 
-import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
-import { useState } from "react";
+import {
+	TrendingUp,
+	Zap,
+	Volume2,
+	Trophy,
+	ArrowUpRight
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,11 +30,66 @@ function DashboardContent() {
 		isLoading,
 		error,
 		isWalletConnected,
+		walletAddress,
 		generateReferralCode,
 		refetch,
 	} = useDashboard();
 
+	// Also get wallet connection directly from wagmi for comparison
+	const {
+		address: directAddress,
+		isConnected: directIsConnected,
+		status
+	} = useAccount();
+	const [showConnectMessage, setShowConnectMessage] = useState(true);
+	const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+
+	// Debug wallet connection state (can be removed later)
+	console.log("Dashboard Debug:", {
+		fromHook: { isWalletConnected, walletAddress },
+		fromWagmi: { directIsConnected, directAddress },
+		status,
+		isLoading,
+		hasData: !!(pointsEarned || feesEarned || tradingVolume || referralCode)
+	});
+
 	const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+
+	// Use effect to handle wallet connection changes
+	useEffect(() => {
+		const isActuallyConnected = isWalletConnected || directIsConnected;
+		const hasAddress = !!(walletAddress || directAddress);
+
+		// If wallet is connecting, wait
+		if (status === "connecting" || status === "reconnecting") {
+			return;
+		}
+
+		if (isActuallyConnected && hasAddress) {
+			setShowConnectMessage(false);
+			setIsCheckingConnection(false);
+		} else {
+			// Add a small delay before showing connect message to handle race conditions
+			const timer = setTimeout(() => {
+				const stillNotConnected = !(
+					isWalletConnected || directIsConnected
+				);
+				const stillNoAddress = !(walletAddress || directAddress);
+				if (stillNotConnected || stillNoAddress) {
+					setShowConnectMessage(true);
+				}
+				setIsCheckingConnection(false);
+			}, 1000); // 1 second delay
+
+			return () => clearTimeout(timer);
+		}
+	}, [
+		isWalletConnected,
+		directIsConnected,
+		walletAddress,
+		directAddress,
+		status
+	]);
 
 	const handleGenerateCode = async (): Promise<string | null> => {
 		setIsGeneratingCode(true);
@@ -38,7 +100,76 @@ function DashboardContent() {
 		}
 	};
 
-	if (!isWalletConnected) {
+	// Create a loading skeleton component
+	const LoadingSkeleton = () => (
+		<div className="space-y-8 pb-12 animate-in fade-in-50 duration-500">
+			{/* Header skeleton */}
+			<div className="space-y-2">
+				<div className="h-9 w-48 animate-pulse rounded bg-muted/60" />
+				<div className="h-5 w-80 animate-pulse rounded bg-muted/40" />
+			</div>
+
+			{/* Stats grid skeleton */}
+			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+				{[...Array(4)].map((_, i) => (
+					<Card key={i} className="border-accent/20">
+						<CardHeader className="pb-2">
+							<div className="flex items-center justify-between">
+								<div className="h-4 w-20 animate-pulse rounded bg-muted/40" />
+								<div className="h-8 w-8 animate-pulse rounded-lg bg-muted/40" />
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-2">
+							<div className="h-8 w-16 animate-pulse rounded bg-muted/60" />
+							<div className="h-3 w-24 animate-pulse rounded bg-muted/30" />
+						</CardContent>
+					</Card>
+				))}
+			</div>
+
+			{/* Referral section skeleton */}
+			<div className="grid gap-6 lg:grid-cols-2">
+				{[...Array(2)].map((_, i) => (
+					<Card key={i} className="border-accent/20">
+						<CardHeader className="border-b border-accent/10 pb-4">
+							<div className="h-5 w-32 animate-pulse rounded bg-muted/50" />
+						</CardHeader>
+						<CardContent className="pt-6">
+							<div className="space-y-4">
+								<div className="h-4 w-full animate-pulse rounded bg-muted/40" />
+								<div className="h-4 w-3/4 animate-pulse rounded bg-muted/40" />
+								<div className="h-10 w-full animate-pulse rounded bg-muted/30" />
+							</div>
+						</CardContent>
+					</Card>
+				))}
+			</div>
+		</div>
+	);
+
+	// Use direct wagmi connection state as fallback
+	const isActuallyConnected = isWalletConnected || directIsConnected;
+	const actualAddress = walletAddress || directAddress;
+
+	// Show loading while checking connection
+	if (
+		isCheckingConnection ||
+		status === "connecting" ||
+		status === "reconnecting"
+	) {
+		return (
+			<div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4">
+				<div className="text-center">
+					<h1 className="mb-2 text-3xl font-bold">Dashboard</h1>
+					<div className="animate-pulse text-muted-foreground">
+						Checking wallet connection...
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (showConnectMessage && (!isActuallyConnected || !actualAddress)) {
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4">
 				<div className="text-center">
@@ -46,10 +177,25 @@ function DashboardContent() {
 					<p className="text-muted-foreground">
 						Connect your wallet to view your trading statistics and referral rewards
 					</p>
+					{/* Show connection status for debugging */}
+					<div className="mt-4 text-xs text-muted-foreground/70">
+						Debug: Connected: {String(isActuallyConnected)} |
+						Address: {actualAddress ? "Yes" : "No"} | Status:{" "}
+						{status}
+					</div>
 				</div>
 				<ConnectWallet />
 			</div>
 		);
+	}
+
+	// Show loading skeleton during initial data fetch
+	// Only show skeleton if we're loading and have no data at all
+	const hasAnyData =
+		pointsEarned > 0 || feesEarned > 0 || tradingVolume > 0 || referralCode;
+
+	if (isLoading && !hasAnyData) {
+		return <LoadingSkeleton />;
 	}
 
 	return (
@@ -75,7 +221,9 @@ function DashboardContent() {
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				<StatCard
 					title="Points Earned"
-					value={formatNumber(pointsEarned)}
+					value={
+						isLoading ? "Loading..." : formatNumber(pointsEarned)
+					}
 					icon={TrendingUp}
 					isLoading={isLoading}
 					change={pointsEarned > 0 ? "↑ Active" : "No points yet"}
@@ -83,7 +231,9 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Fees Earned"
-					value={formatCurrency(feesEarned)}
+					value={
+						isLoading ? "Loading..." : formatCurrency(feesEarned)
+					}
 					icon={Zap}
 					isLoading={isLoading}
 					change={feesEarned > 0 ? "From trading" : "Start trading"}
@@ -91,7 +241,9 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Trading Volume"
-					value={formatCurrency(tradingVolume)}
+					value={
+						isLoading ? "Loading..." : formatCurrency(tradingVolume)
+					}
 					icon={Volume2}
 					isLoading={isLoading}
 					change="Lifetime volume"
@@ -99,7 +251,13 @@ function DashboardContent() {
 				/>
 				<StatCard
 					title="Leaderboard Rank"
-					value={leaderboardRank > 0 ? `#${leaderboardRank}` : "—"}
+					value={
+						isLoading
+							? "Loading..."
+							: leaderboardRank > 0
+							? `#${leaderboardRank}`
+							: "—"
+					}
 					icon={Trophy}
 					isLoading={isLoading}
 					change={leaderboardRank > 0 ? "Your rank" : "No rank yet"}
@@ -135,21 +293,39 @@ function DashboardContent() {
 									<ArrowUpRight className="size-4 text-green-500" />
 									<span className="text-sm">Total Points</span>
 								</div>
-								<span className="font-semibold">{formatNumber(pointsEarned)}</span>
+								{isLoading ? (
+									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
+								) : (
+									<span className="font-semibold">
+										{formatNumber(pointsEarned)}
+									</span>
+								)}
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
 								<div className="flex items-center gap-2">
 									<Zap className="size-4 text-yellow-500" />
 									<span className="text-sm">Protocol Fees</span>
 								</div>
-								<span className="font-semibold">{formatCurrency(feesEarned)}</span>
+								{isLoading ? (
+									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
+								) : (
+									<span className="font-semibold">
+										{formatCurrency(feesEarned)}
+									</span>
+								)}
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
 								<div className="flex items-center gap-2">
 									<Volume2 className="size-4 text-blue-500" />
 									<span className="text-sm">Volume Traded</span>
 								</div>
-								<span className="font-semibold">{formatCurrency(tradingVolume)}</span>
+								{isLoading ? (
+									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
+								) : (
+									<span className="font-semibold">
+										{formatCurrency(tradingVolume)}
+									</span>
+								)}
 							</div>
 						</div>
 					</CardContent>

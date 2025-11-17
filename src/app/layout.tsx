@@ -3,7 +3,7 @@ import { Inter, Raleway, Roboto_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
-import { ReferralInitializer } from "@/components/providers/ReferralInitializer";
+import { ReferralHandler } from "@/components/providers/ReferralHandler";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
@@ -71,7 +71,7 @@ export default function RootLayout({
 				<MiniAppProvider>
 					<ToastProvider>
 						<AppProvider>
-							<ReferralInitializer />
+							<ReferralHandler />
 							<BProgressProvider />
 							<Header />
 							{children}

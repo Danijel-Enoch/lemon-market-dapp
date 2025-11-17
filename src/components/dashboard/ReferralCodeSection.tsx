@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, RefreshCw, Link } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export function ReferralCodeSection({
 	onGenerate,
 }: ReferralCodeSectionProps) {
 	const [copied, setCopied] = useState(false);
+	const [linkCopied, setLinkCopied] = useState(false);
 
 	const handleCopyCode = async () => {
 		if (!referralCode) return;
@@ -29,6 +30,20 @@ export function ReferralCodeSection({
 			setTimeout(() => setCopied(false), 2000);
 		} catch (_error) {
 			toast.error("Failed to copy referral code");
+		}
+	};
+
+	const handleCopyReferralLink = async () => {
+		if (!referralCode) return;
+		try {
+			const baseUrl = window.location.origin;
+			const referralLink = `${baseUrl}?ref=${referralCode}`;
+			await navigator.clipboard.writeText(referralLink);
+			setLinkCopied(true);
+			toast.success("Referral link copied to clipboard!");
+			setTimeout(() => setLinkCopied(false), 2000);
+		} catch (error) {
+			toast.error("Failed to copy referral link");
 		}
 	};
 
@@ -61,27 +76,47 @@ export function ReferralCodeSection({
 								{copied ? <span className="text-xs">✓</span> : <Copy className="size-4" />}
 							</Button>
 						</div>
+						<div className="space-y-2">
+							<Button
+								onClick={handleCopyReferralLink}
+								variant="default"
+								className="w-full gap-2"
+							>
+								{linkCopied ? (
+									<>
+										<span className="text-xs">✓</span>
+										Link Copied!
+									</>
+								) : (
+									<>
+										<Link className="size-4" />
+										Copy Referral Link
+									</>
+								)}
+							</Button>
+							<Button
+								onClick={handleGenerateCode}
+								disabled={isGenerating}
+								variant="outline"
+								className="w-full"
+							>
+								{isGenerating ? (
+									<>
+										<RefreshCw className="size-4 animate-spin" />
+										Generating...
+									</>
+								) : (
+									<>
+										<RefreshCw className="size-4" />
+										Generate New Code
+									</>
+								)}
+							</Button>
+						</div>
 						<p className="text-xs text-muted-foreground">
-							Share your referral code with friends to earn rewards!
+							Share your referral link with friends to earn
+							rewards when they sign up and trade!
 						</p>
-						<Button
-							onClick={handleGenerateCode}
-							disabled={isGenerating}
-							variant="outline"
-							className="w-full"
-						>
-							{isGenerating ? (
-								<>
-									<RefreshCw className="size-4 animate-spin" />
-									Generating...
-								</>
-							) : (
-								<>
-									<RefreshCw className="size-4" />
-									Generate New Code
-								</>
-							)}
-						</Button>
 					</div>
 				) : (
 					<div className="space-y-4">

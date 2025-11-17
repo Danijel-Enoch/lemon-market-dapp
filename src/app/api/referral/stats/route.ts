@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 		if (!user) {
 			return NextResponse.json({ error: "User not found" }, { status: 404 });
 		}
-
+		console.log("Fetched referral stats for user:", user);
 		return NextResponse.json({
 			address: user.address,
 			referralCode: user.referralCode,
