@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useReferral } from "@/hooks/useReferral";
 import { referralService } from "@/lib/referral-service";
@@ -29,8 +29,7 @@ export function ReferralExample() {
 				const data = await referralService.getReferralStats(address);
 				setStats(data);
 			} catch (err) {
-				const errorMessage =
-					err instanceof Error ? err.message : "Unknown error";
+				const errorMessage = err instanceof Error ? err.message : "Unknown error";
 				setStatsError(errorMessage);
 			} finally {
 				setStatsLoading(false);
@@ -46,22 +45,18 @@ export function ReferralExample() {
 		try {
 			const shareUrl = generateReferralUrl(
 				process.env.NEXT_PUBLIC_APP_URL || "https://app.com",
-				referralCode
+				referralCode,
 			);
 			await referralService.copyToClipboard(shareUrl);
 			setCopiedToClipboard(true);
 			setTimeout(() => setCopiedToClipboard(false), 2000);
-		} catch (err) {
-			console.error("Failed to copy to clipboard:", err);
-		}
+		} catch (_err) {}
 	};
 
 	if (!address) {
 		return (
 			<div className="p-4 border border-gray-300 rounded">
-				<p className="text-gray-500">
-					Connect your wallet to see referral info
-				</p>
+				<p className="text-gray-500">Connect your wallet to see referral info</p>
 			</div>
 		);
 	}
@@ -86,14 +81,11 @@ export function ReferralExample() {
 							onClick={handleCopyReferralLink}
 							className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
 						>
-							{copiedToClipboard
-								? "✓ Copied!"
-								: "Copy Referral Link"}
+							{copiedToClipboard ? "✓ Copied!" : "Copy Referral Link"}
 						</button>
 
 						<p className="text-sm text-gray-600">
-							Share this code with friends to earn 100 points for
-							each person they refer
+							Share this code with friends to earn 100 points for each person they refer
 						</p>
 					</div>
 				) : null}
@@ -114,31 +106,23 @@ export function ReferralExample() {
 							<p className="text-2xl font-bold">{stats.points}</p>
 						</div>
 						<div className="p-3 bg-gray-50 rounded">
-							<p className="text-sm text-gray-600">
-								Total Referrals
-							</p>
-							<p className="text-2xl font-bold">
-								{stats.totalReferrals}
-							</p>
+							<p className="text-sm text-gray-600">Total Referrals</p>
+							<p className="text-2xl font-bold">{stats.totalReferrals}</p>
 						</div>
 						<div className="p-3 bg-gray-50 rounded">
-							<p className="text-sm text-gray-600">
-								Per Referral
-							</p>
+							<p className="text-sm text-gray-600">Per Referral</p>
 							<p className="text-2xl font-bold">100</p>
 						</div>
 						<div className="p-3 bg-gray-50 rounded">
 							<p className="text-sm text-gray-600">Joined</p>
-							<p className="text-xs font-bold">
-								{new Date(stats.createdAt).toLocaleDateString()}
-							</p>
+							<p className="text-xs font-bold">{new Date(stats.createdAt).toLocaleDateString()}</p>
 						</div>
 					</div>
 				) : null}
 			</div>
 
 			{/* Referral List Section */}
-			{stats && stats.referrals && stats.referrals.length > 0 && (
+			{stats?.referrals && stats.referrals.length > 0 && (
 				<div className="p-4 border border-gray-300 rounded">
 					<h2 className="text-xl font-bold mb-4">Your Referrals</h2>
 
@@ -150,39 +134,25 @@ export function ReferralExample() {
 									createdAt: string;
 									pointsAwarded: boolean;
 								},
-								idx: number
+								idx: number,
 							) => (
-								<div
-									key={idx}
-									className="p-3 bg-gray-50 rounded flex justify-between items-center"
-								>
+								<div key={idx} className="p-3 bg-gray-50 rounded flex justify-between items-center">
 									<div>
 										<p className="font-mono text-sm">
-											{referral.referredAddress.slice(
-												0,
-												6
-											)}
+											{referral.referredAddress.slice(0, 6)}
 											...
 											{referral.referredAddress.slice(-4)}
 										</p>
 										<p className="text-xs text-gray-600">
-											{new Date(
-												referral.createdAt
-											).toLocaleDateString()}
+											{new Date(referral.createdAt).toLocaleDateString()}
 										</p>
 									</div>
 									<div className="text-right">
-										<p className="text-sm font-bold text-green-600">
-											+100 points
-										</p>
-										{referral.pointsAwarded && (
-											<p className="text-xs text-gray-600">
-												✓ Awarded
-											</p>
-										)}
+										<p className="text-sm font-bold text-green-600">+100 points</p>
+										{referral.pointsAwarded && <p className="text-xs text-gray-600">✓ Awarded</p>}
 									</div>
 								</div>
-							)
+							),
 						)}
 					</div>
 				</div>

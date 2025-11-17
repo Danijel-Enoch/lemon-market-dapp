@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import {
-	getUserReferralCode,
 	createReferralCode,
-	getUserPoints,
+	type DashboardStats,
 	getUserFeesEarned,
-	getUserTradingVolume,
-	getUserReferralStats,
 	getUserLeaderboardRank,
-	type DashboardStats
+	getUserPoints,
+	getUserReferralCode,
+	getUserReferralStats,
+	getUserTradingVolume,
 } from "@/lib/dashboard-service";
 
 export function useDashboard() {
@@ -22,7 +22,7 @@ export function useDashboard() {
 		referralEarnings: 0,
 		leaderboardRank: 0,
 		isLoading: true,
-		error: null
+		error: null,
 	});
 
 	const fetchDashboardData = async () => {
@@ -34,20 +34,13 @@ export function useDashboard() {
 		try {
 			setStats((prev) => ({ ...prev, isLoading: true, error: null }));
 
-			const [
-				referralCode,
-				points,
-				feesEarned,
-				volume,
-				referralStats,
-				rank
-			] = await Promise.all([
+			const [referralCode, points, feesEarned, volume, referralStats, rank] = await Promise.all([
 				getUserReferralCode(address),
 				getUserPoints(address),
 				getUserFeesEarned(address),
 				getUserTradingVolume(address),
 				getUserReferralStats(address),
-				getUserLeaderboardRank(address)
+				getUserLeaderboardRank(address),
 			]);
 
 			setStats({
@@ -59,17 +52,15 @@ export function useDashboard() {
 				referralEarnings: referralStats.referralEarnings,
 				leaderboardRank: rank,
 				isLoading: false,
-				error: null
+				error: null,
 			});
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Failed to fetch dashboard data";
+				error instanceof Error ? error.message : "Failed to fetch dashboard data";
 			setStats((prev) => ({
 				...prev,
 				isLoading: false,
-				error: errorMessage
+				error: errorMessage,
 			}));
 		}
 	};
@@ -89,9 +80,7 @@ export function useDashboard() {
 			return code;
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Failed to generate referral code";
+				error instanceof Error ? error.message : "Failed to generate referral code";
 			setStats((prev) => ({ ...prev, error: errorMessage }));
 			return null;
 		}
@@ -102,13 +91,13 @@ export function useDashboard() {
 		// Refresh data every 30 seconds
 		const interval = setInterval(fetchDashboardData, 30000);
 		return () => clearInterval(interval);
-	}, [isConnected, address]);
+	}, [fetchDashboardData]);
 
 	return {
 		...stats,
 		refetch: fetchDashboardData,
 		generateReferralCode,
 		isWalletConnected: isConnected,
-		walletAddress: address
+		walletAddress: address,
 	};
 }

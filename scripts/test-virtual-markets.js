@@ -46,12 +46,7 @@ const VIRTUAL_MARKET_BY_ID_QUERY = `
 `;
 
 async function testDirectGraphQL() {
-	console.log("=== Testing Direct GraphQL Query ===");
-	console.log("Subgraph URL:", SUBGRAPH_URL);
-
 	try {
-		// Test all virtual markets query
-		console.log("\n1. Testing getAllVirtualMarkets query...");
 		const response = await fetch(SUBGRAPH_URL, {
 			method: "POST",
 			headers: {
@@ -70,18 +65,12 @@ async function testDirectGraphQL() {
 		const result = await response.json();
 
 		if (result.errors) {
-			console.error("GraphQL errors:", result.errors);
 			return false;
 		}
 
 		const markets = result.data?.virtualMarkets || [];
-		console.log(`Found ${markets.length} virtual markets`);
 
 		if (markets.length > 0) {
-			console.log("Sample market:", JSON.stringify(markets[0], null, 2));
-
-			// Test specific market query with the first market ID
-			console.log("\n2. Testing getVirtualMarketById query...");
 			const specificResponse = await fetch(SUBGRAPH_URL, {
 				method: "POST",
 				headers: {
@@ -99,29 +88,20 @@ async function testDirectGraphQL() {
 			if (specificResponse.ok) {
 				const specificResult = await specificResponse.json();
 				if (specificResult.errors) {
-					console.error("GraphQL errors for specific query:", specificResult.errors);
 				} else {
-					console.log("Specific market query successful");
-					console.log("Result:", JSON.stringify(specificResult.data, null, 2));
 				}
 			}
 		} else {
-			console.log("No virtual markets found in subgraph");
 		}
 
 		return true;
-	} catch (error) {
-		console.error("Direct GraphQL test failed:", error);
+	} catch (_error) {
 		return false;
 	}
 }
 
 async function testVirtualMarketsAPI() {
-	console.log("\n=== Testing Virtual Markets API ===");
-
 	try {
-		// Test GET all virtual markets
-		console.log("\n1. Testing GET /api/virtual-markets...");
 		const response = await fetch(`${API_BASE_URL}/api/virtual-markets`);
 
 		if (!response.ok) {
@@ -129,26 +109,16 @@ async function testVirtualMarketsAPI() {
 		}
 
 		const result = await response.json();
-		console.log(`API returned ${result.data.length} virtual markets`);
 
 		if (result.data.length > 0) {
-			console.log("Sample market from API:", JSON.stringify(result.data[0], null, 2));
-
-			// Test GET specific virtual market
-			console.log("\n2. Testing GET /api/virtual-markets with marketId...");
 			const marketId = result.data[0].marketId;
 			const specificResponse = await fetch(
 				`${API_BASE_URL}/api/virtual-markets?marketId=${marketId}`,
 			);
 
 			if (specificResponse.ok) {
-				const specificResult = await specificResponse.json();
-				console.log("Specific market API query successful");
-				console.log("Result:", JSON.stringify(specificResult.data, null, 2));
+				const _specificResult = await specificResponse.json();
 			}
-
-			// Test POST batch lookup
-			console.log("\n3. Testing POST /api/virtual-markets batch lookup...");
 			const batchResponse = await fetch(`${API_BASE_URL}/api/virtual-markets`, {
 				method: "POST",
 				headers: {
@@ -160,24 +130,18 @@ async function testVirtualMarketsAPI() {
 			});
 
 			if (batchResponse.ok) {
-				const batchResult = await batchResponse.json();
-				console.log("Batch lookup successful");
-				console.log("Result:", JSON.stringify(batchResult.data, null, 2));
+				const _batchResult = await batchResponse.json();
 			}
 		}
 
 		return true;
-	} catch (error) {
-		console.error("Virtual Markets API test failed:", error);
+	} catch (_error) {
 		return false;
 	}
 }
 
 async function testTrendingTokensWithVirtualMarkets() {
-	console.log("\n=== Testing Enhanced Trending Tokens API ===");
-
 	try {
-		console.log("\nTesting GET /api/trending/tokens with virtual market data...");
 		const response = await fetch(`${API_BASE_URL}/api/trending/tokens`);
 
 		if (!response.ok) {
@@ -185,44 +149,30 @@ async function testTrendingTokensWithVirtualMarkets() {
 		}
 
 		const result = await response.json();
-		console.log(`Trending tokens API returned ${result.data.length} tokens`);
 
 		if (result.data.length > 0) {
-			const sampleToken = result.data[0];
-			console.log("Sample token with virtual market data:");
-			console.log(JSON.stringify(sampleToken, null, 2));
+			const _sampleToken = result.data[0];
 
 			// Check if virtual market fields are present
 			const tokensWithMarkets = result.data.filter((token) => token.hasMarket);
-			console.log(
-				`\nTokens with virtual markets: ${tokensWithMarkets.length}/${result.data.length}`,
-			);
 
 			if (tokensWithMarkets.length > 0) {
-				console.log("Sample token with virtual market:");
-				console.log(JSON.stringify(tokensWithMarkets[0], null, 2));
 			}
 
 			// Show virtual market statistics
-			const totalLiquiditySum = result.data.reduce((sum, token) => {
+			const _totalLiquiditySum = result.data.reduce((sum, token) => {
 				const liquidity = parseFloat(token.totalLiquidity?.replace(/[^0-9.-]/g, "") || "0");
 				return sum + liquidity;
 			}, 0);
-
-			console.log(`\nTotal liquidity across all tokens: $${totalLiquiditySum.toFixed(2)}M`);
 		}
 
 		return true;
-	} catch (error) {
-		console.error("Enhanced trending tokens test failed:", error);
+	} catch (_error) {
 		return false;
 	}
 }
 
 async function runAllTests() {
-	console.log("🧪 Starting Virtual Markets Integration Tests");
-	console.log("=".repeat(50));
-
 	const tests = [
 		{ name: "Direct GraphQL", fn: testDirectGraphQL },
 		{ name: "Virtual Markets API", fn: testVirtualMarketsAPI },
@@ -233,35 +183,23 @@ async function runAllTests() {
 
 	for (const test of tests) {
 		try {
-			console.log(`\n🚀 Running ${test.name} test...`);
 			const success = await test.fn();
 			results.push({ name: test.name, success });
-			console.log(`${success ? "✅" : "❌"} ${test.name} test ${success ? "passed" : "failed"}`);
-		} catch (error) {
-			console.error(`❌ ${test.name} test failed with error:`, error);
+		} catch (_error) {
 			results.push({ name: test.name, success: false });
 		}
 	}
-
-	console.log("\n" + "=".repeat(50));
-	console.log("📊 Test Results Summary:");
-	results.forEach((result) => {
-		console.log(`${result.success ? "✅" : "❌"} ${result.name}`);
-	});
+	results.forEach((_result) => {});
 
 	const passedTests = results.filter((r) => r.success).length;
-	console.log(`\n${passedTests}/${results.length} tests passed`);
 
 	if (passedTests === results.length) {
-		console.log("🎉 All tests passed! Virtual markets integration is working correctly.");
 	} else {
-		console.log("⚠️  Some tests failed. Check the errors above.");
 		process.exit(1);
 	}
 }
 
 // Run the tests
-runAllTests().catch((error) => {
-	console.error("Test runner failed:", error);
+runAllTests().catch((_error) => {
 	process.exit(1);
 });

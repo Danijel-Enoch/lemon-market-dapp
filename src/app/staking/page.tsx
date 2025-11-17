@@ -1,6 +1,6 @@
-import { Lock, Sparkles, TrendingUp, Shield } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function StakingPage() {
 	return (

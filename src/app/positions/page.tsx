@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, AlertCircle, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Activity, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { useAccount } from "wagmi";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { Badge } from "@/components/ui/badge";

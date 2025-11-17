@@ -1,40 +1,33 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-	TrendingUp,
-	Wallet,
-	ArrowLeftRight,
-	Coins,
-	Trophy,
-	BarChart3
-} from "lucide-react";
+import { ArrowLeftRight, BarChart3, Coins, TrendingUp, Trophy, Wallet } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
 export function Header() {
 	const pathname = usePathname();
 	const { isMiniApp, context } = useMiniApp();
 
-    const navItems = [
-        { href: "/perp", label: "Trade", icon: TrendingUp },
-        { href: "/trending", label: "Markets", icon: BarChart3 },
-        { href: "/dashboard", label: "Points", icon: Trophy },
-        { href: "/positions", label: "Portfolio", icon: Wallet },
-        { href: "/bridge", label: "bridge", icon: ArrowLeftRight },
-        { href: "/staking", label: "Stake", icon: Coins },
-        { href: "/leaderboard", label: "More", icon: Trophy }
-    ];
+	const navItems = [
+		{ href: "/perp", label: "Trade", icon: TrendingUp },
+		{ href: "/trending", label: "Markets", icon: BarChart3 },
+		{ href: "/dashboard", label: "Points", icon: Trophy },
+		{ href: "/positions", label: "Portfolio", icon: Wallet },
+		{ href: "/bridge", label: "bridge", icon: ArrowLeftRight },
+		{ href: "/staking", label: "Stake", icon: Coins },
+		{ href: "/leaderboard", label: "More", icon: Trophy },
+	];
 
 	// Apply safe area insets if in Mini App
 	const safeAreaStyle =
 		isMiniApp && context?.client.safeAreaInsets
 			? {
-					paddingTop: context.client.safeAreaInsets.top
-			  }
+					paddingTop: context.client.safeAreaInsets.top,
+				}
 			: {};
 
 	return (
@@ -46,18 +39,19 @@ export function Header() {
 					transition={{ duration: 0.6 }}
 					className="max-w-screen-xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-6 py-4 bg-[#13151b99] border border-gray-100/10"
 				>
-				<Link href="/" className="inline-flex items-center gap-3.5">
-					<Image
-						src="/image/logo.png"
-						alt="Lemon Markets"
-						width={39}
-						height={40}
-						style={{ width: 'auto', height: 'auto' }}
-					/>
-					<span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
-						Lemon Markets
-					</span>
-				</Link>					<nav className="hidden md:inline-flex items-center gap-9">
+					<Link href="/" className="inline-flex items-center gap-3.5">
+						<Image
+							src="/image/logo.png"
+							alt="Lemon Markets"
+							width={39}
+							height={40}
+							style={{ width: "auto", height: "auto" }}
+						/>
+						<span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+							Lemon Markets
+						</span>
+					</Link>{" "}
+					<nav className="hidden md:inline-flex items-center gap-9">
 						{navItems.map((item) => {
 							const isActive = pathname === item.href;
 							return (
@@ -75,8 +69,7 @@ export function Header() {
 							);
 						})}
 					</nav>
-
-                    <ConnectWallet text="Connect Wallet" />
+					<ConnectWallet text="Connect Wallet" />
 				</motion.header>
 			</div>
 
@@ -98,11 +91,7 @@ export function Header() {
 							>
 								<Icon
 									size={20}
-									className={`transition-all ${
-										isActive
-											? "text-lime-400"
-											: "text-gray-400"
-									}`}
+									className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
 								/>
 								<span
 									className={`text-xs font-medium transition-all ${

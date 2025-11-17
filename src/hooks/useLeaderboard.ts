@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface LeaderboardEntry {
 	id: string;
@@ -45,7 +45,7 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 		order = "desc",
 		limit = 50,
 		autoRefresh = false,
-		refreshInterval = 30000 // 30 seconds
+		refreshInterval = 30000, // 30 seconds
 	} = options;
 
 	const [data, setData] = useState<LeaderboardEntry[]>([]);
@@ -60,15 +60,13 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 			const params = new URLSearchParams({
 				sortBy,
 				order,
-				limit: limit.toString()
+				limit: limit.toString(),
 			});
 
 			const response = await fetch(`/api/leaderboard?${params}`);
 
 			if (!response.ok) {
-				throw new Error(
-					`Failed to fetch leaderboard: ${response.statusText}`
-				);
+				throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
 			}
 
 			const result: LeaderboardResponse = await response.json();
@@ -80,7 +78,6 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Unknown error");
-			console.error("Error fetching leaderboard:", err);
 		} finally {
 			setLoading(false);
 		}
@@ -88,14 +85,14 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 
 	useEffect(() => {
 		fetchLeaderboard();
-	}, [sortBy, order, limit]);
+	}, [fetchLeaderboard]);
 
 	useEffect(() => {
 		if (autoRefresh) {
 			const interval = setInterval(fetchLeaderboard, refreshInterval);
 			return () => clearInterval(interval);
 		}
-	}, [autoRefresh, refreshInterval]);
+	}, [autoRefresh, refreshInterval, fetchLeaderboard]);
 
 	const refresh = () => {
 		fetchLeaderboard();
@@ -106,11 +103,8 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 	const avgPointsPerTrade =
 		data.length > 0
 			? (
-					data.reduce(
-						(sum, entry) => sum + parseFloat(entry.pointsPerTrade),
-						0
-					) / data.length
-			  ).toFixed(0)
+					data.reduce((sum, entry) => sum + parseFloat(entry.pointsPerTrade), 0) / data.length
+				).toFixed(0)
 			: "0";
 	const activeTiers = new Set(data.map((entry) => entry.currentTier)).size;
 
@@ -123,7 +117,7 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 			totalTraders,
 			totalTrades,
 			avgPointsPerTrade,
-			activeTiers
-		}
+			activeTiers,
+		},
 	};
 }

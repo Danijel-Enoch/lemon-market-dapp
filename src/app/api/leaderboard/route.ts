@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // GraphQL query to fetch leaderboard entries
 const LEADERBOARD_QUERY = `
@@ -54,18 +54,18 @@ interface GraphQLResponse {
 function formatNumber(value: string): string {
 	const num = parseFloat(value);
 	if (num >= 1e9) {
-		return (num / 1e9).toFixed(2) + "B";
+		return `${(num / 1e9).toFixed(2)}B`;
 	} else if (num >= 1e6) {
-		return (num / 1e6).toFixed(2) + "M";
+		return `${(num / 1e6).toFixed(2)}M`;
 	} else if (num >= 1e3) {
-		return (num / 1e3).toFixed(2) + "K";
+		return `${(num / 1e3).toFixed(2)}K`;
 	}
 	return num.toLocaleString();
 }
 
 // Helper function to format timestamp to readable date
 function formatTimestamp(timestamp: string): string {
-	return new Date(parseInt(timestamp) * 1000).toISOString();
+	return new Date(parseInt(timestamp, 10) * 1000).toISOString();
 }
 
 // Helper function to format tier
@@ -85,29 +85,26 @@ export async function GET(request: NextRequest) {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b"
+				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
 			},
 			body: JSON.stringify({
-				query: LEADERBOARD_QUERY
-			})
+				query: LEADERBOARD_QUERY,
+			}),
 		});
 
 		if (!response.ok) {
-			throw new Error(
-				`Subgraph request failed: ${response.status} ${response.statusText}`
-			);
+			throw new Error(`Subgraph request failed: ${response.status} ${response.statusText}`);
 		}
 
 		const result: GraphQLResponse = await response.json();
 
 		if (result.errors && result.errors.length > 0) {
-			console.error("GraphQL errors:", result.errors);
 			return NextResponse.json(
 				{
 					error: "Failed to fetch leaderboard from subgraph",
-					details: result.errors
+					details: result.errors,
 				},
-				{ status: 500 }
+				{ status: 500 },
 			);
 		}
 
@@ -120,7 +117,7 @@ export async function GET(request: NextRequest) {
 			trader: entry.trader,
 			totalPoints: entry.totalPoints,
 			totalPointsFormatted: formatNumber(entry.totalPoints),
-			totalTrades: parseInt(entry.totalTrades),
+			totalTrades: parseInt(entry.totalTrades, 10),
 			pointsPerTrade: entry.pointsPerTrade,
 			pointsPerTradeFormatted: formatNumber(entry.pointsPerTrade),
 			currentTier: formatTier(entry.currentTier),
@@ -128,18 +125,12 @@ export async function GET(request: NextRequest) {
 			lastTradeTimestamp: formatTimestamp(entry.lastTradeTimestamp),
 			lastPointsAwarded: entry.lastPointsAwarded,
 			lastPointsAwardedFormatted: formatNumber(entry.lastPointsAwarded),
-			bronzeTierAt: entry.bronzeTierAt
-				? formatTimestamp(entry.bronzeTierAt)
-				: null,
-			silverTierAt: entry.silverTierAt
-				? formatTimestamp(entry.silverTierAt)
-				: null,
-			goldTierAt: entry.goldTierAt
-				? formatTimestamp(entry.goldTierAt)
-				: null,
+			bronzeTierAt: entry.bronzeTierAt ? formatTimestamp(entry.bronzeTierAt) : null,
+			silverTierAt: entry.silverTierAt ? formatTimestamp(entry.silverTierAt) : null,
+			goldTierAt: entry.goldTierAt ? formatTimestamp(entry.goldTierAt) : null,
 			lastTransactionHash: entry.lastTransactionHash,
-			lastBlockNumber: parseInt(entry.lastBlockNumber),
-			lastBlockTimestamp: formatTimestamp(entry.lastBlockTimestamp)
+			lastBlockNumber: parseInt(entry.lastBlockNumber, 10),
+			lastBlockTimestamp: formatTimestamp(entry.lastBlockTimestamp),
 		}));
 
 		// Sort entries based on the sortBy parameter
@@ -183,26 +174,24 @@ export async function GET(request: NextRequest) {
 
 		// Apply limit if specified
 		const finalEntries = limit
-			? transformedEntries.slice(0, parseInt(limit))
+			? transformedEntries.slice(0, parseInt(limit, 10))
 			: transformedEntries;
 
 		return NextResponse.json({
 			success: true,
 			data: finalEntries,
 			total: transformedEntries.length,
-			limit: limit ? parseInt(limit) : null,
+			limit: limit ? parseInt(limit, 10) : null,
 			sortBy,
-			order
+			order,
 		});
 	} catch (error) {
-		console.error("Error fetching leaderboard:", error);
 		return NextResponse.json(
 			{
 				error: "Failed to fetch leaderboard data",
-				details:
-					error instanceof Error ? error.message : "Unknown error"
+				details: error instanceof Error ? error.message : "Unknown error",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

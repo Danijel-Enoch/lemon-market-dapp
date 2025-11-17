@@ -1,12 +1,5 @@
 // GraphQL service for fetching virtual market data
-import {
-	normalizeAddress,
-	extractTokenAddress,
-	formatLiquidity,
-	validateVirtualMarket,
-	debugMarketLookup,
-	parseLiquidityWith6Decimals,
-} from "./virtual-markets-utils";
+import { parseLiquidityWith6Decimals } from "./virtual-markets-utils";
 export interface VirtualMarket {
 	id: string;
 	marketId: string;
@@ -76,28 +69,23 @@ class VirtualMarketsService {
 	}
 
 	private async makeGraphQLRequest(query: string, variables?: any): Promise<GraphQLResponse> {
-		try {
-			const response = await fetch(this.subgraphUrl, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
-				},
-				body: JSON.stringify({
-					query,
-					variables,
-				}),
-			});
+		const response = await fetch(this.subgraphUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
+			},
+			body: JSON.stringify({
+				query,
+				variables,
+			}),
+		});
 
-			if (!response.ok) {
-				throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
-			}
-
-			return await response.json();
-		} catch (error) {
-			console.error("Virtual markets GraphQL request failed:", error);
-			throw error;
+		if (!response.ok) {
+			throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
 		}
+
+		return await response.json();
 	}
 
 	async getAllVirtualMarkets(): Promise<VirtualMarket[]> {
@@ -105,13 +93,11 @@ class VirtualMarketsService {
 			const result = await this.makeGraphQLRequest(ALL_VIRTUAL_MARKETS_QUERY);
 
 			if (result.errors && result.errors.length > 0) {
-				console.error("GraphQL errors:", result.errors);
 				throw new Error(`GraphQL errors: ${result.errors.map((e) => e.message).join(", ")}`);
 			}
 
 			return result.data?.virtualMarkets || [];
-		} catch (error) {
-			console.error("Failed to fetch virtual markets:", error);
+		} catch (_error) {
 			return [];
 		}
 	}
@@ -121,14 +107,12 @@ class VirtualMarketsService {
 			const result = await this.makeGraphQLRequest(VIRTUAL_MARKET_BY_ID_QUERY, { marketId });
 
 			if (result.errors && result.errors.length > 0) {
-				console.error("GraphQL errors:", result.errors);
 				throw new Error(`GraphQL errors: ${result.errors.map((e) => e.message).join(", ")}`);
 			}
 
 			const markets = result.data?.virtualMarkets || [];
 			return markets.length > 0 ? markets[0] : null;
-		} catch (error) {
-			console.error(`Failed to fetch virtual market for ID ${marketId}:`, error);
+		} catch (_error) {
 			return null;
 		}
 	}
@@ -138,11 +122,9 @@ class VirtualMarketsService {
 	 * @param tokenSymbols Array of token symbols to create lookup for
 	 * @returns Map of token symbol to virtual market data
 	 */
-	async createMarketLookupMap(tokenSymbols: string[]): Promise<Map<string, VirtualMarket>> {
+	async createMarketLookupMap(_tokenSymbols: string[]): Promise<Map<string, VirtualMarket>> {
 		const markets = await this.getAllVirtualMarkets();
 		const marketMap = new Map<string, VirtualMarket>();
-
-		console.log({ markets });
 		// Create a lookup map - marketId corresponds to token symbol
 		markets.forEach((market) => {
 			// Normalize symbols to uppercase for consistent matching

@@ -1,20 +1,19 @@
 "use client";
 
+import { Check, ChevronDown } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { useChainId, useSwitchChain } from "wagmi";
-import { ChevronDown, Check } from "lucide-react";
-import Image from "next/image";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuTrigger
+	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
 	getAllSupportedChains,
 	getChainInfo,
 	isChainSupportedInEnvironment,
-	type ChainInfo
 } from "@/lib/chain-utils";
 
 interface ChainSelectorProps {
@@ -22,10 +21,7 @@ interface ChainSelectorProps {
 	showTestnets?: boolean;
 }
 
-export function ChainSelector({
-	className = "",
-	showTestnets
-}: ChainSelectorProps) {
+export function ChainSelector({ className = "", showTestnets }: ChainSelectorProps) {
 	const chainId = useChainId();
 	const { switchChain, isPending } = useSwitchChain();
 	const [isOpen, setIsOpen] = useState(false);
@@ -44,16 +40,12 @@ export function ChainSelector({
 		try {
 			await switchChain({ chainId: targetChainId });
 			setIsOpen(false);
-		} catch (error) {
-			console.error("Failed to switch chain:", error);
-		}
+		} catch (_error) {}
 	};
 
 	if (!currentChain) {
 		return (
-			<div
-				className={`flex items-center gap-2 text-orange-500 ${className}`}
-			>
+			<div className={`flex items-center gap-2 text-orange-500 ${className}`}>
 				<div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
 					<span className="text-xs font-bold text-white">?</span>
 				</div>
@@ -95,9 +87,7 @@ export function ChainSelector({
 
 			<DropdownMenuContent align="start" className="w-64">
 				<div className="px-3 py-2 border-b border-gray-700">
-					<p className="text-sm font-medium text-gray-300">
-						Select Network
-					</p>
+					<p className="text-sm font-medium text-gray-300">Select Network</p>
 				</div>
 
 				{availableChains.map((chain) => (
@@ -122,9 +112,7 @@ export function ChainSelector({
 
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2">
-								<span className="text-sm font-medium text-white">
-									{chain.name}
-								</span>
+								<span className="text-sm font-medium text-white">{chain.name}</span>
 								{chain.isTestnet && (
 									<span className="px-2 py-0.5 text-xs bg-orange-500/20 text-orange-300 rounded-md">
 										Testnet
@@ -136,9 +124,7 @@ export function ChainSelector({
 							</p>
 						</div>
 
-						{chain.id === chainId && (
-							<Check className="w-5 h-5 text-blue-400 flex-shrink-0" />
-						)}
+						{chain.id === chainId && <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />}
 					</DropdownMenuItem>
 				))}
 
@@ -176,13 +162,7 @@ export function ChainBadge({ chainId, className = "" }: ChainBadgeProps) {
 			className={`inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded ${className}`}
 		>
 			<div className="relative w-3 h-3">
-				<Image
-					src={chain.icon}
-					alt={chain.name}
-					width={12}
-					height={12}
-					className="rounded-full"
-				/>
+				<Image src={chain.icon} alt={chain.name} width={12} height={12} className="rounded-full" />
 			</div>
 			{chain.shortName}
 			{chain.isTestnet && <span className="text-orange-300">•T</span>}

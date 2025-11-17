@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
 	getAllVirtualMarkets,
 	getVirtualMarketById,
@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
 				count: markets.length,
 			});
 		}
-	} catch (error) {
-		console.error("Error fetching virtual markets:", error);
+	} catch (_error) {
 		return NextResponse.json({ error: "Failed to fetch virtual markets" }, { status: 500 });
 	}
 }
@@ -60,8 +59,7 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({
 			data: results,
 		});
-	} catch (error) {
-		console.error("Error in virtual markets batch lookup:", error);
+	} catch (_error) {
 		return NextResponse.json({ error: "Failed to perform batch lookup" }, { status: 500 });
 	}
 }

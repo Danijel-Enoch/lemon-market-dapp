@@ -1,20 +1,13 @@
 "use client";
 
-import {
-	TrendingUp,
-	Zap,
-	Volume2,
-	Trophy,
-	ArrowUpRight,
-	ArrowDownLeft
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
+import { useState } from "react";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatCurrency, formatNumber } from "@/lib/dashboard-service";
 
@@ -31,7 +24,7 @@ function DashboardContent() {
 		error,
 		isWalletConnected,
 		generateReferralCode,
-		refetch
+		refetch,
 	} = useDashboard();
 
 	const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -51,8 +44,7 @@ function DashboardContent() {
 				<div className="text-center">
 					<h1 className="mb-2 text-3xl font-bold">Dashboard</h1>
 					<p className="text-muted-foreground">
-						Connect your wallet to view your trading statistics and
-						referral rewards
+						Connect your wallet to view your trading statistics and referral rewards
 					</p>
 				</div>
 				<ConnectWallet />
@@ -65,9 +57,7 @@ function DashboardContent() {
 			{/* Header */}
 			<div className="space-y-2">
 				<h1 className="text-3xl font-bold">Dashboard</h1>
-				<p className="text-muted-foreground">
-					Track your trading performance and referral rewards
-				</p>
+				<p className="text-muted-foreground">Track your trading performance and referral rewards</p>
 			</div>
 
 			{/* Error Message */}
@@ -75,12 +65,7 @@ function DashboardContent() {
 				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
 					<p className="font-medium">Error loading dashboard</p>
 					<p className="mt-1">{error}</p>
-					<Button
-						onClick={refetch}
-						variant="outline"
-						size="sm"
-						className="mt-3"
-					>
+					<Button onClick={refetch} variant="outline" size="sm" className="mt-3">
 						Retry
 					</Button>
 				</div>
@@ -141,44 +126,30 @@ function DashboardContent() {
 				{/* Trading Stats */}
 				<Card className="border-accent/20">
 					<CardHeader className="border-b border-accent/10 pb-4">
-						<CardTitle className="text-base font-semibold">
-							Quick Stats
-						</CardTitle>
+						<CardTitle className="text-base font-semibold">Quick Stats</CardTitle>
 					</CardHeader>
 					<CardContent className="pt-6">
 						<div className="space-y-4">
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
 								<div className="flex items-center gap-2">
 									<ArrowUpRight className="size-4 text-green-500" />
-									<span className="text-sm">
-										Total Points
-									</span>
+									<span className="text-sm">Total Points</span>
 								</div>
-								<span className="font-semibold">
-									{formatNumber(pointsEarned)}
-								</span>
+								<span className="font-semibold">{formatNumber(pointsEarned)}</span>
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
 								<div className="flex items-center gap-2">
 									<Zap className="size-4 text-yellow-500" />
-									<span className="text-sm">
-										Protocol Fees
-									</span>
+									<span className="text-sm">Protocol Fees</span>
 								</div>
-								<span className="font-semibold">
-									{formatCurrency(feesEarned)}
-								</span>
+								<span className="font-semibold">{formatCurrency(feesEarned)}</span>
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
 								<div className="flex items-center gap-2">
 									<Volume2 className="size-4 text-blue-500" />
-									<span className="text-sm">
-										Volume Traded
-									</span>
+									<span className="text-sm">Volume Traded</span>
 								</div>
-								<span className="font-semibold">
-									{formatCurrency(tradingVolume)}
-								</span>
+								<span className="font-semibold">{formatCurrency(tradingVolume)}</span>
 							</div>
 						</div>
 					</CardContent>
@@ -187,38 +158,32 @@ function DashboardContent() {
 				{/* Referral Benefits Info */}
 				<Card className="border-accent/20">
 					<CardHeader className="border-b border-accent/10 pb-4">
-						<CardTitle className="text-base font-semibold">
-							How Referrals Work
-						</CardTitle>
+						<CardTitle className="text-base font-semibold">How Referrals Work</CardTitle>
 					</CardHeader>
 					<CardContent className="pt-6">
 						<ul className="space-y-3 text-sm">
 							<li className="flex gap-2">
 								<span className="text-primary">•</span>
 								<span>
-									<strong>Share your code:</strong> Give your
-									unique referral code to friends
+									<strong>Share your code:</strong> Give your unique referral code to friends
 								</span>
 							</li>
 							<li className="flex gap-2">
 								<span className="text-primary">•</span>
 								<span>
-									<strong>They sign up:</strong> Friends use
-									your code to create an account
+									<strong>They sign up:</strong> Friends use your code to create an account
 								</span>
 							</li>
 							<li className="flex gap-2">
 								<span className="text-primary">•</span>
 								<span>
-									<strong>You earn rewards:</strong> Get a
-									percentage of their trading fees
+									<strong>You earn rewards:</strong> Get a percentage of their trading fees
 								</span>
 							</li>
 							<li className="flex gap-2">
 								<span className="text-primary">•</span>
 								<span>
-									<strong>No limits:</strong> Earn unlimited
-									rewards from unlimited referrals
+									<strong>No limits:</strong> Earn unlimited rewards from unlimited referrals
 								</span>
 							</li>
 						</ul>
@@ -231,12 +196,9 @@ function DashboardContent() {
 				<CardContent className="pt-8">
 					<div className="space-y-4 text-center">
 						<div>
-							<h3 className="text-xl font-bold">
-								Ready to start earning?
-							</h3>
+							<h3 className="text-xl font-bold">Ready to start earning?</h3>
 							<p className="mt-1 text-sm text-muted-foreground">
-								Share your referral code and start earning
-								rewards today
+								Share your referral code and start earning rewards today
 							</p>
 						</div>
 						{referralCode && (

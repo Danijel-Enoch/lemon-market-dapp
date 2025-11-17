@@ -1,21 +1,20 @@
 "use client";
 
 import {
-	Award,
+	Award as AwardIcon,
+	Crown,
+	Medal,
+	RefreshCw,
 	Target,
 	TrendingUp,
 	Trophy,
 	Users,
 	Volume2,
-	RefreshCw,
-	Crown,
-	Medal,
-	Award as AwardIcon
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useState } from "react";
 
 interface LeaderboardEntry {
 	id: string;
@@ -79,9 +78,7 @@ const formatAddress = (address: string) => {
 };
 
 export default function LeaderboardPage() {
-	const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>(
-		[]
-	);
+	const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState("totalPoints");
@@ -96,15 +93,13 @@ export default function LeaderboardPage() {
 			const params = new URLSearchParams({
 				sortBy,
 				order,
-				limit: limit.toString()
+				limit: limit.toString(),
 			});
 
 			const response = await fetch(`/api/leaderboard?${params}`);
 
 			if (!response.ok) {
-				throw new Error(
-					`Failed to fetch leaderboard: ${response.statusText}`
-				);
+				throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
 			}
 
 			const result: LeaderboardResponse = await response.json();
@@ -116,7 +111,6 @@ export default function LeaderboardPage() {
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Unknown error");
-			console.error("Error fetching leaderboard:", err);
 		} finally {
 			setLoading(false);
 		}
@@ -124,7 +118,7 @@ export default function LeaderboardPage() {
 
 	useEffect(() => {
 		fetchLeaderboard();
-	}, [sortBy, order, limit]);
+	}, [fetchLeaderboard]);
 
 	const handleSort = (newSortBy: string) => {
 		if (sortBy === newSortBy) {
@@ -136,18 +130,13 @@ export default function LeaderboardPage() {
 	};
 
 	const totalTraders = leaderboardData.length;
-	const totalTrades = leaderboardData.reduce(
-		(sum, entry) => sum + entry.totalTrades,
-		0
-	);
+	const totalTrades = leaderboardData.reduce((sum, entry) => sum + entry.totalTrades, 0);
 	const avgPointsPerTrade =
 		leaderboardData.length > 0
 			? (
-					leaderboardData.reduce(
-						(sum, entry) => sum + parseFloat(entry.pointsPerTrade),
-						0
-					) / leaderboardData.length
-			  ).toFixed(0)
+					leaderboardData.reduce((sum, entry) => sum + parseFloat(entry.pointsPerTrade), 0) /
+					leaderboardData.length
+				).toFixed(0)
 			: "0";
 
 	return (
@@ -160,9 +149,7 @@ export default function LeaderboardPage() {
 								<Trophy className="w-6 h-6 text-primary" />
 							</div>
 							<div>
-								<h1 className="text-3xl font-bold text-foreground">
-									Leaderboard
-								</h1>
+								<h1 className="text-3xl font-bold text-foreground">Leaderboard</h1>
 								<p className="text-muted-foreground text-sm">
 									Top performing traders and strategies
 								</p>
@@ -175,11 +162,7 @@ export default function LeaderboardPage() {
 							size="sm"
 							className="gap-2"
 						>
-							<RefreshCw
-								className={`w-4 h-4 ${
-									loading ? "animate-spin" : ""
-								}`}
-							/>
+							<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
 							Refresh
 						</Button>
 					</div>
@@ -196,12 +179,8 @@ export default function LeaderboardPage() {
 									Total Traders
 								</div>
 							</div>
-							<div className="text-2xl font-bold">
-								{totalTraders.toLocaleString()}
-							</div>
-							<div className="text-xs text-success mt-1">
-								Real-time data
-							</div>
+							<div className="text-2xl font-bold">{totalTraders.toLocaleString()}</div>
+							<div className="text-xs text-success mt-1">Real-time data</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -214,12 +193,8 @@ export default function LeaderboardPage() {
 									Total Trades
 								</div>
 							</div>
-							<div className="text-2xl font-bold">
-								{totalTrades.toLocaleString()}
-							</div>
-							<div className="text-xs text-success mt-1">
-								Across all traders
-							</div>
+							<div className="text-2xl font-bold">{totalTrades.toLocaleString()}</div>
+							<div className="text-xs text-success mt-1">Across all traders</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -232,12 +207,8 @@ export default function LeaderboardPage() {
 									Avg Points/Trade
 								</div>
 							</div>
-							<div className="text-2xl font-bold">
-								{avgPointsPerTrade}
-							</div>
-							<div className="text-xs text-muted-foreground mt-1">
-								Average reward
-							</div>
+							<div className="text-2xl font-bold">{avgPointsPerTrade}</div>
+							<div className="text-xs text-muted-foreground mt-1">Average reward</div>
 						</CardContent>
 					</Card>
 					<Card>
@@ -251,17 +222,9 @@ export default function LeaderboardPage() {
 								</div>
 							</div>
 							<div className="text-2xl font-bold">
-								{
-									new Set(
-										leaderboardData.map(
-											(entry) => entry.currentTier
-										)
-									).size
-								}
+								{new Set(leaderboardData.map((entry) => entry.currentTier)).size}
 							</div>
-							<div className="text-xs text-muted-foreground mt-1">
-								Tier diversity
-							</div>
+							<div className="text-xs text-muted-foreground mt-1">Tier diversity</div>
 						</CardContent>
 					</Card>
 				</div>
@@ -269,9 +232,7 @@ export default function LeaderboardPage() {
 				{error && (
 					<Card className="mb-8 border-destructive">
 						<CardContent className="p-4">
-							<div className="text-destructive">
-								Error: {error}
-							</div>
+							<div className="text-destructive">Error: {error}</div>
 						</CardContent>
 					</Card>
 				)}
@@ -283,9 +244,7 @@ export default function LeaderboardPage() {
 							<div className="flex items-center gap-2">
 								<select
 									value={limit}
-									onChange={(e) =>
-										setLimit(Number(e.target.value))
-									}
+									onChange={(e) => setLimit(Number(e.target.value))}
 									className="text-sm bg-background border border-border rounded px-2 py-1"
 								>
 									<option value={25}>Top 25</option>
@@ -307,62 +266,41 @@ export default function LeaderboardPage() {
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
 											onClick={() => handleSort("trader")}
 										>
-											Trader{" "}
-											{sortBy === "trader" &&
-												(order === "desc" ? "↓" : "↑")}
+											Trader {sortBy === "trader" && (order === "desc" ? "↓" : "↑")}
 										</th>
 										<th
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
-											onClick={() =>
-												handleSort("totalPoints")
-											}
+											onClick={() => handleSort("totalPoints")}
 										>
-											Total Points{" "}
-											{sortBy === "totalPoints" &&
-												(order === "desc" ? "↓" : "↑")}
+											Total Points {sortBy === "totalPoints" && (order === "desc" ? "↓" : "↑")}
 										</th>
 										<th
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
-											onClick={() =>
-												handleSort("totalTrades")
-											}
+											onClick={() => handleSort("totalTrades")}
 										>
-											Trades{" "}
-											{sortBy === "totalTrades" &&
-												(order === "desc" ? "↓" : "↑")}
+											Trades {sortBy === "totalTrades" && (order === "desc" ? "↓" : "↑")}
 										</th>
 										<th
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
-											onClick={() =>
-												handleSort("pointsPerTrade")
-											}
+											onClick={() => handleSort("pointsPerTrade")}
 										>
-											Points/Trade{" "}
-											{sortBy === "pointsPerTrade" &&
-												(order === "desc" ? "↓" : "↑")}
+											Points/Trade {sortBy === "pointsPerTrade" && (order === "desc" ? "↓" : "↑")}
 										</th>
 										<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
 											Tier
 										</th>
 										<th
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
-											onClick={() =>
-												handleSort("lastTradeTimestamp")
-											}
+											onClick={() => handleSort("lastTradeTimestamp")}
 										>
-											Last Trade{" "}
-											{sortBy === "lastTradeTimestamp" &&
-												(order === "desc" ? "↓" : "↑")}
+											Last Trade {sortBy === "lastTradeTimestamp" && (order === "desc" ? "↓" : "↑")}
 										</th>
 									</tr>
 								</thead>
 								<tbody>
 									{loading ? (
 										<tr>
-											<td
-												colSpan={8}
-												className="text-center p-8"
-											>
+											<td colSpan={8} className="text-center p-8">
 												<div className="flex items-center justify-center gap-2">
 													<RefreshCw className="w-4 h-4 animate-spin" />
 													Loading leaderboard...
@@ -371,10 +309,7 @@ export default function LeaderboardPage() {
 										</tr>
 									) : leaderboardData.length === 0 ? (
 										<tr>
-											<td
-												colSpan={8}
-												className="text-center p-8 text-muted-foreground"
-											>
+											<td colSpan={8} className="text-center p-8 text-muted-foreground">
 												No leaderboard data available
 											</td>
 										</tr>
@@ -388,18 +323,10 @@ export default function LeaderboardPage() {
 													<div className="flex items-center gap-2">
 														{entry.rank <= 3 && (
 															<span className="text-lg">
-																{entry.rank ===
-																1
-																	? "🥇"
-																	: entry.rank ===
-																	  2
-																	? "🥈"
-																	: "🥉"}
+																{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
 															</span>
 														)}
-														<span className="font-bold text-sm">
-															#{entry.rank}
-														</span>
+														<span className="font-bold text-sm">#{entry.rank}</span>
 													</div>
 												</td>
 												<td className="p-3">
@@ -409,67 +336,41 @@ export default function LeaderboardPage() {
 														</div>
 														<div>
 															<div className="font-medium text-sm font-mono">
-																{formatAddress(
-																	entry.trader
-																)}
+																{formatAddress(entry.trader)}
 															</div>
 															<div className="text-muted-foreground text-xs">
-																Since{" "}
-																{new Date(
-																	entry.firstTradeTimestamp
-																).toLocaleDateString()}
+																Since {new Date(entry.firstTradeTimestamp).toLocaleDateString()}
 															</div>
 														</div>
 													</div>
 												</td>
 												<td className="p-3">
-													<div className="font-bold text-success">
-														{
-															entry.totalPointsFormatted
-														}
-													</div>
+													<div className="font-bold text-success">{entry.totalPointsFormatted}</div>
 													<div className="text-muted-foreground text-xs">
-														Last:{" "}
-														{
-															entry.lastPointsAwardedFormatted
-														}
+														Last: {entry.lastPointsAwardedFormatted}
 													</div>
 												</td>
 												<td className="p-3">
-													<div className="font-medium">
-														{entry.totalTrades.toLocaleString()}
-													</div>
+													<div className="font-medium">{entry.totalTrades.toLocaleString()}</div>
 												</td>
 												<td className="p-3">
-													<div className="font-medium">
-														{
-															entry.pointsPerTradeFormatted
-														}
-													</div>
+													<div className="font-medium">{entry.pointsPerTradeFormatted}</div>
 												</td>
 												<td className="p-3">
 													<Badge
 														variant="outline"
-														className={`gap-1 ${getTierColor(
-															entry.currentTier
-														)}`}
+														className={`gap-1 ${getTierColor(entry.currentTier)}`}
 													>
-														{getTierIcon(
-															entry.currentTier
-														)}
+														{getTierIcon(entry.currentTier)}
 														{entry.currentTier}
 													</Badge>
 												</td>
 												<td className="p-3">
 													<div className="text-sm">
-														{new Date(
-															entry.lastTradeTimestamp
-														).toLocaleDateString()}
+														{new Date(entry.lastTradeTimestamp).toLocaleDateString()}
 													</div>
 													<div className="text-muted-foreground text-xs">
-														{new Date(
-															entry.lastTradeTimestamp
-														).toLocaleTimeString()}
+														{new Date(entry.lastTradeTimestamp).toLocaleTimeString()}
 													</div>
 												</td>
 											</tr>

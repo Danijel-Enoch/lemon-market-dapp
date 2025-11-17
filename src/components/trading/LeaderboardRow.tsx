@@ -1,4 +1,4 @@
-import { Users, Crown, Medal, Award as AwardIcon } from "lucide-react";
+import { Award as AwardIcon, Crown, Medal, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -69,11 +69,7 @@ export function LeaderboardRow({ entry, onViewProfile }: LeaderboardRowProps) {
 				<div className="flex items-center gap-2">
 					{entry.rank <= 3 && (
 						<span className="text-lg">
-							{entry.rank === 1
-								? "🥇"
-								: entry.rank === 2
-								? "🥈"
-								: "🥉"}
+							{entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
 						</span>
 					)}
 					<span className="font-bold text-sm">#{entry.rank}</span>
@@ -85,59 +81,39 @@ export function LeaderboardRow({ entry, onViewProfile }: LeaderboardRowProps) {
 						<Users className="w-4 h-4" />
 					</div>
 					<div>
-						<div className="font-medium text-sm font-mono">
-							{formatAddress(entry.trader)}
-						</div>
+						<div className="font-medium text-sm font-mono">{formatAddress(entry.trader)}</div>
 						<div className="text-muted-foreground text-xs">
-							Since{" "}
-							{new Date(
-								entry.firstTradeTimestamp
-							).toLocaleDateString()}
+							Since {new Date(entry.firstTradeTimestamp).toLocaleDateString()}
 						</div>
 					</div>
 				</div>
 			</td>
 			<td className="p-3">
-				<div className="font-bold text-success">
-					{entry.totalPointsFormatted}
-				</div>
+				<div className="font-bold text-success">{entry.totalPointsFormatted}</div>
 				<div className="text-muted-foreground text-xs">
 					Last: {entry.lastPointsAwardedFormatted}
 				</div>
 			</td>
 			<td className="p-3">
-				<div className="font-medium">
-					{entry.totalTrades.toLocaleString()}
-				</div>
+				<div className="font-medium">{entry.totalTrades.toLocaleString()}</div>
 			</td>
 			<td className="p-3">
-				<div className="font-medium">
-					{entry.pointsPerTradeFormatted}
-				</div>
+				<div className="font-medium">{entry.pointsPerTradeFormatted}</div>
 			</td>
 			<td className="p-3">
-				<Badge
-					variant="outline"
-					className={`gap-1 ${getTierColor(entry.currentTier)}`}
-				>
+				<Badge variant="outline" className={`gap-1 ${getTierColor(entry.currentTier)}`}>
 					{getTierIcon(entry.currentTier)}
 					{entry.currentTier}
 				</Badge>
 			</td>
 			<td className="p-3">
-				<div className="text-sm">
-					{new Date(entry.lastTradeTimestamp).toLocaleDateString()}
-				</div>
+				<div className="text-sm">{new Date(entry.lastTradeTimestamp).toLocaleDateString()}</div>
 				<div className="text-muted-foreground text-xs">
 					{new Date(entry.lastTradeTimestamp).toLocaleTimeString()}
 				</div>
 			</td>
 			<td className="p-3">
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={() => onViewProfile?.(entry.trader)}
-				>
+				<Button size="sm" variant="outline" onClick={() => onViewProfile?.(entry.trader)}>
 					View Profile
 				</Button>
 			</td>

@@ -7,7 +7,7 @@
  * GET /api/positions/enhanced?trader=<address>
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getTokenPriceService } from "@/lib/token-price-service";
 
 // GraphQL query to fetch positions (same as regular positions route)
@@ -100,7 +100,6 @@ export async function GET(request: NextRequest) {
 		const result: GraphQLResponse = await response.json();
 
 		if (result.errors && result.errors.length > 0) {
-			console.error("GraphQL errors:", result.errors);
 			return NextResponse.json(
 				{
 					error: "Failed to fetch positions from subgraph",
@@ -130,8 +129,8 @@ export async function GET(request: NextRequest) {
 			// Don't use subgraph PnL for open positions - calculate real-time PnL instead
 			pnl: position.status === "CLOSED" ? formatAmount(position.finalPnl) : "$0.00",
 			pnlRaw: position.status === "CLOSED" ? position.finalPnl : null,
-			openedAt: new Date(parseInt(position.openedAt) * 1000).toISOString(),
-			lastUpdatedAt: new Date(parseInt(position.lastUpdatedAt) * 1000).toISOString(),
+			openedAt: new Date(parseInt(position.openedAt, 10) * 1000).toISOString(),
+			lastUpdatedAt: new Date(parseInt(position.lastUpdatedAt, 10) * 1000).toISOString(),
 			lastTransactionHash: position.lastTransactionHash,
 			trader: position.trader,
 		}));
@@ -206,8 +205,7 @@ export async function GET(request: NextRequest) {
 					totalPortfolioValue,
 					priceUpdateTimestamp: Date.now(),
 				});
-			} catch (error) {
-				console.error("Error fetching enhanced position data:", error);
+			} catch (_error) {
 				// Fall back to basic positions if enhancement fails
 				return NextResponse.json({
 					success: true,
@@ -226,7 +224,6 @@ export async function GET(request: NextRequest) {
 			enhanced: false,
 		});
 	} catch (error) {
-		console.error("Error in enhanced positions endpoint:", error);
 		return NextResponse.json(
 			{
 				error: "Internal server error",
@@ -244,7 +241,7 @@ function formatPrice(priceWei: string | null): string {
 			return "$0.000000000000";
 		}
 		const price = parseFloat(priceWei) / 1e18; // Assuming 18 decimals
-		if (isNaN(price) || !isFinite(price)) {
+		if (Number.isNaN(price) || !Number.isFinite(price)) {
 			return "$0.000000000000";
 		}
 		// Use adaptive precision for micro changes
@@ -262,7 +259,7 @@ function formatAmount(amountWei: string | null): string {
 			return "$0.00";
 		}
 		const amount = parseFloat(amountWei) / 1e6; // Assuming USDC with 6 decimals
-		if (isNaN(amount) || !isFinite(amount)) {
+		if (Number.isNaN(amount) || !Number.isFinite(amount)) {
 			return "$0.00";
 		}
 		return `$${amount.toLocaleString("en-US", {

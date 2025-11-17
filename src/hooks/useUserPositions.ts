@@ -1,12 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import {
-	getUserPositions,
-	getEnhancedUserPositions,
-	type Position,
 	type EnhancedPosition,
-	type GetPositionsResponse,
-	type GetEnhancedPositionsResponse
+	getEnhancedUserPositions,
+	getUserPositions,
+	type Position,
 } from "@/lib/position-api";
 import { getTokenPriceService } from "@/lib/token-price-service";
 
@@ -33,9 +31,7 @@ export interface UseUserPositionsResult {
 /**
  * Helper function to calculate real-time PnL for a position
  */
-async function calculatePositionRealTimePnL(
-	position: Position
-): Promise<number> {
+async function calculatePositionRealTimePnL(position: Position): Promise<number> {
 	if (position.status === "CLOSED") {
 		// For closed positions, use the finalPnl from subgraph
 		if (position.pnlRaw) {
@@ -57,15 +53,11 @@ async function calculatePositionRealTimePnL(
 			position.margin,
 			position.leverage,
 			position.isLong,
-			position.liquidationPrice
+			position.liquidationPrice,
 		);
 
 		return pnlCalculation?.unrealizedPnL || 0;
-	} catch (error) {
-		console.warn(
-			`Failed to calculate real-time PnL for position ${position.id}:`,
-			error
-		);
+	} catch (_error) {
 		return 0;
 	}
 }
@@ -78,17 +70,13 @@ async function calculatePositionRealTimePnL(
 export function useUserPositions(): UseUserPositionsResult {
 	const { address, isConnected } = useAccount();
 	const [positions, setPositions] = useState<Position[]>([]);
-	const [enhancedPositions, setEnhancedPositions] = useState<
-		EnhancedPosition[]
-	>([]);
+	const [enhancedPositions, setEnhancedPositions] = useState<EnhancedPosition[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isEnhancedMode, setIsEnhancedMode] = useState(false);
 	const [totalUnrealizedPnL, setTotalUnrealizedPnL] = useState<number>(0);
 	const [totalPortfolioValue, setTotalPortfolioValue] = useState<number>(0);
-	const [calculatedPnLMap, setCalculatedPnLMap] = useState<
-		Map<string, number>
-	>(new Map());
+	const [calculatedPnLMap, setCalculatedPnLMap] = useState<Map<string, number>>(new Map());
 
 	const calculateRealTimePnL = useCallback(async () => {
 		if (positions.length === 0) {
@@ -104,13 +92,11 @@ export function useUserPositions(): UseUserPositionsResult {
 				positions.map(async (position) => {
 					const pnl = await calculatePositionRealTimePnL(position);
 					pnlMap.set(position.id, pnl);
-				})
+				}),
 			);
 
 			setCalculatedPnLMap(pnlMap);
-		} catch (error) {
-			console.error("Error calculating real-time PnL:", error);
-		}
+		} catch (_error) {}
 	}, [positions]);
 
 	const fetchPositions = useCallback(async () => {
@@ -126,8 +112,7 @@ export function useUserPositions(): UseUserPositionsResult {
 			} else {
 				setError(response.error || "Failed to fetch positions");
 			}
-		} catch (err) {
-			console.error("Error fetching positions:", err);
+		} catch (_err) {
 			setError("Failed to load positions");
 		} finally {
 			setIsLoading(false);
@@ -148,12 +133,9 @@ export function useUserPositions(): UseUserPositionsResult {
 				setTotalUnrealizedPnL(response.totalUnrealizedPnL || 0);
 				setTotalPortfolioValue(response.totalPortfolioValue || 0);
 			} else {
-				setError(
-					response.error || "Failed to fetch enhanced positions"
-				);
+				setError(response.error || "Failed to fetch enhanced positions");
 			}
-		} catch (err) {
-			console.error("Error fetching enhanced positions:", err);
+		} catch (_err) {
 			setError("Failed to load enhanced positions");
 		} finally {
 			setIsLoading(false);
@@ -176,13 +158,7 @@ export function useUserPositions(): UseUserPositionsResult {
 			setCalculatedPnLMap(new Map());
 			setError(null);
 		}
-	}, [
-		isConnected,
-		address,
-		isEnhancedMode,
-		fetchPositions,
-		fetchEnhancedPositions
-	]);
+	}, [isConnected, address, isEnhancedMode, fetchPositions, fetchEnhancedPositions]);
 
 	// Calculate real-time PnL for basic mode positions
 	useEffect(() => {
@@ -201,36 +177,29 @@ export function useUserPositions(): UseUserPositionsResult {
 			return positionsToEnrich.map((position) => {
 				// In enhanced mode, the PnL is already calculated in the enhanced data
 				if (isEnhancedMode && enhancedPositions) {
-					const enhancedPosition = enhancedPositions.find(
-						(ep) => ep.id === position.id
-					);
+					const enhancedPosition = enhancedPositions.find((ep) => ep.id === position.id);
 					if (enhancedPosition?.unrealizedPnL !== undefined) {
 						// Convert unrealizedPnL back to USDC wei format for consistency
-						const pnlInWei = (
-							enhancedPosition.unrealizedPnL * 1e6
-						).toString();
+						const pnlInWei = (enhancedPosition.unrealizedPnL * 1e6).toString();
 						return {
 							...position,
 							pnlRaw: pnlInWei,
 							pnl: `$${
 								enhancedPosition.unrealizedPnL >= 0 ? "+" : ""
-							}${enhancedPosition.unrealizedPnL.toFixed(2)}`
+							}${enhancedPosition.unrealizedPnL.toFixed(2)}`,
 						};
 					}
 				}
 
 				// In basic mode, use calculated PnL map
 				if (!isEnhancedMode && calculatedPnLMap.has(position.id)) {
-					const calculatedPnL =
-						calculatedPnLMap.get(position.id) || 0;
+					const calculatedPnL = calculatedPnLMap.get(position.id) || 0;
 					// Convert back to USDC wei format for consistency with existing code
 					const pnlInWei = (calculatedPnL * 1e6).toString();
 					return {
 						...position,
 						pnlRaw: pnlInWei,
-						pnl: `$${
-							calculatedPnL >= 0 ? "+" : ""
-						}${calculatedPnL.toFixed(2)}`
+						pnl: `$${calculatedPnL >= 0 ? "+" : ""}${calculatedPnL.toFixed(2)}`,
 					};
 				}
 
@@ -243,29 +212,25 @@ export function useUserPositions(): UseUserPositionsResult {
 				return {
 					...position,
 					pnlRaw: "0",
-					pnl: "$0.00"
+					pnl: "$0.00",
 				};
 			});
 		},
-		[isEnhancedMode, enhancedPositions, calculatedPnLMap]
+		[isEnhancedMode, enhancedPositions, calculatedPnLMap],
 	);
 
 	// Derived state with enriched positions
 	const enrichedBasicPositions = enrichPositionsWithCalculatedPnL(positions);
 	const isEmpty = enrichedBasicPositions.length === 0;
-	const openPositions = enrichedBasicPositions.filter(
-		(p) => p.status === "OPEN"
-	);
-	const closedPositions = enrichedBasicPositions.filter(
-		(p) => p.status === "CLOSED"
-	);
+	const openPositions = enrichedBasicPositions.filter((p) => p.status === "OPEN");
+	const closedPositions = enrichedBasicPositions.filter((p) => p.status === "CLOSED");
 
 	// Calculate total PnL using enriched positions with real-time calculations
 	const totalPnl = enrichedBasicPositions.reduce((sum, position) => {
 		if (!position.pnlRaw) return sum;
 		try {
 			const pnl = parseFloat(position.pnlRaw) / 1e6; // Convert from USDC wei
-			return sum + (isNaN(pnl) ? 0 : pnl);
+			return sum + (Number.isNaN(pnl) ? 0 : pnl);
 		} catch {
 			return sum;
 		}
@@ -275,7 +240,7 @@ export function useUserPositions(): UseUserPositionsResult {
 	const totalMargin = enrichedBasicPositions.reduce((sum, position) => {
 		try {
 			const margin = parseFloat(position.margin.replace(/[$,]/g, ""));
-			return sum + (isNaN(margin) ? 0 : margin);
+			return sum + (Number.isNaN(margin) ? 0 : margin);
 		} catch {
 			return sum;
 		}
@@ -286,7 +251,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		if (!position.pnlRaw) return false;
 		try {
 			const pnl = parseFloat(position.pnlRaw);
-			return !isNaN(pnl) && pnl > 0;
+			return !Number.isNaN(pnl) && pnl > 0;
 		} catch {
 			return false;
 		}
@@ -296,7 +261,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		if (!position.pnlRaw) return false;
 		try {
 			const pnl = parseFloat(position.pnlRaw);
-			return !isNaN(pnl) && pnl < 0;
+			return !Number.isNaN(pnl) && pnl < 0;
 		} catch {
 			return false;
 		}
@@ -329,7 +294,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		isEnhancedMode,
 		openPositions.length,
 		fetchEnhancedPositions,
-		calculateRealTimePnL
+		calculateRealTimePnL,
 	]);
 
 	return {
@@ -349,6 +314,6 @@ export function useUserPositions(): UseUserPositionsResult {
 		profitablePositions,
 		unprofitablePositions,
 		isEnhancedMode,
-		toggleEnhancedMode
+		toggleEnhancedMode,
 	};
 }

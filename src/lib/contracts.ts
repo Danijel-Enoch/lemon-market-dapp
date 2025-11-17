@@ -1,6 +1,5 @@
 const usdc = "0x109DAeF13DcA732B32B19b32f45A46E29d320C44" as `0x${string}`;
-const SyntheticPerpetualContract =
-	"0xe9Cf759F88b5870cd7EdA3c0Fb11526BA963D8E5" as `0x${string}`;
+const SyntheticPerpetualContract = "0xe9Cf759F88b5870cd7EdA3c0Fb11526BA963D8E5" as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -9,42 +8,42 @@ const ERC20Abi = [
 		inputs: [{ name: "_owner", type: "address" }],
 		name: "balanceOf",
 		outputs: [{ name: "balance", type: "uint256" }],
-		type: "function"
+		type: "function",
 	},
 	{
 		constant: false,
 		inputs: [
 			{ name: "_spender", type: "address" },
-			{ name: "_value", type: "uint256" }
+			{ name: "_value", type: "uint256" },
 		],
 		name: "approve",
 		outputs: [{ name: "", type: "bool" }],
-		type: "function"
+		type: "function",
 	},
 	{
 		constant: true,
 		inputs: [
 			{ name: "_owner", type: "address" },
-			{ name: "_spender", type: "address" }
+			{ name: "_spender", type: "address" },
 		],
 		name: "allowance",
 		outputs: [{ name: "", type: "uint256" }],
-		type: "function"
+		type: "function",
 	},
 	{
 		constant: true,
 		inputs: [],
 		name: "decimals",
 		outputs: [{ name: "", type: "uint8" }],
-		type: "function"
+		type: "function",
 	},
 	{
 		constant: true,
 		inputs: [],
 		name: "symbol",
 		outputs: [{ name: "", type: "string" }],
-		type: "function"
-	}
+		type: "function",
+	},
 ] as const;
 
 const SyntheticAbi = [
@@ -53,96 +52,96 @@ const SyntheticAbi = [
 			{
 				internalType: "address",
 				name: "_collateralToken",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "address",
 				name: "_adminSigner",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "uint256",
 				name: "_initialLiquidity",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "nonpayable",
-		type: "constructor"
+		type: "constructor",
 	},
 	{
 		inputs: [],
 		name: "ECDSAInvalidSignature",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "length",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "ECDSAInvalidSignatureLength",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [
 			{
 				internalType: "bytes32",
 				name: "s",
-				type: "bytes32"
-			}
+				type: "bytes32",
+			},
 		],
 		name: "ECDSAInvalidSignatureS",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [],
 		name: "EnforcedPause",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [],
 		name: "ExpectedPause",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "owner",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "OwnableInvalidOwner",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "account",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "OwnableUnauthorizedAccount",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [],
 		name: "ReentrancyGuardReentrantCall",
-		type: "error"
+		type: "error",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "token",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "SafeERC20FailedOperation",
-		type: "error"
+		type: "error",
 	},
 	{
 		anonymous: false,
@@ -151,23 +150,23 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "token",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "address",
 				name: "to",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "EmergencyWithdraw",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -176,29 +175,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "feeAmount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "string",
 				name: "feeType",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "FeeCollected",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -207,23 +206,23 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "treasury",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "FeesWithdrawn",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -232,23 +231,23 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "uint256",
 				name: "newMinLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newMaxLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "LeverageLimitsUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -257,17 +256,17 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "LiquidityAdded",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -276,29 +275,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "totalAllocatedLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "LiquidityAllocated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -307,29 +306,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "totalAllocatedLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "LiquidityDeallocated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -338,29 +337,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "string",
 				name: "fromMarket",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: true,
 				internalType: "string",
 				name: "toMarket",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "LiquidityMovedBetweenMarkets",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -369,23 +368,23 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "uint256",
 				name: "newMinMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newMaxMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "MarginLimitsUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -394,35 +393,35 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "marginReturned",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "string",
 				name: "reason",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "MarginReturned",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -431,17 +430,17 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "previousOwner",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "address",
 				name: "newOwner",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "OwnershipTransferred",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -450,11 +449,11 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "address",
 				name: "account",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "Paused",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -463,23 +462,23 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "int256",
 				name: "pnl",
-				type: "int256"
-			}
+				type: "int256",
+			},
 		],
 		name: "PnlUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -488,35 +487,35 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "exitPrice",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "int256",
 				name: "pnl",
-				type: "int256"
+				type: "int256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PositionClosed",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -525,29 +524,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "liquidationPrice",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PositionLiquidated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -556,35 +555,35 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PositionModified",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -593,53 +592,53 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "string",
 				name: "tokenSymbol",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "bool",
 				name: "isLong",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "margin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "leverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "entryPrice",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PositionOpened",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -648,35 +647,35 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "liquidated",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "marginDistributed",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "bool",
 				name: "distributedToOpposing",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PvPLiquidation",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -685,35 +684,35 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "winner",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "profitFromOpposing",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "profitFromMarket",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "PvPPayout",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -722,23 +721,23 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "address",
 				name: "oldTreasury",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: true,
 				internalType: "address",
 				name: "newTreasury",
-				type: "address"
+				type: "address",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "TreasuryWalletUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -747,11 +746,11 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "address",
 				name: "account",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "Unpaused",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -760,23 +759,23 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "initialVirtualFunding",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "VirtualMarketCreated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -785,29 +784,29 @@ const SyntheticAbi = [
 				indexed: true,
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "oldFeeRate",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newFeeRate",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "VirtualMarketDurationFeeUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		anonymous: false,
@@ -816,23 +815,23 @@ const SyntheticAbi = [
 				indexed: false,
 				internalType: "uint256",
 				name: "oldRate",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "newRate",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				indexed: false,
 				internalType: "uint256",
 				name: "timestamp",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "VirtualMarketProfitRateUpdated",
-		type: "event"
+		type: "event",
 	},
 	{
 		inputs: [],
@@ -841,11 +840,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -854,11 +853,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -867,11 +866,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -880,11 +879,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -893,11 +892,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -906,24 +905,24 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "addLiquidity",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -932,11 +931,11 @@ const SyntheticAbi = [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
@@ -945,129 +944,127 @@ const SyntheticAbi = [
 					{
 						internalType: "string",
 						name: "marketId",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "amount",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "address",
 						name: "operator",
-						type: "address"
-					}
+						type: "address",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
 				name: "liquidityData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "allocateVirtualMarketLiquidity",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "bool",
 				name: "isLong",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		name: "checkPvPBalance",
 		outputs: [
 			{
 				internalType: "bool",
 				name: "isProfitable",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "uint256",
 				name: "opposingMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "sameDirectionMargin",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "closePosition",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1076,11 +1073,11 @@ const SyntheticAbi = [
 			{
 				internalType: "contract IERC20",
 				name: "",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
@@ -1089,67 +1086,66 @@ const SyntheticAbi = [
 					{
 						internalType: "string",
 						name: "marketId",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "amount",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "address",
 						name: "operator",
-						type: "address"
-					}
+						type: "address",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
 				name: "liquidityData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "deallocateVirtualMarketLiquidity",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "token",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "address",
 				name: "to",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "emergencyWithdraw",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1158,11 +1154,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1171,24 +1167,24 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "getPositionDetails",
 		outputs: [
@@ -1197,168 +1193,168 @@ const SyntheticAbi = [
 					{
 						internalType: "address",
 						name: "trader",
-						type: "address"
+						type: "address",
 					},
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "bool",
 						name: "isLong",
-						type: "bool"
+						type: "bool",
 					},
 					{
 						internalType: "uint256",
 						name: "margin",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "leverage",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "entryPrice",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "liquidationPrice",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "openTimestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "bool",
 						name: "isActive",
-						type: "bool"
+						type: "bool",
 					},
 					{
 						internalType: "int256",
 						name: "unrealizedPnl",
-						type: "int256"
-					}
+						type: "int256",
+					},
 				],
 				internalType: "struct SyntheticPerpetualWithVmarkets.Position",
 				name: "",
-				type: "tuple"
-			}
+				type: "tuple",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "currentPrice",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "getPositionPnLDetails",
 		outputs: [
 			{
 				internalType: "int256",
 				name: "grossPnL",
-				type: "int256"
+				type: "int256",
 			},
 			{
 				internalType: "int256",
 				name: "netPnL",
-				type: "int256"
+				type: "int256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalFees",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "bool",
 				name: "shouldLiquidate",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "getPvPMarketInfo",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "longMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "shortMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "longCount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "shortCount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "reservedLong",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "reservedShort",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "availableForProfits",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "trader",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "getTraderPositions",
 		outputs: [
 			{
 				internalType: "uint256[]",
 				name: "",
-				type: "uint256[]"
-			}
+				type: "uint256[]",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1367,16 +1363,16 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1385,19 +1381,19 @@ const SyntheticAbi = [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "getVirtualMarket",
 		outputs: [
@@ -1406,181 +1402,179 @@ const SyntheticAbi = [
 					{
 						internalType: "string",
 						name: "marketId",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "realLiquidity",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualLiquidity",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "totalLiquidity",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "bool",
 						name: "exists",
-						type: "bool"
+						type: "bool",
 					},
 					{
 						internalType: "uint256",
 						name: "createdTimestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "durationFeeRate",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "totalLongMargin",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "totalShortMargin",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "longPositionCount",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "shortPositionCount",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "reservedMarginLong",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "reservedMarginShort",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.VirtualMarket",
+				internalType: "struct SyntheticPerpetualWithVmarkets.VirtualMarket",
 				name: "",
-				type: "tuple"
-			}
+				type: "tuple",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "getVirtualMarketDurationFee",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "getVirtualMarketLiquidity",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "realLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "virtualLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalMarketLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "usableLiquidity",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "liquidatePosition",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1589,11 +1583,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1602,11 +1596,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1615,11 +1609,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1628,11 +1622,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1641,100 +1635,99 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "newMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "newLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "modifyPosition",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "fromMarket",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "string",
 				name: "toMarket",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "bool",
 				name: "moveFromVirtual",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		name: "moveLiquidityBetweenMarkets",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1743,77 +1736,76 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "tokenSymbol",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "bool",
 				name: "isLong",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "uint256",
 				name: "margin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "leverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "openPosition",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1822,18 +1814,18 @@ const SyntheticAbi = [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
 		name: "pause",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -1842,160 +1834,160 @@ const SyntheticAbi = [
 			{
 				internalType: "bool",
 				name: "",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "positions",
 		outputs: [
 			{
 				internalType: "address",
 				name: "trader",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "string",
 				name: "tokenSymbol",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "bool",
 				name: "isLong",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "uint256",
 				name: "margin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "leverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "entryPrice",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "liquidationPrice",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "openTimestamp",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "bool",
 				name: "isActive",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "int256",
 				name: "unrealizedPnl",
-				type: "int256"
-			}
+				type: "int256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
 		name: "renounceOwnership",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "currentPrice",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "simulatePositionClosure",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "payoutAmount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "int256",
 				name: "liquidityChange",
-				type: "int256"
+				type: "int256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalFeesCharged",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "currentPrice",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "simulatePvPClosure",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "payoutAmount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "bool",
 				name: "canPayProfit",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "uint256",
 				name: "profitFromOpposing",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "profitFromMarket",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "string",
 				name: "reasonIfLimited",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -2004,11 +1996,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -2017,11 +2009,11 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -2030,48 +2022,48 @@ const SyntheticAbi = [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "traderPositions",
 		outputs: [
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "newOwner",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "transferOwnership",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
@@ -2080,358 +2072,356 @@ const SyntheticAbi = [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [],
 		name: "unpause",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "newAdminSigner",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "updateAdminSigner",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "newMinLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "newMaxLeverage",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "updateLeverageLimits",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "newMinMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "newMaxMargin",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "updateMarginLimits",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "newLeverage",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "updatePositionLeverage",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "positionId",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				components: [
 					{
 						internalType: "string",
 						name: "tokenSymbol",
-						type: "string"
+						type: "string",
 					},
 					{
 						internalType: "uint256",
 						name: "price",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "timestamp",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "nonce",
-						type: "uint256"
+						type: "uint256",
 					},
 					{
 						internalType: "uint256",
 						name: "virtualFunding",
-						type: "uint256"
-					}
+						type: "uint256",
+					},
 				],
-				internalType:
-					"struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
-				type: "tuple"
+				type: "tuple",
 			},
 			{
 				internalType: "bytes",
 				name: "signature",
-				type: "bytes"
-			}
+				type: "bytes",
+			},
 		],
 		name: "updatePositionPnL",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "newTreasuryWallet",
-				type: "address"
-			}
+				type: "address",
+			},
 		],
 		name: "updateTreasuryWallet",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "uint256",
 				name: "newFeeRate",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "updateVirtualMarketDurationFee",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "newProfitRate",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "updateVirtualMarketProfitRate",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "address",
 				name: "",
-				type: "address"
+				type: "address",
 			},
 			{
 				internalType: "uint256",
 				name: "",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "usedNonces",
 		outputs: [
 			{
 				internalType: "bool",
 				name: "",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "virtualMarketExists",
 		outputs: [
 			{
 				internalType: "bool",
 				name: "",
-				type: "bool"
-			}
+				type: "bool",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "string",
 				name: "",
-				type: "string"
-			}
+				type: "string",
+			},
 		],
 		name: "virtualMarkets",
 		outputs: [
 			{
 				internalType: "string",
 				name: "marketId",
-				type: "string"
+				type: "string",
 			},
 			{
 				internalType: "uint256",
 				name: "realLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "virtualLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalLiquidity",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "bool",
 				name: "exists",
-				type: "bool"
+				type: "bool",
 			},
 			{
 				internalType: "uint256",
 				name: "createdTimestamp",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "durationFeeRate",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalLongMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "totalShortMargin",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "longPositionCount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "shortPositionCount",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "reservedMarginLong",
-				type: "uint256"
+				type: "uint256",
 			},
 			{
 				internalType: "uint256",
 				name: "reservedMarginShort",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		stateMutability: "view",
-		type: "function"
+		type: "function",
 	},
 	{
 		inputs: [
 			{
 				internalType: "uint256",
 				name: "amount",
-				type: "uint256"
-			}
+				type: "uint256",
+			},
 		],
 		name: "withdrawFees",
 		outputs: [],
 		stateMutability: "nonpayable",
-		type: "function"
+		type: "function",
 	},
 	{
 		stateMutability: "payable",
-		type: "receive"
-	}
+		type: "receive",
+	},
 ];
 
 export { usdc, SyntheticPerpetualContract, SyntheticAbi, ERC20Abi };

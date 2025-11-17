@@ -1,12 +1,6 @@
 "use client";
 
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useState,
-	type ReactNode
-} from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Define the context type based on what sdk.context resolves to
 interface MiniAppUser {
@@ -42,7 +36,7 @@ interface MiniAppStateType {
 
 const MiniAppContextState = createContext<MiniAppStateType>({
 	isMiniApp: false,
-	isLoading: true
+	isLoading: true,
 });
 
 export function useMiniApp() {
@@ -69,7 +63,7 @@ export function MiniAppProvider({ children }: MiniAppProviderProps) {
 			try {
 				// Dynamically import the SDK only in the browser
 				const { sdk } = await import("@farcaster/miniapp-sdk");
-				
+
 				// Check if we're in a Mini App environment
 				const inMiniApp = await sdk.isInMiniApp();
 				setIsMiniApp(inMiniApp);
@@ -81,11 +75,8 @@ export function MiniAppProvider({ children }: MiniAppProviderProps) {
 
 					// Signal that the app is ready (hide splash screen)
 					await sdk.actions.ready();
-
-					console.log("Farcaster Mini App initialized", ctx);
 				}
-			} catch (error) {
-				console.error("Failed to initialize Mini App:", error);
+			} catch (_error) {
 				setIsMiniApp(false);
 			} finally {
 				setIsLoading(false);

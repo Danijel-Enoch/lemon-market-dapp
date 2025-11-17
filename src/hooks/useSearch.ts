@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { type SearchResult } from "@/lib/search-service";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SearchResult } from "@/lib/search-service";
 
 interface UseSearchOptions {
 	debounceMs?: number;
@@ -62,21 +62,16 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
 							const params = new URLSearchParams({
 								q: query.trim(),
-								chains: chains.join(",")
+								chains: chains.join(","),
 							});
 
-							const response = await fetch(
-								`/api/search?${params.toString()}`,
-								{
-									signal: currentRequestRef.current.signal
-								}
-							);
+							const response = await fetch(`/api/search?${params.toString()}`, {
+								signal: currentRequestRef.current.signal,
+							});
 
 							if (!response.ok) {
 								const errorData = await response.json();
-								throw new Error(
-									errorData.error || `HTTP ${response.status}`
-								);
+								throw new Error(errorData.error || `HTTP ${response.status}`);
 							}
 
 							const data = await response.json();
@@ -88,31 +83,22 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 								throw new Error(data.error || "Search failed");
 							}
 						} catch (err) {
-							if (
-								err instanceof Error &&
-								err.name === "AbortError"
-							) {
+							if (err instanceof Error && err.name === "AbortError") {
 								// Request was aborted, don't update state
 								return;
 							}
-
-							console.error("Search error:", err);
-							setError(
-								err instanceof Error
-									? err.message
-									: "Search failed"
-							);
+							setError(err instanceof Error ? err.message : "Search failed");
 							setResults([]);
 						} finally {
 							setIsLoading(false);
 							resolve();
 						}
 					},
-					isAddress ? 0 : debounceMs
+					isAddress ? 0 : debounceMs,
 				);
 			});
 		},
-		[chains, debounceMs, minQueryLength]
+		[chains, debounceMs, minQueryLength],
 	);
 
 	const clearResults = useCallback(() => {
@@ -145,6 +131,6 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 		isLoading,
 		error,
 		search,
-		clearResults
+		clearResults,
 	};
 }

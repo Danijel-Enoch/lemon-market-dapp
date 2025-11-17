@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
@@ -67,15 +67,13 @@ export function useReferral() {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						address: userAddress,
-						referralCode: referredBy || undefined
-					})
+						referralCode: referredBy || undefined,
+					}),
 				});
 
 				if (!redeemResponse.ok) {
 					const errorData = await redeemResponse.json();
-					throw new Error(
-						errorData.error || "Failed to initialize referral"
-					);
+					throw new Error(errorData.error || "Failed to initialize referral");
 				}
 
 				const data = await redeemResponse.json();
@@ -83,24 +81,19 @@ export function useReferral() {
 
 				// If this is a new user (just created), clear the referred_by code
 				// so it's not used again
-				if (
-					referredBy &&
-					data.message === "User created successfully"
-				) {
+				if (referredBy && data.message === "User created successfully") {
 					// Keep the referral code in storage for future reference
 				}
 
 				return data;
 			} catch (err) {
-				const errorMessage =
-					err instanceof Error ? err.message : "Unknown error";
+				const errorMessage = err instanceof Error ? err.message : "Unknown error";
 				setError(errorMessage);
-				console.error("Error initializing referral:", errorMessage);
 			} finally {
 				setIsLoading(false);
 			}
 		},
-		[getReferredByFromStorage, saveReferralCode]
+		[getReferredByFromStorage, saveReferralCode],
 	);
 
 	// Load referral code from storage on mount
@@ -127,6 +120,6 @@ export function useReferral() {
 		clearReferralData,
 		initializeUserReferral,
 		isLoading,
-		error
+		error,
 	};
 }

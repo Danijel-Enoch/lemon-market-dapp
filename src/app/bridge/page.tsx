@@ -1,6 +1,6 @@
 "use client";
 
-import { LiFiWidget, type WidgetConfig, useWidgetEvents, WidgetEvent } from "@lifi/widget";
+import { LiFiWidget, useWidgetEvents, type WidgetConfig, WidgetEvent } from "@lifi/widget";
 import { Info, Repeat } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +38,7 @@ export default function BridgeSwapPage() {
 				});
 				setLastPriceUpdate(new Date());
 			}
-		} catch (error) {
-			console.error("Error fetching latest price:", error);
+		} catch (_error) {
 		} finally {
 			setIsLoadingPrice(false);
 		}
@@ -47,14 +46,9 @@ export default function BridgeSwapPage() {
 
 	useEffect(() => {
 		const handleTokenSelected = (data: any) => {
-			console.log("Token selected event:", data);
-
 			// Normalize the token address to lowercase for consistent matching
 			const tokenAddress = data.tokenAddress?.toLowerCase() || data.address?.toLowerCase();
 			const symbol = data.symbol?.toUpperCase();
-
-			console.log("Normalized address:", tokenAddress);
-			console.log("Token symbol:", symbol);
 
 			// Map by symbol (more reliable than address across chains)
 			// Using BSC pair addresses for DexScreener
@@ -87,8 +81,6 @@ export default function BridgeSwapPage() {
 
 			const pairInfo = symbol ? symbolToPairMap[symbol] : undefined;
 
-			console.log("Pair info found:", pairInfo);
-
 			setSelectedToken({
 				symbol: symbol || "TOKEN",
 				address: tokenAddress || data.tokenAddress || "",
@@ -98,7 +90,6 @@ export default function BridgeSwapPage() {
 
 			// Fetch price if pair address exists
 			if (pairInfo?.pairAddress) {
-				console.log("Fetching price for pair:", pairInfo.pairAddress);
 				fetchLatestPrice(pairInfo.pairAddress);
 			}
 		};
@@ -111,7 +102,7 @@ export default function BridgeSwapPage() {
 			widgetEvents.off(WidgetEvent.SourceChainTokenSelected, handleTokenSelected);
 			widgetEvents.off(WidgetEvent.DestinationChainTokenSelected, handleTokenSelected);
 		};
-	}, [widgetEvents]);
+	}, [widgetEvents, fetchLatestPrice]);
 
 	// Auto-refresh price every 30 seconds
 	useEffect(() => {
@@ -122,7 +113,7 @@ export default function BridgeSwapPage() {
 		}, 30000); // 30 seconds
 
 		return () => clearInterval(interval);
-	}, [selectedToken?.pairAddress]);
+	}, [selectedToken?.pairAddress, fetchLatestPrice]);
 
 	const widgetConfig: WidgetConfig = {
 		integrator: "omni-bot",

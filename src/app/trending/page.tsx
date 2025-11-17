@@ -1,13 +1,6 @@
 "use client";
 
-import {
-	ArrowDownRight,
-	ArrowUpRight,
-	Info,
-	Loader2,
-	Search,
-	TrendingUp
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Info, Loader2, Search, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SearchResults } from "@/components/ui/SearchResults";
 import { useSearch } from "@/hooks/useSearch";
-import { type SearchResult } from "@/lib/search-service";
+import type { SearchResult } from "@/lib/search-service";
 
 // Types
 interface Token {
@@ -80,13 +73,13 @@ export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isLoading, setIsLoading] = useState(true);
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
-	const [currentPage, setCurrentPage] = useState(1);
+	const [_currentPage, setCurrentPage] = useState(1);
 	const [hasMore, setHasMore] = useState(true);
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [apiData, setApiData] = useState({
 		stocks: [] as Token[],
 		fx: [] as ForexPair[],
-		tokens: [] as Token[]
+		tokens: [] as Token[],
 	});
 
 	// New search functionality
@@ -95,9 +88,9 @@ export default function Home() {
 		isLoading: isSearchLoading,
 		error: searchError,
 		search,
-		clearResults
+		clearResults,
 	} = useSearch({
-		chains: ["base"]
+		chains: ["base"],
 	});
 
 	const handleTradeClick = (item: Token) => {
@@ -107,7 +100,6 @@ export default function Home() {
 		if ("pairAddress" in item && item.pairAddress) {
 			params.set("pairAddress", item.pairAddress);
 		}
-		console.log({ item });
 		params.set("tokenAddress", item.tokenAddress);
 		params.set("chain", item.chain!);
 		router.push(`/perp?${params.toString()}`);
@@ -150,43 +142,32 @@ export default function Home() {
 		}
 	};
 
-	const fetchTokens = useCallback(
-		async (page: number, append: boolean = false) => {
-			try {
-				if (append) {
-					setIsLoadingMore(true);
-				} else {
-					setIsLoading(true);
-				}
-
-				const tokensResponse = await fetch(
-					`/api/trending/tokens?page=${page}&limit=10`
-				);
-				if (!tokensResponse.ok) {
-					throw new Error(
-						`Tokens API failed: ${tokensResponse.status}`
-					);
-				}
-				const tokensData: TokenAPIResponse =
-					await tokensResponse.json();
-
-				setApiData((prev) => ({
-					...prev,
-					tokens: append
-						? [...prev.tokens, ...tokensData.data]
-						: tokensData.data
-				}));
-
-				setHasMore(tokensData.pagination?.hasMore ?? false);
-			} catch (error) {
-				console.error("Error fetching tokens:", error);
-			} finally {
-				if (!append) setIsLoading(false);
-				setIsLoadingMore(false);
+	const fetchTokens = useCallback(async (page: number, append: boolean = false) => {
+		try {
+			if (append) {
+				setIsLoadingMore(true);
+			} else {
+				setIsLoading(true);
 			}
-		},
-		[]
-	);
+
+			const tokensResponse = await fetch(`/api/trending/tokens?page=${page}&limit=10`);
+			if (!tokensResponse.ok) {
+				throw new Error(`Tokens API failed: ${tokensResponse.status}`);
+			}
+			const tokensData: TokenAPIResponse = await tokensResponse.json();
+
+			setApiData((prev) => ({
+				...prev,
+				tokens: append ? [...prev.tokens, ...tokensData.data] : tokensData.data,
+			}));
+
+			setHasMore(tokensData.pagination?.hasMore ?? false);
+		} catch (_error) {
+		} finally {
+			if (!append) setIsLoading(false);
+			setIsLoadingMore(false);
+		}
+	}, []);
 
 	useEffect(() => {
 		const fetchTrendingData = async () => {
@@ -198,9 +179,7 @@ export default function Home() {
 
 				const stocksResponse = await fetch("/api/trending/stocks");
 				if (!stocksResponse.ok) {
-					throw new Error(
-						`Stocks API failed: ${stocksResponse.status}`
-					);
+					throw new Error(`Stocks API failed: ${stocksResponse.status}`);
 				}
 				const stocksData: APIResponse = await stocksResponse.json();
 
@@ -216,71 +195,62 @@ export default function Home() {
 						id: index + 1,
 						symbol: stock.Ticker,
 						name: stock.Ticker,
-						price:
-							typeof stock.Price === "number"
-								? stock.Price.toFixed(2)
-								: "0.00",
+						price: typeof stock.Price === "number" ? stock.Price.toFixed(2) : "0.00",
 						change24h: "N/A",
 						volume: "N/A",
 						marketCap: "N/A",
 						trend: "up" as const,
 						logo: "📈",
 						tokenAddress: "",
-						chain: "base"
-					})
+						chain: "base",
+					}),
 				);
 
-				const transformedFX: ForexPair[] = fxData.data.map(
-					(fx, index) => {
-						const getDisplaySymbol = (ticker: string) => {
-							if (ticker.includes("AUD-USD")) return "AUD/USD";
-							if (ticker.includes("CNY-USD")) return "CNY/USD";
-							if (ticker.includes("NGN-USD")) return "NGN/USD";
-							return ticker;
-						};
+				const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
+					const getDisplaySymbol = (ticker: string) => {
+						if (ticker.includes("AUD-USD")) return "AUD/USD";
+						if (ticker.includes("CNY-USD")) return "CNY/USD";
+						if (ticker.includes("NGN-USD")) return "NGN/USD";
+						return ticker;
+					};
 
-						const getDisplayName = (ticker: string) => {
-							if (ticker.includes("AUD"))
-								return "Australian Dollar/US Dollar";
-							if (ticker.includes("CNY"))
-								return "Chinese Yuan/US Dollar";
-							if (ticker.includes("NGN"))
-								return "Nigerian Naira/US Dollar";
-							return ticker;
-						};
+					const getDisplayName = (ticker: string) => {
+						if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
+						if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
+						if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
+						return ticker;
+					};
 
-						const getLogo = (ticker: string) => {
-							if (ticker.includes("AUD")) return "🇦🇺";
-							if (ticker.includes("CNY")) return "🇨🇳";
-							if (ticker.includes("NGN")) return "🇳🇬";
-							return "💱";
-						};
+					const getLogo = (ticker: string) => {
+						if (ticker.includes("AUD")) return "🇦🇺";
+						if (ticker.includes("CNY")) return "🇨🇳";
+						if (ticker.includes("NGN")) return "🇳🇬";
+						return "💱";
+					};
 
-						return {
-							id: index + 1,
-							symbol: getDisplaySymbol(fx.Ticker),
-							name: getDisplayName(fx.Ticker),
-							price: fx.Price.toFixed(4),
-							change24h: "N/A",
-							volume: "N/A",
-							spread: "N/A",
-							trend: "up",
-							logo: getLogo(fx.Ticker)
-						};
-					}
-				);
+					return {
+						id: index + 1,
+						symbol: getDisplaySymbol(fx.Ticker),
+						name: getDisplayName(fx.Ticker),
+						price: fx.Price.toFixed(4),
+						change24h: "N/A",
+						volume: "N/A",
+						spread: "N/A",
+						trend: "up",
+						logo: getLogo(fx.Ticker),
+					};
+				});
 
 				setApiData((prev) => ({
 					...prev,
 					stocks: transformedStocks,
-					fx: transformedFX
+					fx: transformedFX,
 				}));
-			} catch (error) {
-				console.error("Error fetching trending data:", error);
+			} catch (_error) {
 				setApiData((prev) => ({
 					...prev,
 					stocks: [],
-					fx: []
+					fx: [],
 				}));
 			} finally {
 				setIsLoading(false);
@@ -294,12 +264,7 @@ export default function Home() {
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (
-					entries[0].isIntersecting &&
-					hasMore &&
-					!isLoadingMore &&
-					!isLoading
-				) {
+				if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
 					setCurrentPage((prev) => {
 						const nextPage = prev + 1;
 						fetchTokens(nextPage, true);
@@ -307,7 +272,7 @@ export default function Home() {
 					});
 				}
 			},
-			{ threshold: 0.1 }
+			{ threshold: 0.1 },
 		);
 
 		if (observerTarget.current) {
@@ -324,13 +289,12 @@ export default function Home() {
 	const filteredTokens = apiData.tokens.filter(
 		(token) =>
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
 	const filteredFX = apiData.fx;
 
 	const filteredStocks = apiData.stocks;
-	console.log({ filteredTokens, filteredFX, filteredStocks });
 
 	const renderTokenTable = (items: Token[], title: string) => (
 		<Card className="overflow-hidden border-gray-100/10">
@@ -378,24 +342,18 @@ export default function Home() {
 										key={item.id}
 										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
 									>
-										<td className="p-3 text-muted-foreground text-sm">
-											{index + 1}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
 												<div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
-													{item.logo?.startsWith(
-														"http"
-													) ? (
+													{item.logo?.startsWith("http") ? (
 														<img
 															src={item.logo}
 															alt={item.symbol}
 															className="w-full h-full object-cover"
 															onError={(e) => {
-																e.currentTarget.style.display =
-																	"none";
-																e.currentTarget.parentElement!.textContent =
-																	"🪙";
+																e.currentTarget.style.display = "none";
+																e.currentTarget.parentElement!.textContent = "🪙";
 															}}
 														/>
 													) : (
@@ -403,18 +361,12 @@ export default function Home() {
 													)}
 												</div>
 												<div>
-													<div className="text-foreground font-medium text-sm">
-														{item.symbol}
-													</div>
-													<div className="text-muted-foreground text-xs">
-														{item.name}
-													</div>
+													<div className="text-foreground font-medium text-sm">{item.symbol}</div>
+													<div className="text-muted-foreground text-xs">{item.name}</div>
 												</div>
 											</div>
 										</td>
-										<td className="p-3 text-foreground font-medium text-sm">
-											{item.price}
-										</td>
+										<td className="p-3 text-foreground font-medium text-sm">{item.price}</td>
 										<td className="p-3">
 											<Badge
 												variant="outline"
@@ -432,12 +384,8 @@ export default function Home() {
 												{item.change24h}
 											</Badge>
 										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.volume}
-										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.marketCap}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.volume}</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.marketCap}</td>
 										<td className="p-3 text-muted-foreground text-sm">
 											<div className="flex items-center gap-2">
 												{item.totalLiquidity || "$0.00"}
@@ -455,12 +403,7 @@ export default function Home() {
 											{item.openInterest || "$0.00"}
 										</td>
 										<td className="p-3">
-											<Button
-												onClick={() =>
-													handleTradeClick(item)
-												}
-												size="sm"
-											>
+											<Button onClick={() => handleTradeClick(item)} size="sm">
 												Trade
 											</Button>
 										</td>
@@ -468,17 +411,10 @@ export default function Home() {
 								))
 							) : (
 								<tr>
-									<td
-										colSpan={9}
-										className="p-12 text-center"
-									>
+									<td colSpan={9} className="p-12 text-center">
 										<div className="flex flex-col items-center gap-2">
-											<div className="text-muted-foreground">
-												No items found
-											</div>
-											<div className="text-sm text-muted-foreground">
-												No data available
-											</div>
+											<div className="text-muted-foreground">No items found</div>
+											<div className="text-sm text-muted-foreground">No data available</div>
 										</div>
 									</td>
 								</tr>
@@ -530,27 +466,17 @@ export default function Home() {
 										key={item.id}
 										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
 									>
-										<td className="p-3 text-muted-foreground text-sm">
-											{index + 1}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
-												<div className="w-8 h-8 text-lg">
-													{item.logo}
-												</div>
+												<div className="w-8 h-8 text-lg">{item.logo}</div>
 												<div>
-													<div className="text-foreground font-medium text-sm">
-														{item.symbol}
-													</div>
-													<div className="text-muted-foreground text-xs">
-														{item.name}
-													</div>
+													<div className="text-foreground font-medium text-sm">{item.symbol}</div>
+													<div className="text-muted-foreground text-xs">{item.name}</div>
 												</div>
 											</div>
 										</td>
-										<td className="p-3 text-foreground font-medium text-sm">
-											{item.price}
-										</td>
+										<td className="p-3 text-foreground font-medium text-sm">{item.price}</td>
 										<td className="p-3">
 											<Badge
 												variant="outline"
@@ -568,19 +494,10 @@ export default function Home() {
 												{item.change24h}
 											</Badge>
 										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.volume}
-										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.spread}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.volume}</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.spread}</td>
 										<td className="p-3">
-											<Button
-												onClick={() =>
-													handleForexTradeClick(item)
-												}
-												size="sm"
-											>
+											<Button onClick={() => handleForexTradeClick(item)} size="sm">
 												Trade
 											</Button>
 										</td>
@@ -588,17 +505,10 @@ export default function Home() {
 								))
 							) : (
 								<tr>
-									<td
-										colSpan={6}
-										className="p-12 text-center"
-									>
+									<td colSpan={6} className="p-12 text-center">
 										<div className="flex flex-col items-center gap-2">
-											<div className="text-muted-foreground">
-												No items found
-											</div>
-											<div className="text-sm text-muted-foreground">
-												No data available
-											</div>
+											<div className="text-muted-foreground">No items found</div>
+											<div className="text-sm text-muted-foreground">No data available</div>
 										</div>
 									</td>
 								</tr>
@@ -650,24 +560,18 @@ export default function Home() {
 										key={item.id}
 										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
 									>
-										<td className="p-3 text-muted-foreground text-sm">
-											{index + 1}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
 												<div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
-													{item.logo?.startsWith(
-														"http"
-													) ? (
+													{item.logo?.startsWith("http") ? (
 														<img
 															src={item.logo}
 															alt={item.symbol}
 															className="w-full h-full object-cover"
 															onError={(e) => {
-																e.currentTarget.style.display =
-																	"none";
-																e.currentTarget.parentElement!.textContent =
-																	"📈";
+																e.currentTarget.style.display = "none";
+																e.currentTarget.parentElement!.textContent = "📈";
 															}}
 														/>
 													) : (
@@ -675,18 +579,12 @@ export default function Home() {
 													)}
 												</div>
 												<div>
-													<div className="text-foreground font-medium text-sm">
-														{item.symbol}
-													</div>
-													<div className="text-muted-foreground text-xs">
-														{item.name}
-													</div>
+													<div className="text-foreground font-medium text-sm">{item.symbol}</div>
+													<div className="text-muted-foreground text-xs">{item.name}</div>
 												</div>
 											</div>
 										</td>
-										<td className="p-3 text-foreground font-medium text-sm">
-											${item.price}
-										</td>
+										<td className="p-3 text-foreground font-medium text-sm">${item.price}</td>
 										<td className="p-3">
 											<Badge
 												variant="outline"
@@ -704,19 +602,10 @@ export default function Home() {
 												{item.change24h}
 											</Badge>
 										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.volume}
-										</td>
-										<td className="p-3 text-muted-foreground text-sm">
-											{item.marketCap || "N/A"}
-										</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.volume}</td>
+										<td className="p-3 text-muted-foreground text-sm">{item.marketCap || "N/A"}</td>
 										<td className="p-3">
-											<Button
-												onClick={() =>
-													handleStockTradeClick(item)
-												}
-												size="sm"
-											>
+											<Button onClick={() => handleStockTradeClick(item)} size="sm">
 												Trade
 											</Button>
 										</td>
@@ -724,17 +613,10 @@ export default function Home() {
 								))
 							) : (
 								<tr>
-									<td
-										colSpan={6}
-										className="p-12 text-center"
-									>
+									<td colSpan={6} className="p-12 text-center">
 										<div className="flex flex-col items-center gap-2">
-											<div className="text-muted-foreground">
-												No items found
-											</div>
-											<div className="text-sm text-muted-foreground">
-												No data available
-											</div>
+											<div className="text-muted-foreground">No items found</div>
+											<div className="text-sm text-muted-foreground">No data available</div>
 										</div>
 									</td>
 								</tr>
@@ -755,9 +637,7 @@ export default function Home() {
 							<TrendingUp className="w-6 h-6 text-primary" />
 						</div>
 						<div>
-							<h1 className="text-3xl font-bold text-foreground">
-								Trending Assets
-							</h1>
+							<h1 className="text-3xl font-bold text-foreground">Trending Assets</h1>
 							<p className="text-muted-foreground text-sm">
 								Discover popular assets and market performance
 							</p>
@@ -774,8 +654,7 @@ export default function Home() {
 											Perpetual Trading Availability
 										</h3>
 										<p className="text-muted-foreground text-xs">
-											Perpetual trading is currently
-											supported for tokens on these DEXs:
+											Perpetual trading is currently supported for tokens on these DEXs:
 										</p>
 									</div>
 									<div className="flex flex-wrap gap-2">
@@ -788,7 +667,7 @@ export default function Home() {
 											"SushiSwapV3",
 											"VelocimeterV2",
 											"Aerodrome",
-											"Slipstream"
+											"Slipstream",
 										].map((dex) => (
 											<Badge
 												key={dex}
@@ -819,13 +698,12 @@ export default function Home() {
 					{searchQuery && (
 						<div className="space-y-2">
 							<p className="text-muted-foreground text-xs">
-								Searching for &quot;{searchQuery}&quot; on Base
-								network via DexScreener and GeckoTerminal
+								Searching for &quot;{searchQuery}&quot; on Base network via DexScreener and
+								GeckoTerminal
 							</p>
 							{searchQuery.startsWith("0x") && (
 								<p className="text-muted-foreground text-xs bg-blue-500/10 border border-blue-500/20 rounded p-2">
-									💡 Detected contract address - searching on
-									Base chain
+									💡 Detected contract address - searching on Base chain
 								</p>
 							)}
 						</div>
@@ -849,34 +727,20 @@ export default function Home() {
 						{isLoading ? (
 							<div className="flex flex-col items-center justify-center py-24 gap-4">
 								<Loader2 className="w-8 h-8 text-primary animate-spin" />
-								<div className="text-foreground font-medium">
-									Loading trending assets...
-								</div>
-								<div className="text-muted-foreground text-sm">
-									Fetching real-time market data
-								</div>
+								<div className="text-foreground font-medium">Loading trending assets...</div>
+								<div className="text-muted-foreground text-sm">Fetching real-time market data</div>
 							</div>
 						) : (
 							<>
 								{filteredTokens.length > 0 &&
-									renderTokenTable(
-										filteredTokens,
-										"Top Trending Tokens"
-									)}
-								{filteredFX.length > 0 &&
-									renderForexTable(filteredFX, "Forex Pairs")}
-								{filteredStocks.length > 0 &&
-									renderStocksTable(
-										filteredStocks,
-										"Top Stocks"
-									)}
+									renderTokenTable(filteredTokens, "Top Trending Tokens")}
+								{filteredFX.length > 0 && renderForexTable(filteredFX, "Forex Pairs")}
+								{filteredStocks.length > 0 && renderStocksTable(filteredStocks, "Top Stocks")}
 								{filteredTokens.length === 0 &&
 									filteredFX.length === 0 &&
 									filteredStocks.length === 0 && (
 										<div className="flex flex-col items-center justify-center py-12 gap-4">
-											<div className="text-muted-foreground">
-												No data available
-											</div>
+											<div className="text-muted-foreground">No data available</div>
 											<div className="text-sm text-muted-foreground">
 												Unable to fetch trending assets
 											</div>

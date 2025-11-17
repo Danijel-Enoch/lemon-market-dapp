@@ -8,24 +8,24 @@ const nextConfig: NextConfig = {
 			"assets.coingecko.com",
 			"coin-images.coingecko.com",
 			"s2.coinmarketcap.com",
-			"assets.geckoterminal.com"
-		]
+			"assets.geckoterminal.com",
+		],
 	},
 	typescript: {
 		// Ignore TypeScript errors during build
-		ignoreBuildErrors: true
+		ignoreBuildErrors: true,
 	},
 	eslint: {
 		// Ignore ESLint errors during build
-		ignoreDuringBuilds: true
+		ignoreDuringBuilds: true,
 	},
 	// Enable React Strict Mode for better development experience
 	reactStrictMode: true,
 	// Ensure Fast Refresh is enabled (default in development)
 	experimental: {
 		// This helps with HMR in some edge cases
-		optimizePackageImports: ['@/components']
-	}
+		optimizePackageImports: ["@/components"],
+	},
 };
 
 export default nextConfig;
