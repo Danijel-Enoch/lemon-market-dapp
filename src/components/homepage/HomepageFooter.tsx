@@ -15,7 +15,7 @@ export type HomepageFooterProps = Readonly<{
 const defaultBrand = {
 	name: "Lemon Markets",
 	logoSrc: "/image/logo.png",
-	tagline: "Join thousands trading perpetuals with Lemon markets. Simple setup,",
+	tagline: "Trade with confidence on the most efficient decentralized perpetual protocol. Unlimited markets, unmatched liquidity.",
 } as const;
 
 const defaultNavigation: ReadonlyArray<LinkItem> = [
@@ -27,10 +27,10 @@ const defaultNavigation: ReadonlyArray<LinkItem> = [
 ];
 
 const defaultSocials: ReadonlyArray<LinkItem> = [
-	{ label: "X(Twitter)", href: "https://x.com", external: true },
-	{ label: "Discord", href: "https://discord.com", external: true },
-	{ label: "Youtube", href: "https://youtube.com", external: true },
-	{ label: "LinkedIn", href: "https://linkedin.com", external: true },
+	{ label: "X(Twitter)", href: "https://x.com/lemonmarkets", external: true },
+	{ label: "Discord", href: "https://discord.gg/lemonmarkets", external: true },
+	{ label: "Telegram", href: "https://t.me/lemonmarkets", external: true },
+	{ label: "GitHub", href: "https://github.com/lemonmarkets", external: true },
 ];
 
 const defaultLegal: ReadonlyArray<LinkItem> = [

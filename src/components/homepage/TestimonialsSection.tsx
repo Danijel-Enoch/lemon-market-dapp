@@ -7,51 +7,51 @@ import { motion } from "framer-motion";
 const testimonials = [
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"Lemon Markets has completely changed my trading strategy. The ability to trade perpetuals across multiple chains with such deep liquidity is a game-changer.",
+		author: "Sarah Chen",
+		role: "DeFi Trader",
 		avatar: "/assets/homepage/testimonial-1.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"Finally, a perpetual DEX that doesn't compromise on execution speed or price accuracy. The oracle integration is seamless and reliable.",
+		author: "Marcus Rodriguez",
+		role: "Quant Analyst",
 		avatar: "/assets/homepage/testimonial-2.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"I've been trading on Lemon Markets for months now. The unified liquidity model means I can trade exotic pairs without worrying about slippage.",
+		author: "Kenji Tanaka",
+		role: "Portfolio Manager",
 		avatar: "/assets/homepage/testimonial-3.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"The synthetic asset support is incredible. I can now trade forex and commodities alongside my crypto positions all in one place.",
+		author: "Elena Volkov",
+		role: "Crypto Investor",
 		avatar: "/assets/homepage/testimonial-2.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"Best leverage trading platform I've used. Clean UI, fast execution, and the capital efficiency is unmatched. Highly recommended!",
+		author: "James Thompson",
+		role: "Day Trader",
 		avatar: "/assets/homepage/testimonial-3.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"As a professional trader, I need reliability and transparency. Lemon Markets delivers on both fronts with their oracle-powered pricing.",
+		author: "Aisha Patel",
+		role: "Crypto Fund Manager",
 		avatar: "/assets/homepage/testimonial-2.png",
 	},
 	{
 		quote:
-			"Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra sit viverra ipsum eget imperdiet.",
-		author: "John Doe",
-		role: "Crypto Blogger",
+			"The multi-chain support is what drew me in, but the low fees and deep liquidity are what kept me. This is the future of DeFi trading.",
+		author: "Lucas Schmidt",
+		role: "Blockchain Developer",
 		avatar: "/assets/homepage/testimonial-3.png",
 	},
 ];

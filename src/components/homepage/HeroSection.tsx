@@ -25,7 +25,7 @@ export const HeroSection: FC = () => {
 					Unlimited Opportunities.
 				</h1>
 				<p className="text-lg md:text-xl text-white/80 max-w-2xl">
-					Trade asset class with up to 100x leverage
+					Trade any asset class with up to 100x leverage on the most efficient decentralized perpetual protocol
 				</p>
 				<Link
 					href="/perp"
@@ -33,7 +33,7 @@ export const HeroSection: FC = () => {
 				>
 					Start Trading
 				</Link>
-				<p className="mt-72 text-sm text-white/60">Trusted by over 5000+ traders worldwide</p>
+				<p className="mt-72 text-sm text-white/60">Powering over $50M in daily trading volume</p>
 			</div>
 		</section>
 	);

@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { FC } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAsync } from "react-use";
 
 type Pill = {
 	icon: string;
@@ -13,6 +14,15 @@ type Pill = {
 	changeColor?: "red" | "green" | "gray";
 	width?: number;
 	largeIcon?: boolean;
+};
+
+type TrendingToken = {
+	symbol: string;
+	name: string;
+	price: string;
+	change24h: string;
+	trend: "up" | "down";
+	logo: string;
 };
 
 const basePill =
@@ -76,105 +86,51 @@ const PillItem: FC<Pill> = ({
 };
 
 export const TrendingCoinsSection: FC = () => {
-	const top: Pill[] = [
-		{
-			icon: "/assets/trending-coins/leo-1.png",
-			title: "LEO Token",
-			price: "9.55$",
-			change: "-0.16%",
-			changeColor: "red",
-			width: 153,
-		},
-		{
-			icon: "/assets/trending-coins/leo-2.png",
-			title: "LEO Token",
-			price: "9.55$",
-			change: "-0.16%",
-			changeColor: "red",
-			width: 153,
-		},
-		{
-			icon: "/assets/trending-coins/sui.png",
-			title: "Sui",
-			price: "2.38$",
-			change: "0.72%",
-			changeColor: "green",
-		},
-		{
-			icon: "/assets/trending-coins/weth.png",
-			title: "WETH",
-			price: "3894.91$",
-			change: "1.15%",
-			changeColor: "green",
-			largeIcon: true,
-		},
-		{
-			icon: "/assets/trending-coins/hedera.png",
-			title: "Hedera",
-			price: "0.200515$",
-			change: "3.11%",
-			changeColor: "green",
-		},
-		{
-			icon: "/assets/trending-coins/avalanche.png",
-			title: "Avalanche",
-			price: "0.200515$",
-			change: "3.11%",
-			changeColor: "green",
-			width: 170,
-			largeIcon: true,
-		},
-	];
+	// Fetch trending tokens from API
+	const { value: trendingData, loading } = useAsync(async () => {
+		try {
+			const response = await fetch("/api/trending/tokens");
+			const data = await response.json();
+			return data.data as TrendingToken[];
+		} catch (error) {
+			console.error("Failed to fetch trending tokens:", error);
+			return [];
+		}
+	}, []);
 
-	const bottom: Pill[] = [
-		{
-			icon: "/assets/trending-coins/bsol-1.png",
-			title: "Binance Staked SOL",
-			price: "201.24$",
-			change: "-0.54%",
-			changeColor: "red",
-			width: 216,
-		},
-		{
-			icon: "/assets/trending-coins/trump.png",
-			title: "Official Trump",
-			price: "7.92$",
-			change: "-1.62%",
-			changeColor: "red",
-			width: 170,
-			largeIcon: true,
-		},
-		{
-			icon: "/assets/trending-coins/algorand-1.png",
-			title: "Algorand",
-			price: "0.178258$",
-			change: "0.54%",
-			changeColor: "green",
-			largeIcon: true,
-		},
-		{
-			icon: "/assets/trending-coins/pumpfun.png",
-			title: "Pump.fun",
-			price: "0.00451508$",
-			change: "3.32%",
-			changeColor: "green",
-		},
-		{
-			icon: "/assets/trending-coins/algorand-2.png",
-			title: "Algorand",
-			price: "0.178258$",
-			change: "0.54%",
-			changeColor: "green",
-			largeIcon: true,
-		},
-		{
-			icon: "/assets/trending-coins/bsol-2.png",
-			title: "Binance Staked SOL",
-			price: "201.24$",
-			change: "-0.54%",
-			changeColor: "red",
-		},
-	];
+	// Convert API data to Pill format
+	const convertToPills = (tokens: TrendingToken[]): Pill[] => {
+		if (!tokens || tokens.length === 0) return [];
+		
+		return tokens.slice(0, 12).map((token) => {
+			const changeValue = parseFloat(token.change24h);
+			const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
+			
+			return {
+				icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
+				title: token.symbol,
+				price: token.price,
+				change: token.change24h,
+				changeColor,
+				largeIcon: Math.random() > 0.5, // Randomly vary icon sizes for visual interest
+			};
+		});
+	};
+
+	const pills = convertToPills(trendingData || []);
+	const top = pills.slice(0, Math.ceil(pills.length / 2));
+	const bottom = pills.slice(Math.ceil(pills.length / 2));
+
+	// Show loading state
+	if (loading || pills.length === 0) {
+		return (
+			<section className="relative w-full overflow-hidden">
+				<div className="relative mx-auto max-w-[1248px] h-[273px] flex items-center justify-center">
+					<div className="text-white/60 text-sm">Loading trending markets...</div>
+				</div>
+			</section>
+		);
+	}
 
 	return (
 		<section className="relative w-full overflow-hidden">

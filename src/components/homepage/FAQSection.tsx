@@ -6,28 +6,28 @@ import { useState } from "react";
 
 const items = [
 	{
-		q: "How does Lemon Markets use lemon markets in digital asset management?",
-		a: "Lemon Perp leverages advanced market mechanisms to provide efficient trading solutions for digital assets.",
+		q: "How does Lemon Markets enable synthetic asset trading?",
+		a: "Lemon Markets uses oracle-powered price feeds to create synthetic perpetual markets for crypto, forex, and commodities. All trades settle against a unified collateral pool, eliminating the need for fragmented DEX liquidity.",
 	},
 	{
-		q: "Which cryptocurrencies does Lemon Markets support?",
-		a: "Support for major assets including BTC, ETH, SOL and more.",
+		q: "Which assets can I trade on Lemon Markets?",
+		a: "You can trade perpetual contracts for major cryptocurrencies (BTC, ETH, SOL), forex pairs (EUR/USD, GBP/USD), and commodities (Gold, Silver). We're continuously adding new markets based on community demand.",
 	},
 	{
 		q: "How do I get started with Lemon Markets?",
-		a: "Connect your wallet, choose a market and start trading.",
+		a: "Simply connect your Web3 wallet (MetaMask, WalletConnect, or Coinbase Wallet), deposit collateral, and start trading. No KYC required. Our intuitive interface makes it easy for both beginners and experienced traders.",
 	},
 	{
-		q: "Can I recover my wallet if I lose my device?",
-		a: "Use your seed phrase or wallet backup to recover access.",
+		q: "What leverage options are available?",
+		a: "Lemon Markets offers flexible leverage up to 100x on select markets. You can adjust your leverage based on your risk tolerance and trading strategy. Lower leverage options are available for more conservative traders.",
 	},
 	{
 		q: "Is Lemon Markets available globally?",
-		a: "Available in most regions subject to local regulations.",
+		a: "Yes! Lemon Markets is a decentralized protocol accessible from anywhere in the world. However, users should ensure they comply with local regulations regarding cryptocurrency trading in their jurisdiction.",
 	},
 	{
 		q: "Does Lemon Markets offer customer support?",
-		a: "Yes — we provide multi-channel support including chat and email.",
+		a: "Absolutely! We provide 24/7 support through our Discord community, Telegram channel, and email support. Our documentation also includes detailed guides and tutorials for all platform features.",
 	},
 ];
 
@@ -56,11 +56,10 @@ export const FAQSection: FC = () => {
 				</div>
 				<div className="mt-6">
 					<h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-						Quick answers for New users
+						Frequently Asked Questions
 					</h3>
 					<p className="mt-3 text-white/70">
-						Lorem ipsum dolor sit amet consectetur. Cursus diam malesuada molestie egestas. Viverra
-						sit.
+						Find answers to common questions about trading perpetuals on Lemon Markets. Still have questions? Join our community!
 					</p>
 				</div>
 				<a

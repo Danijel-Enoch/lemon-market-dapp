@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
 				protocol: "https",
 				hostname: "assets.geckoterminal.com",
 			},
+			{
+				protocol: "https",
+				hostname: "cdn.dexscreener.com",
+			},
 		],
 	},
 	typescript: {
