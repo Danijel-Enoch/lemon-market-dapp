@@ -1,7 +1,7 @@
 "use client";
 
 import { LiFiWidget, type WidgetConfig, useWidgetEvents, WidgetEvent } from "@lifi/widget";
-import { ArrowLeftRight, Clock, Info, Repeat, Shield, Zap } from "lucide-react";
+import { Info, Repeat } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

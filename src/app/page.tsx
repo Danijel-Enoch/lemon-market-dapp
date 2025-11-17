@@ -1,14 +1,13 @@
-import dynamic from "next/dynamic";
 import Image from "next/image";
-import { HeroSection } from "./components/HeroSection";
-import { FeaturesSection } from "./components/FeaturesSection";
-import { TrendingCoinsSection } from "./components/TrendingCoinsSection";
-const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection").then(m => m.TestimonialsSection), { ssr: true });
-const VideoSection = dynamic(() => import("./components/VideoSection").then(m => m.VideoSection), { ssr: true });
-const RoadmapSection = dynamic(() => import("./components/RoadmapSection").then(m => m.RoadmapSection), { ssr: true });
-const FAQSection = dynamic(() => import("./components/FAQSection").then(m => m.FAQSection));
-import { CTASection } from "./components/CTASection";
-import { HomepageFooter } from "./components/HomepageFooter";
+import { HeroSection } from "@/components/homepage/HeroSection";
+import { FeaturesSection } from "@/components/homepage/FeaturesSection";
+import { TrendingCoinsSection } from "@/components/homepage/TrendingCoinsSection";
+import { CTASection } from "@/components/homepage/CTASection";
+import { HomepageFooter } from "@/components/homepage/HomepageFooter";
+import { TestimonialsSection } from "@/components/homepage/TestimonialsSection";
+import { VideoSection } from "@/components/homepage/VideoSection";
+import { RoadmapSection } from "@/components/homepage/RoadmapSection";
+import { FAQSection } from "@/components/homepage/FAQSection";
 
 export default function Homepage() {
   return (

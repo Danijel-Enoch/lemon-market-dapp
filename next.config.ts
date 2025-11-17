@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
 	eslint: {
 		// Ignore ESLint errors during build
 		ignoreDuringBuilds: true
+	},
+	// Enable React Strict Mode for better development experience
+	reactStrictMode: true,
+	// Ensure Fast Refresh is enabled (default in development)
+	experimental: {
+		// This helps with HMR in some edge cases
+		optimizePackageImports: ['@/components']
 	}
 };
 

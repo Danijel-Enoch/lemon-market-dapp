@@ -70,12 +70,12 @@ export default function RootLayout({
 			<body
 				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
 			>
-				<ReferralInitializer />
-				<BProgressProvider />
 				<MiniAppProvider>
 					<ToastProvider>
 						<WalletProvider>
 							<AppProvider>
+								<ReferralInitializer />
+								<BProgressProvider />
 								<Header />
 								{children}
 							</AppProvider>
