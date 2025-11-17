@@ -2,6 +2,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { HeroSection } from "./components/HeroSection";
 import { FeaturesSection } from "./components/FeaturesSection";
+import { TrendingCoinsSection } from "./components/TrendingCoinsSection";
 const TestimonialsSection = dynamic(() => import("./components/TestimonialsSection").then(m => m.TestimonialsSection), { ssr: true });
 const VideoSection = dynamic(() => import("./components/VideoSection").then(m => m.VideoSection), { ssr: true });
 const RoadmapSection = dynamic(() => import("./components/RoadmapSection").then(m => m.RoadmapSection), { ssr: true });
@@ -20,6 +21,7 @@ export default function Homepage() {
           <Image src="/assets/homepage/partner-3.png" alt="Partner 3" width={120} height={32} />
         </div>
       </section>
+      <TrendingCoinsSection />
       <FeaturesSection />
       <TestimonialsSection />
       <VideoSection />
