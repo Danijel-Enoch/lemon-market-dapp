@@ -13,6 +13,7 @@ export type FeatureCardProps = {
 export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc, alt }) => {
 	const iconRef = useRef<HTMLDivElement>(null);
 	const [transform, setTransform] = useState("");
+	const [shadow, setShadow] = useState("");
 	const animationRef = useRef<number>(0);
 
 	useEffect(() => {
@@ -22,12 +23,22 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 			const elapsed = Date.now() - startTime;
 			const time = elapsed / 1000; // Convert to seconds
 
-			// Create smooth circular motion
-			const rotateX = Math.sin(time * 0.8) * 8; // Slower, smoother tilt
-			const rotateY = Math.cos(time * 0.6) * 8; // Different frequency for more natural movement
+			// Create smooth circular motion - faster speed
+			const rotateX = Math.sin(time * 2) * 8; // Faster tilt
+			const rotateY = Math.cos(time * 1.5) * 8; // Faster movement
+
+			// Calculate shadow offset based on rotation (opposite direction for realism)
+			const shadowX = rotateY * 0.3; // Much slower shadow movement
+			const shadowY = -rotateX * 0.3; // Much slower shadow movement
+			const shadowBlur = 25 + Math.abs(rotateX) + Math.abs(rotateY); // Dynamic blur
 
 			setTransform(
 				`perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`
+			);
+
+			// Create layered shadows for more depth and visibility
+			setShadow(
+				`drop-shadow(${shadowX}px ${shadowY}px ${shadowBlur}px rgba(157, 234, 41, 0.6)) drop-shadow(${shadowX * 0.5}px ${shadowY * 0.5}px ${shadowBlur * 0.5}px rgba(157, 234, 41, 0.4)) drop-shadow(0px 10px 30px rgba(0, 0, 0, 0.5))`
 			);
 
 			animationRef.current = requestAnimationFrame(animate);
@@ -47,8 +58,11 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 			<div className="flex flex-col items-center text-center">
 				<div
 					ref={iconRef}
-					className="mx-16 my-24 w-48 h-48 md:w-56 md:h-56 lg:w-60 lg:h-60 transition-transform duration-100 ease-out"
-					style={{ transform }}
+					className="mx-16 my-24 w-48 h-48 md:w-56 md:h-56 lg:w-60 lg:h-60 transition-all duration-100 ease-out"
+					style={{ 
+						transform,
+						filter: shadow
+					}}
 				>
 					<Image
 						src={iconSrc}
