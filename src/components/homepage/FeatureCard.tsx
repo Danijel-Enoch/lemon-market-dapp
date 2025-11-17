@@ -12,7 +12,6 @@ export type FeatureCardProps = {
 
 export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc, alt }) => {
 	const iconRef = useRef<HTMLDivElement>(null);
-	const [transform, setTransform] = useState("");
 	const [shadow, setShadow] = useState("");
 	const animationRef = useRef<number>(0);
 
@@ -30,13 +29,8 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 			// Calculate shadow offset based on rotation (opposite direction for realism)
 			const shadowX = rotateY * 0.3; // Much slower shadow movement
 			const shadowY = -rotateX * 0.3; // Much slower shadow movement
-			const shadowBlur = 25 + Math.abs(rotateX) + Math.abs(rotateY); // Dynamic blur
-
-			setTransform(
-				`perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`
-			);
-
-			// Create layered shadows for more depth and visibility
+			const shadowBlur = 25 + Math.abs( rotateX ) + Math.abs( rotateY ); // Dynamic blur
+		
 			setShadow(
 				`drop-shadow(${shadowX}px ${shadowY}px ${shadowBlur}px rgba(157, 234, 41, 0.6)) drop-shadow(${shadowX * 0.5}px ${shadowY * 0.5}px ${shadowBlur * 0.5}px rgba(157, 234, 41, 0.4)) drop-shadow(0px 10px 30px rgba(0, 0, 0, 0.5))`
 			);
@@ -60,7 +54,7 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 					ref={iconRef}
 					className="mx-16 my-24 w-48 h-48 md:w-56 md:h-56 lg:w-60 lg:h-60 transition-all duration-100 ease-out"
 					style={{ 
-						transform,
+						transform: "perspective(1000px) scale3d(1.02, 1.02, 1.02)",
 						filter: shadow
 					}}
 				>
