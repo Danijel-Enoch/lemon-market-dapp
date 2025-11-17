@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import type { FC } from "react";
+import { motion } from "framer-motion";
 
 const testimonials = [
 	{
@@ -93,8 +96,22 @@ export const TestimonialsSection: FC = () => {
 				</div>
 				<div className="relative sm:max-h-[600px] md:max-h-[640px] overflow-hidden">
 					<div className="grid sm:grid-cols-2 gap-6">
-						<div className="flex flex-col gap-6 sm:mt-10">
-							{testimonials
+						<motion.div
+							className="flex flex-col gap-6 sm:mt-10"
+							animate={{
+								y: [0, -800],
+							}}
+							transition={{
+								y: {
+									repeat: Infinity,
+									repeatType: "loop",
+									duration: 40,
+									ease: "linear",
+								},
+							}}
+						>
+							{/* Duplicate items for seamless loop */}
+							{[...testimonials, ...testimonials]
 								.filter((_, idx) => idx % 2 === 0)
 								.map((t, i) => (
 									<div
@@ -117,9 +134,23 @@ export const TestimonialsSection: FC = () => {
 										</div>
 									</div>
 								))}
-						</div>
-						<div className="flex flex-col gap-6">
-							{testimonials
+						</motion.div>
+						<motion.div
+							className="flex flex-col gap-6"
+							animate={{
+								y: [-800, 0],
+							}}
+							transition={{
+								y: {
+									repeat: Infinity,
+									repeatType: "loop",
+									duration: 40,
+									ease: "linear",
+								},
+							}}
+						>
+							{/* Duplicate items for seamless loop */}
+							{[...testimonials, ...testimonials]
 								.filter((_, idx) => idx % 2 !== 0)
 								.map((t, i) => (
 									<div
@@ -142,7 +173,7 @@ export const TestimonialsSection: FC = () => {
 										</div>
 									</div>
 								))}
-						</div>
+						</motion.div>
 					</div>
 					<div className="absolute inset-x-0 top-0 h-[40%] [background:linear-gradient(to_top,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_60%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
 					<div className="absolute inset-x-0 bottom-0 h-[40%] [background:linear-gradient(to_bottom,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_60%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />

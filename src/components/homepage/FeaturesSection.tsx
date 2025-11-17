@@ -34,7 +34,7 @@ export const FeaturesSection: FC = () => {
 			<div className="relative mb-8">
 				{/* Green glow effect - visible only on desktop */}
 				<div className="hidden md:block absolute inset-0 pointer-events-none">
-					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-[#9DEA29]/70 rounded-full blur-[80px]" />
+					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-[#9DEA29]/70 rounded-full blur-[80px]" />
 				</div>
 
 				{/* Feature cards */}

@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import type { FC } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type Pill = {
@@ -176,17 +179,45 @@ export const TrendingCoinsSection: FC = () => {
 	return (
 		<section className="relative w-full overflow-hidden">
 			<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center">
-				<div className="inline-flex items-center gap-5 ml-[152px] mr-[34px]">
-					{top.map((p, i) => (
+				<motion.div
+					className="inline-flex items-center gap-5 ml-[152px] mr-[34px]"
+					animate={{
+						x: [0, -1000],
+					}}
+					transition={{
+						x: {
+							repeat: Infinity,
+							repeatType: "loop",
+							duration: 30,
+							ease: "linear",
+						},
+					}}
+				>
+					{/* Duplicate items for seamless loop */}
+					{[...top, ...top, ...top].map((p, i) => (
 						<PillItem key={`top-${i}`} {...p} />
 					))}
-				</div>
+				</motion.div>
 
-				<div className="inline-flex items-center gap-5 mt-5">
-					{bottom.map((p, i) => (
+				<motion.div
+					className="inline-flex items-center gap-5 mt-5"
+					animate={{
+						x: [-1000, 0],
+					}}
+					transition={{
+						x: {
+							repeat: Infinity,
+							repeatType: "loop",
+							duration: 30,
+							ease: "linear",
+						},
+					}}
+				>
+					{/* Duplicate items for seamless loop */}
+					{[...bottom, ...bottom, ...bottom].map((p, i) => (
 						<PillItem key={`bottom-${i}`} {...p} />
 					))}
-				</div>
+				</motion.div>
 			</div>
 			<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 			<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
