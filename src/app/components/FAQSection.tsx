@@ -1,5 +1,6 @@
 "use client";
 import { ChevronDown } from "lucide-react";
+import Image from "next/image";
 import type { FC } from "react";
 import { useState } from "react";
 
@@ -19,12 +20,12 @@ export const FAQSection: FC = () => {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section className="py-20 px-6 md:px-10 max-w-5xl mx-auto">
+    <section className="flex items-center gap-8 py-20 px-6 md:px-10 max-w-5xl mx-auto">
       <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-3 rounded-full px-6 py-2 bg-neutral-900">
-          <img src="/assets/homepage/section-faqs-icon.svg" alt="FAQs icon" className="h-5 w-5" />
-          <span className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-bold text-xs tracking-wider">FAQS</span>
-          <img src="/assets/homepage/section-features-divider.png" alt="Divider" className="h-3 w-12 opacity-80" />
+        <div className="inline-flex items-center gap-8">
+          <Image src="/assets/homepage/section-features-divider.png" alt="Divider" width={72} height={10} className="opacity-90" />
+          <span className="text-[#9DEA29] font-medium text-sm leading-[19px]">FAQs</span>
+          <Image src="/assets/homepage/section-features-divider.png" alt="Divider" width={72} height={10} className="opacity-90 rotate-180" />
         </div>
         <div className="mt-6">
           <h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Quick answers for New users</h3>
