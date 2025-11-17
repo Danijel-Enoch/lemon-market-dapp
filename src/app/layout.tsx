@@ -5,6 +5,7 @@ import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
 import { ReferralHandler } from "@/components/providers/ReferralHandler";
 import { ToastProvider } from "@/components/providers/ToastProvider";
+import { PageTransition } from "@/components/providers/PageTransition";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 
@@ -12,18 +13,24 @@ const inter = Inter({
 	variable: "--font-inter",
 	subsets: ["latin"],
 	weight: ["400", "500", "600", "700", "800"],
+	display: "swap",
+	preload: true,
 });
 
 const robotoMono = Roboto_Mono({
 	variable: "--font-roboto-mono",
 	subsets: ["latin"],
 	weight: ["400", "500", "600", "700"],
+	display: "swap",
+	preload: true,
 });
 
 const raleway = Raleway({
 	variable: "--font-raleway",
 	subsets: ["latin"],
 	weight: ["400", "500", "600", "700", "800", "900"],
+	display: "swap",
+	preload: true,
 });
 
 const miniAppEmbed = {
@@ -64,6 +71,7 @@ export default function RootLayout({
 		<html lang="en">
 			<head>
 				<link rel="preconnect" href="https://auth.farcaster.xyz" />
+				<link rel="dns-prefetch" href="https://auth.farcaster.xyz" />
 			</head>
 			<body
 				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
@@ -74,7 +82,7 @@ export default function RootLayout({
 							<ReferralHandler />
 							<BProgressProvider />
 							<Header />
-							{children}
+							<PageTransition>{children}</PageTransition>
 						</AppProvider>
 					</ToastProvider>
 				</MiniAppProvider>
