@@ -31,25 +31,33 @@ export const FeaturesSection: FC = () => {
 				</p>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				<FeatureCard
-					iconSrc="/assets/homepage/feature-icon-liquidity.png"
-					alt="Liquidity icon"
-					title="Unified Liquidity Model"
-					description="All trades settle against a shared collateral reserve, unlocking deeper liquidity and capital efficiency across every asset."
-				/>
-				<FeatureCard
-					iconSrc="/assets/homepage/feature-icon-synthetic.png"
-					alt="Synthetic icon"
-					title="Synthetic Asset Support"
-					description="Access perpetual markets for crypto, forex, and commodities without depending on fragmented DEX liquidity."
-				/>
-				<FeatureCard
-					iconSrc="/assets/homepage/feature-icon-oracle.png"
-					alt="Oracle icon"
-					title="Oracle-Powered Precision"
-					description="Reliable, cryptographically verified price data keeps every trade fair and secured."
-				/>
+			<div className="relative mb-8">
+				{/* Green glow effect - visible only on desktop */}
+				<div className="hidden md:block absolute inset-0 pointer-events-none">
+					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-[#9DEA29]/70 rounded-full blur-[80px]" />
+				</div>
+
+				{/* Feature cards */}
+				<div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					<FeatureCard
+						iconSrc="/assets/homepage/feature-icon-liquidity.png"
+						alt="Liquidity icon"
+						title="Unified Liquidity Model"
+						description="All trades settle against a shared collateral reserve, unlocking deeper liquidity and capital efficiency across every asset."
+					/>
+					<FeatureCard
+						iconSrc="/assets/homepage/feature-icon-synthetic.png"
+						alt="Synthetic icon"
+						title="Synthetic Asset Support"
+						description="Access perpetual markets for crypto, forex, and commodities without depending on fragmented DEX liquidity."
+					/>
+					<FeatureCard
+						iconSrc="/assets/homepage/feature-icon-oracle.png"
+						alt="Oracle icon"
+						title="Oracle-Powered Precision"
+						description="Reliable, cryptographically verified price data keeps every trade fair and secured."
+					/>
+				</div>
 			</div>
 		</section>
 	);
