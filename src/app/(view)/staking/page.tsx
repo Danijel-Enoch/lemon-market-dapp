@@ -24,7 +24,7 @@ export default function StakingPage() {
 
 				<div className="max-w-4xl mx-auto space-y-6">
 					{/* Main Coming Soon Card */}
-					<Card className="bg-gradient-to-br from-primary/10 via-card to-card border-primary/20">
+					<Card className="bg-linear-to-br from-primary/10 via-card to-card border-primary/20">
 						<CardContent className="p-12 text-center">
 							<div className="mb-8">
 								<div className="relative inline-block mb-6">
@@ -91,7 +91,7 @@ export default function StakingPage() {
 					</div>
 
 					{/* Contact Info Card */}
-					<Card className="bg-gradient-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
+					<Card className="bg-linear-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
 						<CardContent className="p-6">
 							<div className="text-center">
 								<h3 className="text-lg font-semibold text-white mb-3">

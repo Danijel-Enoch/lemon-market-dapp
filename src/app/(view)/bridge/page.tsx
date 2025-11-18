@@ -3,6 +3,7 @@
 import { LiFiWidget, useWidgetEvents, type WidgetConfig, WidgetEvent } from "@lifi/widget";
 import { Info, Repeat } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,34 +17,26 @@ export default function BridgeSwapPage() {
 		chainId: number;
 		pairAddress?: string;
 	} | null>(null);
-	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
-	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
-	const [tokenPrice, setTokenPrice] = useState<{
-		price: string;
-		change: string;
-	} | null>(null);
 	const widgetEvents = useWidgetEvents();
 
-	const fetchLatestPrice = async (pairAddress: string) => {
-		if (!pairAddress) return;
+	const [{ loading: isLoadingPrice, value: tokenPrice }, fetchLatestPrice] = useAsyncFn(
+		async (pairAddress: string) => {
+			if (!pairAddress) return null;
 
-		setIsLoadingPrice(true);
-		try {
 			const tokenPriceData = await getTokenPriceByPair(pairAddress, "bsc");
 			if (tokenPriceData) {
-				setTokenPrice({
+				return {
 					price: formatPrice(tokenPriceData.priceUsd),
 					change: tokenPriceData.priceChange24h
 						? formatPriceChange(tokenPriceData.priceChange24h)
 						: "+0.00%",
-				});
-				setLastPriceUpdate(new Date());
+					lastUpdate: new Date(),
+				};
 			}
-		} catch (_error) {
-		} finally {
-			setIsLoadingPrice(false);
-		}
-	};
+			return null;
+		},
+		[],
+	);
 
 	useEffect(() => {
 		const handleTokenSelected = (data: any) => {
@@ -110,7 +103,7 @@ export default function BridgeSwapPage() {
 		if (!selectedToken?.pairAddress) return;
 
 		const interval = setInterval(() => {
-			fetchLatestPrice(selectedToken.pairAddress!);
+			if (selectedToken.pairAddress) fetchLatestPrice(selectedToken.pairAddress);
 		}, 30000); // 30 seconds
 
 		return () => clearInterval(interval);
@@ -204,7 +197,11 @@ export default function BridgeSwapPage() {
 												<Button
 													size="sm"
 													variant="ghost"
-													onClick={() => fetchLatestPrice(selectedToken.pairAddress!)}
+													onClick={() =>
+														selectedToken.pairAddress
+															? fetchLatestPrice(selectedToken.pairAddress)
+															: null
+													}
 													disabled={isLoadingPrice}
 													className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
 													title="Refresh price"
@@ -215,6 +212,7 @@ export default function BridgeSwapPage() {
 														stroke="currentColor"
 														viewBox="0 0 24 24"
 													>
+														<title>Refresh price</title>
 														<path
 															strokeLinecap="round"
 															strokeLinejoin="round"
@@ -228,9 +226,9 @@ export default function BridgeSwapPage() {
 									</CardTitle>
 								</CardHeader>
 								<CardContent>
-									{lastPriceUpdate && (
+									{tokenPrice?.lastUpdate && (
 										<div className="mb-2 text-xs text-gray-500 text-right">
-											Last updated: {lastPriceUpdate.toLocaleTimeString()}
+											Last updated: {tokenPrice.lastUpdate.toLocaleTimeString()}
 										</div>
 									)}
 									<div id="dexscreener-embed" className="bg-[#0a0a0a] rounded-lg overflow-hidden">
@@ -259,10 +257,10 @@ export default function BridgeSwapPage() {
 								</CardContent>
 							</Card>
 						)}
-						<Card className="bg-gradient-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
+						<Card className="bg-linear-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
 							<CardContent className="px-4">
 								<div className="flex items-start gap-3">
-									<Info className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+									<Info className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
 									<div>
 										<h4 className="text-sm font-semibold text-white mb-2">Bridge & Swap Fees</h4>
 										<p className="text-xs text-white/70 mb-2">

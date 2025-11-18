@@ -3,6 +3,7 @@
 import { TrendingUp } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useAccount,
@@ -49,8 +50,6 @@ function PerpContent() {
 		chain: "base", // Default to base chain
 		assetType: "crypto" as "crypto" | "stock" | "forex", // Track asset type
 	});
-	const [isLoadingPrice, setIsLoadingPrice] = useState(false);
-	const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
 
 	const {
 		positions,
@@ -106,56 +105,60 @@ function PerpContent() {
 
 	const maxLeverage = 2;
 
-	const fetchLatestPrice = async () => {
-		if (!tradingPair.symbol && !tradingPair.pairAddress) return;
+	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
+		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
 
-		setIsLoadingPrice(true);
-		try {
-			const assetType = tradingPair.assetType;
+		const assetType = tradingPair.assetType;
+		const lastUpdate = new Date();
 
-			if (assetType === "stock") {
-				// Fetch stock price using price API
-				const stockPrice = await getStockPrice(tradingPair.symbol);
-				if (stockPrice?.success) {
-					setTradingPair((prev) => ({
-						...prev,
-						price: formatPrice(stockPrice.price),
-						change: "N/A", // Stock API doesn't provide change data
-					}));
-					setLastPriceUpdate(new Date());
-				}
-			} else if (assetType === "forex") {
-				// Fetch forex price using price API
-				const forexPrice = await getForexPrice(tradingPair.symbol);
-				if (forexPrice?.success) {
-					setTradingPair((prev) => ({
-						...prev,
-						price: formatPrice(forexPrice.price),
-						change: "N/A", // Forex API doesn't provide change data
-					}));
-					setLastPriceUpdate(new Date());
-				}
-			} else {
-				// Fetch crypto price using pair address
-				if (!tradingPair.pairAddress) return;
-				const chain = tradingPair.chain || "base";
-				const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, chain);
-				if (tokenPrice) {
-					setTradingPair((prev) => ({
-						...prev,
-						price: formatPrice(tokenPrice.priceUsd),
-						change: tokenPrice.priceChange24h
-							? formatPriceChange(tokenPrice.priceChange24h)
-							: prev.change,
-					}));
-					setLastPriceUpdate(new Date());
-				}
+		if (assetType === "stock") {
+			// Fetch stock price using price API
+			const stockPrice = await getStockPrice(tradingPair.symbol);
+			if (stockPrice?.success) {
+				return {
+					price: formatPrice(stockPrice.price),
+					change: "N/A", // Stock API doesn't provide change data
+					lastUpdate,
+				};
 			}
-		} catch (_error) {
-		} finally {
-			setIsLoadingPrice(false);
+		} else if (assetType === "forex") {
+			// Fetch forex price using price API
+			const forexPrice = await getForexPrice(tradingPair.symbol);
+			if (forexPrice?.success) {
+				return {
+					price: formatPrice(forexPrice.price),
+					change: "N/A", // Forex API doesn't provide change data
+					lastUpdate,
+				};
+			}
+		} else {
+			// Fetch crypto price using pair address
+			if (!tradingPair.pairAddress) return null;
+			const chain = tradingPair.chain || "base";
+			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, chain);
+			if (tokenPrice) {
+				return {
+					price: formatPrice(tokenPrice.priceUsd),
+					change: tokenPrice.priceChange24h
+						? formatPriceChange(tokenPrice.priceChange24h)
+						: tradingPair.change,
+					lastUpdate,
+				};
+			}
 		}
-	};
+		return null;
+	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
+
+	// Update tradingPair when priceData changes
+	useEffect(() => {
+		if (priceData) {
+			setTradingPair((prev) => ({
+				...prev,
+				price: priceData.price,
+				change: priceData.change,
+			}));
+		}
+	}, [priceData]);
 
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");
@@ -408,9 +411,9 @@ function PerpContent() {
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								{lastPriceUpdate && tradingPair.assetType === "crypto" && (
+								{priceData?.lastUpdate && tradingPair.assetType === "crypto" && (
 									<div className="mb-2 text-xs text-gray-500 text-right">
-										Last updated: {lastPriceUpdate.toLocaleTimeString()}
+										Last updated: {priceData.lastUpdate.toLocaleTimeString()}
 									</div>
 								)}
 								{tradingPair.assetType === "crypto" ? (

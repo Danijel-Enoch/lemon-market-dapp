@@ -2,7 +2,8 @@
 
 import { ArrowDownRight, ArrowUpRight, Info, Search, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,8 +73,6 @@ interface TokenAPIResponse {
 export default function Home() {
 	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [isLoading, setIsLoading] = useState(true);
-	const [isLoadingMore, setIsLoadingMore] = useState(false);
 	const [_currentPage, setCurrentPage] = useState(1);
 	const [hasMore, setHasMore] = useState(true);
 	const observerTarget = useRef<HTMLDivElement>(null);
@@ -143,125 +142,121 @@ export default function Home() {
 		}
 	};
 
-	const fetchTokens = useCallback(async (page: number, append: boolean = false) => {
-		try {
-			if (append) {
-				setIsLoadingMore(true);
-			} else {
-				setIsLoading(true);
-			}
-
+	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
+		async (page: number, append: boolean = false) => {
 			const tokensResponse = await fetch(`/api/trending/tokens?page=${page}&limit=10`);
 			if (!tokensResponse.ok) {
 				throw new Error(`Tokens API failed: ${tokensResponse.status}`);
 			}
 			const tokensData: TokenAPIResponse = await tokensResponse.json();
 
+			return {
+				tokens: tokensData.data,
+				append,
+				hasMore: tokensData.pagination?.hasMore ?? false,
+			};
+		},
+		[],
+	);
+
+	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
+		useAsyncFn(async () => {
+			// Fetch tokens with pagination
+			fetchTokens(1, false);
+
+			const stocksResponse = await fetch("/api/trending/stocks");
+			if (!stocksResponse.ok) {
+				throw new Error(`Stocks API failed: ${stocksResponse.status}`);
+			}
+			const stocksData: APIResponse = await stocksResponse.json();
+
+			const fxResponse = await fetch("/api/trending/fx");
+			if (!fxResponse.ok) {
+				throw new Error(`FX API failed: ${fxResponse.status}`);
+			}
+			const fxData: APIResponse = await fxResponse.json();
+
+			// Transform stocks data
+			const transformedStocks: Token[] = stocksData.data.map(
+				(stock: APIStockData, index: number) => ({
+					id: index + 1,
+					symbol: stock.Ticker,
+					name: stock.Ticker,
+					price: typeof stock.Price === "number" ? stock.Price.toFixed(2) : "0.00",
+					change24h: "N/A",
+					volume: "N/A",
+					marketCap: "N/A",
+					trend: "up" as const,
+					logo: "📈",
+					tokenAddress: "",
+					chain: "base",
+				}),
+			);
+
+			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
+				const getDisplaySymbol = (ticker: string) => {
+					if (ticker.includes("AUD-USD")) return "AUD/USD";
+					if (ticker.includes("CNY-USD")) return "CNY/USD";
+					if (ticker.includes("NGN-USD")) return "NGN/USD";
+					return ticker;
+				};
+
+				const getDisplayName = (ticker: string) => {
+					if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
+					if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
+					if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
+					return ticker;
+				};
+
+				const getLogo = (ticker: string) => {
+					if (ticker.includes("AUD")) return "🇦🇺";
+					if (ticker.includes("CNY")) return "🇨🇳";
+					if (ticker.includes("NGN")) return "🇳🇬";
+					return "💱";
+				};
+
+				return {
+					id: index + 1,
+					symbol: getDisplaySymbol(fx.Ticker),
+					name: getDisplayName(fx.Ticker),
+					price: fx.Price.toFixed(4),
+					change24h: "N/A",
+					volume: "N/A",
+					spread: "N/A",
+					trend: "up",
+					logo: getLogo(fx.Ticker),
+				};
+			});
+
+			return { stocks: transformedStocks, fx: transformedFX, tokens: [] };
+		}, [fetchTokens]);
+
+	// Update apiData when results change
+	useEffect(() => {
+		if (tokensResult) {
 			setApiData((prev) => ({
 				...prev,
-				tokens: append ? [...prev.tokens, ...tokensData.data] : tokensData.data,
+				tokens: tokensResult.append
+					? [...prev.tokens, ...tokensResult.tokens]
+					: tokensResult.tokens,
 			}));
-
-			setHasMore(tokensData.pagination?.hasMore ?? false);
-		} catch (_error) {
-		} finally {
-			if (!append) setIsLoading(false);
-			setIsLoadingMore(false);
+			setHasMore(tokensResult.hasMore);
 		}
-	}, []);
+	}, [tokensResult]);
 
 	useEffect(() => {
-		const fetchTrendingData = async () => {
-			try {
-				setIsLoading(true);
+		if (trendingResult) {
+			setApiData((prev) => ({
+				...prev,
+				stocks: trendingResult.stocks,
+				fx: trendingResult.fx,
+			}));
+		}
+	}, [trendingResult]);
 
-				// Fetch tokens with pagination
-				fetchTokens(1, false);
-
-				const stocksResponse = await fetch("/api/trending/stocks");
-				if (!stocksResponse.ok) {
-					throw new Error(`Stocks API failed: ${stocksResponse.status}`);
-				}
-				const stocksData: APIResponse = await stocksResponse.json();
-
-				const fxResponse = await fetch("/api/trending/fx");
-				if (!fxResponse.ok) {
-					throw new Error(`FX API failed: ${fxResponse.status}`);
-				}
-				const fxData: APIResponse = await fxResponse.json();
-
-				// Transform stocks data
-				const transformedStocks: Token[] = stocksData.data.map(
-					(stock: APIStockData, index: number) => ({
-						id: index + 1,
-						symbol: stock.Ticker,
-						name: stock.Ticker,
-						price: typeof stock.Price === "number" ? stock.Price.toFixed(2) : "0.00",
-						change24h: "N/A",
-						volume: "N/A",
-						marketCap: "N/A",
-						trend: "up" as const,
-						logo: "📈",
-						tokenAddress: "",
-						chain: "base",
-					}),
-				);
-
-				const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
-					const getDisplaySymbol = (ticker: string) => {
-						if (ticker.includes("AUD-USD")) return "AUD/USD";
-						if (ticker.includes("CNY-USD")) return "CNY/USD";
-						if (ticker.includes("NGN-USD")) return "NGN/USD";
-						return ticker;
-					};
-
-					const getDisplayName = (ticker: string) => {
-						if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
-						if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
-						if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
-						return ticker;
-					};
-
-					const getLogo = (ticker: string) => {
-						if (ticker.includes("AUD")) return "🇦🇺";
-						if (ticker.includes("CNY")) return "🇨🇳";
-						if (ticker.includes("NGN")) return "🇳🇬";
-						return "💱";
-					};
-
-					return {
-						id: index + 1,
-						symbol: getDisplaySymbol(fx.Ticker),
-						name: getDisplayName(fx.Ticker),
-						price: fx.Price.toFixed(4),
-						change24h: "N/A",
-						volume: "N/A",
-						spread: "N/A",
-						trend: "up",
-						logo: getLogo(fx.Ticker),
-					};
-				});
-
-				setApiData((prev) => ({
-					...prev,
-					stocks: transformedStocks,
-					fx: transformedFX,
-				}));
-			} catch (_error) {
-				setApiData((prev) => ({
-					...prev,
-					stocks: [],
-					fx: [],
-				}));
-			} finally {
-				setIsLoading(false);
-			}
-		};
-
+	useEffect(() => {
 		fetchTrendingData();
-	}, [fetchTokens]);
-
-	// Infinite scroll with Intersection Observer
+	}, [fetchTrendingData]); // Infinite scroll with Intersection Observer
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {

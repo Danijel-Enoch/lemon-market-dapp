@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { useAccount } from "wagmi";
 import {
 	type EnhancedPosition,
@@ -69,78 +70,82 @@ async function calculatePositionRealTimePnL(position: Position): Promise<number>
  */
 export function useUserPositions(): UseUserPositionsResult {
 	const { address, isConnected } = useAccount();
-	const [positions, setPositions] = useState<Position[]>([]);
-	const [enhancedPositions, setEnhancedPositions] = useState<EnhancedPosition[]>([]);
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const [isEnhancedMode, setIsEnhancedMode] = useState(false);
-	const [totalUnrealizedPnL, setTotalUnrealizedPnL] = useState<number>(0);
-	const [totalPortfolioValue, setTotalPortfolioValue] = useState<number>(0);
-	const [calculatedPnLMap, setCalculatedPnLMap] = useState<Map<string, number>>(new Map());
 
-	const calculateRealTimePnL = useCallback(async () => {
-		if (positions.length === 0) {
-			setCalculatedPnLMap(new Map());
-			return;
-		}
+	const [{ loading: isLoading, error: fetchError, value: fetchResult }, fetchPositions] =
+		useAsyncFn(async () => {
+			if (!address) return null;
 
-		try {
-			const pnlMap = new Map<string, number>();
-
-			// Calculate PnL for each position
-			await Promise.all(
-				positions.map(async (position) => {
-					const pnl = await calculatePositionRealTimePnL(position);
-					pnlMap.set(position.id, pnl);
-				}),
-			);
-
-			setCalculatedPnLMap(pnlMap);
-		} catch (_error) {}
-	}, [positions]);
-
-	const fetchPositions = useCallback(async () => {
-		if (!address) return;
-
-		setIsLoading(true);
-		setError(null);
-
-		try {
 			const response = await getUserPositions(address);
 			if (response.success) {
-				setPositions(response.positions);
-			} else {
-				setError(response.error || "Failed to fetch positions");
+				return { positions: response.positions };
 			}
-		} catch (_err) {
-			setError("Failed to load positions");
-		} finally {
-			setIsLoading(false);
+			throw new Error(response.error || "Failed to fetch positions");
+		}, [address]);
+
+	const [{ value: enhancedResult }, fetchEnhancedPositions] = useAsyncFn(async () => {
+		if (!address) return null;
+
+		const response = await getEnhancedUserPositions(address);
+		if (response.success) {
+			return {
+				positions: response.positions as Position[],
+				enhancedPositions: response.positions,
+				totalUnrealizedPnL: response.totalUnrealizedPnL || 0,
+				totalPortfolioValue: response.totalPortfolioValue || 0,
+			};
 		}
+		throw new Error(response.error || "Failed to fetch enhanced positions");
 	}, [address]);
 
-	const fetchEnhancedPositions = useCallback(async () => {
-		if (!address) return;
-
-		setIsLoading(true);
-		setError(null);
-
-		try {
-			const response = await getEnhancedUserPositions(address);
-			if (response.success) {
-				setPositions(response.positions as Position[]); // Set basic positions too
-				setEnhancedPositions(response.positions);
-				setTotalUnrealizedPnL(response.totalUnrealizedPnL || 0);
-				setTotalPortfolioValue(response.totalPortfolioValue || 0);
-			} else {
-				setError(response.error || "Failed to fetch enhanced positions");
-			}
-		} catch (_err) {
-			setError("Failed to load enhanced positions");
-		} finally {
-			setIsLoading(false);
+	// Derive positions and enhanced data from fetch results using useMemo
+	const positions = useMemo(() => {
+		if (isEnhancedMode && enhancedResult) {
+			return enhancedResult.positions;
 		}
-	}, [address]);
+		if (!isEnhancedMode && fetchResult) {
+			return fetchResult.positions;
+		}
+		return [];
+	}, [isEnhancedMode, enhancedResult, fetchResult]);
+
+	const enhancedPositions = useMemo(() => {
+		return isEnhancedMode && enhancedResult ? enhancedResult.enhancedPositions : undefined;
+	}, [isEnhancedMode, enhancedResult]);
+
+	const totalUnrealizedPnL = useMemo(() => {
+		return enhancedResult?.totalUnrealizedPnL || 0;
+	}, [enhancedResult]);
+
+	const totalPortfolioValue = useMemo(() => {
+		return enhancedResult?.totalPortfolioValue || 0;
+	}, [enhancedResult]);
+
+	// Convert error to string for compatibility
+	const error = fetchError ? fetchError.message : null;
+
+	const [{ value: pnlMapResult }, calculateRealTimePnL] = useAsyncFn(async () => {
+		if (positions.length === 0) {
+			return new Map<string, number>();
+		}
+
+		const pnlMap = new Map<string, number>();
+
+		// Calculate PnL for each position
+		await Promise.all(
+			positions.map(async (position) => {
+				const pnl = await calculatePositionRealTimePnL(position);
+				pnlMap.set(position.id, pnl);
+			}),
+		);
+
+		return pnlMap;
+	}, [positions]);
+
+	// Derive calculatedPnLMap from the async result using useMemo
+	const calculatedPnLMap = useMemo(() => {
+		return pnlMapResult || new Map<string, number>();
+	}, [pnlMapResult]);
 
 	// Fetch positions when wallet connects/disconnects
 	useEffect(() => {
@@ -150,13 +155,6 @@ export function useUserPositions(): UseUserPositionsResult {
 			} else {
 				fetchPositions();
 			}
-		} else {
-			setPositions([]);
-			setEnhancedPositions([]);
-			setTotalUnrealizedPnL(0);
-			setTotalPortfolioValue(0);
-			setCalculatedPnLMap(new Map());
-			setError(null);
 		}
 	}, [isConnected, address, isEnhancedMode, fetchPositions, fetchEnhancedPositions]);
 
@@ -302,8 +300,12 @@ export function useUserPositions(): UseUserPositionsResult {
 		enhancedPositions: isEnhancedMode ? enhancedPositions : undefined,
 		isLoading,
 		error,
-		refetch: fetchPositions,
-		refetchEnhanced: fetchEnhancedPositions,
+		refetch: async () => {
+			await fetchPositions();
+		},
+		refetchEnhanced: async () => {
+			await fetchEnhancedPositions();
+		},
 		isEmpty,
 		openPositions,
 		closedPositions,

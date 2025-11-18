@@ -30,7 +30,7 @@ export function StatCard({
 				<div className="flex items-center justify-between">
 					<CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
 					{Icon && (
-						<div className="rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 p-2">
+						<div className="rounded-lg bg-linear-to-br from-primary/20 to-primary/10 p-2">
 							<Icon className="size-4 text-primary" />
 						</div>
 					)}

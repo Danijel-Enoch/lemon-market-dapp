@@ -11,7 +11,8 @@ import {
 	Users,
 	Volume2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,18 +79,12 @@ const formatAddress = (address: string) => {
 };
 
 export default function LeaderboardPage() {
-	const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState("totalPoints");
 	const [order, setOrder] = useState("desc");
 	const [limit, setLimit] = useState<number>(50);
 
-	const fetchLeaderboard = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-
+	const [{ loading, error: fetchError, value: leaderboardResult }, fetchLeaderboard] =
+		useAsyncFn(async () => {
 			const params = new URLSearchParams({
 				sortBy,
 				order,
@@ -105,16 +100,13 @@ export default function LeaderboardPage() {
 			const result: LeaderboardResponse = await response.json();
 
 			if (result.success) {
-				setLeaderboardData(result.data);
-			} else {
-				throw new Error("Failed to fetch leaderboard data");
+				return result.data;
 			}
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
-		} finally {
-			setLoading(false);
-		}
-	};
+			throw new Error("Failed to fetch leaderboard data");
+		}, [sortBy, order, limit]);
+
+	const leaderboardData = useMemo(() => leaderboardResult || [], [leaderboardResult]);
+	const error = fetchError ? fetchError.message : null;
 
 	useEffect(() => {
 		fetchLeaderboard();

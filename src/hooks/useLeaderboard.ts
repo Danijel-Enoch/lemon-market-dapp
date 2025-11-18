@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useAsyncFn } from "react-use";
 
 interface LeaderboardEntry {
 	id: string;
@@ -48,15 +49,8 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 		refreshInterval = 30000, // 30 seconds
 	} = options;
 
-	const [data, setData] = useState<LeaderboardEntry[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-
-	const fetchLeaderboard = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-
+	const [{ loading, error: fetchError, value: leaderboardData }, fetchLeaderboard] =
+		useAsyncFn(async () => {
 			const params = new URLSearchParams({
 				sortBy,
 				order,
@@ -72,16 +66,13 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 			const result: LeaderboardResponse = await response.json();
 
 			if (result.success) {
-				setData(result.data);
-			} else {
-				throw new Error("Failed to fetch leaderboard data");
+				return result.data;
 			}
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
-		} finally {
-			setLoading(false);
-		}
-	};
+			throw new Error("Failed to fetch leaderboard data");
+		}, [sortBy, order, limit]);
+
+	const error = fetchError ? fetchError.message : null;
+	const data = leaderboardData || [];
 
 	useEffect(() => {
 		fetchLeaderboard();

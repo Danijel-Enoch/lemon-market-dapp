@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { useAccount } from "wagmi";
 import { useReferral } from "@/hooks/useReferral";
 import { referralService } from "@/lib/referral-service";
@@ -13,31 +14,23 @@ import { generateReferralUrl } from "@/lib/referral-utils";
 export function ReferralExample() {
 	const { address } = useAccount();
 	const { referralCode, isLoading, error } = useReferral();
-	const [stats, setStats] = useState<any>(null);
-	const [statsLoading, setStatsLoading] = useState(false);
-	const [statsError, setStatsError] = useState<string | null>(null);
 	const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+
+	const [{ loading: statsLoading, error: statsError, value: statsData }, fetchStats] =
+		useAsyncFn(async () => {
+			if (!address) return null;
+			return await referralService.getReferralStats(address);
+		}, [address]);
+
+	const stats = useMemo(() => statsData || null, [statsData]);
+	const _statsErrorMessage = statsError ? statsError.message : null;
 
 	// Fetch referral stats
 	useEffect(() => {
-		if (!address) return;
-
-		const fetchStats = async () => {
-			try {
-				setStatsLoading(true);
-				setStatsError(null);
-				const data = await referralService.getReferralStats(address);
-				setStats(data);
-			} catch (err) {
-				const errorMessage = err instanceof Error ? err.message : "Unknown error";
-				setStatsError(errorMessage);
-			} finally {
-				setStatsLoading(false);
-			}
-		};
-
-		fetchStats();
-	}, [address]);
+		if (address) {
+			fetchStats();
+		}
+	}, [address, fetchStats]);
 
 	const handleCopyReferralLink = async () => {
 		if (!referralCode) return;
@@ -98,7 +91,7 @@ export function ReferralExample() {
 				{statsLoading ? (
 					<p className="text-gray-500">Loading statistics...</p>
 				) : statsError ? (
-					<p className="text-red-500">Error: {statsError}</p>
+					<p className="text-red-500">Error: {statsError.message}</p>
 				) : stats ? (
 					<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 						<div className="p-3 bg-gray-50 rounded">

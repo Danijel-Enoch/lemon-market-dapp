@@ -199,7 +199,7 @@ export default function PositionsPage() {
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6, delay: 0.2 }}
 					>
-						<Card className="bg-gradient-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
+						<Card className="bg-linear-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
 							<CardContent className="p-4">
 								<div className="flex items-center gap-3">
 									<Badge
