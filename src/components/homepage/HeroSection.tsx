@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { FC } from "react";
+import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
 export const HeroSection: FC = () => {
 	return (
@@ -28,12 +28,7 @@ export const HeroSection: FC = () => {
 					Trade any asset class with up to 100x leverage on the most efficient decentralized
 					perpetual protocol
 				</p>
-				<Link
-					href="/perp"
-					className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-base font-semibold bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 active:scale-[0.98] animate-fade-up animate-delay-500"
-				>
-					Start Trading
-				</Link>
+				<ConnectWallet text="Start Trading" />
 				<p className="mt-72 text-sm text-white/60 animate-fade-up animate-delay-700">
 					Powering over $50M in daily trading volume
 				</p>
