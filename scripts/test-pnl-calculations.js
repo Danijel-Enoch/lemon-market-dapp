@@ -6,7 +6,6 @@
  */
 
 const _path = require("node:path");
-const { exec } = require("node:child_process");
 
 // Mock position data for testing
 const _mockPosition = {

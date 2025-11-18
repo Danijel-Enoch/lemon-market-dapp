@@ -23,10 +23,16 @@ interface MiniAppClient {
 	};
 }
 
+interface MiniAppLocation {
+	latitude?: number;
+	longitude?: number;
+	accuracy?: number;
+}
+
 interface MiniAppContextData {
 	user: MiniAppUser;
 	client: MiniAppClient;
-	location?: any;
+	location?: MiniAppLocation;
 }
 
 interface MiniAppStateType {

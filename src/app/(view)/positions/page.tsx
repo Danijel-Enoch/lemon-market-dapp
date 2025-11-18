@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserPositions } from "@/hooks/useUserPositions";
 
 export default function PositionsPage() {
-	const { address, isConnected } = useAccount();
+	const { isConnected } = useAccount();
 	const {
 		positions,
 		enhancedPositions,
@@ -98,7 +98,7 @@ export default function PositionsPage() {
 								onClick={toggleEnhancedMode}
 								className={
 									isEnhancedMode
-										? "bg-gradient-to-r from-lime-300 via-green-600 to-green-950 text-gray-100 hover:opacity-90"
+										? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 text-gray-100 hover:opacity-90"
 										: "border-white/20 hover:border-green-500/40 bg-neutral-900/60"
 								}
 							>
@@ -123,7 +123,7 @@ export default function PositionsPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+							<div className="text-2xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 								{displayPositions.length}
 							</div>
 							<div className="text-sm text-white/70 mt-1">{openPositionsCount} active</div>
@@ -141,7 +141,7 @@ export default function PositionsPage() {
 								<div
 									className={`text-2xl font-bold ${
 										totalPnL >= 0
-											? "bg-gradient-to-r from-lime-300 to-green-500 bg-clip-text text-transparent"
+											? "bg-linear-to-r from-lime-300 to-green-500 bg-clip-text text-transparent"
 											: "text-red-400"
 									}`}
 								>
@@ -168,7 +168,7 @@ export default function PositionsPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+							<div className="text-2xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 								{winRate.toFixed(1)}%
 							</div>
 							<div className="text-sm text-white/70 mt-1">
@@ -184,7 +184,7 @@ export default function PositionsPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+							<div className="text-2xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 								${totalPortfolioValue?.toFixed(2) || "0.00"}
 							</div>
 							<div className="text-sm text-white/70 mt-1">Real-time value</div>
@@ -204,7 +204,7 @@ export default function PositionsPage() {
 								<div className="flex items-center gap-3">
 									<Badge
 										variant="secondary"
-										className="bg-gradient-to-r from-lime-300 via-green-600 to-green-950 text-gray-100 border-0"
+										className="bg-linear-to-r from-lime-300 via-green-600 to-green-950 text-gray-100 border-0"
 									>
 										Enhanced Mode Active
 									</Badge>
@@ -239,7 +239,7 @@ export default function PositionsPage() {
 					transition={{ duration: 0.6, delay: 0.3 }}
 				>
 					<div className="mb-4">
-						<h2 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
+						<h2 className="text-xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2">
 							Position Details
 							{positions.length > 0 && ` (${positions.length})`}
 						</h2>

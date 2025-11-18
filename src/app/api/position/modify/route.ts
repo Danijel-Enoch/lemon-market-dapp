@@ -187,7 +187,9 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fetch current price using enhanced token price service
-		let tokenPriceData;
+		let tokenPriceData:
+			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>["getTokenPrice"]>>
+			| undefined;
 		try {
 			const tokenPriceService = getTokenPriceService();
 			tokenPriceData = await tokenPriceService.getTokenPrice(body.tokenSymbol, body.pairAddress);

@@ -261,7 +261,9 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fetch current price from oracle
-		let tokenPrice;
+		let tokenPrice:
+			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>["getTokenPriceWithAddress"]>>
+			| undefined;
 		try {
 			// Use the token price service to get current token price
 			const tokenPriceService = getTokenPriceService();
@@ -282,7 +284,8 @@ export async function POST(request: NextRequest) {
 		if (
 			!tokenPrice ||
 			!tokenPrice.data?.bestPriceUSD ||
-			parseFloat(tokenPrice.data?.bestPriceUSD?.price!) <= 0
+			!tokenPrice.data?.bestPriceUSD?.price ||
+			parseFloat(tokenPrice.data.bestPriceUSD.price) <= 0
 		) {
 			return NextResponse.json(
 				{
@@ -298,7 +301,9 @@ export async function POST(request: NextRequest) {
 		const nonce = generateNonce();
 
 		// Convert price to appropriate decimals (18 decimals for price oracle)
-		const priceValue = parseFloat(tokenPrice.data.bestPriceUSD.priceUSD!);
+		const priceValue = parseFloat(
+			tokenPrice.data.bestPriceUSD.priceUSD || tokenPrice.data.bestPriceUSD.price || "0",
+		);
 		const priceInWei = parseUnits(priceValue.toFixed(18), 18);
 
 		// Check if market exists and get available liquidity to calculate virtual funding

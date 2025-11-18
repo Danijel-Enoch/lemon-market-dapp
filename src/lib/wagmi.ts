@@ -7,7 +7,7 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "your-proj
 const _isDevelopment = process.env.NODE_ENV === "development";
 
 // Import Mini App connector (will be added to connectors automatically)
-let _farcasterMiniAppConnector: any;
+let _farcasterMiniAppConnector: unknown;
 try {
 	const { farcasterMiniApp } = require("@farcaster/miniapp-wagmi-connector");
 	_farcasterMiniAppConnector = farcasterMiniApp;

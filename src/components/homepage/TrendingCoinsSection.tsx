@@ -99,6 +99,14 @@ const PillItem: FC<Pill> = ({
 			)}
 			style={{ minWidth: width }}
 			onClick={handleClick}
+			onKeyDown={(e) => {
+				if (tokenData && (e.key === "Enter" || e.key === " ")) {
+					e.preventDefault();
+					handleClick();
+				}
+			}}
+			role={tokenData ? "button" : undefined}
+			tabIndex={tokenData ? 0 : undefined}
 		>
 			{/* Glow effect background - blends border color into the center */}
 			<div
@@ -213,10 +221,9 @@ export const TrendingCoinsSection: FC = () => {
 						}}
 					>
 						{Array.from({ length: 18 }).map((_, i) => (
-							<SkeletonPill key={`skeleton-top-${i}`} minWidth={153} />
+							<SkeletonPill key={`skeleton-top-${Date.now()}-${i}`} minWidth={153} />
 						))}
-					</motion.div>
-
+					</motion.div>{" "}
 					{/* Bottom row skeleton with animation */}
 					<motion.div
 						className="inline-flex items-center gap-5 mt-5"
@@ -233,7 +240,7 @@ export const TrendingCoinsSection: FC = () => {
 						}}
 					>
 						{Array.from({ length: 18 }).map((_, i) => (
-							<SkeletonPill key={`skeleton-bottom-${i}`} minWidth={170} />
+							<SkeletonPill key={`skeleton-bottom-${Date.now()}-${i}`} minWidth={170} />
 						))}
 					</motion.div>
 				</div>
@@ -262,7 +269,7 @@ export const TrendingCoinsSection: FC = () => {
 				>
 					{/* Duplicate items for seamless loop */}
 					{[...top, ...top, ...top].map((p, i) => (
-						<PillItem key={`top-${i}`} {...p} />
+						<PillItem key={`top-${p.title}-${i}`} {...p} />
 					))}
 				</motion.div>
 
@@ -282,7 +289,7 @@ export const TrendingCoinsSection: FC = () => {
 				>
 					{/* Duplicate items for seamless loop */}
 					{[...bottom, ...bottom, ...bottom].map((p, i) => (
-						<PillItem key={`bottom-${i}`} {...p} />
+						<PillItem key={`bottom-${p.title.replace(/\s+/g, "-")}-${i}`} {...p} />
 					))}
 				</motion.div>
 			</div>

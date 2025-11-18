@@ -30,4 +30,7 @@ async function testBaseSearch() {
 }
 
 // Run the test
-testBaseSearch().catch(console.error);
+testBaseSearch().catch((error) => {
+	process.stderr.write(`Error: ${error}\n`);
+	process.exit(1);
+});

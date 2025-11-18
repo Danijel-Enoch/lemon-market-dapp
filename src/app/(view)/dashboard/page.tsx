@@ -85,8 +85,8 @@ function DashboardContent() {
 
 			{/* Stats grid skeleton */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-				{[...Array(4)].map((_, i) => (
-					<Card key={i} className="border-accent/20">
+				{Array.from({ length: 4 }, (_, i) => (
+					<Card key={`stat-skeleton-${Date.now()}-${i}`} className="border-accent/20">
 						<CardHeader className="pb-2">
 							<div className="flex items-center justify-between">
 								<Skeleton className="h-4 w-20" />
@@ -103,8 +103,8 @@ function DashboardContent() {
 
 			{/* Referral section skeleton */}
 			<div className="grid gap-6 lg:grid-cols-2">
-				{[...Array(2)].map((_, i) => (
-					<Card key={i} className="border-accent/20">
+				{Array.from({ length: 2 }, (_, i) => (
+					<Card key={`referral-skeleton-${Date.now()}-${i}`} className="border-accent/20">
 						<CardHeader className="border-b border-accent/10 pb-4">
 							<Skeleton className="h-5 w-32" />
 						</CardHeader>
@@ -316,7 +316,7 @@ function DashboardContent() {
 			</div>
 
 			{/* CTA Section */}
-			<Card className="border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5">
+			<Card className="border-primary/30 bg-linear-to-r from-primary/10 to-primary/5">
 				<CardContent className="pt-8">
 					<div className="space-y-4 text-center">
 						<div>

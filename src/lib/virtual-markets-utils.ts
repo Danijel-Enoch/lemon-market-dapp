@@ -20,7 +20,7 @@ export function isValidAddress(address: string): boolean {
  * Extract token address from various sources
  * This function handles different ways token addresses might be stored
  */
-export function extractTokenAddress(item: any): string | null {
+export function extractTokenAddress(item: Record<string, unknown>): string | null {
 	// Try different possible fields where token address might be stored
 	const possibleFields = [
 		"tokenAddress",
@@ -44,7 +44,7 @@ export function extractTokenAddress(item: any): string | null {
 /**
  * Extract token symbol from DexScreener data
  */
-export function extractTokenSymbol(item: any): string | null {
+export function extractTokenSymbol(item: Record<string, unknown>): string | null {
 	// Try different possible fields where token symbol might be stored
 	const possibleFields = ["baseToken.symbol", "baseToken?.symbol", "symbol", "tokenSymbol"];
 
@@ -61,7 +61,7 @@ export function extractTokenSymbol(item: any): string | null {
 /**
  * Get nested property from object using dot notation
  */
-function getNestedProperty(obj: any, path: string): any {
+function getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
 	return path.split(".").reduce((current, key) => {
 		return current?.[key];
 	}, obj);
@@ -147,7 +147,7 @@ export function parseLiquidityWith6Decimals(liquidity: string | number): number 
 /**
  * Validate virtual market data structure
  */
-export function validateVirtualMarket(market: any): boolean {
+export function validateVirtualMarket(market: Record<string, unknown>): boolean {
 	const requiredFields = ["id", "marketId", "totalLiquidity", "realLiquidity", "virtualLiquidity"];
 
 	return requiredFields.every(
@@ -166,7 +166,7 @@ export interface MarketStats {
 	marketsWithLiquidity: number;
 }
 
-export function calculateMarketStats(markets: any[]): MarketStats {
+export function calculateMarketStats(markets: Record<string, unknown>[]): MarketStats {
 	const validMarkets = markets.filter(validateVirtualMarket);
 
 	const totalLiquidity = validMarkets.reduce(
@@ -195,7 +195,10 @@ export function calculateMarketStats(markets: any[]): MarketStats {
 /**
  * Debug helper to log market lookup results
  */
-export function debugMarketLookup(tokenAddresses: string[], marketMap: Map<string, any>): void {
+export function debugMarketLookup(
+	tokenAddresses: string[],
+	marketMap: Map<string, Record<string, unknown>>,
+): void {
 	tokenAddresses.forEach((address) => {
 		const normalizedAddress = normalizeAddress(address);
 		const _market = marketMap.get(normalizedAddress);
@@ -209,7 +212,10 @@ export function debugMarketLookup(tokenAddresses: string[], marketMap: Map<strin
 /**
  * Debug helper to log market lookup results for symbols
  */
-export function debugSymbolMarketLookup(tokenSymbols: string[], marketMap: Map<string, any>): void {
+export function debugSymbolMarketLookup(
+	tokenSymbols: string[],
+	marketMap: Map<string, Record<string, unknown>>,
+): void {
 	tokenSymbols.forEach((symbol) => {
 		const normalizedSymbol = normalizeSymbol(symbol);
 		const _market = marketMap.get(normalizedSymbol);

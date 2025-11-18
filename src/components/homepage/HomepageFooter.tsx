@@ -50,7 +50,8 @@ export const HomepageFooter = memo(function HomepageFooter({
 	legal = defaultLegal,
 }: HomepageFooterProps) {
 	return (
-		<footer role="contentinfo" className="px-6 md:px-10 pt-10 pb-16">
+		<footer className="px-6 md:px-10 pt-10 pb-16">
+			\n{" "}
 			<div className="max-w-7xl mx-auto">
 				<div className="rounded-3xl p-6 md:px-12 md:pb-24 bg-[linear-gradient(172.34deg,#0a1a0300_-34.4%,#0a1a031c_51.7%,#1c6200_161.09%)]">
 					<div className="my-24 h-px w-full bg-[#4dad31]" />

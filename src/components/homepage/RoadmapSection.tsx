@@ -97,7 +97,7 @@ export const RoadmapSection: FC = () => {
 
 			<div className="relative">
 				{/* Vertical timeline line */}
-				<div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-[#9DEA29]/20 via-[#9DEA29]/40 to-[#9DEA29]/20 -translate-x-1/2" />
+				<div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-linear-to-b from-[#9DEA29]/20 via-[#9DEA29]/40 to-[#9DEA29]/20 -translate-x-1/2" />
 
 				<div className="space-y-16">
 					{phases.map((phase, idx) => {
@@ -158,7 +158,7 @@ export const RoadmapSection: FC = () => {
 									<div className={`space-y-3 ${isLeft ? "md:text-right" : ""}`}>
 										{phase.things.map((thing, i) => (
 											<motion.div
-												key={i}
+												key={`${phase.phase}-thing-${i}-${thing.slice(0, 15).replace(/\s+/g, "-")}`}
 												initial={{ opacity: 0, x: -10 }}
 												whileInView={{ opacity: 1, x: 0 }}
 												viewport={{ once: true }}

@@ -67,7 +67,7 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 						style={{ transformStyle: "preserve-3d" }}
 					/>
 				</div>
-				<h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+				<h3 className="text-xl font-bold mb-2 bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 					{title}
 				</h3>
 				<p className="text-white/70 leading-relaxed text-sm">{description}</p>

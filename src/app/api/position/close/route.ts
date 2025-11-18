@@ -167,7 +167,9 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fetch current price using enhanced token price service
-		let tokenPriceData;
+		let tokenPriceData:
+			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>["getTokenPriceWithAddress"]>>
+			| undefined;
 		try {
 			const tokenPriceService = getTokenPriceService();
 			tokenPriceData = await tokenPriceService.getTokenPriceWithAddress(body.tokenAddress);
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
 
 		if (
 			!tokenPriceData ||
-			!tokenPriceData.data?.averagePrice! ||
+			!tokenPriceData.data?.averagePrice ||
 			parseFloat(tokenPriceData.data.averagePrice) <= 0
 		) {
 			return NextResponse.json(

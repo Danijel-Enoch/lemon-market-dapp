@@ -18,8 +18,8 @@ export const HeroSection: FC = () => {
 				<div className="absolute inset-x-0 bottom-0 h-[25%] [background:linear-gradient(to_bottom,#00453000_0%,#012E01_50%,#000_100%)] mix-blend-multiply opacity-90" />
 			</div>
 
-			<div className="relative z-10 max-w-screen-xl mx-auto px-6 mt-28 md:px-10 flex flex-col items-center text-center gap-6">
-				<h1 className="text-4xl md:text-6xl font-extrabold leading-tight bg-gradient-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100">
+			<div className="relative z-10 max-w-7xl mx-auto px-6 mt-28 md:px-10 flex flex-col items-center text-center gap-6">
+				<h1 className="text-4xl md:text-6xl font-extrabold leading-tight bg-linear-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100">
 					Unlimited Markets.
 					<br />
 					Unlimited Opportunities.

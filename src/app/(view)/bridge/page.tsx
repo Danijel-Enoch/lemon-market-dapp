@@ -39,7 +39,12 @@ export default function BridgeSwapPage() {
 	);
 
 	useEffect(() => {
-		const handleTokenSelected = (data: any) => {
+		const handleTokenSelected = (data: {
+			tokenAddress?: string;
+			address?: string;
+			symbol?: string;
+			chainId?: number;
+		}) => {
 			// Normalize the token address to lowercase for consistent matching
 			const tokenAddress = data.tokenAddress?.toLowerCase() || data.address?.toLowerCase();
 			const symbol = data.symbol?.toUpperCase();

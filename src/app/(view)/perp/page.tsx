@@ -164,7 +164,7 @@ function PerpContent() {
 		const symbol = searchParams.get("symbol");
 		const pairAddress = searchParams.get("pairAddress");
 		const tokenAddress = searchParams.get("tokenAddress");
-		const chain = searchParams.get("chain")!;
+		const chain = searchParams.get("chain") || "base";
 		const assetType = (searchParams.get("assetType") || "crypto") as "crypto" | "stock" | "forex";
 
 		if (symbol) {
@@ -285,13 +285,13 @@ function PerpContent() {
 
 		const marginValidation = validateMargin(valueUSDC);
 		if (!marginValidation.valid) {
-			setApiError(marginValidation.error!);
+			setApiError(marginValidation.error || "Invalid margin");
 			return;
 		}
 
 		const leverageValidation = validateLeverage(leverage);
 		if (!leverageValidation.valid) {
-			setApiError(leverageValidation.error!);
+			setApiError(leverageValidation.error || "Invalid leverage");
 			return;
 		}
 
@@ -388,6 +388,7 @@ function PerpContent() {
 														stroke="currentColor"
 														viewBox="0 0 24 24"
 													>
+														<title>Refresh Price</title>
 														<path
 															strokeLinecap="round"
 															strokeLinejoin="round"
@@ -465,7 +466,6 @@ function PerpContent() {
 										SHORT
 									</Button>
 								</div>
-
 								{/* Wallet Balances */}
 								{isConnected && (
 									<div className="bg-muted p-4 rounded-lg">
@@ -496,7 +496,6 @@ function PerpContent() {
 										</div>
 									</div>
 								)}
-
 								{/* USDC Approval Section */}
 								{isConnected && (
 									<div className="bg-muted p-4 rounded-lg">
@@ -540,11 +539,13 @@ function PerpContent() {
 										)}
 									</div>
 								)}
-
 								{/* Value Input */}
 								<div className="space-y-2">
 									<div className="flex justify-between items-center">
-										<label className="text-sm text-primary uppercase font-medium">
+										<label
+											htmlFor="margin-input"
+											className="text-sm text-primary uppercase font-medium"
+										>
 											Margin (USDC)
 										</label>
 										{valueUSDC && !validateMargin(valueUSDC).valid && (
@@ -578,16 +579,16 @@ function PerpContent() {
 										</div>
 									</div>
 								</div>
-
 								{/* Leverage */}
 								<div className="space-y-3">
 									<div className="flex justify-between items-center">
-										<label className="text-sm text-primary uppercase font-medium">Leverage</label>
+										<span className="text-sm text-primary uppercase font-medium">Leverage</span>
 										<span className="text-success text-lg font-bold">{leverage}x</span>
 									</div>
 									<div className="relative">
 										<div className="flex items-center space-x-4 bg-muted rounded-lg p-4">
 											<button
+												type="button"
 												onClick={() => handleLeverageChange(-1)}
 												className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
 											>
@@ -596,7 +597,7 @@ function PerpContent() {
 											<div className="flex-1 relative">
 												<div className="h-2 bg-slate-700 rounded-full">
 													<div
-														className="h-2 bg-gradient-to-r from-green-400 to-cyan-400 rounded-full"
+														className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
 														style={{
 															width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
 														}}
@@ -614,6 +615,7 @@ function PerpContent() {
 												</div>
 											</div>
 											<button
+												type="button"
 												onClick={() => handleLeverageChange(1)}
 												className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
 											>
@@ -621,10 +623,8 @@ function PerpContent() {
 											</button>
 										</div>
 									</div>
-								</div>
-
+								</div>{" "}
 								{/* You Pay */}
-
 								{/* Position Details */}
 								<div className="space-y-3 text-sm">
 									<div className="flex justify-between">
@@ -658,14 +658,12 @@ function PerpContent() {
 										<span className="text-foreground">2%</span>
 									</div>
 								</div>
-
 								{/* Error Display */}
 								{apiError && (
 									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
 										<p className="text-destructive text-sm">{apiError}</p>
 									</div>
 								)}
-
 								{/* Approval Success Message */}
 								{isApprovalConfirmed && approvalHash && !needsApproval && (
 									<div className="p-3 bg-green-900/50 border border-success rounded-lg">
@@ -682,7 +680,6 @@ function PerpContent() {
 										</p>
 									</div>
 								)}
-
 								{/* Transaction Status */}
 								{hash && (
 									<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
@@ -710,7 +707,6 @@ function PerpContent() {
 										)}
 									</div>
 								)}
-
 								{/* Wallet Connection or Place Transaction */}
 								{!isConnected ? (
 									<div className="w-full">

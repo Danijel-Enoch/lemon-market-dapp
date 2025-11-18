@@ -21,7 +21,7 @@ export const VideoSection: FC = () => {
 					className="opacity-90 rotate-180"
 				/>
 			</div>
-			<h3 className="mt-6 text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+			<h3 className="mt-6 text-3xl md:text-4xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 				See Lemon Markets in Action
 			</h3>
 			<p className="mt-3 text-white/70 max-w-2xl mx-auto">

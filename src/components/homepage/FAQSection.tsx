@@ -55,7 +55,7 @@ export const FAQSection: FC = () => {
 					/>
 				</div>
 				<div className="mt-6">
-					<h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+					<h3 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 						Frequently Asked Questions
 					</h3>
 					<p className="mt-3 text-white/70">
@@ -65,7 +65,7 @@ export const FAQSection: FC = () => {
 				</div>
 				<a
 					href="/docs"
-					className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
+					className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
 				>
 					Read Full Documentation
 				</a>
@@ -74,7 +74,7 @@ export const FAQSection: FC = () => {
 			<div className="sm:w-2/3 flex flex-col gap-4">
 				{items.map((it, i) => (
 					<div
-						key={i}
+						key={`faq-${it.q.slice(0, 20).replace(/\s+/g, "-")}-${i}`}
 						className={`rounded-xl border ${
 							open === i
 								? "border-lime-500 shadow-[0_0_20px_rgba(157,234,41,0.3)] bg-neutral-900/60"
@@ -82,6 +82,7 @@ export const FAQSection: FC = () => {
 						} transition-all duration-200`}
 					>
 						<button
+							type="button"
 							onClick={() => setOpen(i)}
 							className="w-full flex items-center justify-between px-4 md:px-6 py-4 text-left hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
 						>

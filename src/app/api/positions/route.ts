@@ -46,6 +46,11 @@ interface Position {
 	status: string;
 }
 
+interface EnhancedPosition extends Position {
+	unrealizedPnL?: number;
+	currentValue?: number;
+}
+
 interface GraphQLResponse {
 	data?: {
 		positions: Position[];
@@ -146,8 +151,8 @@ export async function GET(request: NextRequest) {
 					//console.log("Fetched price map:", priceMap);
 
 					// Enhance positions with real-time data
-					const enhancedPositions = await Promise.all(
-						transformedPositions.map(async (position) => {
+					const enhancedPositions: EnhancedPosition[] = await Promise.all(
+						transformedPositions.map(async (position): Promise<EnhancedPosition> => {
 							if (position.status !== "OPEN") {
 								return position; // Don't enhance closed positions
 							}
@@ -191,11 +196,11 @@ export async function GET(request: NextRequest) {
 					// Calculate portfolio totals
 					const totalUnrealizedPnL = enhancedPositions
 						.filter((p) => p.status === "OPEN")
-						.reduce((sum, pos) => sum + ((pos as any).unrealizedPnL || 0), 0);
+						.reduce((sum, pos) => sum + (pos.unrealizedPnL || 0), 0);
 
 					const totalPortfolioValue = enhancedPositions
 						.filter((p) => p.status === "OPEN")
-						.reduce((sum, pos) => sum + ((pos as any).currentValue || 0), 0);
+						.reduce((sum, pos) => sum + (pos.currentValue || 0), 0);
 
 					return NextResponse.json({
 						success: true,

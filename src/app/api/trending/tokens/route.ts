@@ -37,11 +37,32 @@ const chainPairs: Record<string, string[]> = {
 	],
 };
 
+interface PoolData {
+	chain: string;
+	data: {
+		chainId?: string;
+		dexId?: string;
+		pairAddress?: string;
+		baseToken?: {
+			address: string;
+			name: string;
+			symbol: string;
+		};
+		priceUsd?: string;
+		volume?: {
+			h24?: number;
+		};
+		priceChange?: {
+			h24?: number;
+		};
+		liquidity?: {
+			usd?: number;
+		};
+	} | null;
+}
+
 // Function to fetch pool details for a specific chain and pair
-const fetchPoolDetails = async (
-	chain: string,
-	pair: string,
-): Promise<{ chain: string; data: any }> => {
+const fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> => {
 	try {
 		let url: string;
 

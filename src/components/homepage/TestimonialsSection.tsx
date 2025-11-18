@@ -79,7 +79,7 @@ export const TestimonialsSection: FC = () => {
 						/>
 					</div>
 					<div className="mt-6">
-						<h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+						<h3 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 							Trusted by Crypto Natives Worldwide
 						</h3>
 						<p className="mt-3 text-white/70 max-w-md">
@@ -88,7 +88,7 @@ export const TestimonialsSection: FC = () => {
 						</p>
 						<a
 							href="/trending"
-							className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/20 px-8 py-3 text-sm font-semibold bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
+							className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/20 px-8 py-3 text-sm font-semibold bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
 						>
 							Get Started
 						</a>
@@ -113,8 +113,8 @@ export const TestimonialsSection: FC = () => {
 						{/* Duplicate items for seamless loop */}
 						{[...testimonials, ...testimonials].map((t, i) => (
 							<div
-								key={`mobile-${i}`}
-								className="flex-shrink-0 w-[280px] rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60"
+								key={`mobile-${t.author.replace(/\s+/g, "-")}-${i}`}
+								className="shrink-0 w-[280px] rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60"
 							>
 								<p className="text-white/80 text-sm">"{t.quote}"</p>
 								<div className="mt-4 flex items-center gap-3">
@@ -159,7 +159,7 @@ export const TestimonialsSection: FC = () => {
 								.filter((_, idx) => idx % 2 === 0)
 								.map((t, i) => (
 									<div
-										key={`left-${i}`}
+										key={`left-${t.author.replace(/\s+/g, "-")}-${i}`}
 										className={`rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60`}
 									>
 										<p className="text-white/80">“{t.quote}”</p>
@@ -198,7 +198,7 @@ export const TestimonialsSection: FC = () => {
 								.filter((_, idx) => idx % 2 !== 0)
 								.map((t, i) => (
 									<div
-										key={`right-${i}`}
+										key={`right-${t.author.replace(/\s+/g, "-")}-${i}`}
 										className={`rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60`}
 									>
 										<p className="text-white/80">“{t.quote}”</p>

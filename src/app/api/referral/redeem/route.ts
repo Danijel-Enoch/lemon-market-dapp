@@ -14,7 +14,7 @@ function _generateReferralCode(): string {
 
 export async function POST(request: NextRequest) {
 	try {
-		const { address, referralCode } = await request.json();
+		const { address, referralCode: _referralCode } = await request.json();
 
 		if (!address) {
 			return NextResponse.json({ error: "Address is required" }, { status: 400 });

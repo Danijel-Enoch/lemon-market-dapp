@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Info, Search, TrendingUp } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAsyncFn } from "react-use";
@@ -101,7 +102,7 @@ export default function Home() {
 			params.set("pairAddress", item.pairAddress);
 		}
 		params.set("tokenAddress", item.tokenAddress);
-		params.set("chain", item.chain!);
+		params.set("chain", item.chain || "base");
 		router.push(`/perp?${params.toString()}`);
 	};
 
@@ -343,13 +344,18 @@ export default function Home() {
 											<div className="flex items-center gap-3">
 												<div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
 													{item.logo?.startsWith("http") ? (
-														<img
+														<Image
 															src={item.logo}
 															alt={item.symbol}
+															width={32}
+															height={32}
 															className="w-full h-full object-cover"
 															onError={(e) => {
 																e.currentTarget.style.display = "none";
-																e.currentTarget.parentElement!.textContent = "🪙";
+																const parent = e.currentTarget.parentElement;
+																if (parent) {
+																	parent.textContent = "🪙";
+																}
 															}}
 														/>
 													) : (
@@ -561,13 +567,18 @@ export default function Home() {
 											<div className="flex items-center gap-3">
 												<div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border border-primary/20">
 													{item.logo?.startsWith("http") ? (
-														<img
+														<Image
 															src={item.logo}
 															alt={item.symbol}
+															width={32}
+															height={32}
 															className="w-full h-full object-cover"
 															onError={(e) => {
 																e.currentTarget.style.display = "none";
-																e.currentTarget.parentElement!.textContent = "📈";
+																const parent = e.currentTarget.parentElement;
+																if (parent) {
+																	parent.textContent = "📈";
+																}
 															}}
 														/>
 													) : (
@@ -643,7 +654,7 @@ export default function Home() {
 					<Card className="border-primary/20 bg-primary/5">
 						<CardContent className="p-4">
 							<div className="flex items-start gap-3">
-								<Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+								<Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
 								<div className="space-y-3">
 									<div>
 										<h3 className="text-sm font-semibold text-foreground mb-1">
@@ -723,7 +734,7 @@ export default function Home() {
 						{isLoading ? (
 							<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 								{Array.from({ length: 9 }).map((_, i) => (
-									<Card key={i} className="border-accent/20">
+									<Card key={`market-skeleton-${Date.now()}-${i}`} className="border-accent/20">
 										<CardHeader className="pb-3">
 											<div className="flex items-center justify-between">
 												<div className="flex items-center gap-3">

@@ -47,7 +47,7 @@ export function Header() {
 							height={40}
 							style={{ width: "auto", height: "auto" }}
 						/>
-						<span className="hidden sm:inline bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+						<span className="hidden sm:inline bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 							Lemon Markets
 						</span>
 					</Link>{" "}
@@ -60,8 +60,8 @@ export function Header() {
 									href={item.href}
 									className={`transition-all text-sm leading-tight ${
 										isActive
-											? "bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
-											: "bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
+											? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
+											: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 									}`}
 								>
 									{item.label}
@@ -85,7 +85,7 @@ export function Header() {
 									href={item.href}
 									className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] ${
 										isActive
-											? "bg-gradient-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
+											? "bg-linear-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
 											: ""
 									}`}
 								>
@@ -96,7 +96,7 @@ export function Header() {
 									<span
 										className={`text-xs font-medium transition-all ${
 											isActive
-												? "bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
+												? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
 												: "text-gray-400"
 										}`}
 									>

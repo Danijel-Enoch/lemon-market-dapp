@@ -23,7 +23,7 @@ export const FeaturesSection: FC = () => {
 						className="opacity-90 rotate-180"
 					/>
 				</div>
-				<h2 className="mt-6 text-4xl md:text-5xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+				<h2 className="mt-6 text-4xl md:text-5xl font-semibold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 					Built For Infinite Markets
 				</h2>
 				<p className="mt-3 text-white/70 max-w-2xl mx-auto">
