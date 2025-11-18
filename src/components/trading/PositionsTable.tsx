@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAsyncFn } from "react-use";
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,6 @@ export function PositionsTable({
 	const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
 	const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
 	const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
-	const [apiError, setApiError] = useState<string | null>(null);
 
 	// Modify position form state
 	const [newMargin, setNewMargin] = useState("");
@@ -55,89 +55,87 @@ export function PositionsTable({
 	const closedPositions = positions.filter((pos) => pos.status.toLowerCase() !== "open");
 
 	// Handle close position
-	const handleClosePosition = async (position: Position) => {
-		if (!address) {
-			setApiError("Please connect your wallet first");
-			return;
-		}
+	const [{ loading: isClosingPosition, error: closeError }, handleClosePosition] = useAsyncFn(
+		async (position: Position) => {
+			if (!address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		setApiError(null);
-
-		try {
 			// Show initial loading toast
 			const loadingToastId = Toast.transaction.pending(`Closing ${position.pair} position...`, {
 				description: "Please confirm the transaction in your wallet",
 			});
 
-			const tokenSymbol = extractTokenSymbol(position.pair);
+			try {
+				const tokenSymbol = extractTokenSymbol(position.pair);
 
-			const result = await closePosition({
-				positionId: position.positionId,
-				tokenSymbol,
-				userAddress: address,
-				tokenAddress: position.tokenaddress,
-				pairAddress: tradingPairAddress,
-			});
+				const result = await closePosition({
+					positionId: position.positionId,
+					tokenSymbol,
+					userAddress: address,
+					tokenAddress: position.tokenaddress,
+					pairAddress: tradingPairAddress,
+				});
 
-			if (!result.success) {
+				if (!result.success) {
+					Toast.dismiss(loadingToastId);
+					throw new Error(result.error || "Failed to close position");
+				}
+
+				if (!result.data) {
+					Toast.dismiss(loadingToastId);
+					throw new Error("No transaction data returned from API");
+				}
+
+				// Send the transaction
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(0),
+					gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
+				});
+
+				// Dismiss loading toast and show success
 				Toast.dismiss(loadingToastId);
-				throw new Error(result.error || "Failed to close position");
+				Toast.transaction.success(
+					`Successfully submitted close transaction for ${position.pair}!`,
+					{
+						description: "Transaction is being processed on the blockchain",
+					},
+				);
+
+				// Close the dialog
+				setIsCloseDialogOpen(false);
+				setSelectedPosition(null);
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : "Failed to close position";
+				Toast.transaction.failed("Failed to close position", {
+					description: errorMessage,
+				});
+				throw error;
 			}
-
-			if (!result.data) {
-				Toast.dismiss(loadingToastId);
-				throw new Error("No transaction data returned from API");
-			}
-
-			// Send the transaction
-			sendTransaction({
-				to: result.data.to as `0x${string}`,
-				data: result.data.data as `0x${string}`,
-				value: BigInt(0),
-				gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
-			});
-
-			// Dismiss loading toast and show success
-			Toast.dismiss(loadingToastId);
-			Toast.transaction.success(`Successfully submitted close transaction for ${position.pair}!`, {
-				description: "Transaction is being processed on the blockchain",
-			});
-
-			// Close the dialog
-			setIsCloseDialogOpen(false);
-			setSelectedPosition(null);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Failed to close position";
-			setApiError(errorMessage);
-			Toast.transaction.failed("Failed to close position", {
-				description: errorMessage,
-			});
-		}
-	};
+		},
+		[address, tradingPairAddress, sendTransaction],
+	);
 
 	// Handle modify position
-	const handleModifyPosition = async () => {
-		if (!address || !selectedPosition) {
-			setApiError("Please connect your wallet first");
-			return;
-		}
+	const [{ loading: isModifyingPosition, error: modifyError }, handleModifyPosition] =
+		useAsyncFn(async () => {
+			if (!address || !selectedPosition) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		// Validate inputs
-		const marginValidation = validateMargin(newMargin);
-		if (!marginValidation.valid) {
-			setApiError(marginValidation.error!);
-			return;
-		}
+			// Validate inputs
+			const marginValidation = validateMargin(newMargin);
+			if (!marginValidation.valid) {
+				throw new Error(marginValidation.error || "Invalid margin");
+			}
 
-		const leverageValidation = validateLeverage(newLeverage);
-		if (!leverageValidation.valid) {
-			setApiError(leverageValidation.error!);
-			return;
-		}
+			const leverageValidation = validateLeverage(newLeverage);
+			if (!leverageValidation.valid) {
+				throw new Error(leverageValidation.error || "Invalid leverage");
+			}
 
-		setApiError(null);
-
-		try {
 			// Show initial loading toast
 			const loadingToastId = Toast.transaction.pending(
 				`Modifying ${selectedPosition.pair} position...`,
@@ -146,62 +144,62 @@ export function PositionsTable({
 				},
 			);
 
-			const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
+			try {
+				const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
 
-			const result = await modifyPosition({
-				positionId: selectedPosition.positionId,
-				tokenSymbol,
-				newMargin,
-				newLeverage,
-				userAddress: address,
-				pairAddress: tradingPairAddress,
-			});
+				const result = await modifyPosition({
+					positionId: selectedPosition.positionId,
+					tokenSymbol,
+					newMargin,
+					newLeverage,
+					userAddress: address,
+					pairAddress: tradingPairAddress,
+				});
 
-			if (!result.success) {
+				if (!result.success) {
+					Toast.dismiss(loadingToastId);
+					throw new Error(result.error || "Failed to modify position");
+				}
+
+				if (!result.data) {
+					Toast.dismiss(loadingToastId);
+					throw new Error("No transaction data returned from API");
+				}
+
+				// Send the transaction
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(0),
+					gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
+				});
+
+				// Dismiss loading toast and show success
 				Toast.dismiss(loadingToastId);
-				throw new Error(result.error || "Failed to modify position");
+				Toast.transaction.success(
+					`Successfully submitted modification for ${selectedPosition.pair}!`,
+					{
+						description: "Transaction is being processed on the blockchain",
+					},
+				);
+
+				// Close the dialog and reset form
+				setIsModifyDialogOpen(false);
+				setSelectedPosition(null);
+				setNewMargin("");
+				setNewLeverage(2);
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : "Failed to modify position";
+				Toast.transaction.failed("Failed to modify position", {
+					description: errorMessage,
+				});
+				throw error;
 			}
-
-			if (!result.data) {
-				Toast.dismiss(loadingToastId);
-				throw new Error("No transaction data returned from API");
-			}
-
-			// Send the transaction
-			sendTransaction({
-				to: result.data.to as `0x${string}`,
-				data: result.data.data as `0x${string}`,
-				value: BigInt(0),
-				gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
-			});
-
-			// Dismiss loading toast and show success
-			Toast.dismiss(loadingToastId);
-			Toast.transaction.success(
-				`Successfully submitted modification for ${selectedPosition.pair}!`,
-				{
-					description: "Transaction is being processed on the blockchain",
-				},
-			);
-
-			// Close the dialog and reset form
-			setIsModifyDialogOpen(false);
-			setSelectedPosition(null);
-			setNewMargin("");
-			setNewLeverage(2);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Failed to modify position";
-			setApiError(errorMessage);
-			Toast.transaction.failed("Failed to modify position", {
-				description: errorMessage,
-			});
-		}
-	};
+		}, [address, selectedPosition, newMargin, newLeverage, tradingPairAddress, sendTransaction]);
 
 	// Handle dialog opens
 	const openCloseDialog = (position: Position) => {
 		setSelectedPosition(position);
-		setApiError(null);
 		setIsCloseDialogOpen(true);
 	};
 
@@ -209,7 +207,6 @@ export function PositionsTable({
 		setSelectedPosition(position);
 		setNewMargin(position.margin.replace(/[$,]/g, ""));
 		setNewLeverage(position.leverageValue);
-		setApiError(null);
 		setIsModifyDialogOpen(true);
 	};
 
@@ -335,8 +332,9 @@ export function PositionsTable({
 															height="16"
 															viewBox="0 0 24 24"
 															fill="currentColor"
-															className="flex-shrink-0"
+															className="shrink-0"
 														>
+															<title>Generate PNL</title>
 															<path d="M12 2L13.09 8.26L19 7L17.91 13.26L22 14L16.96 20.74L11 19L5.04 20.74L0 14L4.09 13.26L3 7L8.91 8.26L12 2Z" />
 														</svg>
 														PnL
@@ -489,27 +487,25 @@ export function PositionsTable({
 								</div>
 							</div>
 						)}
-
-						{apiError && (
+						{closeError && (
 							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
-								{apiError}
+								{closeError.message}
 							</div>
-						)}
-
+						)}{" "}
 						<div className="flex gap-3 justify-end">
 							<Button
 								variant="outline"
 								onClick={() => setIsCloseDialogOpen(false)}
-								disabled={isPending}
+								disabled={isClosingPosition || isPending}
 							>
 								Cancel
 							</Button>
 							<Button
 								onClick={() => selectedPosition && handleClosePosition(selectedPosition)}
-								disabled={isPending}
+								disabled={isClosingPosition || isPending}
 								className="bg-red-600 hover:bg-red-700"
 							>
-								{isPending ? "Processing..." : "Close Position"}
+								{isClosingPosition || isPending ? "Processing..." : "Close Position"}
 							</Button>
 						</div>
 					</div>
@@ -543,10 +539,11 @@ export function PositionsTable({
 								</div>
 							</div>
 						)}
-
 						<div className="space-y-3">
 							<div>
-								<label className="text-sm text-gray-400 mb-1 block">New Margin (USDC)</label>
+								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
+									New Margin (USDC)
+								</label>
 								<Input
 									type="number"
 									value={newMargin}
@@ -559,7 +556,9 @@ export function PositionsTable({
 							</div>
 
 							<div>
-								<label className="text-sm text-gray-400 mb-1 block">New Leverage (1x - 100x)</label>
+								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
+									New Leverage (1x - 100x)
+								</label>
 								<div className="flex items-center gap-2">
 									<Button
 										size="sm"
@@ -590,27 +589,25 @@ export function PositionsTable({
 								</div>
 							</div>
 						</div>
-
-						{apiError && (
+						{modifyError && (
 							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
-								{apiError}
+								{modifyError.message}
 							</div>
-						)}
-
+						)}{" "}
 						<div className="flex gap-3 justify-end">
 							<Button
 								variant="outline"
 								onClick={() => setIsModifyDialogOpen(false)}
-								disabled={isPending}
+								disabled={isClosingPosition || isPending}
 							>
 								Cancel
 							</Button>
 							<Button
 								onClick={handleModifyPosition}
-								disabled={isPending}
+								disabled={isClosingPosition || isPending}
 								className="bg-blue-600 hover:bg-blue-700"
 							>
-								{isPending ? "Processing..." : "Modify Position"}
+								{isModifyingPosition || isPending ? "Processing..." : "Modify Position"}
 							</Button>
 						</div>
 					</div>
