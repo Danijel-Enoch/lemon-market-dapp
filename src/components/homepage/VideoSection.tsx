@@ -25,7 +25,8 @@ export const VideoSection: FC = () => {
 				See Lemon Markets in Action
 			</h3>
 			<p className="mt-3 text-white/70 max-w-2xl mx-auto">
-				Discover how our unified liquidity model and oracle-powered pricing deliver unmatched trading performance across all asset classes.
+				Discover how our unified liquidity model and oracle-powered pricing deliver unmatched
+				trading performance across all asset classes.
 			</p>
 			<div className="mt-10 rounded-3xl overflow-hidden border border-lime-400">
 				<Image

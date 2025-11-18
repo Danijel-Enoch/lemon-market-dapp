@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import type { FC } from "react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import type { FC } from "react";
 import { useAsync } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type Pill = {
 	icon: string;
@@ -15,6 +16,12 @@ type Pill = {
 	changeColor?: "red" | "green" | "gray";
 	width?: number;
 	largeIcon?: boolean;
+	tokenData?: {
+		symbol: string;
+		tokenAddress?: string;
+		pairAddress?: string;
+		chain?: string;
+	};
 };
 
 type TrendingToken = {
@@ -24,6 +31,9 @@ type TrendingToken = {
 	change24h: string;
 	trend: "up" | "down";
 	logo: string;
+	tokenAddress?: string;
+	pairAddress?: string;
+	chain?: string;
 };
 
 const basePill =
@@ -34,9 +44,7 @@ const Title = ({ children }: { children: string }) => (
 );
 
 const Sub = ({ children, color = "#dedede" }: { children: string; color?: string }) => (
-	<span className={cn("text-sm font-semibold", `text-[${color}]`)}>
-		{children}
-	</span>
+	<span className={cn("text-sm font-semibold", `text-[${color}]`)}>{children}</span>
 );
 
 const Change = ({ value, color }: { value: string; color?: Pill["changeColor"] }) => {
@@ -59,17 +67,44 @@ const PillItem: FC<Pill> = ({
 	change,
 	width,
 	changeColor = "gray",
+	tokenData,
 }) => {
+	const router = useRouter();
+
+	const handleClick = () => {
+		if (!tokenData) return;
+
+		const params = new URLSearchParams();
+		params.set("symbol", tokenData.symbol);
+
+		if (tokenData.pairAddress) {
+			params.set("pairAddress", tokenData.pairAddress);
+		}
+		if (tokenData.tokenAddress) {
+			params.set("tokenAddress", tokenData.tokenAddress);
+		}
+		if (tokenData.chain) {
+			params.set("chain", tokenData.chain);
+		}
+
+		router.push(`/perp?${params.toString()}`);
+	};
+
 	return (
 		<div
-			className={cn(basePill, "pl-2 pr-6 py-2")}
+			className={cn(
+				basePill,
+				"pl-2 pr-6 py-2",
+				tokenData && "cursor-pointer hover:border-[#686868] transition-colors",
+			)}
 			style={{ minWidth: width }}
+			onClick={handleClick}
 		>
 			{/* Glow effect background - blends border color into the center */}
-			<div 
+			<div
 				className="absolute inset-0 rounded-4xl"
 				style={{
-					background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`
+					background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`,
 				}}
 			/>
 			{/* Content layer */}
@@ -77,8 +112,8 @@ const PillItem: FC<Pill> = ({
 				<Image
 					src={icon}
 					alt={title}
-					width={ 40}
-					height={ 40}
+					width={40}
+					height={40}
 					className="rounded-full w-10 h-10 border border-gray-800/70"
 				/>
 				<div className="flex flex-col items-start self-stretch ml-2">
@@ -100,8 +135,7 @@ export const TrendingCoinsSection: FC = () => {
 			const response = await fetch("/api/trending/tokens");
 			const data = await response.json();
 			return data.data as TrendingToken[];
-		} catch (error) {
-			console.error("Failed to fetch trending tokens:", error);
+		} catch (_error) {
 			return [];
 		}
 	}, []);
@@ -109,18 +143,24 @@ export const TrendingCoinsSection: FC = () => {
 	// Convert API data to Pill format
 	const convertToPills = (tokens: TrendingToken[]): Pill[] => {
 		if (!tokens || tokens.length === 0) return [];
-		
+
 		return tokens.slice(0, 12).map((token) => {
 			const changeValue = parseFloat(token.change24h);
 			const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
-			
+
 			return {
 				icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
 				title: token.symbol,
 				price: token.price,
 				change: token.change24h,
 				changeColor,
-				largeIcon: false
+				largeIcon: false,
+				tokenData: {
+					symbol: token.symbol,
+					tokenAddress: token.tokenAddress,
+					pairAddress: token.pairAddress,
+					chain: token.chain,
+				},
 			};
 		});
 	};
@@ -134,10 +174,10 @@ export const TrendingCoinsSection: FC = () => {
 		const SkeletonPill = ({ minWidth }: { minWidth: number }) => (
 			<div className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth }}>
 				{/* Glow effect background */}
-				<div 
+				<div
 					className="absolute inset-0 rounded-4xl"
 					style={{
-						background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`
+						background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`,
 					}}
 				/>
 				{/* Content layer */}

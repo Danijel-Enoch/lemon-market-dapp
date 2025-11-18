@@ -13,10 +13,6 @@ export function ReferralHandler() {
 
 	useEffect(() => {
 		if (isConnected && address) {
-			console.log(
-				"User connected wallet, processing referral if any:",
-				address
-			);
 			initializeUserReferral(address);
 		}
 	}, [isConnected, address, initializeUserReferral]);

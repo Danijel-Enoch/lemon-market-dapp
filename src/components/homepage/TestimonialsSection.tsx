@@ -1,8 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Image from "next/image";
 import type { FC } from "react";
-import { motion } from "framer-motion";
 
 const testimonials = [
 	{

@@ -1,46 +1,56 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { HeroSection } from "@/components/homepage/HeroSection";
 import { Suspense } from "react";
+import { HeroSection } from "@/components/homepage/HeroSection";
 
 // Dynamically import heavy components to reduce initial bundle size
 const TrendingCoinsSection = dynamic(
-	() => import("@/components/homepage/TrendingCoinsSection").then((mod) => ({ default: mod.TrendingCoinsSection })),
+	() =>
+		import("@/components/homepage/TrendingCoinsSection").then((mod) => ({
+			default: mod.TrendingCoinsSection,
+		})),
 	{
 		loading: () => <div className="h-[273px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const FeaturesSection = dynamic(
-	() => import("@/components/homepage/FeaturesSection").then((mod) => ({ default: mod.FeaturesSection })),
+	() =>
+		import("@/components/homepage/FeaturesSection").then((mod) => ({
+			default: mod.FeaturesSection,
+		})),
 	{
 		loading: () => <div className="h-[600px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const TestimonialsSection = dynamic(
-	() => import("@/components/homepage/TestimonialsSection").then((mod) => ({ default: mod.TestimonialsSection })),
+	() =>
+		import("@/components/homepage/TestimonialsSection").then((mod) => ({
+			default: mod.TestimonialsSection,
+		})),
 	{
 		loading: () => <div className="h-[500px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const VideoSection = dynamic(
 	() => import("@/components/homepage/VideoSection").then((mod) => ({ default: mod.VideoSection })),
 	{
 		loading: () => <div className="h-[400px] w-full" />,
-	}
+	},
 );
 
 const RoadmapSection = dynamic(
-	() => import("@/components/homepage/RoadmapSection").then((mod) => ({ default: mod.RoadmapSection })),
+	() =>
+		import("@/components/homepage/RoadmapSection").then((mod) => ({ default: mod.RoadmapSection })),
 	{
 		loading: () => <div className="h-[600px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const FAQSection = dynamic(
@@ -48,7 +58,7 @@ const FAQSection = dynamic(
 	{
 		loading: () => <div className="h-[500px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const CTASection = dynamic(
@@ -56,15 +66,16 @@ const CTASection = dynamic(
 	{
 		loading: () => <div className="h-[300px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 const HomepageFooter = dynamic(
-	() => import("@/components/homepage/HomepageFooter").then((mod) => ({ default: mod.HomepageFooter })),
+	() =>
+		import("@/components/homepage/HomepageFooter").then((mod) => ({ default: mod.HomepageFooter })),
 	{
 		loading: () => <div className="h-[200px] w-full" />,
 		ssr: true,
-	}
+	},
 );
 
 export default function Homepage() {

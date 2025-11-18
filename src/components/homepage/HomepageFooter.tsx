@@ -15,7 +15,8 @@ export type HomepageFooterProps = Readonly<{
 const defaultBrand = {
 	name: "Lemon Markets",
 	logoSrc: "/image/logo.png",
-	tagline: "Trade with confidence on the most efficient decentralized perpetual protocol. Unlimited markets, unmatched liquidity.",
+	tagline:
+		"Trade with confidence on the most efficient decentralized perpetual protocol. Unlimited markets, unmatched liquidity.",
 } as const;
 
 const defaultNavigation: ReadonlyArray<LinkItem> = [
@@ -38,11 +39,9 @@ const defaultLegal: ReadonlyArray<LinkItem> = [
 	{ label: "Privacy Policy", href: "#" },
 ];
 
-
-
-	const navId = "footer-nav";
-	const socialsId = "footer-socials";
-	const legalId = "footer-legal";
+const navId = "footer-nav";
+const socialsId = "footer-socials";
+const legalId = "footer-legal";
 
 export const HomepageFooter = memo(function HomepageFooter({
 	brand = defaultBrand,
@@ -50,7 +49,6 @@ export const HomepageFooter = memo(function HomepageFooter({
 	socials = defaultSocials,
 	legal = defaultLegal,
 }: HomepageFooterProps) {
-
 	return (
 		<footer role="contentinfo" className="px-6 md:px-10 pt-10 pb-16">
 			<div className="max-w-7xl mx-auto">

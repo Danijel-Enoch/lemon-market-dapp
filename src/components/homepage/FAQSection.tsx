@@ -59,7 +59,8 @@ export const FAQSection: FC = () => {
 						Frequently Asked Questions
 					</h3>
 					<p className="mt-3 text-white/70">
-						Find answers to common questions about trading perpetuals on Lemon Markets. Still have questions? Join our community!
+						Find answers to common questions about trading perpetuals on Lemon Markets. Still have
+						questions? Join our community!
 					</p>
 				</div>
 				<a
@@ -72,11 +73,11 @@ export const FAQSection: FC = () => {
 
 			<div className="sm:w-2/3 flex flex-col gap-4">
 				{items.map((it, i) => (
-					<div 
-						key={i} 
+					<div
+						key={i}
 						className={`rounded-xl border ${
-							open === i 
-								? "border-lime-500 shadow-[0_0_20px_rgba(157,234,41,0.3)] bg-neutral-900/60" 
+							open === i
+								? "border-lime-500 shadow-[0_0_20px_rgba(157,234,41,0.3)] bg-neutral-900/60"
 								: "border-white/10 bg-neutral-900/40"
 						} transition-all duration-200`}
 					>

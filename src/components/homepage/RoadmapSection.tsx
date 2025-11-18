@@ -1,8 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Image from "next/image";
 import type { FC } from "react";
-import { motion } from "framer-motion";
 
 type PhaseStatus = "done" | "now" | "next";
 
@@ -89,9 +89,7 @@ export const RoadmapSection: FC = () => {
 						className="opacity-80 rotate-180"
 					/>
 				</div>
-				<h2 className="text-4xl md:text-6xl font-bold text-white mb-4">
-					Roadmap
-				</h2>
+				<h2 className="text-4xl md:text-6xl font-bold text-white mb-4">Roadmap</h2>
 				<p className="text-white/60 text-lg max-w-2xl">
 					Each phase brings us closer to a fully decentralized trading ecosystem
 				</p>
@@ -114,30 +112,36 @@ export const RoadmapSection: FC = () => {
 								whileInView={{ opacity: 1, y: 0 }}
 								viewport={{ once: true, margin: "-80px" }}
 								transition={{ delay: idx * 0.1 }}
-								className={`relative flex ${isLeft ? 'md:justify-start' : 'md:justify-end'}`}
+								className={`relative flex ${isLeft ? "md:justify-start" : "md:justify-end"}`}
 							>
 								{/* Branch line connecting from timeline to phase */}
-								<div className={`hidden md:block absolute top-6 ${isLeft ? 'right-1/2 left-auto' : 'left-1/2 right-auto'} w-12 h-px bg-[#9DEA29]/30`} />
-								
+								<div
+									className={`hidden md:block absolute top-6 ${isLeft ? "right-1/2 left-auto" : "left-1/2 right-auto"} w-12 h-px bg-[#9DEA29]/30`}
+								/>
+
 								{/* Timeline dot */}
 								<div className="absolute left-8 md:left-1/2 top-6 w-4 h-4 -translate-x-1/2 z-10">
-									<div className={`w-full h-full rounded-full border-2 transition-all ${
-										isDone ? 'bg-[#9DEA29] border-[#9DEA29] shadow-lg shadow-[#9DEA29]/50' : 
-										isNow ? 'bg-[#9DEA29] border-[#9DEA29] animate-pulse' : 
-										'bg-neutral-900 border-white/30'
-									}`} />
+									<div
+										className={`w-full h-full rounded-full border-2 transition-all ${
+											isDone
+												? "bg-[#9DEA29] border-[#9DEA29] shadow-lg shadow-[#9DEA29]/50"
+												: isNow
+													? "bg-[#9DEA29] border-[#9DEA29] animate-pulse"
+													: "bg-neutral-900 border-white/30"
+										}`}
+									/>
 								</div>
 
-								<div className={`pl-20 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? 'md:pl-16 md:flex md:flex-col md:items-end' : 'md:pr-16'}`}>
+								<div
+									className={`pl-20 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? "md:pl-16 md:flex md:flex-col md:items-end" : "md:pr-16"}`}
+								>
 									{/* Title box */}
 									<div className="inline-block mb-6 p-4 border border-white/20 bg-neutral-900/60 backdrop-blur-sm hover:border-[#9DEA29]/40 transition-colors">
 										<div className="flex items-baseline gap-3 mb-1">
 											<span className="text-sm font-mono text-white/50">{phase.phase}</span>
 											<span className="text-sm font-mono text-[#9DEA29]/70">• {phase.when}</span>
 										</div>
-										<h3 className="text-2xl font-bold text-white">
-											{phase.what}
-										</h3>
+										<h3 className="text-2xl font-bold text-white">{phase.what}</h3>
 										{isDone && (
 											<span className="inline-block mt-2 text-xs px-2 py-1 bg-[#9DEA29]/10 text-[#9DEA29] border border-[#9DEA29]/20">
 												Completed
@@ -151,7 +155,7 @@ export const RoadmapSection: FC = () => {
 									</div>
 
 									{/* Items list - no wrapper */}
-									<div className={`space-y-3 ${isLeft ? 'md:text-right' : ''}`}>
+									<div className={`space-y-3 ${isLeft ? "md:text-right" : ""}`}>
 										{phase.things.map((thing, i) => (
 											<motion.div
 												key={i}
@@ -159,9 +163,11 @@ export const RoadmapSection: FC = () => {
 												whileInView={{ opacity: 1, x: 0 }}
 												viewport={{ once: true }}
 												transition={{ delay: idx * 0.1 + i * 0.05 }}
-												className={`flex gap-3 text-white/70 text-[15px] leading-relaxed ${isLeft ? 'md:flex-row-reverse' : ''}`}
+												className={`flex gap-3 text-white/70 text-[15px] leading-relaxed ${isLeft ? "md:flex-row-reverse" : ""}`}
 											>
-												<span className="text-[#9DEA29]/60 mt-1 select-none">{isLeft ? '←' : '→'}</span>
+												<span className="text-[#9DEA29]/60 mt-1 select-none">
+													{isLeft ? "←" : "→"}
+												</span>
 												<span>{thing}</span>
 											</motion.div>
 										))}

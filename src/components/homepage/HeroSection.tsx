@@ -25,7 +25,8 @@ export const HeroSection: FC = () => {
 					Unlimited Opportunities.
 				</h1>
 				<p className="text-lg md:text-xl text-white/80 max-w-2xl animate-fade-up animate-delay-300">
-					Trade any asset class with up to 100x leverage on the most efficient decentralized perpetual protocol
+					Trade any asset class with up to 100x leverage on the most efficient decentralized
+					perpetual protocol
 				</p>
 				<Link
 					href="/perp"
@@ -33,7 +34,9 @@ export const HeroSection: FC = () => {
 				>
 					Start Trading
 				</Link>
-				<p className="mt-72 text-sm text-white/60 animate-fade-up animate-delay-700">Powering over $50M in daily trading volume</p>
+				<p className="mt-72 text-sm text-white/60 animate-fade-up animate-delay-700">
+					Powering over $50M in daily trading volume
+				</p>
 			</div>
 		</section>
 	);

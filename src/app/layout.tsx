@@ -3,9 +3,9 @@ import { Inter, Raleway, Roboto_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
+import { PageTransition } from "@/components/providers/PageTransition";
 import { ReferralHandler } from "@/components/providers/ReferralHandler";
 import { ToastProvider } from "@/components/providers/ToastProvider";
-import { PageTransition } from "@/components/providers/PageTransition";
 import { AppProvider } from "@/contexts/AppContext";
 import "./globals.css";
 

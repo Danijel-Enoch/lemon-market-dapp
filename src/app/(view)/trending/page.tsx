@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SearchResults } from "@/components/ui/SearchResults";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/hooks/useSearch";
 import type { SearchResult } from "@/lib/search-service";
 

@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
+
 // import { prisma } from "@/lib/prisma";
 
 // Generate a random alphanumeric referral code
-function generateReferralCode(): string {
+function _generateReferralCode(): string {
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	let code = "";
 	for (let i = 0; i < 8; i++) {
@@ -14,10 +15,6 @@ function generateReferralCode(): string {
 export async function POST(request: NextRequest) {
 	try {
 		const { address, referralCode } = await request.json();
-
-		console.log("=== REFERRAL REDEEM API CALLED ===");
-		console.log("referralCode", referralCode);
-		console.log("address", address);
 
 		if (!address) {
 			return NextResponse.json({ error: "Address is required" }, { status: 400 });
@@ -110,13 +107,9 @@ export async function POST(request: NextRequest) {
 			address: normalizedAddress,
 			points: 0,
 			referredBy: null,
-			message: "Prisma disabled"
+			message: "Prisma disabled",
 		});
-	} catch (error) {
-		console.error("Error processing referral:", error);
-		return NextResponse.json(
-			{ error: "Failed to process referral" },
-			{ status: 500 }
-		);
+	} catch (_error) {
+		return NextResponse.json({ error: "Failed to process referral" }, { status: 500 });
 	}
 }

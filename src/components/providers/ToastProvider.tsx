@@ -1,7 +1,7 @@
 "use client";
 
-import { Toaster } from "sonner";
 import dynamic from "next/dynamic";
+import { Toaster } from "sonner";
 
 // Dynamically import WalletProvider with SSR disabled to avoid localStorage issues
 const WalletProvider = dynamic(

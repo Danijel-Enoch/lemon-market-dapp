@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
  * Provides better UX during navigation
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
-	const pathname = usePathname();
+	const _pathname = usePathname();
 	const [isTransitioning, setIsTransitioning] = useState(false);
 
 	useEffect(() => {
@@ -19,7 +19,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
 		}, 150);
 
 		return () => clearTimeout(timer);
-	}, [pathname]);
+	}, []);
 
 	return (
 		<div

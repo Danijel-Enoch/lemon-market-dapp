@@ -1,17 +1,11 @@
 "use client";
 
-import {
-	TrendingUp,
-	Zap,
-	Volume2,
-	Trophy,
-	ArrowUpRight
-} from "lucide-react";
+import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
+import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,22 +31,9 @@ function DashboardContent() {
 	} = useDashboard();
 
 	// Also get wallet connection directly from wagmi for comparison
-	const {
-		address: directAddress,
-		isConnected: directIsConnected,
-		status
-	} = useAccount();
+	const { address: directAddress, isConnected: directIsConnected, status } = useAccount();
 	const [showConnectMessage, setShowConnectMessage] = useState(true);
 	const [isCheckingConnection, setIsCheckingConnection] = useState(true);
-
-	// Debug wallet connection state (can be removed later)
-	console.log("Dashboard Debug:", {
-		fromHook: { isWalletConnected, walletAddress },
-		fromWagmi: { directIsConnected, directAddress },
-		status,
-		isLoading,
-		hasData: !!(pointsEarned || feesEarned || tradingVolume || referralCode)
-	});
 
 	const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
@@ -72,9 +53,7 @@ function DashboardContent() {
 		} else {
 			// Add a small delay before showing connect message to handle race conditions
 			const timer = setTimeout(() => {
-				const stillNotConnected = !(
-					isWalletConnected || directIsConnected
-				);
+				const stillNotConnected = !(isWalletConnected || directIsConnected);
 				const stillNoAddress = !(walletAddress || directAddress);
 				if (stillNotConnected || stillNoAddress) {
 					setShowConnectMessage(true);
@@ -84,13 +63,7 @@ function DashboardContent() {
 
 			return () => clearTimeout(timer);
 		}
-	}, [
-		isWalletConnected,
-		directIsConnected,
-		walletAddress,
-		directAddress,
-		status
-	]);
+	}, [isWalletConnected, directIsConnected, walletAddress, directAddress, status]);
 
 	const handleGenerateCode = async (): Promise<string | null> => {
 		setIsGeneratingCode(true);
@@ -153,18 +126,12 @@ function DashboardContent() {
 	const actualAddress = walletAddress || directAddress;
 
 	// Show loading while checking connection
-	if (
-		isCheckingConnection ||
-		status === "connecting" ||
-		status === "reconnecting"
-	) {
+	if (isCheckingConnection || status === "connecting" || status === "reconnecting") {
 		return (
 			<div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4">
 				<div className="text-center">
 					<h1 className="mb-2 text-3xl font-bold">Dashboard</h1>
-					<div className="animate-pulse text-muted-foreground">
-						Checking wallet connection...
-					</div>
+					<div className="animate-pulse text-muted-foreground">Checking wallet connection...</div>
 				</div>
 			</div>
 		);
@@ -180,9 +147,8 @@ function DashboardContent() {
 					</p>
 					{/* Show connection status for debugging */}
 					<div className="mt-4 text-xs text-muted-foreground/70">
-						Debug: Connected: {String(isActuallyConnected)} |
-						Address: {actualAddress ? "Yes" : "No"} | Status:{" "}
-						{status}
+						Debug: Connected: {String(isActuallyConnected)} | Address:{" "}
+						{actualAddress ? "Yes" : "No"} | Status: {status}
 					</div>
 				</div>
 				<ConnectWallet />
@@ -192,8 +158,7 @@ function DashboardContent() {
 
 	// Show loading skeleton during initial data fetch
 	// Only show skeleton if we're loading and have no data at all
-	const hasAnyData =
-		pointsEarned > 0 || feesEarned > 0 || tradingVolume > 0 || referralCode;
+	const hasAnyData = pointsEarned > 0 || feesEarned > 0 || tradingVolume > 0 || referralCode;
 
 	if (isLoading && !hasAnyData) {
 		return <LoadingSkeleton />;
@@ -285,9 +250,7 @@ function DashboardContent() {
 								{isLoading ? (
 									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
 								) : (
-									<span className="font-semibold">
-										{formatNumber(pointsEarned)}
-									</span>
+									<span className="font-semibold">{formatNumber(pointsEarned)}</span>
 								)}
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
@@ -298,9 +261,7 @@ function DashboardContent() {
 								{isLoading ? (
 									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
 								) : (
-									<span className="font-semibold">
-										{formatCurrency(feesEarned)}
-									</span>
+									<span className="font-semibold">{formatCurrency(feesEarned)}</span>
 								)}
 							</div>
 							<div className="flex items-center justify-between rounded-lg bg-accent/50 p-3">
@@ -311,9 +272,7 @@ function DashboardContent() {
 								{isLoading ? (
 									<div className="h-5 w-12 animate-pulse rounded bg-muted/40" />
 								) : (
-									<span className="font-semibold">
-										{formatCurrency(tradingVolume)}
-									</span>
+									<span className="font-semibold">{formatCurrency(tradingVolume)}</span>
 								)}
 							</div>
 						</div>

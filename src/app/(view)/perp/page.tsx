@@ -184,7 +184,6 @@ function PerpContent() {
 
 	useEffect(() => {
 		fetchLatestPrice();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [fetchLatestPrice]);
 
 	useEffect(() => {
@@ -193,7 +192,6 @@ function PerpContent() {
 		}, 30000); // 30 seconds
 
 		return () => clearInterval(interval);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [fetchLatestPrice]);
 
 	useEffect(() => {
@@ -368,13 +366,9 @@ function PerpContent() {
 								<CardTitle className="text-foreground flex items-center justify-between">
 									<span>{tradingPair.symbol} Perpetual</span>
 									<div className="flex items-center space-x-4">
-									<div className="flex items-center space-x-2">
-										<div className="text-2xl font-bold text-success">
-											{isLoadingPrice ? (
-												<Skeleton className="h-8 w-24" />
-											) : (
-												tradingPair.price
-											)}
+										<div className="flex items-center space-x-2">
+											<div className="text-2xl font-bold text-success">
+												{isLoadingPrice ? <Skeleton className="h-8 w-24" /> : tradingPair.price}
 											</div>
 											{tradingPair.assetType === "crypto" && (
 												<Button

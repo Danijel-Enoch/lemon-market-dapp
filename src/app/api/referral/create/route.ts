@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
+
 // import { prisma } from "@/lib/prisma";
 
 // Generate a random alphanumeric referral code
-function generateReferralCode(): string {
+function _generateReferralCode(): string {
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	let code = "";
 	for (let i = 0; i < 8; i++) {

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 	try {
 		// TODO: Replace with actual backend call to fetch user's referral code
 		// Example: const referralCode = await fetchFromBackend(`/users/${address}/referral-code`);
-		const normalizedAddress = address.toLowerCase();
+		const _normalizedAddress = address.toLowerCase();
 		// Mock response - returns null if no code exists
 		// const referralCode = await prisma.user.findUnique({
 		// 	where: { address: normalizedAddress },

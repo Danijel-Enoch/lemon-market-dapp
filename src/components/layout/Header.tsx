@@ -73,40 +73,41 @@ export function Header() {
 				</motion.header>
 			</div>
 
-			{/* Mobile Bottom Navigation */}
-			<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#13151b] border-t border-gray-100/10 backdrop-blur-md z-50">
-				<div className="flex items-center justify-around px-2 py-3">
-					{navItems.map((item) => {
-						const isActive = pathname === item.href;
-						const Icon = item.icon;
-						return (
-							<Link
-								key={item.href}
-								href={item.href}
-								className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] ${
-									isActive
-										? "bg-gradient-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
-										: ""
-								}`}
-							>
-								<Icon
-									size={20}
-									className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
-								/>
-								<span
-									className={`text-xs font-medium transition-all ${
+			{isMiniApp && (
+				<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#13151b] border-t border-gray-100/10 backdrop-blur-md z-50">
+					<div className="flex items-center justify-around px-2 py-3">
+						{navItems.map((item) => {
+							const isActive = pathname === item.href;
+							const Icon = item.icon;
+							return (
+								<Link
+									key={item.href}
+									href={item.href}
+									className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] ${
 										isActive
-											? "bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
-											: "text-gray-400"
+											? "bg-gradient-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
+											: ""
 									}`}
 								>
-									{item.label}
-								</span>
-							</Link>
-						);
-					})}
-				</div>
-			</nav>
+									<Icon
+										size={20}
+										className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
+									/>
+									<span
+										className={`text-xs font-medium transition-all ${
+											isActive
+												? "bg-gradient-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
+												: "text-gray-400"
+										}`}
+									>
+										{item.label}
+									</span>
+								</Link>
+							);
+						})}
+					</div>
+				</nav>
+			)}
 		</>
 	);
 }

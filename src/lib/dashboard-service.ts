@@ -1,17 +1,12 @@
-
 // Utility function for making fetch requests with timeout
-async function fetchWithTimeout(
-	url: string,
-	options: RequestInit = {},
-	timeout = 5000
-) {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 5000) {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), timeout);
 
 	try {
 		const response = await fetch(url, {
 			...options,
-			signal: controller.signal
+			signal: controller.signal,
 		});
 		clearTimeout(timeoutId);
 		return response;
@@ -38,9 +33,7 @@ export interface DashboardStats {
  */
 export async function getUserReferralCode(address: string): Promise<string | null> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/referral/code?address=${address}`
-		);
+		const response = await fetchWithTimeout(`/api/referral/code?address=${address}`);
 		if (!response.ok) return null;
 		const data = await response.json();
 		return data.code || null;
@@ -72,19 +65,11 @@ export async function createReferralCode(address: string): Promise<string | null
  */
 export async function getUserPoints(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/dashboard/points?address=${address}`
-		);
-		console.log(
-			"............................]\nResponse from points API:",
-			response
-		);
+		const response = await fetchWithTimeout(`/api/dashboard/points?address=${address}`);
 		if (!response.ok) return 0;
 		const data = await response.json();
-		console.log("Points data:", data);
 		return data.points || 0;
-	} catch (error) {
-		console.error("Error fetching points:", error);
+	} catch (_error) {
 		return 0;
 	}
 }
@@ -94,9 +79,7 @@ export async function getUserPoints(address: string): Promise<number> {
  */
 export async function getUserFeesEarned(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/dashboard/fees?address=${address}`
-		);
+		const response = await fetchWithTimeout(`/api/dashboard/fees?address=${address}`);
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.feesEarned || 0;
@@ -110,9 +93,7 @@ export async function getUserFeesEarned(address: string): Promise<number> {
  */
 export async function getUserTradingVolume(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/dashboard/volume?address=${address}`
-		);
+		const response = await fetchWithTimeout(`/api/dashboard/volume?address=${address}`);
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.volume || 0;
@@ -124,27 +105,21 @@ export async function getUserTradingVolume(address: string): Promise<number> {
 /**
  * Fetch user's referral statistics
  */
-export async function getUserReferralStats(
-	address: string
-): Promise<{
+export async function getUserReferralStats(address: string): Promise<{
 	totalReferrals: number;
 	referralEarnings: number;
 	points: number;
 }> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/referral/stats?address=${address}`
-		);
-		if (!response.ok)
-			return { totalReferrals: 0, referralEarnings: 0, points: 0 };
+		const response = await fetchWithTimeout(`/api/referral/stats?address=${address}`);
+		if (!response.ok) return { totalReferrals: 0, referralEarnings: 0, points: 0 };
 		const data = await response.json();
 		return {
 			totalReferrals: data.totalReferrals || 0,
 			referralEarnings: data.referralEarnings || 0,
-			points: data.points || 0
+			points: data.points || 0,
 		};
-	} catch (error) {
-		console.error("Error fetching referral stats:", error);
+	} catch (_error) {
 		return { totalReferrals: 0, referralEarnings: 0, points: 0 };
 	}
 }
@@ -154,9 +129,7 @@ export async function getUserReferralStats(
  */
 export async function getUserLeaderboardRank(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(
-			`/api/leaderboard/rank?address=${address}`
-		);
+		const response = await fetchWithTimeout(`/api/leaderboard/rank?address=${address}`);
 		if (!response.ok) return 0;
 		const data = await response.json();
 		return data.rank || 0;
@@ -168,12 +141,9 @@ export async function getUserLeaderboardRank(address: string): Promise<number> {
 /**
  * Format large numbers for display
  */
-export function formatNumber(
-	num: number | undefined | null,
-	decimals = 2
-): string {
+export function formatNumber(num: number | undefined | null, decimals = 2): string {
 	// Handle undefined, null, or non-numeric values
-	if (num == null || typeof num !== "number" || isNaN(num)) {
+	if (num == null || typeof num !== "number" || Number.isNaN(num)) {
 		return "0";
 	}
 

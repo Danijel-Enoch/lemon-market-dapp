@@ -23,7 +23,6 @@ export function ReferralInitializer() {
 		const referralCode = params.get(REFERRAL_PARAM);
 
 		if (referralCode) {
-			console.log("Storing referral code from URL:", referralCode);
 			localStorage.setItem(REFERRED_BY_KEY, referralCode);
 
 			// Optional: Clean the URL to remove the ref parameter

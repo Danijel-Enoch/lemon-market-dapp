@@ -24,8 +24,6 @@ export async function GET(request: NextRequest) {
 		// const points = user?.points || 0;
 		const points = 0;
 
-		console.log("Fetched points for user:", null, points);
-
 		return NextResponse.json({
 			points,
 			address,

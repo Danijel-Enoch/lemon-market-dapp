@@ -61,29 +61,19 @@ export function useDashboard() {
 				feesEarnedResult,
 				volumeResult,
 				referralStatsResult,
-				rankResult
+				rankResult,
 			] = results;
 
 			const referralCode =
-				referralCodeResult.status === "fulfilled"
-					? referralCodeResult.value
-					: null;
-			const points =
-				pointsResult.status === "fulfilled" ? pointsResult.value : 0;
-			const feesEarned =
-				feesEarnedResult.status === "fulfilled"
-					? feesEarnedResult.value
-					: 0;
-			const volume =
-				volumeResult.status === "fulfilled" ? volumeResult.value : 0;
+				referralCodeResult.status === "fulfilled" ? referralCodeResult.value : null;
+			const _points = pointsResult.status === "fulfilled" ? pointsResult.value : 0;
+			const feesEarned = feesEarnedResult.status === "fulfilled" ? feesEarnedResult.value : 0;
+			const volume = volumeResult.status === "fulfilled" ? volumeResult.value : 0;
 			const referralStats =
 				referralStatsResult.status === "fulfilled"
 					? referralStatsResult.value
 					: { totalReferrals: 0, referralEarnings: 0, points: 0 };
-			const rank =
-				rankResult.status === "fulfilled" ? rankResult.value : 0;
-
-			console.log({ results, points, referralStats });
+			const rank = rankResult.status === "fulfilled" ? rankResult.value : 0;
 
 			setStats({
 				pointsEarned: referralStats.points,
@@ -101,13 +91,8 @@ export function useDashboard() {
 			setLastFetchTime(now);
 
 			// Check if any requests failed and log for debugging
-			const failedRequests = results.filter(
-				(result) => result.status === "rejected"
-			);
+			const failedRequests = results.filter((result) => result.status === "rejected");
 			if (failedRequests.length > 0) {
-				console.warn(
-					`${failedRequests.length} dashboard API requests failed, but showing available data`
-				);
 			}
 		} catch (error) {
 			const errorMessage =

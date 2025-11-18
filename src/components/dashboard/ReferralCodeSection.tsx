@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, RefreshCw, Link } from "lucide-react";
+import { Copy, Link, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ export function ReferralCodeSection({
 			setLinkCopied(true);
 			toast.success("Referral link copied to clipboard!");
 			setTimeout(() => setLinkCopied(false), 2000);
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Failed to copy referral link");
 		}
 	};
@@ -77,11 +77,7 @@ export function ReferralCodeSection({
 							</Button>
 						</div>
 						<div className="space-y-2">
-							<Button
-								onClick={handleCopyReferralLink}
-								variant="default"
-								className="w-full gap-2"
-							>
+							<Button onClick={handleCopyReferralLink} variant="default" className="w-full gap-2">
 								{linkCopied ? (
 									<>
 										<span className="text-xs">✓</span>
@@ -114,8 +110,7 @@ export function ReferralCodeSection({
 							</Button>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							Share your referral link with friends to earn
-							rewards when they sign up and trade!
+							Share your referral link with friends to earn rewards when they sign up and trade!
 						</p>
 					</div>
 				) : (
