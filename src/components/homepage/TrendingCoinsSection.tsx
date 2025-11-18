@@ -27,7 +27,7 @@ type TrendingToken = {
 };
 
 const basePill =
-	"flex shrink-0 items-center justify-between border-2 border-[#686868] rounded-4xl backdrop-blur-md relative overflow-hidden";
+	"flex shrink-0 items-center justify-between border border-[#686868]/70 rounded-4xl backdrop-blur-md relative overflow-hidden";
 
 const Title = ({ children }: { children: string }) => (
 	<span className="text-xs font-semibold text-white whitespace-nowrap">{children}</span>
@@ -59,11 +59,10 @@ const PillItem: FC<Pill> = ({
 	change,
 	width,
 	changeColor = "gray",
-	largeIcon,
 }) => {
 	return (
 		<div
-			className={cn(basePill, largeIcon ? "pl-3" : "pl-2", "pr-6 py-2")}
+			className={cn(basePill, "pl-2 pr-6 py-2")}
 			style={{ minWidth: width }}
 		>
 			{/* Glow effect background - blends border color into the center */}
@@ -78,11 +77,9 @@ const PillItem: FC<Pill> = ({
 				<Image
 					src={icon}
 					alt={title}
-					width={largeIcon ? 44 : 40}
-					height={largeIcon ? 44 : 40}
-					className={cn(
-						largeIcon ? "rounded-full w-[44px] h-[44px]" : "rounded-full w-[40px] h-[40px]",
-					)}
+					width={ 40}
+					height={ 40}
+					className="rounded-full w-10 h-10 border border-gray-800/70"
 				/>
 				<div className="flex flex-col items-start self-stretch ml-2">
 					<Title>{title}</Title>
@@ -123,7 +120,7 @@ export const TrendingCoinsSection: FC = () => {
 				price: token.price,
 				change: token.change24h,
 				changeColor,
-				largeIcon: Math.random() > 0.5, // Randomly vary icon sizes for visual interest
+				largeIcon: false
 			};
 		});
 	};
