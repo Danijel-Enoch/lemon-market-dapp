@@ -27,7 +27,7 @@ type TrendingToken = {
 };
 
 const basePill =
-	"flex shrink-0 items-center justify-between border-2 border-[#686868] rounded-4xl bg-[#0a0a0a] backdrop-blur-md";
+	"flex shrink-0 items-center justify-between border-2 border-[#686868] rounded-4xl backdrop-blur-md relative overflow-hidden";
 
 const Title = ({ children }: { children: string }) => (
 	<span className="text-xs font-semibold text-white whitespace-nowrap">{children}</span>
@@ -66,20 +66,30 @@ const PillItem: FC<Pill> = ({
 			className={cn(basePill, largeIcon ? "pl-3" : "pl-2", "pr-6 py-2")}
 			style={{ minWidth: width }}
 		>
-			<Image
-				src={icon}
-				alt={title}
-				width={largeIcon ? 44 : 40}
-				height={largeIcon ? 44 : 40}
-				className={cn(
-					largeIcon ? "rounded-full w-[44px] h-[44px]" : "rounded-full w-[40px] h-[40px]",
-				)}
+			{/* Glow effect background - blends border color into the center */}
+			<div 
+				className="absolute inset-0 rounded-4xl"
+				style={{
+					background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`
+				}}
 			/>
-			<div className="flex flex-col items-start self-stretch ml-2">
-				<Title>{title}</Title>
-				<div className="flex items-center justify-between self-stretch gap-2 mt-0.5">
-					{price ? <Sub>{price}</Sub> : null}
-					{change ? <Change value={change} color={changeColor} /> : null}
+			{/* Content layer */}
+			<div className="relative z-10 flex items-center w-full">
+				<Image
+					src={icon}
+					alt={title}
+					width={largeIcon ? 44 : 40}
+					height={largeIcon ? 44 : 40}
+					className={cn(
+						largeIcon ? "rounded-full w-[44px] h-[44px]" : "rounded-full w-[40px] h-[40px]",
+					)}
+				/>
+				<div className="flex flex-col items-start self-stretch ml-2">
+					<Title>{title}</Title>
+					<div className="flex items-center justify-between self-stretch gap-2 mt-0.5">
+						{price ? <Sub>{price}</Sub> : null}
+						{change ? <Change value={change} color={changeColor} /> : null}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -126,12 +136,22 @@ export const TrendingCoinsSection: FC = () => {
 	if (loading || pills.length === 0) {
 		const SkeletonPill = ({ minWidth }: { minWidth: number }) => (
 			<div className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth }}>
-				<Skeleton className="w-10 h-10 rounded-full" />
-				<div className="flex flex-col gap-2 ml-2">
-					<Skeleton className="h-3 w-16" />
-					<div className="flex gap-2">
-						<Skeleton className="h-3 w-12" />
-						<Skeleton className="h-3 w-12" />
+				{/* Glow effect background */}
+				<div 
+					className="absolute inset-0 rounded-4xl"
+					style={{
+						background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`
+					}}
+				/>
+				{/* Content layer */}
+				<div className="relative z-10 flex items-center w-full">
+					<Skeleton className="w-10 h-10 rounded-full" />
+					<div className="flex flex-col gap-2 ml-2">
+						<Skeleton className="h-3 w-16" />
+						<div className="flex gap-2">
+							<Skeleton className="h-3 w-12" />
+							<Skeleton className="h-3 w-12" />
+						</div>
 					</div>
 				</div>
 			</div>
