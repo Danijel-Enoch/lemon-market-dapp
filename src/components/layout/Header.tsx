@@ -32,14 +32,14 @@ export function Header() {
 
 	return (
 		<>
-			<div className="fixed w-full p-4 md:p-8 z-50" style={safeAreaStyle}>
+			<div className="fixed top-0 left-0 right-0 w-full p-4 md:p-8 z-50" style={safeAreaStyle}>
 				<motion.header
 					initial={{ opacity: 0.5 }}
 					animate={{ opacity: 1 }}
 					transition={{ duration: 0.6 }}
-					className="max-w-screen-xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-6 py-4 bg-[#13151b99] border border-gray-100/10"
+					className="max-w-screen-xl mx-auto flex items-center justify-between rounded-xl backdrop-blur-md px-4 md:px-6 py-4 bg-[#13151b99] border border-gray-100/10"
 				>
-					<Link href="/" className="inline-flex items-center gap-3.5">
+					<Link href="/" className="inline-flex items-center gap-2 md:gap-3.5">
 						<Image
 							src="/image/logo.png"
 							alt="Lemon Markets"
@@ -47,7 +47,7 @@ export function Header() {
 							height={40}
 							style={{ width: "auto", height: "auto" }}
 						/>
-						<span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+						<span className="hidden sm:inline bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 							Lemon Markets
 						</span>
 					</Link>{" "}

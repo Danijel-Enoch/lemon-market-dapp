@@ -29,7 +29,7 @@ export function ConnectWallet({ text = "Connect Wallet" }) {
 										onClick={openConnectModal}
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="w-full hidden md:inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-6 py-3 bg-gradient-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-sm"
+										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
 									>
 										{text}
 									</motion.button>
