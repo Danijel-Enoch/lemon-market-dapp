@@ -94,7 +94,51 @@ export const TestimonialsSection: FC = () => {
 						</a>
 					</div>
 				</div>
-				<div className="relative sm:max-h-[600px] md:max-h-[640px] overflow-hidden">
+				{/* Mobile: Horizontal scroll */}
+				<div className="sm:hidden relative max-h-[400px] overflow-hidden">
+					<motion.div
+						className="flex gap-6"
+						animate={{
+							x: [0, -2000],
+						}}
+						transition={{
+							x: {
+								repeat: Infinity,
+								repeatType: "loop",
+								duration: 50,
+								ease: "linear",
+							},
+						}}
+					>
+						{/* Duplicate items for seamless loop */}
+						{[...testimonials, ...testimonials].map((t, i) => (
+							<div
+								key={`mobile-${i}`}
+								className="flex-shrink-0 w-[280px] rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60"
+							>
+								<p className="text-white/80 text-sm">"{t.quote}"</p>
+								<div className="mt-4 flex items-center gap-3">
+									<Image
+										src={t.avatar}
+										alt={t.author}
+										width={40}
+										height={40}
+										className="rounded-full"
+									/>
+									<div>
+										<p className="text-white font-semibold text-sm">{t.author}</p>
+										<p className="text-white/60 text-xs">{t.role}</p>
+									</div>
+								</div>
+							</div>
+						))}
+					</motion.div>
+					<div className="absolute inset-x-0 top-0 h-32 [background:linear-gradient(to_bottom,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
+					<div className="absolute inset-x-0 bottom-0 h-32 [background:linear-gradient(to_bottom,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_40%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
+				</div>
+
+				{/* Desktop: Vertical scroll */}
+				<div className="hidden sm:block relative sm:max-h-[600px] md:max-h-[640px] overflow-hidden">
 					<div className="grid sm:grid-cols-2 gap-6">
 						<motion.div
 							className="flex flex-col gap-6 sm:mt-10"

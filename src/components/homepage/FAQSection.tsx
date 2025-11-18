@@ -72,7 +72,14 @@ export const FAQSection: FC = () => {
 
 			<div className="sm:w-2/3 flex flex-col gap-4">
 				{items.map((it, i) => (
-					<div key={i} className="rounded-xl border border-white/10 bg-neutral-900/40">
+					<div 
+						key={i} 
+						className={`rounded-xl border ${
+							open === i 
+								? "border-lime-500 shadow-[0_0_20px_rgba(157,234,41,0.3)] bg-neutral-900/60" 
+								: "border-white/10 bg-neutral-900/40"
+						} transition-all duration-200`}
+					>
 						<button
 							onClick={() => setOpen(i)}
 							className="w-full flex items-center justify-between px-4 md:px-6 py-4 text-left hover:bg-neutral-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
