@@ -3,6 +3,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
+import { useAsyncFn } from "react-use";
 import { useChainId, useSwitchChain } from "wagmi";
 import {
 	DropdownMenu,
@@ -36,12 +37,13 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 		return true;
 	});
 
-	const handleChainSwitch = async (targetChainId: number) => {
-		try {
+	const [, handleChainSwitch] = useAsyncFn(
+		async (targetChainId: number) => {
 			await switchChain({ chainId: targetChainId });
 			setIsOpen(false);
-		} catch (_error) {}
-	};
+		},
+		[switchChain],
+	);
 
 	if (!currentChain) {
 		return (
@@ -58,6 +60,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 			<DropdownMenuTrigger asChild>
 				<button
+					type="button"
 					className={`
 						flex items-center gap-2 px-3 py-2 rounded-lg border
 						bg-white/5 border-white/10 hover:bg-white/10
@@ -68,7 +71,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 					disabled={isPending}
 				>
 					<div className="flex items-center gap-2 min-w-0">
-						<div className="relative w-6 h-6 flex-shrink-0">
+						<div className="relative w-6 h-6 shrink-0">
 							<Image
 								src={currentChain.icon}
 								alt={currentChain.name}
@@ -81,7 +84,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 							{currentChain.shortName}
 						</span>
 					</div>
-					<ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+					<ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
 				</button>
 			</DropdownMenuTrigger>
 
@@ -100,7 +103,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 							${chain.id === chainId ? "bg-blue-500/10" : ""}
 						`}
 					>
-						<div className="relative w-8 h-8 flex-shrink-0">
+						<div className="relative w-8 h-8 shrink-0">
 							<Image
 								src={chain.icon}
 								alt={chain.name}
@@ -124,7 +127,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 							</p>
 						</div>
 
-						{chain.id === chainId && <Check className="w-5 h-5 text-blue-400 flex-shrink-0" />}
+						{chain.id === chainId && <Check className="w-5 h-5 text-blue-400 shrink-0" />}
 					</DropdownMenuItem>
 				))}
 

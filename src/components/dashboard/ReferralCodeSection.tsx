@@ -2,6 +2,7 @@
 
 import { Copy, Link, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { useAsyncFn } from "react-use";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,7 @@ export function ReferralCodeSection({
 	const [copied, setCopied] = useState(false);
 	const [linkCopied, setLinkCopied] = useState(false);
 
-	const handleCopyCode = async () => {
+	const [, handleCopyCode] = useAsyncFn(async () => {
 		if (!referralCode) return;
 		try {
 			await navigator.clipboard.writeText(referralCode);
@@ -30,10 +31,11 @@ export function ReferralCodeSection({
 			setTimeout(() => setCopied(false), 2000);
 		} catch (_error) {
 			toast.error("Failed to copy referral code");
+			throw _error;
 		}
-	};
+	}, [referralCode]);
 
-	const handleCopyReferralLink = async () => {
+	const [, handleCopyReferralLink] = useAsyncFn(async () => {
 		if (!referralCode) return;
 		try {
 			const baseUrl = window.location.origin;
@@ -44,17 +46,19 @@ export function ReferralCodeSection({
 			setTimeout(() => setLinkCopied(false), 2000);
 		} catch (_error) {
 			toast.error("Failed to copy referral link");
+			throw _error;
 		}
-	};
+	}, [referralCode]);
 
-	const handleGenerateCode = async () => {
+	const [, handleGenerateCode] = useAsyncFn(async () => {
 		const code = await onGenerate();
 		if (code) {
 			toast.success("Referral code generated successfully!");
 		} else {
 			toast.error("Failed to generate referral code");
+			throw new Error("Failed to generate referral code");
 		}
-	};
+	}, [onGenerate]);
 
 	return (
 		<Card className="border-accent/20">

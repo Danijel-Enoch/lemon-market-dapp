@@ -1,6 +1,7 @@
 "use client";
 
 import { Share2, UserPlus } from "lucide-react";
+import { useAsyncFn } from "react-use";
 import { Button } from "@/components/ui/button";
 import { useMiniAppActions } from "@/hooks/useMiniAppActions";
 
@@ -16,18 +17,18 @@ interface ShareTradeButtonProps {
 export function ShareTradeButton({ tradeDetails }: ShareTradeButtonProps) {
 	const { composeCast, addMiniApp, isMiniApp } = useMiniAppActions();
 
-	const handleShare = async () => {
+	const [, handleShare] = useAsyncFn(async () => {
 		if (!tradeDetails) return;
 
 		const text = `Just opened a ${tradeDetails.leverage}x ${tradeDetails.type} on ${tradeDetails.pair} with ${tradeDetails.amount} USDC on @lemonmarkets 🍋`;
 		const embeds = [window.location.href];
 
 		await composeCast({ text, embeds });
-	};
+	}, [tradeDetails, composeCast]);
 
-	const handleAddApp = async () => {
+	const [, handleAddApp] = useAsyncFn(async () => {
 		await addMiniApp();
-	};
+	}, [addMiniApp]);
 
 	if (!isMiniApp) {
 		return null; // Don't show these buttons on regular website

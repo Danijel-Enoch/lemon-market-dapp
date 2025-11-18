@@ -2,6 +2,7 @@
 
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAsyncFn } from "react-use";
 import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
@@ -35,8 +36,6 @@ function DashboardContent() {
 	const [showConnectMessage, setShowConnectMessage] = useState(true);
 	const [isCheckingConnection, setIsCheckingConnection] = useState(true);
 
-	const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-
 	// Use effect to handle wallet connection changes
 	useEffect(() => {
 		const isActuallyConnected = isWalletConnected || directIsConnected;
@@ -65,14 +64,9 @@ function DashboardContent() {
 		}
 	}, [isWalletConnected, directIsConnected, walletAddress, directAddress, status]);
 
-	const handleGenerateCode = async (): Promise<string | null> => {
-		setIsGeneratingCode(true);
-		try {
-			return await generateReferralCode();
-		} finally {
-			setIsGeneratingCode(false);
-		}
-	};
+	const [{ loading: isGeneratingCode }, handleGenerateCode] = useAsyncFn(async () => {
+		return await generateReferralCode();
+	}, [generateReferralCode]);
 
 	// Create a loading skeleton component
 	const LoadingSkeleton = () => (

@@ -32,19 +32,17 @@ export function ReferralExample() {
 		}
 	}, [address, fetchStats]);
 
-	const handleCopyReferralLink = async () => {
+	const [, handleCopyReferralLink] = useAsyncFn(async () => {
 		if (!referralCode) return;
 
-		try {
-			const shareUrl = generateReferralUrl(
-				process.env.NEXT_PUBLIC_APP_URL || "https://app.com",
-				referralCode,
-			);
-			await referralService.copyToClipboard(shareUrl);
-			setCopiedToClipboard(true);
-			setTimeout(() => setCopiedToClipboard(false), 2000);
-		} catch (_err) {}
-	};
+		const shareUrl = generateReferralUrl(
+			process.env.NEXT_PUBLIC_APP_URL || "https://app.com",
+			referralCode,
+		);
+		await referralService.copyToClipboard(shareUrl);
+		setCopiedToClipboard(true);
+		setTimeout(() => setCopiedToClipboard(false), 2000);
+	}, [referralCode]);
 
 	if (!address) {
 		return (
