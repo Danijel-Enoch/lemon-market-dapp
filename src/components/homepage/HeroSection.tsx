@@ -19,21 +19,21 @@ export const HeroSection: FC = () => {
 			</div>
 
 			<div className="relative z-10 max-w-screen-xl mx-auto px-6 mt-28 md:px-10 flex flex-col items-center text-center gap-6">
-				<h1 className="text-4xl md:text-6xl font-extrabold leading-tight bg-gradient-to-b from-white to-gray-200 bg-clip-text text-transparent">
+				<h1 className="text-4xl md:text-6xl font-extrabold leading-tight bg-gradient-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100">
 					Unlimited Markets.
 					<br />
 					Unlimited Opportunities.
 				</h1>
-				<p className="text-lg md:text-xl text-white/80 max-w-2xl">
+				<p className="text-lg md:text-xl text-white/80 max-w-2xl animate-fade-up animate-delay-300">
 					Trade any asset class with up to 100x leverage on the most efficient decentralized perpetual protocol
 				</p>
 				<Link
 					href="/perp"
-					className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-base font-semibold bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 active:scale-[0.98]"
+					className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-base font-semibold bg-gradient-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 active:scale-[0.98] animate-fade-up animate-delay-500"
 				>
 					Start Trading
 				</Link>
-				<p className="mt-72 text-sm text-white/60">Powering over $50M in daily trading volume</p>
+				<p className="mt-72 text-sm text-white/60 animate-fade-up animate-delay-700">Powering over $50M in daily trading volume</p>
 			</div>
 		</section>
 	);
