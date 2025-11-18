@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
 
 // Mock implementation - Replace with your actual backend API calls
 export async function GET(request: NextRequest) {
@@ -14,12 +14,12 @@ export async function GET(request: NextRequest) {
 		// Example: const referralCode = await fetchFromBackend(`/users/${address}/referral-code`);
 		const normalizedAddress = address.toLowerCase();
 		// Mock response - returns null if no code exists
-		const referralCode = await prisma.user.findUnique({
-			where: { address: normalizedAddress },
-		});
+		// const referralCode = await prisma.user.findUnique({
+		// 	where: { address: normalizedAddress },
+		// });
 
 		return NextResponse.json({
-			code: referralCode?.referralCode || null,
+			code: null,
 			address,
 		});
 	} catch (_error) {

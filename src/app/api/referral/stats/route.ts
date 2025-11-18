@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
 	const address = request.nextUrl.searchParams.get("address");
@@ -12,30 +12,30 @@ export async function GET(request: NextRequest) {
 		// Normalize address
 		const normalizedAddress = address.toLowerCase();
 
-		const user = await prisma.user.findUnique({
-			where: { address: normalizedAddress },
-			include: {
-				referrals: {
-					select: {
-						referredAddress: true,
-						createdAt: true,
-						pointsAwarded: true,
-					},
-				},
-			},
-		});
+		// const user = await prisma.user.findUnique({
+		// 	where: { address: normalizedAddress },
+		// 	include: {
+		// 		referrals: {
+		// 			select: {
+		// 				referredAddress: true,
+		// 				createdAt: true,
+		// 				pointsAwarded: true,
+		// 			},
+		// 		},
+		// 	},
+		// });
 
-		if (!user) {
-			return NextResponse.json({ error: "User not found" }, { status: 404 });
-		}
-		console.log("Fetched referral stats for user:", user);
+		// if (!user) {
+		// 	return NextResponse.json({ error: "User not found" }, { status: 404 });
+		// }
+		// console.log("Fetched referral stats for user:", user);
 		return NextResponse.json({
-			address: user.address,
-			referralCode: user.referralCode,
-			points: user.points,
-			totalReferrals: user.referrals.length,
-			referrals: user.referrals,
-			createdAt: user.createdAt,
+			address: normalizedAddress,
+			referralCode: null,
+			points: 0,
+			totalReferrals: 0,
+			referrals: [],
+			createdAt: new Date(),
 		});
 	} catch (_error) {
 		return NextResponse.json({ error: "Failed to fetch referral stats" }, { status: 500 });

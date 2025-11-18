@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
 	const address = request.nextUrl.searchParams.get("address");
@@ -10,20 +10,21 @@ export async function GET(request: NextRequest) {
 
 	try {
 		// Fetch user points from database using Prisma
-		const user = await prisma.user.findUnique({
-			where: {
-				address: address
-			},
-			select: {
-				points: true,
-				address: true
-			}
-		});
+		// const user = await prisma.user.findUnique({
+		// 	where: {
+		// 		address: address
+		// 	},
+		// 	select: {
+		// 		points: true,
+		// 		address: true
+		// 	}
+		// });
 
 		// If user doesn't exist, return 0 points
-		const points = user?.points || 0;
+		// const points = user?.points || 0;
+		const points = 0;
 
-		console.log("Fetched points for user:", user, points);
+		console.log("Fetched points for user:", null, points);
 
 		return NextResponse.json({
 			points,
