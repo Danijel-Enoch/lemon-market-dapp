@@ -97,9 +97,6 @@ function PerpContent() {
 	const [isLong, setIsLong] = useState(true);
 	const [valueUSDC, setValueUSDC] = useState("100");
 	const [leverage, setLeverage] = useState(2);
-	const [_bnbAmount, _setBnbAmount] = useState("0.51451404");
-	const [isCreatingPosition, setIsCreatingPosition] = useState(false);
-	const [apiError, setApiError] = useState<string | null>(null);
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
@@ -223,13 +220,6 @@ function PerpContent() {
 			// Refetch balances after successful transaction
 			refetchUsdcBalance();
 			refetchAllowance();
-			// Reset form after successful transaction
-			setTimeout(() => {
-				setApiError(null);
-				// Optionally reset form values
-				// setValueUSDC("100");
-				// setLeverage(2);
-			}, 3000);
 		}
 	}, [isConfirmed, hash, refetchUsdcBalance, refetchAllowance]);
 
@@ -237,7 +227,6 @@ function PerpContent() {
 		if (isApprovalConfirmed && approvalHash) {
 			// Refetch allowance after successful approval
 			refetchAllowance();
-			setApiError(null);
 		}
 	}, [isApprovalConfirmed, approvalHash, refetchAllowance]);
 
@@ -255,14 +244,12 @@ function PerpContent() {
 		setLeverage(newLeverage);
 	};
 
-	const handleApproveUSDC = async () => {
-		if (!isConnected || !address) {
-			setApiError("Please connect your wallet first");
-			return;
-		}
+	const [{ loading: isApprovingUSDC, error: approvalError }, handleApproveUSDC] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		try {
-			setApiError(null);
 			const approvalAmount = parseUnits("1000000", 6);
 
 			writeContract({
@@ -271,34 +258,25 @@ function PerpContent() {
 				functionName: "approve",
 				args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount],
 			});
-		} catch (error) {
-			setApiError(error instanceof Error ? error.message : "Failed to approve USDC");
-		}
-	};
+		}, [isConnected, address, writeContract]);
 
 	// Handle place transaction
-	const handlePlaceTransaction = async () => {
-		if (!isConnected || !address) {
-			setApiError("Please connect your wallet first");
-			return;
-		}
+	const [{ loading: isCreatingPosition, error: transactionError }, handlePlaceTransaction] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		const marginValidation = validateMargin(valueUSDC);
-		if (!marginValidation.valid) {
-			setApiError(marginValidation.error || "Invalid margin");
-			return;
-		}
+			const marginValidation = validateMargin(valueUSDC);
+			if (!marginValidation.valid) {
+				throw new Error(marginValidation.error || "Invalid margin");
+			}
 
-		const leverageValidation = validateLeverage(leverage);
-		if (!leverageValidation.valid) {
-			setApiError(leverageValidation.error || "Invalid leverage");
-			return;
-		}
+			const leverageValidation = validateLeverage(leverage);
+			if (!leverageValidation.valid) {
+				throw new Error(leverageValidation.error || "Invalid leverage");
+			}
 
-		setIsCreatingPosition(true);
-		setApiError(null);
-
-		try {
 			const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
 
 			const result = await createPosition({
@@ -323,12 +301,7 @@ function PerpContent() {
 					gas: result.data.gasEstimate ? BigInt(String(result.data.gasEstimate)) : undefined,
 				});
 			}
-		} catch (error) {
-			setApiError(error instanceof Error ? error.message : "Failed to create position");
-		} finally {
-			setIsCreatingPosition(false);
-		}
-	};
+		}, [isConnected, address, valueUSDC, leverage, tradingPair, isLong, sendTransaction]);
 
 	const getChartUrl = () => {
 		if (tradingPair.pairAddress) {
@@ -521,10 +494,10 @@ function PerpContent() {
 												</p>
 												<Button
 													onClick={handleApproveUSDC}
-													disabled={isApproving || isApprovalConfirming}
+													disabled={isApprovingUSDC || isApproving || isApprovalConfirming}
 													className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 												>
-													{isApproving
+													{isApprovingUSDC || isApproving
 														? "Confirm in Wallet..."
 														: isApprovalConfirming
 															? "Confirming..."
@@ -563,10 +536,7 @@ function PerpContent() {
 										<Input
 											placeholder="100"
 											value={valueUSDC}
-											onChange={(e) => {
-												setValueUSDC(e.target.value);
-												setApiError(null); // Clear error when user types
-											}}
+											onChange={(e) => setValueUSDC(e.target.value)}
 											className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
 												valueUSDC && !validateMargin(valueUSDC).valid
 													? "border-red-500 focus:border-red-500"
@@ -659,9 +629,11 @@ function PerpContent() {
 									</div>
 								</div>
 								{/* Error Display */}
-								{apiError && (
+								{(approvalError || transactionError) && (
 									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
-										<p className="text-destructive text-sm">{apiError}</p>
+										<p className="text-destructive text-sm">
+											{approvalError?.message || transactionError?.message}
+										</p>
 									</div>
 								)}
 								{/* Approval Success Message */}
@@ -720,6 +692,7 @@ function PerpContent() {
 											isCreatingPosition ||
 											isPending ||
 											isConfirming ||
+											isApprovingUSDC ||
 											isApproving ||
 											isApprovalConfirming
 										}
