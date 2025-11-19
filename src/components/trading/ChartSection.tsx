@@ -13,9 +13,6 @@ import {
 	YAxis,
 } from "recharts";
 import { fetchChartData } from "@/lib/chart-data-service";
-import { Skeleton } from "../ui/skeleton";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
 
 interface ChartSectionProps {
 	pairAddress?: string;
@@ -44,18 +41,12 @@ const timeframes = [
 	{ label: "3 Months", value: "1d" },
 	{ label: "7 Days", value: "7d" },
 	{ label: "24 Hours", value: "24h" },
-	{ label: "6 Hours", value: "6h" },
-	{ label: "4 Hours", value: "4h" },
-	{ label: "1 Hour", value: "1h" },
+	// { label: "6 Hours", value: "6h" },
+	// { label: "4 Hours", value: "4h" },
+	// { label: "1 Hour", value: "1h" },
 ];
 
-export function ChartSection({
-	pairAddress,
-	fetchLatestPrice,
-	isLoadingPrice,
-	priceData,
-	chain = "base",
-}: ChartSectionProps) {
+export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSectionProps) {
 	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -107,19 +98,25 @@ export function ChartSection({
 
 	const formatPrice = (value: number) => {
 		if (value >= 1) {
-			return value.toFixed(2);
+			return new Intl.NumberFormat("en-US", {
+				style: "currency",
+				currency: "USD",
+				maximumFractionDigits: 2,
+			}).format(value);
 		}
-		return value.toFixed(6);
+		return new Intl.NumberFormat("en-US", {
+			style: "currency",
+			currency: "USD",
+			maximumSignificantDigits: 4,
+		}).format(value);
 	};
 
-	const priceChange = latestCandle
-		? ((latestCandle.close - latestCandle.open) / latestCandle.open) * 100
-		: 0;
+	const priceChange = Number(priceData?.change.replace("%", ""));
 	const isPositive = priceChange >= 0;
 
 	return (
-		<div className="bg-[#0a0a0a]">
-			<div className="flex items-center justify-between gap-4 mb-4">
+		<div className="">
+			<div className="flex items-center justify-between gap-4 p-4">
 				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
 						<button
@@ -137,77 +134,36 @@ export function ChartSection({
 					))}
 				</div>
 				<div className="flex items-center">
-					<div className="flex items-center space-x-2">
-						<div className="text-2xl font-bold text-success">
-							{priceData === undefined ? <Skeleton className="h-8 w-24" /> : priceData.price}
-						</div>
-
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={fetchLatestPrice}
-							disabled={isLoadingPrice}
-							className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-							title="Refresh price"
-						>
-							<svg
-								className={`h-4 w-4 ${isLoadingPrice ? "animate-spin" : ""}`}
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
+					{latestCandle && (
+						<div className="flex items-center gap-6 px-6 text-xs flex-wrap">
+							<div className="flex items-center gap-2">
+								<span className="text-gray-500 font-medium">O</span>
+								<span className="text-gray-300">{formatPrice(latestCandle.open)}</span>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-gray-500">H</span>
+								<span className="text-green-500">{formatPrice(latestCandle.high)}</span>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-gray-500 font-medium">L</span>
+								<span className="text-red-500">{formatPrice(latestCandle.low)}</span>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-gray-500 font-medium">C</span>
+								<span className="text-gray-300">{formatPrice(latestCandle.close)}</span>
+							</div>
+							<div
+								className={`flex items-center gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}
 							>
-								<title>Refresh Price</title>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-								/>
-							</svg>
-						</Button>
-					</div>
-					{priceData && (
-						<Badge
-							className={`${
-								priceData.change.startsWith("+")
-									? "bg-primary hover:bg-primary/90"
-									: "bg-destructive hover:bg-destructive/90"
-							}`}
-						>
-							{priceData.change}
-						</Badge>
+								<span>
+									{isPositive ? "+" : ""}
+									{priceChange.toFixed(2)}%
+								</span>
+							</div>
+						</div>
 					)}
 				</div>
 			</div>
-
-			{latestCandle && (
-				<div className="flex items-center gap-6 mb-4 text-xs flex-wrap">
-					<div className="flex items-center gap-2">
-						<span className="text-gray-500">O</span>
-						<span className="text-gray-300">{formatPrice(latestCandle.open)}</span>
-					</div>
-					<div className="flex items-center gap-2">
-						<span className="text-gray-500">H</span>
-						<span className="text-green-500">{formatPrice(latestCandle.high)}</span>
-					</div>
-					<div className="flex items-center gap-2">
-						<span className="text-gray-500">L</span>
-						<span className="text-red-500">{formatPrice(latestCandle.low)}</span>
-					</div>
-					<div className="flex items-center gap-2">
-						<span className="text-gray-500">C</span>
-						<span className="text-gray-300">{formatPrice(latestCandle.close)}</span>
-					</div>
-					<div
-						className={`flex items-center gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}
-					>
-						<span>
-							{isPositive ? "+" : ""}
-							{priceChange.toFixed(2)}%
-						</span>
-					</div>
-				</div>
-			)}
 
 			<div className="relative w-full" style={{ height: "450px" }}>
 				{loading ? (

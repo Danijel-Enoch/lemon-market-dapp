@@ -18,7 +18,7 @@ import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserPositions } from "@/hooks/useUserPositions";
@@ -457,7 +457,7 @@ function PerpContent() {
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-4 py-8">
-				<div className="mb-6 relative overflow-hidden">
+				<div className="relative overflow-hidden">
 					<div className="bg-neutral-700">
 						<div className="flex gap-0.5 animate-scroll-ticker">
 							{tickerTokens && tickerTokens.length > 0 ? (
@@ -489,7 +489,7 @@ function PerpContent() {
 				</div>
 
 				{marketData && tradingPair.pairAddress && (
-					<div className="mb-6 bg-[#0a0a0a] rounded-lg border-t border-b border-[#4D4D4D] py-4">
+					<div className="border-b border-[#4D4D4D] py-4">
 						<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
 							<div className="flex items-center gap-3 min-w-fit">
 								{marketData.tokenLogo && (
@@ -632,33 +632,23 @@ function PerpContent() {
 					</div>
 				)}
 
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					<div className="lg:col-span-2 space-y-6">
-						<Card className="bg-card border-gray-100/10">
-							<CardHeader>
-								<CardTitle className="text-foreground flex items-center justify-between">
-									<span>{tradingPair.symbol} Perpetual</span>
-									<div className="flex items-center space-x-4"></div>
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								{tradingPair.assetType === "crypto" ? (
-									<ChartSection
-										pairAddress={tradingPair.pairAddress}
-										chain={tradingPair.chain}
-										symbol={tradingPair.symbol}
-										priceData={priceData ?? undefined}
-										fetchLatestPrice={fetchLatestPrice}
-										isLoadingPrice={isLoadingPrice}
-										marketData={marketData}
-									/>
-								) : (
-									<div style={{ height: "500px" }}>
-										<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />
-									</div>
-								)}
-							</CardContent>
-						</Card>
+				<div className="grid grid-cols-1 lg:grid-cols-3">
+					<div className="lg:col-span-2">
+						{tradingPair.assetType === "crypto" ? (
+							<ChartSection
+								pairAddress={tradingPair.pairAddress}
+								chain={tradingPair.chain}
+								symbol={tradingPair.symbol}
+								priceData={priceData ?? undefined}
+								fetchLatestPrice={fetchLatestPrice}
+								isLoadingPrice={isLoadingPrice}
+								marketData={marketData}
+							/>
+						) : (
+							<div style={{ height: "500px" }}>
+								<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />
+							</div>
+						)}
 					</div>
 
 					<div className="space-y-6">
