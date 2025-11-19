@@ -654,26 +654,26 @@ function PerpContent() {
 					<div className="space-y-6">
 						<Card className="bg-card border-gray-100/10">
 							<CardContent className="space-y-6 p-6">
-								<div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg">
+								<div className="grid grid-cols-2 gap-0.5 bg-[#071405] p-0.5 rounded-xl border border-white/40">
 									<Button
 										onClick={() => setIsLong(true)}
-										className={`rounded-md h-12 font-semibold ${
+										className={`rounded-xl h-[42px] font-medium text-sm transition-all ${
 											isLong
-												? "bg-primary hover:bg-primary/90 text-black"
-												: "bg-transparent text-muted-foreground hover:text-foreground"
+												? "bg-[#1C6200] text-[#4DAD31] hover:bg-[#1C6200]/90"
+												: "bg-transparent text-[#818181] hover:bg-transparent hover:text-[#818181]"
 										}`}
 									>
-										LONG
+										Long
 									</Button>
 									<Button
 										onClick={() => setIsLong(false)}
-										className={`rounded-md h-12 font-semibold ${
+										className={`rounded-xl h-[42px] font-medium text-sm transition-all ${
 											!isLong
-												? "bg-destructive hover:bg-destructive/90 text-foreground"
-												: "bg-transparent text-muted-foreground hover:text-foreground"
+												? "bg-[#1C6200] text-[#4DAD31] hover:bg-[#1C6200]/90"
+												: "bg-transparent text-[#818181] hover:bg-transparent hover:text-[#818181]"
 										}`}
 									>
-										SHORT
+										Short
 									</Button>
 								</div>
 								{isConnected && (
