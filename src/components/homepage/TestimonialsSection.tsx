@@ -95,7 +95,7 @@ export const TestimonialsSection: FC = () => {
 					</div>
 				</div>
 				{/* Mobile: Horizontal scroll */}
-				<div className="sm:hidden relative max-h-[400px] overflow-hidden">
+				<div className="sm:hidden relative max-h-96 overflow-hidden">
 					<motion.div
 						className="flex gap-6"
 						animate={{
@@ -114,7 +114,7 @@ export const TestimonialsSection: FC = () => {
 						{[...testimonials, ...testimonials].map((t, i) => (
 							<div
 								key={`mobile-${t.author.replace(/\s+/g, "-")}-${i}`}
-								className="shrink-0 w-[280px] rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60"
+								className="shrink-0 w-70 rounded-2xl bg-lime-800/20 p-6 border border-lime-400/60"
 							>
 								<p className="text-white/80 text-sm">"{t.quote}"</p>
 								<div className="mt-4 flex items-center gap-3">
@@ -138,7 +138,7 @@ export const TestimonialsSection: FC = () => {
 				</div>
 
 				{/* Desktop: Vertical scroll */}
-				<div className="hidden sm:block relative sm:max-h-[600px] md:max-h-[640px] overflow-hidden">
+				<div className="hidden sm:block relative sm:max-h-[37.5rem] md:max-h-screen overflow-hidden">
 					<div className="grid sm:grid-cols-2 gap-6">
 						<motion.div
 							className="flex flex-col gap-6 sm:mt-10"

@@ -109,6 +109,7 @@ export function Header() {
 																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
 																		: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 																}`}
+																shallow
 															>
 																{subItem.label}
 															</Link>
@@ -133,6 +134,7 @@ export function Header() {
 											? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
 											: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 									}`}
+									shallow
 								>
 									{item.label}
 								</Link>
@@ -157,7 +159,7 @@ export function Header() {
 										<button
 											type="button"
 											onClick={() => setOpenDropdown(isOpen ? null : item.label)}
-											className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] relative ${
+											className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-20 relative ${
 												isActive
 													? "bg-linear-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
 													: ""
@@ -204,6 +206,7 @@ export function Header() {
 																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
 																		: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 																}`}
+																shallow
 															>
 																{subItem.label}
 															</Link>
@@ -224,11 +227,12 @@ export function Header() {
 								<Link
 									key={item.href}
 									href={item.href}
-									className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] ${
+									className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-20 ${
 										isActive
 											? "bg-linear-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
 											: ""
 									}`}
+									shallow
 								>
 									<Icon
 										size={20}

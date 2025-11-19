@@ -10,7 +10,7 @@ const TrendingCoinsSection = dynamic(
 			default: mod.TrendingCoinsSection,
 		})),
 	{
-		loading: () => <div className="h-[273px] w-full" />,
+		loading: () => <div className="h-64 w-full" />,
 		ssr: true,
 	},
 );
@@ -21,7 +21,7 @@ const FeaturesSection = dynamic(
 			default: mod.FeaturesSection,
 		})),
 	{
-		loading: () => <div className="h-[600px] w-full" />,
+		loading: () => <div className="h-150 w-full" />,
 		ssr: true,
 	},
 );
@@ -32,7 +32,7 @@ const TestimonialsSection = dynamic(
 			default: mod.TestimonialsSection,
 		})),
 	{
-		loading: () => <div className="h-[500px] w-full" />,
+		loading: () => <div className="h-128 w-full" />,
 		ssr: true,
 	},
 );
@@ -40,7 +40,7 @@ const TestimonialsSection = dynamic(
 const VideoSection = dynamic(
 	() => import("@/components/homepage/VideoSection").then((mod) => ({ default: mod.VideoSection })),
 	{
-		loading: () => <div className="h-[400px] w-full" />,
+		loading: () => <div className="h-96 w-full" />,
 	},
 );
 
@@ -48,7 +48,7 @@ const RoadmapSection = dynamic(
 	() =>
 		import("@/components/homepage/RoadmapSection").then((mod) => ({ default: mod.RoadmapSection })),
 	{
-		loading: () => <div className="h-[600px] w-full" />,
+		loading: () => <div className="h-150 w-full" />,
 		ssr: true,
 	},
 );
@@ -56,7 +56,7 @@ const RoadmapSection = dynamic(
 const FAQSection = dynamic(
 	() => import("@/components/homepage/FAQSection").then((mod) => ({ default: mod.FAQSection })),
 	{
-		loading: () => <div className="h-[500px] w-full" />,
+		loading: () => <div className="h-128 w-full" />,
 		ssr: true,
 	},
 );
@@ -64,7 +64,7 @@ const FAQSection = dynamic(
 const CTASection = dynamic(
 	() => import("@/components/homepage/CTASection").then((mod) => ({ default: mod.CTASection })),
 	{
-		loading: () => <div className="h-[300px] w-full" />,
+		loading: () => <div className="h-80 w-full" />,
 		ssr: true,
 	},
 );
@@ -73,7 +73,7 @@ const HomepageFooter = dynamic(
 	() =>
 		import("@/components/homepage/HomepageFooter").then((mod) => ({ default: mod.HomepageFooter })),
 	{
-		loading: () => <div className="h-[200px] w-full" />,
+		loading: () => <div className="h-52 w-full" />,
 		ssr: true,
 	},
 );
@@ -107,28 +107,28 @@ export default function Homepage() {
 					/>
 				</div>
 			</section>
-			<Suspense fallback={<div className="h-[273px] w-full" />}>
+			<Suspense fallback={<div className="h-64 w-full" />}>
 				<TrendingCoinsSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[600px] w-full" />}>
+			<Suspense fallback={<div className="h-150 w-full" />}>
 				<FeaturesSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[500px] w-full" />}>
+			<Suspense fallback={<div className="h-128 w-full" />}>
 				<TestimonialsSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[400px] w-full" />}>
+			<Suspense fallback={<div className="h-96 w-full" />}>
 				<VideoSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[600px] w-full" />}>
+			<Suspense fallback={<div className="h-150 w-full" />}>
 				<RoadmapSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[500px] w-full" />}>
+			<Suspense fallback={<div className="h-128 w-full" />}>
 				<FAQSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[300px] w-full" />}>
+			<Suspense fallback={<div className="h-80 w-full" />}>
 				<CTASection />
 			</Suspense>
-			<Suspense fallback={<div className="h-[200px] w-full" />}>
+			<Suspense fallback={<div className="h-52 w-full" />}>
 				<HomepageFooter />
 			</Suspense>
 		</main>

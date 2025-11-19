@@ -163,7 +163,7 @@ export function SearchResults({
 											<TokenImage src={result.imageUrl} symbol={result.symbol} size={32} />
 											<div>
 												<div className="font-medium text-foreground">{result.symbol}</div>
-												<div className="text-xs text-muted-foreground truncate max-w-[120px]">
+												<div className="text-xs text-muted-foreground truncate max-w-30">
 													{result.name}
 												</div>
 											</div>

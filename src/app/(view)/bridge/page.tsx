@@ -155,7 +155,7 @@ export default function BridgeSwapPage() {
 
 	return (
 		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-[1600px]">
+			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
 					<div className="flex items-center gap-3">
 						<div className="p-2 bg-primary/10 rounded-lg">
@@ -252,7 +252,7 @@ export default function BridgeSwapPage() {
 							</Card>
 						) : (
 							<Card className="bg-card border-gray-100/10">
-								<CardContent className="flex items-center justify-center h-[600px]">
+								<CardContent className="flex items-center justify-center h-[37.5rem]">
 									<div className="text-center text-muted-foreground">
 										<p className="text-lg mb-2">Select a token to view price chart</p>
 										<p className="text-sm">
