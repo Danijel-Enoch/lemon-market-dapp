@@ -8,6 +8,9 @@
  * POST /api/position/modify
  * Body: {
  *   positionId: string,     // position ID to modify
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  *   tokenSymbol: string,    // e.g., "ETH", "BTC"
  *   newMargin: string,      // new margin amount in USDC
  *   newLeverage: number,    // new leverage multiplier (1-100)

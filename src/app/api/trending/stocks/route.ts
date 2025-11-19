@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TRENDING_ASSETS = [
 	{ symbol: "AAPL", type: "Equities" },
 	{ symbol: "NVDA", type: "Equities" },

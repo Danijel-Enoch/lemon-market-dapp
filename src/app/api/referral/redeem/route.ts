@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 
 // import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Generate a random alphanumeric referral code
 function _generateReferralCode(): string {
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

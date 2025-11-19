@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 // import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Mock implementation - Replace with your actual backend API calls
 export async function GET(request: NextRequest) {
 	const address = request.nextUrl.searchParams.get("address");

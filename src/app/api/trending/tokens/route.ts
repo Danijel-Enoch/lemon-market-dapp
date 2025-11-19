@@ -6,6 +6,9 @@ import {
 	parseLiquidityWith6Decimals,
 } from "@/lib/virtual-markets-utils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Define pairs per chain
 const chainPairs: Record<string, string[]> = {
 	base: [

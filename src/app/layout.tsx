@@ -48,6 +48,10 @@ const miniAppEmbed = {
 	},
 };
 
+// Force dynamic rendering
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
 	title: "Lemon Markets - Unlimited Markets, Unlimited Opportunities",
 	description:

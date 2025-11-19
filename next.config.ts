@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	// Force dynamic rendering for all pages
+	dynamic: "force-dynamic",
 	images: {
 		remotePatterns: [
 			{

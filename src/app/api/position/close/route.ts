@@ -8,6 +8,9 @@
  * POST /api/position/close
  * Body: {
  *   positionId: string,     // position ID to close
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  *   tokenSymbol: string,    // e.g., "ETH", "BTC"
  *   userAddress: string,    // user's wallet address
  *   pairAddress?: string    // optional pair address for accurate pricing

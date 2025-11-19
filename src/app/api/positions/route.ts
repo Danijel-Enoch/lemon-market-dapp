@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getTokenPriceService } from "@/lib/token-price-service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // GraphQL query to fetch positions
 const POSITIONS_QUERY = `
   query GetPositions($trader: String!) {

@@ -1,10 +1,14 @@
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Suspense } from "react";
 import { HeroSection } from "@/components/homepage/HeroSection";
+import nextDynamic from "next/dynamic";
+
+// Force dynamic rendering
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Dynamically import heavy components to reduce initial bundle size
-const TrendingCoinsSection = dynamic(
+const TrendingCoinsSection = nextDynamic(
 	() =>
 		import("@/components/homepage/TrendingCoinsSection").then((mod) => ({
 			default: mod.TrendingCoinsSection,
@@ -15,7 +19,7 @@ const TrendingCoinsSection = dynamic(
 	},
 );
 
-const FeaturesSection = dynamic(
+const FeaturesSection = nextDynamic(
 	() =>
 		import("@/components/homepage/FeaturesSection").then((mod) => ({
 			default: mod.FeaturesSection,
@@ -26,7 +30,7 @@ const FeaturesSection = dynamic(
 	},
 );
 
-const TestimonialsSection = dynamic(
+const TestimonialsSection = nextDynamic(
 	() =>
 		import("@/components/homepage/TestimonialsSection").then((mod) => ({
 			default: mod.TestimonialsSection,
@@ -37,14 +41,14 @@ const TestimonialsSection = dynamic(
 	},
 );
 
-const VideoSection = dynamic(
+const VideoSection = nextDynamic(
 	() => import("@/components/homepage/VideoSection").then((mod) => ({ default: mod.VideoSection })),
 	{
 		loading: () => <div className="h-96 w-full" />,
 	},
 );
 
-const RoadmapSection = dynamic(
+const RoadmapSection = nextDynamic(
 	() =>
 		import("@/components/homepage/RoadmapSection").then((mod) => ({ default: mod.RoadmapSection })),
 	{
@@ -53,7 +57,7 @@ const RoadmapSection = dynamic(
 	},
 );
 
-const FAQSection = dynamic(
+const FAQSection = nextDynamic(
 	() => import("@/components/homepage/FAQSection").then((mod) => ({ default: mod.FAQSection })),
 	{
 		loading: () => <div className="h-128 w-full" />,
@@ -61,7 +65,7 @@ const FAQSection = dynamic(
 	},
 );
 
-const CTASection = dynamic(
+const CTASection = nextDynamic(
 	() => import("@/components/homepage/CTASection").then((mod) => ({ default: mod.CTASection })),
 	{
 		loading: () => <div className="h-80 w-full" />,
@@ -69,7 +73,7 @@ const CTASection = dynamic(
 	},
 );
 
-const HomepageFooter = dynamic(
+const HomepageFooter = nextDynamic(
 	() =>
 		import("@/components/homepage/HomepageFooter").then((mod) => ({ default: mod.HomepageFooter })),
 	{

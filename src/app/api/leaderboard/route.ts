@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // GraphQL query to fetch leaderboard entries
 const LEADERBOARD_QUERY = `
   query GetLeaderboard {

@@ -8,6 +8,9 @@
  * POST /api/position/create
  * Body: {
  *   tokenSymbol: string,    // e.g., "ETH", "BTC"
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  *   isLong: boolean,        // true for long, false for short
  *   margin: string,         // margin amount in USDC (e.g., "100.00")
  *   leverage: number,       // leverage multiplier (1-100)
