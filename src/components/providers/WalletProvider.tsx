@@ -24,6 +24,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 						}),
 						colors: {
 							...darkTheme().colors,
+							accentColor: "#65a30d",
+							accentColorForeground: "white",
 							modalBackground: "#0f1419",
 							modalBorder: "#1f2937",
 						},
