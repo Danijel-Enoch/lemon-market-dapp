@@ -67,6 +67,8 @@ export const TestimonialsSection: FC = () => {
 							alt="Divider"
 							width={72}
 							height={10}
+							loading="lazy"
+							sizes="72px"
 							className="opacity-90"
 						/>
 						<span className="text-[#9DEA29] font-medium text-sm leading-[19px]">Testimonials</span>
@@ -75,6 +77,8 @@ export const TestimonialsSection: FC = () => {
 							alt="Divider"
 							width={72}
 							height={10}
+							loading="lazy"
+							sizes="72px"
 							className="opacity-90 rotate-180"
 						/>
 					</div>
@@ -138,7 +142,7 @@ export const TestimonialsSection: FC = () => {
 				</div>
 
 				{/* Desktop: Vertical scroll */}
-				<div className="hidden sm:block relative sm:max-h-[37.5rem] md:max-h-screen overflow-hidden">
+				<div className="hidden sm:block relative sm:max-h-150 md:max-h-screen overflow-hidden">
 					<div className="grid sm:grid-cols-2 gap-6">
 						<motion.div
 							className="flex flex-col gap-6 sm:mt-10"

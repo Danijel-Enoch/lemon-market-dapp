@@ -89,6 +89,8 @@ export default function Homepage() {
 						alt="Partner 1"
 						width={120}
 						height={32}
+						loading="lazy"
+						sizes="120px"
 						style={{ width: "auto", height: "auto" }}
 					/>
 					<Image
@@ -96,6 +98,8 @@ export default function Homepage() {
 						alt="Partner 2"
 						width={120}
 						height={32}
+						loading="lazy"
+						sizes="120px"
 						style={{ width: "auto", height: "auto" }}
 					/>
 					<Image
@@ -103,6 +107,8 @@ export default function Homepage() {
 						alt="Partner 3"
 						width={120}
 						height={32}
+						loading="lazy"
+						sizes="120px"
 						style={{ width: "auto", height: "auto" }}
 					/>
 				</div>

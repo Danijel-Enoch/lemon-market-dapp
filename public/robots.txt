@@ -1,0 +1,9 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin and api routes
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://demo.lemonmarkets.xyz/sitemap.xml

@@ -122,6 +122,8 @@ const PillItem: FC<Pill> = ({
 					alt={title}
 					width={40}
 					height={40}
+					loading="lazy"
+					sizes="40px"
 					className="rounded-full w-10 h-10 border border-gray-800/70"
 				/>
 				<div className="flex flex-col items-start self-stretch ml-2">

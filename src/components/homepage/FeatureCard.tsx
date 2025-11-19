@@ -63,6 +63,8 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 						alt={alt}
 						width={192}
 						height={192}
+						loading="lazy"
+						sizes="(max-width: 768px) 192px, (max-width: 1024px) 224px, 240px"
 						className="w-full h-full object-contain pointer-events-none"
 						style={{ transformStyle: "preserve-3d" }}
 					/>

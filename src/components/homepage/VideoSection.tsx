@@ -10,6 +10,8 @@ export const VideoSection: FC = () => {
 					alt="Divider"
 					width={72}
 					height={10}
+					loading="lazy"
+					sizes="72px"
 					className="opacity-90"
 				/>
 				<span className="text-[#9DEA29] font-medium text-sm leading-[19px]">Features</span>
@@ -18,6 +20,8 @@ export const VideoSection: FC = () => {
 					alt="Divider"
 					width={72}
 					height={10}
+					loading="lazy"
+					sizes="72px"
 					className="opacity-90 rotate-180"
 				/>
 			</div>
@@ -34,6 +38,8 @@ export const VideoSection: FC = () => {
 					alt="Video"
 					width={1024}
 					height={776}
+					loading="lazy"
+					sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1024px"
 					className="w-full h-auto cursor-pointer"
 				/>
 			</div>

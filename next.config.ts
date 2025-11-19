@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
 				hostname: "cdn.dexscreener.com",
 			},
 		],
+		formats: ["image/avif", "image/webp"],
+		minimumCacheTTL: 60,
 	},
 	typescript: {
 		// Ignore TypeScript errors during build
@@ -46,8 +48,14 @@ const nextConfig: NextConfig = {
 	// Ensure Fast Refresh is enabled (default in development)
 	experimental: {
 		// This helps with HMR in some edge cases
-		optimizePackageImports: ["@/components"],
+		optimizePackageImports: ["@/components", "framer-motion"],
 	},
+	// Enable compression
+	compress: true,
+	// Optimize output
+	poweredByHeader: false,
+	// Generate etags for better caching
+	generateEtags: true,
 };
 
 export default nextConfig;

@@ -49,8 +49,16 @@ const miniAppEmbed = {
 };
 
 export const metadata: Metadata = {
-	title: "Lemon Markets",
-	description: "A decentralized trading platform for perpetual futures",
+	title: "Lemon Markets - Unlimited Markets, Unlimited Opportunities",
+	description:
+		"Trade any asset class with up to 100x leverage on the most efficient decentralized perpetual protocol. Powering over $50M in daily trading volume.",
+	keywords: [
+		"decentralized trading",
+		"perpetual futures",
+		"crypto trading",
+		"leverage trading",
+		"DeFi",
+	],
 	other: {
 		"fc:miniapp": JSON.stringify(miniAppEmbed),
 		"fc:frame": JSON.stringify(miniAppEmbed),
@@ -59,6 +67,20 @@ export const metadata: Metadata = {
 		title: "Lemon Markets - Decentralized Perpetual Trading",
 		description: "Trade perpetual futures with leverage on a decentralized platform",
 		images: ["https://demo.lemonmarkets.xyz/image/features-image.png"],
+		type: "website",
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "Lemon Markets - Unlimited Markets, Unlimited Opportunities",
+		description:
+			"Trade any asset class with up to 100x leverage on the most efficient decentralized perpetual protocol.",
+		images: ["https://demo.lemonmarkets.xyz/image/features-image.png"],
+	},
+	metadataBase: new URL("https://demo.lemonmarkets.xyz"),
+	viewport: {
+		width: "device-width",
+		initialScale: 1,
+		maximumScale: 5,
 	},
 };
 
@@ -71,7 +93,13 @@ export default function RootLayout({
 		<html lang="en">
 			<head>
 				<link rel="preconnect" href="https://auth.farcaster.xyz" />
+				<link rel="preconnect" href="https://dd.dexscreener.com" />
+				<link rel="preconnect" href="https://assets.coingecko.com" />
+				<link rel="preconnect" href="https://coin-images.coingecko.com" />
+				<link rel="preconnect" href="https://cdn.dexscreener.com" />
 				<link rel="dns-prefetch" href="https://auth.farcaster.xyz" />
+				<link rel="dns-prefetch" href="https://dd.dexscreener.com" />
+				<link rel="dns-prefetch" href="https://assets.coingecko.com" />
 			</head>
 			<body
 				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground overflow-x-hidden`}

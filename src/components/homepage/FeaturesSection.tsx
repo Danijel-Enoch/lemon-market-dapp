@@ -12,6 +12,8 @@ export const FeaturesSection: FC = () => {
 						alt="Divider"
 						width={72}
 						height={10}
+						loading="lazy"
+						sizes="72px"
 						className="opacity-90"
 					/>
 					<span className="text-[#9DEA29] font-medium text-sm leading-[19px]">Features</span>
@@ -20,6 +22,8 @@ export const FeaturesSection: FC = () => {
 						alt="Divider"
 						width={72}
 						height={10}
+						loading="lazy"
+						sizes="72px"
 						className="opacity-90 rotate-180"
 					/>
 				</div>
@@ -34,7 +38,7 @@ export const FeaturesSection: FC = () => {
 			<div className="relative mb-8">
 				{/* Green glow effect - visible only on desktop */}
 				<div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
-					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50rem] h-96 bg-[#9DEA29]/70 rounded-full blur-[80px]" />
+					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-96 bg-[#9DEA29]/70 rounded-full blur-[80px]" />
 				</div>
 
 				{/* Feature cards */}
