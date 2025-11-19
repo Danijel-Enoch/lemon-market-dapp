@@ -1,5 +1,4 @@
 import nextDynamic from "next/dynamic";
-import Image from "next/image";
 import { Suspense } from "react";
 import { HeroSection } from "@/components/homepage/HeroSection";
 
@@ -86,7 +85,7 @@ export default function Homepage() {
 	return (
 		<main className="bg-black text-white overflow-x-hidden">
 			<HeroSection />
-			<section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
+			{/* <section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
 				<div className="flex items-center justify-center gap-6 opacity-80">
 					<Image
 						src="/assets/homepage/partner-1.png"
@@ -116,7 +115,7 @@ export default function Homepage() {
 						style={{ width: "auto", height: "auto" }}
 					/>
 				</div>
-			</section>
+			</section> */}
 			<Suspense fallback={<div className="h-64 w-full" />}>
 				<TrendingCoinsSection />
 			</Suspense>
