@@ -16,7 +16,6 @@ import {
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -425,60 +424,18 @@ function PerpContent() {
 							<CardHeader>
 								<CardTitle className="text-foreground flex items-center justify-between">
 									<span>{tradingPair.symbol} Perpetual</span>
-									<div className="flex items-center space-x-4">
-										<div className="flex items-center space-x-2">
-											<div className="text-2xl font-bold text-success">
-												{isLoadingPrice ? <Skeleton className="h-8 w-24" /> : tradingPair.price}
-											</div>
-											{tradingPair.assetType === "crypto" && (
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={fetchLatestPrice}
-													disabled={isLoadingPrice}
-													className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-													title="Refresh price"
-												>
-													<svg
-														className={`h-4 w-4 ${isLoadingPrice ? "animate-spin" : ""}`}
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<title>Refresh Price</title>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															strokeWidth={2}
-															d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-														/>
-													</svg>
-												</Button>
-											)}
-										</div>
-										<Badge
-											className={`${
-												tradingPair.change.startsWith("+")
-													? "bg-primary hover:bg-primary/90"
-													: "bg-destructive hover:bg-destructive/90"
-											}`}
-										>
-											{tradingPair.change}
-										</Badge>
-									</div>
+									<div className="flex items-center space-x-4"></div>
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
-								{priceData?.lastUpdate && tradingPair.assetType === "crypto" && (
-									<div className="mb-2 text-xs text-gray-500 text-right">
-										Last updated: {priceData.lastUpdate.toLocaleTimeString()}
-									</div>
-								)}
 								{tradingPair.assetType === "crypto" ? (
 									<ChartSection
 										pairAddress={tradingPair.pairAddress}
 										chain={tradingPair.chain}
 										symbol={tradingPair.symbol}
+										priceData={priceData ?? undefined}
+										fetchLatestPrice={fetchLatestPrice}
+										isLoadingPrice={isLoadingPrice}
 									/>
 								) : (
 									<div style={{ height: "500px" }}>

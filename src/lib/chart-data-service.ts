@@ -82,9 +82,8 @@ async function fetchFromGeckoTerminal(
 
 		// Map timeframes to GeckoTerminal intervals
 		const timeframeMap: Record<string, string> = {
-			"1m": "minute",
-			"5m": "minute",
-			"15m": "minute",
+			"0.25h": "hour",
+			"0.5h": "hour",
 			"1h": "hour",
 			"4h": "hour",
 			"1d": "day",
@@ -94,7 +93,6 @@ async function fetchFromGeckoTerminal(
 
 		// Determine how much data to fetch based on timeframe
 		const limitMap: Record<string, string> = {
-			minute: "1440", // 24 hours of minute data
 			hour: "168", // 7 days of hourly data
 			day: "90", // 90 days of daily data
 		};
@@ -155,8 +153,14 @@ export async function fetchChartData(
 			const geckoData = await fetchFromGeckoTerminal(pairAddress, chain, timeframe);
 
 			if (geckoData.length > 0) {
+				// For sub-hour timeframes, aggregate the hourly data
+				let processedData = geckoData;
+				if (timeframe === "0.25h" || timeframe === "0.5h") {
+					processedData = aggregateToTimeframe(geckoData, timeframe);
+				}
+
 				return {
-					data: geckoData,
+					data: processedData,
 					symbol: "Token",
 					source: "geckoterminal",
 				};
@@ -187,9 +191,8 @@ export async function fetchChartData(
  */
 export function aggregateToTimeframe(data: OHLCVData[], targetTimeframe: string): OHLCVData[] {
 	const timeframes: Record<string, number> = {
-		"1m": 60000,
-		"5m": 300000,
-		"15m": 900000,
+		"0.25h": 900000, // 15 minutes in milliseconds
+		"0.5h": 1800000, // 30 minutes in milliseconds
 		"1h": 3600000,
 		"4h": 14400000,
 		"1d": 86400000,
@@ -216,6 +219,7 @@ export function aggregateToTimeframe(data: OHLCVData[], targetTimeframe: string)
 			low: Math.min(...candles.map((c) => c.low)),
 			close: candles[candles.length - 1].close,
 			volume: candles.reduce((sum, c) => sum + c.volume, 0),
+			marketCap: candles[0].marketCap,
 		}))
 		.sort((a, b) => a.time - b.time);
 }

@@ -13,26 +13,39 @@ import {
 	YAxis,
 } from "recharts";
 import { fetchChartData } from "@/lib/chart-data-service";
+import { Skeleton } from "../ui/skeleton";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 
 interface ChartSectionProps {
 	pairAddress?: string;
 	chain?: string;
 	symbol?: string;
+	priceData?: {
+		price: string;
+		change: string;
+		lastUpdate: Date;
+	};
+	fetchLatestPrice: () => Promise<unknown>;
+	isLoadingPrice: boolean;
 }
 
 const timeframes = [
-	{ label: "1Day", value: "1d" },
+	{ label: "1 Day", value: "1d" },
 	{ label: "4 Hours", value: "4h" },
-	{ label: "1Hour", value: "1h" },
-	{ label: "15 Mins", value: "15m" },
-	{ label: "5 Mins", value: "5m" },
-	{ label: "1Min", value: "1m" },
+	{ label: "1 Hour", value: "1h" },
 ];
 
-export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps) {
+export function ChartSection({
+	pairAddress,
+	fetchLatestPrice,
+	isLoadingPrice,
+	priceData,
+	chain = "base",
+}: ChartSectionProps) {
 	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
-	const [showMarketCap, setShowMarketCap] = useState(false);
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
+	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
 	const chartState = useAsync(async () => {
 		const result = await fetchChartData(pairAddress || "", chain, selectedTimeframe);
@@ -40,11 +53,24 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 	}, [pairAddress, chain, selectedTimeframe, refreshTrigger]);
 
 	const chartData = useMemo(() => chartState.value || [], [chartState.value]);
-	const loading = chartState.loading;
+	const loading = chartState.loading && isInitialLoad;
 	const latestCandle = useMemo(
 		() => (chartData.length > 0 ? chartData[chartData.length - 1] : null),
 		[chartData],
 	);
+
+	// Mark as loaded once we have data
+	useEffect(() => {
+		if (chartData.length > 0) {
+			setIsInitialLoad(false);
+		}
+	}, [chartData]);
+
+	// Reset initial load when timeframe changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Need to track timeframe changes
+	useEffect(() => {
+		setIsInitialLoad(true);
+	}, [selectedTimeframe]);
 
 	// Auto-refresh every 30 seconds (same as price refresh)
 	useEffect(() => {
@@ -94,27 +120,53 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 						</button>
 					))}
 				</div>
-				<button
-					type="button"
-					onClick={() => setShowMarketCap(!showMarketCap)}
-					className={`text-xs px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
-						showMarketCap ? "bg-[#4DAD31] text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-					}`}
-				>
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-					>
-						<title>Market Cap</title>
-						<circle cx="12" cy="12" r="10" />
-						<path d="M12 6v6l4 2" />
-					</svg>
-					Market Cap
-				</button>
+				<div>
+					<div className="flex items-center space-x-2">
+						<div className="text-2xl font-bold text-success">
+							{priceData === undefined ? <Skeleton className="h-8 w-24" /> : priceData.price}
+						</div>
+
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={fetchLatestPrice}
+							disabled={isLoadingPrice}
+							className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+							title="Refresh price"
+						>
+							<svg
+								className={`h-4 w-4 ${isLoadingPrice ? "animate-spin" : ""}`}
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<title>Refresh Price</title>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+								/>
+							</svg>
+						</Button>
+					</div>
+					{priceData && (
+						<Badge
+							className={`${
+								priceData.change.startsWith("+")
+									? "bg-primary hover:bg-primary/90"
+									: "bg-destructive hover:bg-destructive/90"
+							}`}
+						>
+							{priceData.change}
+						</Badge>
+					)}
+					{priceData?.lastUpdate && (
+						<div className="mb-2 text-xs text-gray-500 text-right">
+							Last updated: {priceData.lastUpdate.toLocaleTimeString()}
+						</div>
+					)}
+				</div>
 			</div>
 
 			{/* Price Info */}
@@ -136,14 +188,6 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 						<span className="text-gray-500">C</span>
 						<span className="text-gray-300">{formatPrice(latestCandle.close)}</span>
 					</div>
-					{latestCandle.marketCap && (
-						<div className="flex items-center gap-2">
-							<span className="text-gray-500">MCap</span>
-							<span className="text-gray-300">
-								${(latestCandle.marketCap / 1000000).toFixed(2)}M
-							</span>
-						</div>
-					)}
 					<div
 						className={`flex items-center gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}
 					>
@@ -205,7 +249,7 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 									},
 								]}
 							/>
-							<YAxis yAxisId="marketCap" orientation="right" hide={true} />
+							<YAxis yAxisId="background" orientation="right" hide={true} domain={[0, 1]} />
 							<Tooltip
 								contentStyle={{
 									backgroundColor: "#1a1a1a",
@@ -215,23 +259,13 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 								}}
 								labelFormatter={(label) => formatTime(label as number)}
 								formatter={(value: number, name: string) => {
-									if (name === "marketCap") {
-										return [`$${(value / 1000000).toFixed(2)}M`, "Market Cap"];
-									}
 									if (name === "close") {
 										return [formatPrice(value), "Price"];
 									}
-									return [formatPrice(value), name];
+									return null;
 								}}
 							/>
-							{showMarketCap && (
-								<Bar
-									yAxisId="marketCap"
-									dataKey="marketCap"
-									fill="url(#colorVolume)"
-									opacity={0.4}
-								/>
-							)}
+							<Bar yAxisId="background" dataKey={() => 1} fill="url(#colorVolume)" opacity={0.4} />
 							<Area
 								yAxisId="price"
 								type="monotone"
