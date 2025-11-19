@@ -90,9 +90,7 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 										<Image src={token.icon} alt={token.symbol} width={20} height={20} />
 										<div>
 											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-(--trading-text-secondary)">
-												{token.name}
-											</div>
+											<div className="text-xs text-(--trading-text-secondary)">{token.name}</div>
 										</div>
 									</div>
 								</SelectItem>
@@ -151,9 +149,7 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 										<Image src={token.icon} alt={token.symbol} width={20} height={20} />
 										<div>
 											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-(--trading-text-secondary)">
-												{token.name}
-											</div>
+											<div className="text-xs text-(--trading-text-secondary)">{token.name}</div>
 										</div>
 									</div>
 								</SelectItem>
@@ -193,9 +189,7 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 			{/* Chain & Market Section */}
 			<div className="bg-(--trading-bg-secondary) rounded p-4">
 				<div className="flex justify-between items-center mb-3">
-					<span className="text-(--trading-text-primary) text-xs font-medium">
-						Chain & Market
-					</span>
+					<span className="text-(--trading-text-primary) text-xs font-medium">Chain & Market</span>
 					<span className="text-(--trading-text-secondary) text-xs">ROE</span>
 				</div>
 				<div className="space-y-2">

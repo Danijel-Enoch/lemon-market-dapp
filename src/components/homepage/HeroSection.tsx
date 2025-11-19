@@ -35,4 +35,3 @@ export const HeroSection: FC = () => {
 		</section>
 	);
 };
-	

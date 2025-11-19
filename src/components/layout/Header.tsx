@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, Coins, TrendingUp, Trophy, Wallet, ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BarChart3, ChevronDown, Coins, TrendingUp, Trophy, Wallet } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

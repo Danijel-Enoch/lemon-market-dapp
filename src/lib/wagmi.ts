@@ -1,9 +1,9 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
-	metaMaskWallet,
-	walletConnectWallet,
 	coinbaseWallet,
+	metaMaskWallet,
 	trustWallet,
+	walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { sepolia } from "wagmi/chains";

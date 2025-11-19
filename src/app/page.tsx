@@ -1,7 +1,7 @@
+import nextDynamic from "next/dynamic";
 import Image from "next/image";
 import { Suspense } from "react";
 import { HeroSection } from "@/components/homepage/HeroSection";
-import nextDynamic from "next/dynamic";
 
 // Force dynamic rendering
 export const dynamic = "force-dynamic";
