@@ -118,9 +118,10 @@ const PillItem: FC<Pill> = ({
 				<Image
 					src={icon}
 					alt={title}
-					width={40}
-					height={40}
+					width={80}
+					height={80}
 					loading="lazy"
+					quality={75}
 					sizes="40px"
 					className="rounded-full w-10 h-10 border border-gray-800/70"
 				/>

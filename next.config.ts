@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	// Force dynamic rendering for all pages
-	dynamic: "force-dynamic",
 	// Security headers
 	async headers() {
 		return [
@@ -73,7 +71,9 @@ const nextConfig: NextConfig = {
 			},
 		],
 		formats: ["image/avif", "image/webp"],
-		minimumCacheTTL: 60,
+		minimumCacheTTL: 3600,
+		deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+		imageSizes: [16, 32, 48, 64, 80, 96, 128, 256, 384],
 	},
 	typescript: {
 		// Ignore TypeScript errors during build

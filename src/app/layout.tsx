@@ -52,6 +52,12 @@ const miniAppEmbed = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export const viewport = {
+	width: "device-width",
+	initialScale: 1,
+	maximumScale: 5,
+};
+
 export const metadata: Metadata = {
 	title: "Lemon Markets - Unlimited Markets, Unlimited Opportunities",
 	description:
@@ -81,11 +87,6 @@ export const metadata: Metadata = {
 		images: ["https://demo.lemonmarkets.xyz/image/features-image.png"],
 	},
 	metadataBase: new URL("https://demo.lemonmarkets.xyz"),
-	viewport: {
-		width: "device-width",
-		initialScale: 1,
-		maximumScale: 5,
-	},
 };
 
 export default function RootLayout({
