@@ -65,3 +65,12 @@ LICENSE
 
 # Scripts (if not needed in production)
 scripts/
+
+# Optimization: Exclude large files not needed for build
+*.log
+*.lock
+.cache
+.turbo
+.swc
+coverage
+.nyc_output
