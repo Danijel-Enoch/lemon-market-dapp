@@ -67,7 +67,7 @@ export function Header() {
 							if (item.subItems) {
 								const isActive = item.subItems.some((subItem) => pathname === subItem.href);
 								const isOpen = openDropdown === item.label;
-								
+
 								return (
 									<div
 										key={item.label}
@@ -76,26 +76,27 @@ export function Header() {
 										onMouseLeave={() => setOpenDropdown(null)}
 									>
 										<button
-										type="button"
-										className={`inline-flex items-center gap-1 transition-all text-sm leading-tight ${
-											isActive
-												? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
-												: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
-										}`}
-									>
-										{item.label}
-										<ChevronDown 
-											size={14} 
-											className={`transition-transform ${isOpen ? "rotate-180" : ""} ${isActive ? "text-lime-400" : "text-gray-300"}`} 
-										/>
-									</button>										<AnimatePresence>
+											type="button"
+											className={`inline-flex items-center gap-1 transition-all text-sm leading-tight ${
+												isActive
+													? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
+													: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
+											}`}
+										>
+											{item.label}
+											<ChevronDown
+												size={14}
+												className={`transition-transform ${isOpen ? "rotate-180" : ""} ${isActive ? "text-lime-400" : "text-gray-300"}`}
+											/>
+										</button>{" "}
+										<AnimatePresence>
 											{isOpen && (
 												<motion.div
 													initial={{ opacity: 0, y: -10 }}
 													animate={{ opacity: 1, y: 0 }}
 													exit={{ opacity: 0, y: -10 }}
 													transition={{ duration: 0.2 }}
-													className="absolute top-full left-0 mt-2 py-1 min-w-[180px] bg-[#13151b99] border border-gray-100/10 rounded-lg backdrop-blur-md shadow-xl"
+													className="absolute top-full left-0 mt-2 py-1 min-w-30 bg-[#13151b99] border border-gray-100/10 rounded-lg backdrop-blur-md shadow-xl"
 												>
 													{item.subItems.map((subItem) => {
 														const isSubActive = pathname === subItem.href;
@@ -103,10 +104,10 @@ export function Header() {
 															<Link
 																key={subItem.href}
 																href={subItem.href}
-																className={`block px-3 py-1.5 text-sm transition-all rounded ${
+																className={`block px-3 py-1.5 text-sm transition-all ${
 																	isSubActive
-																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold bg-lime-400/10"
-																		: "text-gray-300 hover:text-lime-400 hover:bg-lime-400/10"
+																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
+																		: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 																}`}
 															>
 																{subItem.label}
@@ -119,9 +120,9 @@ export function Header() {
 									</div>
 								);
 							}
-							
+
 							if (!item.href) return null;
-							
+
 							const isActive = pathname === item.href;
 							return (
 								<Link
@@ -150,38 +151,39 @@ export function Header() {
 								const isActive = item.subItems.some((subItem) => pathname === subItem.href);
 								const Icon = item.icon;
 								const isOpen = openDropdown === item.label;
-								
+
 								return (
 									<div key={item.label} className="relative">
 										<button
-										type="button"
-										onClick={() => setOpenDropdown(isOpen ? null : item.label)}
-										className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] relative ${
-											isActive
-												? "bg-linear-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
-												: ""
-										}`}
-									>
-										<Icon
-											size={20}
-											className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
-										/>
-										<div className="flex items-center gap-0.5">
-											<span
-												className={`text-xs font-medium transition-all ${
-													isActive
-														? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
-														: "text-gray-400"
-												}`}
-											>
-												{item.label}
-											</span>
-											<ChevronDown 
-												size={10} 
-												className={`transition-transform ${isOpen ? "rotate-180" : ""} ${isActive ? "text-lime-400" : "text-gray-400"}`}
+											type="button"
+											onClick={() => setOpenDropdown(isOpen ? null : item.label)}
+											className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all min-w-[70px] relative ${
+												isActive
+													? "bg-linear-to-r from-lime-300/10 via-green-600/10 to-green-950/10"
+													: ""
+											}`}
+										>
+											<Icon
+												size={20}
+												className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
 											/>
-										</div>
-									</button>										<AnimatePresence>
+											<div className="flex items-center gap-0.5">
+												<span
+													className={`text-xs font-medium transition-all ${
+														isActive
+															? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
+															: "text-gray-400"
+													}`}
+												>
+													{item.label}
+												</span>
+												<ChevronDown
+													size={10}
+													className={`transition-transform ${isOpen ? "rotate-180" : ""} ${isActive ? "text-lime-400" : "text-gray-400"}`}
+												/>
+											</div>
+										</button>{" "}
+										<AnimatePresence>
 											{isOpen && (
 												<motion.div
 													initial={{ opacity: 0, y: 10 }}
@@ -197,10 +199,10 @@ export function Header() {
 																key={subItem.href}
 																href={subItem.href}
 																onClick={() => setOpenDropdown(null)}
-																className={`block px-3 py-1.5 text-sm transition-all rounded ${
+																className={`block px-3 py-1.5 text-sm transition-all ${
 																	isSubActive
-																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold bg-lime-400/10"
-																		: "text-gray-300 hover:text-lime-400 hover:bg-lime-400/10"
+																		? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
+																		: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 																}`}
 															>
 																{subItem.label}
@@ -213,9 +215,9 @@ export function Header() {
 									</div>
 								);
 							}
-							
+
 							if (!item.href) return null;
-							
+
 							const isActive = pathname === item.href;
 							const Icon = item.icon;
 							return (
