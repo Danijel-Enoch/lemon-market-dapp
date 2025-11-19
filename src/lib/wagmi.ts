@@ -1,4 +1,11 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
+import {
+	metaMaskWallet,
+	walletConnectWallet,
+	coinbaseWallet,
+	trustWallet,
+} from "@rainbow-me/rainbowkit/wallets";
+import { createConfig, http } from "wagmi";
 import { sepolia } from "wagmi/chains";
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "your-project-id";
@@ -13,11 +20,26 @@ try {
 	_farcasterMiniAppConnector = farcasterMiniApp;
 } catch (_e) {}
 
-export const config = getDefaultConfig({
-	appName: "Lemon Markets",
-	projectId: projectId,
+const connectors = connectorsForWallets(
+	[
+		{
+			groupName: "Popular",
+			wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet, trustWallet],
+		},
+	],
+	{
+		appName: "Lemon Markets",
+		projectId,
+	},
+);
+
+export const config = createConfig({
+	connectors,
 	chains: [sepolia],
-	ssr: true, // If your dApp uses server side rendering (SSR)
+	ssr: true,
+	transports: {
+		[sepolia.id]: http(),
+	},
 });
 
 declare module "wagmi" {
