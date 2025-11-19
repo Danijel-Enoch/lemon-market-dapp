@@ -40,15 +40,15 @@ const nextConfig: NextConfig = {
 		ignoreBuildErrors: true,
 	},
 	eslint: {
-		// Ignore ESLint errors during build
 		ignoreDuringBuilds: true,
 	},
-	// Enable React Strict Mode for better development experience
 	reactStrictMode: true,
-	// Ensure Fast Refresh is enabled (default in development)
+	output: "standalone",
 	experimental: {
 		// This helps with HMR in some edge cases
-		optimizePackageImports: ["@/components", "framer-motion"],
+		optimizePackageImports: ["@/components", "framer-motion", "lucide-react", "recharts"],
+		// Use compiler for faster builds
+		webpackBuildWorker: true,
 	},
 	// Enable compression
 	compress: true,
@@ -56,6 +56,11 @@ const nextConfig: NextConfig = {
 	poweredByHeader: false,
 	// Generate etags for better caching
 	generateEtags: true,
+	// Compiler optimizations
+	compiler: {
+		// Remove console logs in production
+		removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
+	},
 };
 
 export default nextConfig;
