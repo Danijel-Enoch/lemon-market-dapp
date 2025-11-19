@@ -1,40 +1,34 @@
 "use client";
 
-import { useCallback } from "react";
+import { useAsyncFn } from "react-use";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
 
 export function useMiniAppActions() {
 	const { isMiniApp } = useMiniApp();
 
-	const composeCast = useCallback(
-		async (options: any) => {
+	const [, composeCast] = useAsyncFn(
+		async (options: { text?: string; embeds?: [] | [string] | [string, string] }) => {
 			if (!isMiniApp) {
 				return null;
 			}
 
-			try {
-				const { sdk } = await import("@farcaster/miniapp-sdk");
-				const result = await sdk.actions.composeCast(options);
-				return result;
-			} catch (_error) {
-				return null;
-			}
+			const { sdk } = await import("@farcaster/miniapp-sdk");
+			const result = await sdk.actions.composeCast(options);
+			return result;
 		},
 		[isMiniApp],
 	);
 
-	const addMiniApp = useCallback(async () => {
+	const [, addMiniApp] = useAsyncFn(async () => {
 		if (!isMiniApp) {
 			return;
 		}
 
-		try {
-			const { sdk } = await import("@farcaster/miniapp-sdk");
-			await sdk.actions.addMiniApp();
-		} catch (_error) {}
+		const { sdk } = await import("@farcaster/miniapp-sdk");
+		await sdk.actions.addMiniApp();
 	}, [isMiniApp]);
 
-	const openUrl = useCallback(
+	const [, openUrl] = useAsyncFn(
 		async (url: string) => {
 			if (!isMiniApp) {
 				// Fallback to regular navigation for web
@@ -42,10 +36,8 @@ export function useMiniAppActions() {
 				return;
 			}
 
-			try {
-				const { sdk } = await import("@farcaster/miniapp-sdk");
-				await sdk.actions.openUrl(url);
-			} catch (_error) {}
+			const { sdk } = await import("@farcaster/miniapp-sdk");
+			await sdk.actions.openUrl(url);
 		},
 		[isMiniApp],
 	);

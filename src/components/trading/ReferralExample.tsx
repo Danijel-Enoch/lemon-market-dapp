@@ -69,6 +69,7 @@ export function ReferralExample() {
 						</div>
 
 						<button
+							type="button"
 							onClick={handleCopyReferralLink}
 							className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
 						>
@@ -119,15 +120,15 @@ export function ReferralExample() {
 
 					<div className="space-y-2">
 						{stats.referrals.map(
-							(
-								referral: {
-									referredAddress: string;
-									createdAt: string;
-									pointsAwarded: boolean;
-								},
-								idx: number,
-							) => (
-								<div key={idx} className="p-3 bg-gray-50 rounded flex justify-between items-center">
+							(referral: {
+								referredAddress: string;
+								createdAt: string;
+								pointsAwarded: boolean;
+							}) => (
+								<div
+									key={referral.referredAddress}
+									className="p-3 bg-gray-50 rounded flex justify-between items-center"
+								>
 									<div>
 										<p className="font-mono text-sm">
 											{referral.referredAddress.slice(0, 6)}

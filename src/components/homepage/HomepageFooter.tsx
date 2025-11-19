@@ -51,7 +51,6 @@ export const HomepageFooter = memo(function HomepageFooter({
 }: HomepageFooterProps) {
 	return (
 		<footer className="px-6 md:px-10 pt-10 pb-16">
-			\n{" "}
 			<div className="max-w-7xl mx-auto">
 				<div className="rounded-3xl p-6 md:px-12 md:pb-24 bg-[linear-gradient(172.34deg,#0a1a0300_-34.4%,#0a1a031c_51.7%,#1c6200_161.09%)]">
 					<div className="my-24 h-px w-full bg-[#4dad31]" />
@@ -76,7 +75,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</p>
 						</div>
 						<nav aria-labelledby={navId}>
-							<p id={navId} className="text-white/80 mb-3">
+							<p id={navId} className="text-white font-medium mb-3">
 								Navigation
 							</p>
 							<ul className="space-y-2 text-white/70">
@@ -93,7 +92,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={socialsId}>
-							<p id={socialsId} className="text-white/80 mb-3">
+							<p id={socialsId} className="text-white font-medium mb-3">
 								Socials
 							</p>
 							<ul className="space-y-2 text-white/70">
@@ -121,7 +120,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={legalId}>
-							<p id={legalId} className="text-white/80 mb-3">
+							<p id={legalId} className="text-white font-medium mb-3">
 								Legal
 							</p>
 							<ul className="space-y-2 text-white/70">

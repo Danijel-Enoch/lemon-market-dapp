@@ -28,7 +28,6 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 		toggleEnhancedMode,
 		totalUnrealizedPnL,
 		totalPortfolioValue,
-		openPositions,
 	} = useUserPositions();
 
 	const displayPositions = isEnhancedMode && enhancedPositions ? enhancedPositions : positions;
@@ -95,7 +94,11 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 							<Skeleton className="h-4 w-40" />
 						</div>
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div key={i} className="flex items-center gap-4">
+							<div
+								// biome-ignore lint/suspicious/noArrayIndexKey: skeleton
+								key={`skeleton-${i}`}
+								className="flex items-center gap-4"
+							>
 								<Skeleton className="h-16 flex-1" />
 								<Skeleton className="h-16 w-24" />
 								<Skeleton className="h-16 w-32" />
@@ -216,7 +219,11 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 												</td>
 												{isEnhancedMode && (
 													<td className="p-2">
-														{formatPrice(enhanced ? (position as any).currentPrice : undefined)}
+														{formatPrice(
+															enhanced
+																? (position as { currentPrice?: string }).currentPrice
+																: undefined,
+														)}
 													</td>
 												)}
 												<td className="p-2">{position.margin}</td>
@@ -224,40 +231,81 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 												{isEnhancedMode && (
 													<td
 														className={`p-2 font-medium ${getPnLColor(
-															enhanced ? (position as any).unrealizedPnL : undefined,
+															enhanced
+																? (position as { unrealizedPnL?: number }).unrealizedPnL
+																: undefined,
 														)}`}
 													>
-														{formatPnL(enhanced ? (position as any).unrealizedPnL : undefined)}
+														{formatPnL(
+															enhanced
+																? (position as { unrealizedPnL?: number }).unrealizedPnL
+																: undefined,
+														)}
 													</td>
 												)}
 												{isEnhancedMode && (
 													<td
 														className={`p-2 font-medium ${getPnLColor(
-															enhanced ? (position as any).unrealizedPnL : undefined,
+															enhanced
+																? (position as { unrealizedPnL?: number }).unrealizedPnL
+																: undefined,
 														)}`}
 													>
 														{formatPercentage(
-															enhanced ? (position as any).unrealizedPnLPercentage : undefined,
+															enhanced
+																? (position as { unrealizedPnLPercentage?: number })
+																		.unrealizedPnLPercentage
+																: undefined,
 														)}
 													</td>
 												)}
 												{isEnhancedMode && (
 													<td className="p-2">
-														{enhanced && (position as any).priceSource && (
-															<div className="flex items-center space-x-2">
-																<Badge
-																	variant={getConfidenceBadgeVariant(
-																		(position as any).priceConfidence,
+														{isEnhancedMode && (
+															<td className="p-2">
+																{enhanced &&
+																	(position as { priceSource?: string; priceConfidence?: string })
+																		.priceSource && (
+																		<div className="flex items-center space-x-2">
+																			<Badge
+																				variant={getConfidenceBadgeVariant(
+																					(
+																						position as {
+																							priceSource?: string;
+																							priceConfidence?: string;
+																						}
+																					).priceConfidence,
+																				)}
+																			>
+																				{
+																					(
+																						position as {
+																							priceSource?: string;
+																							priceConfidence?: string;
+																						}
+																					).priceSource
+																				}
+																			</Badge>
+																			{(
+																				position as {
+																					priceSource?: string;
+																					priceConfidence?: string;
+																				}
+																			).priceConfidence && (
+																				<span className="text-xs text-gray-500">
+																					{
+																						(
+																							position as {
+																								priceSource?: string;
+																								priceConfidence?: string;
+																							}
+																						).priceConfidence
+																					}
+																				</span>
+																			)}
+																		</div>
 																	)}
-																>
-																	{(position as any).priceSource}
-																</Badge>
-																{(position as any).priceConfidence && (
-																	<span className="text-xs text-gray-500">
-																		{(position as any).priceConfidence}
-																	</span>
-																)}
-															</div>
+															</td>
 														)}
 													</td>
 												)}

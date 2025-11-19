@@ -125,7 +125,7 @@ export class TokenPriceService {
 
 		// Look for exact symbol match on BSC
 		const match = data.pairs?.find(
-			(pair: any) =>
+			(pair: { baseToken?: { symbol?: string; address?: string }; chainId?: string }) =>
 				pair.baseToken?.symbol?.toUpperCase() === symbol.toUpperCase() &&
 				pair.chainId === "bsc" &&
 				pair.baseToken?.address,
@@ -168,7 +168,7 @@ export class TokenPriceService {
 
 		// Look for exact symbol match
 		const match = data.coins?.find(
-			(coin: any) => coin.symbol?.toUpperCase() === symbol.toUpperCase(),
+			(coin: { symbol?: string }) => coin.symbol?.toUpperCase() === symbol.toUpperCase(),
 		);
 
 		if (match) {
@@ -229,7 +229,7 @@ export class TokenPriceService {
 
 		// Try Lemon Oracle first (highest confidence) with chain support
 		try {
-			let oracleResponse;
+			let oracleResponse: Awaited<ReturnType<typeof this.lemonClient.getPrice>> | null = null;
 
 			// Use chain-specific endpoints if available
 			if (chainId === SUPPORTED_CHAINS.BASE) {
@@ -336,9 +336,9 @@ export class TokenPriceService {
 		// Find the best pair (highest liquidity)
 		const pairs = data.pairs || [];
 		const bestPair = pairs
-			.filter((pair: any) => pair.priceUsd && parseFloat(pair.priceUsd) > 0)
+			.filter((pair: { priceUsd?: string }) => pair.priceUsd && parseFloat(pair.priceUsd) > 0)
 			.sort(
-				(a: any, b: any) =>
+				(a: { liquidity?: { usd?: string } }, b: { liquidity?: { usd?: string } }) =>
 					parseFloat(b.liquidity?.usd || "0") - parseFloat(a.liquidity?.usd || "0"),
 			)[0];
 
@@ -468,7 +468,9 @@ export class TokenPriceService {
 		if (!response.ok) throw new Error(`DexScreener API error: ${response.status}`);
 
 		const data = await response.json();
-		const validPair = data.pairs?.find((pair: any) => pair.baseToken?.symbol);
+		const validPair = data.pairs?.find(
+			(pair: { baseToken?: { symbol?: string } }) => pair.baseToken?.symbol,
+		);
 
 		return validPair?.baseToken
 			? {
@@ -491,7 +493,7 @@ export class TokenPriceService {
 				results.set(address, {
 					tokenAddress: address,
 					symbol: address,
-					priceUSD: priceData.data?.averagePriceUSD!,
+					priceUSD: priceData.data?.averagePriceUSD ?? "0",
 					priceNative: priceData.data?.averagePrice,
 					priceChange24h: "",
 					timestamp: Date.now(),
@@ -529,7 +531,7 @@ export class TokenPriceService {
 			return null;
 		}
 
-		const currentPrice = parseFloat(priceData.data?.averagePriceUSD!);
+		const currentPrice = parseFloat(priceData.data?.averagePriceUSD ?? "0");
 		const entryPriceValue = parseFloat(entryPrice.replace(/[$,]/g, ""));
 		const marginValue = parseFloat(margin.replace(/[$,]/g, ""));
 		const leverageValue = parseFloat(leverage.replace(/x/g, ""));
@@ -755,5 +757,5 @@ export function getChainName(chainId: number): string {
  * Check if chain ID is supported
  */
 export function isSupportedChain(chainId: number): chainId is SupportedChainId {
-	return Object.values(SUPPORTED_CHAINS).includes(chainId as any);
+	return Object.values(SUPPORTED_CHAINS).includes(chainId as SupportedChainId);
 }
