@@ -28,10 +28,10 @@ const defaultNavigation: ReadonlyArray<LinkItem> = [
 ];
 
 const defaultSocials: ReadonlyArray<LinkItem> = [
-	{ label: "X(Twitter)", href: "https://x.com/lemonmarkets", external: true },
-	{ label: "Discord", href: "https://discord.gg/lemonmarkets", external: true },
-	{ label: "Telegram", href: "https://t.me/lemonmarkets", external: true },
-	{ label: "GitHub", href: "https://github.com/lemonmarkets", external: true },
+	{ label: "X (Twitter)", href: "https://x.com/LemonMarkets", external: true },
+	{ label: "Discord", href: "https://discord.gg/LemonMarkets", external: true },
+	{ label: "Telegram", href: "https://t.me/LemonMarkets", external: true },
+	{ label: "GitHub", href: "https://github.com/Lemon-Markets-Perp", external: true },
 ];
 
 const defaultLegal: ReadonlyArray<LinkItem> = [
@@ -75,10 +75,10 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</p>
 						</div>
 						<nav aria-labelledby={navId}>
-							<p id={navId} className="text-white font-medium mb-3">
+							<p id={navId} className="text-white font-medium mb-4">
 								Navigation
 							</p>
-							<ul className="space-y-2 text-white/70">
+							<ul className="flex flex-col gap-4 text-white/70">
 								{navigation.map((item) => (
 									<li key={item.label}>
 										<Link
@@ -92,10 +92,10 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={socialsId}>
-							<p id={socialsId} className="text-white font-medium mb-3">
+							<p id={socialsId} className="text-white font-medium mb-4">
 								Socials
 							</p>
-							<ul className="space-y-2 text-white/70">
+							<ul className="flex flex-col gap-4 text-white/70">
 								{socials.map((item) => (
 									<li key={item.label}>
 										{item.external ? (
@@ -120,10 +120,10 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={legalId}>
-							<p id={legalId} className="text-white font-medium mb-3">
+							<p id={legalId} className="text-white font-medium mb-4">
 								Legal
 							</p>
-							<ul className="space-y-2 text-white/70">
+							<ul className="flex flex-col gap-4 text-white/70">
 								{legal.map((item) => (
 									<li key={item.label}>
 										<Link
