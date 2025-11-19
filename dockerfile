@@ -21,7 +21,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json bun.lockb* next.config.ts tsconfig.json ./
 COPY public ./public
 COPY src ./src
-COPY components.json postcss.config.mjs prisma.config.ts ./
+COPY components.json postcss.config.mjs ./
 
 # Build Next.js with optimizations and increased memory
 ENV NODE_ENV=production
@@ -44,7 +44,6 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
