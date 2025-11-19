@@ -33,7 +33,7 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
 	const [loading, setLoading] = useState(true);
 	const [latestCandle, setLatestCandle] = useState<OHLCVData | null>(null);
-	const [showVolume, setShowVolume] = useState(false);
+	const [showMarketCap, setShowMarketCap] = useState(false);
 
 	useEffect(() => {
 		async function loadChartData() {
@@ -53,6 +53,13 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 		}
 
 		loadChartData();
+
+		// Auto-refresh every 30 seconds (same as price refresh)
+		const interval = setInterval(() => {
+			loadChartData();
+		}, 30000);
+
+		return () => clearInterval(interval);
 	}, [pairAddress, chain, selectedTimeframe]);
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
@@ -96,9 +103,9 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 				</div>
 				<button
 					type="button"
-					onClick={() => setShowVolume(!showVolume)}
+					onClick={() => setShowMarketCap(!showMarketCap)}
 					className={`text-xs px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
-						showVolume ? "bg-[#4DAD31] text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+						showMarketCap ? "bg-[#4DAD31] text-white" : "bg-gray-800 text-gray-400 hover:text-white"
 					}`}
 				>
 					<svg
@@ -109,11 +116,11 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 						stroke="currentColor"
 						strokeWidth="2"
 					>
-						<title>Volume</title>
-						<path d="M3 14h4l4 6h2V4h-2l-4 6H3z" />
-						<path d="M17 8c1.5 1.5 1.5 4.5 0 6" />
+						<title>Market Cap</title>
+						<circle cx="12" cy="12" r="10" />
+						<path d="M12 6v6l4 2" />
 					</svg>
-					Volume
+					Market Cap
 				</button>
 			</div>
 
@@ -136,6 +143,14 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 						<span className="text-gray-500">C</span>
 						<span className="text-gray-300">{formatPrice(latestCandle.close)}</span>
 					</div>
+					{latestCandle.marketCap && (
+						<div className="flex items-center gap-2">
+							<span className="text-gray-500">MCap</span>
+							<span className="text-gray-300">
+								${(latestCandle.marketCap / 1000000).toFixed(2)}M
+							</span>
+						</div>
+					)}
 					<div
 						className={`flex items-center gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}
 					>
@@ -153,9 +168,9 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 					<div className="h-full flex flex-col gap-3 animate-pulse">
 						{/* Skeleton bars */}
 						<div className="flex items-end justify-between h-full gap-1 px-2">
-							{Array.from({ length: 50 }).map((_, i) => (
+							{Array.from({ length: 50 }, (_, i) => (
 								<div
-									key={`skeleton-bar-${i}`}
+									key={`skeleton-bar-${Math.random()}-${i}`}
 									className="bg-gray-800 rounded-t flex-1"
 									style={{ height: `${Math.random() * 60 + 40}%` }}
 								/>
@@ -185,13 +200,19 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 							/>
 							<YAxis
 								yAxisId="price"
-								orientation="left"
-								tickFormatter={formatPrice}
-								stroke="#666"
-								style={{ fontSize: "11px" }}
-								domain={["auto", "auto"]}
+								hide={true}
+								domain={[
+									() => {
+										const minLow = Math.min(...chartData.map((d) => d.low));
+										return minLow * 0.999;
+									},
+									() => {
+										const maxHigh = Math.max(...chartData.map((d) => d.high));
+										return maxHigh * 1.001;
+									},
+								]}
 							/>
-							<YAxis yAxisId="volume" orientation="right" hide={true} />
+							<YAxis yAxisId="marketCap" orientation="right" hide={true} />
 							<Tooltip
 								contentStyle={{
 									backgroundColor: "#1a1a1a",
@@ -201,14 +222,22 @@ export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps)
 								}}
 								labelFormatter={(label) => formatTime(label as number)}
 								formatter={(value: number, name: string) => {
-									if (name === "volume") {
-										return [`$${(value / 1000).toFixed(1)}K`, "Volume"];
+									if (name === "marketCap") {
+										return [`$${(value / 1000000).toFixed(2)}M`, "Market Cap"];
+									}
+									if (name === "close") {
+										return [formatPrice(value), "Price"];
 									}
 									return [formatPrice(value), name];
 								}}
 							/>
-							{showVolume && (
-								<Bar yAxisId="volume" dataKey="volume" fill="url(#colorVolume)" opacity={0.4} />
+							{showMarketCap && (
+								<Bar
+									yAxisId="marketCap"
+									dataKey="marketCap"
+									fill="url(#colorVolume)"
+									opacity={0.4}
+								/>
 							)}
 							<Area
 								yAxisId="price"

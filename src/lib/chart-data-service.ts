@@ -20,6 +20,45 @@ export interface ChartDataResponse {
 }
 
 /**
+ * Fetch pool info including market cap from GeckoTerminal
+ */
+async function fetchPoolInfo(pairAddress: string, chain: string = "base"): Promise<number | null> {
+	try {
+		const networkMap: Record<string, string> = {
+			base: "base",
+			ethereum: "eth",
+			bsc: "bsc",
+			polygon: "polygon_pos",
+			arbitrum: "arbitrum",
+			optimism: "optimism",
+			avalanche: "avax",
+		};
+
+		const network = networkMap[chain] || "base";
+		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${pairAddress}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				Accept: "application/json",
+			},
+		});
+
+		if (!response.ok) {
+			return null;
+		}
+
+		const result = await response.json();
+		const marketCapUsd = result.data?.attributes?.market_cap_usd;
+
+		return marketCapUsd ? parseFloat(marketCapUsd) : null;
+	} catch (error) {
+		console.error("Error fetching pool info:", error);
+		return null;
+	}
+}
+
+/**
  * Fetch historical OHLCV data from GeckoTerminal API
  */
 async function fetchFromGeckoTerminal(
@@ -83,6 +122,9 @@ async function fetchFromGeckoTerminal(
 			return [];
 		}
 
+		// Fetch market cap for the pool
+		const marketCap = await fetchPoolInfo(pairAddress, chain);
+
 		// GeckoTerminal returns [timestamp, open, high, low, close, volume]
 		return result.data.attributes.ohlcv_list.map((candle: number[]) => ({
 			time: candle[0] * 1000, // Convert to milliseconds
@@ -91,6 +133,7 @@ async function fetchFromGeckoTerminal(
 			low: candle[3],
 			close: candle[4],
 			volume: candle[5],
+			marketCap: marketCap || undefined,
 		}));
 	} catch (error) {
 		console.error("Error fetching from GeckoTerminal:", error);
