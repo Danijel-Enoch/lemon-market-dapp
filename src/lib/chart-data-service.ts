@@ -86,6 +86,9 @@ async function fetchFromGeckoTerminal(
 			"0.5h": "hour",
 			"1h": "hour",
 			"4h": "hour",
+			"6h": "hour",
+			"24h": "hour",
+			"7d": "day",
 			"1d": "day",
 		};
 
@@ -157,6 +160,9 @@ export async function fetchChartData(
 				let processedData = geckoData;
 				if (timeframe === "0.25h" || timeframe === "0.5h") {
 					processedData = aggregateToTimeframe(geckoData, timeframe);
+				} else {
+					// Sort data chronologically for all other timeframes (oldest to newest)
+					processedData = geckoData.sort((a, b) => a.time - b.time);
 				}
 
 				return {

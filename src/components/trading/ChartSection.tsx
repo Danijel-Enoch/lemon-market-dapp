@@ -41,7 +41,10 @@ interface ChartSectionProps {
 }
 
 const timeframes = [
-	{ label: "1 Day", value: "1d" },
+	{ label: "3 Months", value: "1d" },
+	{ label: "7 Days", value: "7d" },
+	{ label: "24 Hours", value: "24h" },
+	{ label: "6 Hours", value: "6h" },
 	{ label: "4 Hours", value: "4h" },
 	{ label: "1 Hour", value: "1h" },
 ];
@@ -93,8 +96,11 @@ export function ChartSection({
 
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
-		if (selectedTimeframe === "1d") {
+		if (selectedTimeframe === "7d" || selectedTimeframe === "1d") {
 			return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		}
+		if (selectedTimeframe === "24h") {
+			return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 		}
 		return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 	};
@@ -112,7 +118,7 @@ export function ChartSection({
 	const isPositive = priceChange >= 0;
 
 	return (
-		<div className="bg-[#0a0a0a] rounded-lg p-4">
+		<div className="bg-[#0a0a0a]">
 			<div className="flex items-center justify-between gap-4 mb-4">
 				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
@@ -130,7 +136,7 @@ export function ChartSection({
 						</button>
 					))}
 				</div>
-				<div>
+				<div className="flex items-center">
 					<div className="flex items-center space-x-2">
 						<div className="text-2xl font-bold text-success">
 							{priceData === undefined ? <Skeleton className="h-8 w-24" /> : priceData.price}
@@ -170,11 +176,6 @@ export function ChartSection({
 						>
 							{priceData.change}
 						</Badge>
-					)}
-					{priceData?.lastUpdate && (
-						<div className="mb-2 text-xs text-gray-500 text-right">
-							Last updated: {priceData.lastUpdate.toLocaleTimeString()}
-						</div>
 					)}
 				</div>
 			</div>
