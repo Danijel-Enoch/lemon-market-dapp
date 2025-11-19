@@ -113,7 +113,6 @@ export function ChartSection({
 
 	return (
 		<div className="bg-[#0a0a0a] rounded-lg p-4">
-			{/* Timeframe Controls */}
 			<div className="flex items-center justify-between gap-4 mb-4">
 				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
@@ -180,7 +179,6 @@ export function ChartSection({
 				</div>
 			</div>
 
-			{/* Price Info */}
 			{latestCandle && (
 				<div className="flex items-center gap-6 mb-4 text-xs flex-wrap">
 					<div className="flex items-center gap-2">
@@ -210,11 +208,9 @@ export function ChartSection({
 				</div>
 			)}
 
-			{/* Chart Container */}
 			<div className="relative w-full" style={{ height: "450px" }}>
 				{loading ? (
 					<div className="h-full flex flex-col gap-3 animate-pulse">
-						{/* Skeleton bars */}
 						<div className="flex items-end justify-between h-full gap-1 px-2">
 							{Array.from({ length: 50 }, (_, i) => (
 								<div

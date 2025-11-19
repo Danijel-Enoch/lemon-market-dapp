@@ -56,7 +56,6 @@ export default function PositionsPage() {
 	return (
 		<div className="min-h-screen bg-black text-white p-4 md:p-8">
 			<div className="max-w-screen-2xl mx-auto space-y-8">
-				{/* Page Header */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -109,7 +108,6 @@ export default function PositionsPage() {
 					</div>
 				</motion.div>
 
-				{/* Statistics Cards */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -192,7 +190,6 @@ export default function PositionsPage() {
 					</Card>
 				</motion.div>
 
-				{/* Enhanced Mode Info */}
 				{isEnhancedMode && (
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
@@ -217,7 +214,6 @@ export default function PositionsPage() {
 					</motion.div>
 				)}
 
-				{/* Error State */}
 				{error && (
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
@@ -232,7 +228,6 @@ export default function PositionsPage() {
 					</motion.div>
 				)}
 
-				{/* Positions Table */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}

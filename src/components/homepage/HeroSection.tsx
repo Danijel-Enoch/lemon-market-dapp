@@ -14,7 +14,6 @@ export const HeroSection: FC = () => {
 					sizes="100vw"
 					className="object-cover object-center"
 				/>
-				{/* <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent" /> */}
 				<div className="absolute inset-x-0 bottom-0 h-[25%] [background:linear-gradient(to_bottom,#00453000_0%,#012E01_50%,#000_100%)] mix-blend-multiply opacity-90" />
 			</div>
 

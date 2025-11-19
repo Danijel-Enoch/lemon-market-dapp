@@ -98,7 +98,6 @@ export const TestimonialsSection: FC = () => {
 						</a>
 					</div>
 				</div>
-				{/* Mobile: Horizontal scroll */}
 				<div className="sm:hidden relative max-h-96 overflow-hidden">
 					<motion.div
 						className="flex gap-6"
@@ -114,7 +113,6 @@ export const TestimonialsSection: FC = () => {
 							},
 						}}
 					>
-						{/* Duplicate items for seamless loop */}
 						{[...testimonials, ...testimonials].map((t, i) => (
 							<div
 								key={`mobile-${t.author.replace(/\s+/g, "-")}-${i}`}
@@ -141,7 +139,6 @@ export const TestimonialsSection: FC = () => {
 					<div className="absolute inset-x-0 bottom-0 h-32 [background:linear-gradient(to_bottom,rgba(0,0,0,0)_0%,rgba(0,0,0,0.7)_40%,#000_100%)] mix-blend-multiply opacity-90 pointer-events-none" />
 				</div>
 
-				{/* Desktop: Vertical scroll */}
 				<div className="hidden sm:block relative sm:max-h-150 md:max-h-screen overflow-hidden">
 					<div className="grid sm:grid-cols-2 gap-6">
 						<motion.div
@@ -158,7 +155,6 @@ export const TestimonialsSection: FC = () => {
 								},
 							}}
 						>
-							{/* Duplicate items for seamless loop */}
 							{[...testimonials, ...testimonials]
 								.filter((_, idx) => idx % 2 === 0)
 								.map((t, i) => (
@@ -197,7 +193,6 @@ export const TestimonialsSection: FC = () => {
 								},
 							}}
 						>
-							{/* Duplicate items for seamless loop */}
 							{[...testimonials, ...testimonials]
 								.filter((_, idx) => idx % 2 !== 0)
 								.map((t, i) => (

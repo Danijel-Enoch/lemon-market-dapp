@@ -320,7 +320,6 @@ export function PositionsTable({
 											<td className="p-4 text-white">{position.liquidationPrice}</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
-													{/* Generate PNL Button */}
 													<Button
 														size="sm"
 														variant="outline"
@@ -456,7 +455,6 @@ export function PositionsTable({
 				</TabsContent>
 			</Tabs>
 
-			{/* Close Position Dialog */}
 			<Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
 				<DialogContent className="bg-slate-900 border-slate-800 text-white">
 					<DialogHeader>
@@ -512,7 +510,6 @@ export function PositionsTable({
 				</DialogContent>
 			</Dialog>
 
-			{/* Modify Position Dialog */}
 			<Dialog open={isModifyDialogOpen} onOpenChange={setIsModifyDialogOpen}>
 				<DialogContent className="bg-slate-900 border-slate-800 text-white">
 					<DialogHeader>

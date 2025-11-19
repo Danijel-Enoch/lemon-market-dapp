@@ -54,7 +54,6 @@ export function ReferralExample() {
 
 	return (
 		<div className="space-y-6">
-			{/* Referral Code Section */}
 			<div className="p-4 border border-gray-300 rounded">
 				<h2 className="text-xl font-bold mb-4">Your Referral Code</h2>
 
@@ -83,7 +82,6 @@ export function ReferralExample() {
 				) : null}
 			</div>
 
-			{/* Referral Stats Section */}
 			<div className="p-4 border border-gray-300 rounded">
 				<h2 className="text-xl font-bold mb-4">Referral Statistics</h2>
 
@@ -113,7 +111,6 @@ export function ReferralExample() {
 				) : null}
 			</div>
 
-			{/* Referral List Section */}
 			{stats?.referrals && stats.referrals.length > 0 && (
 				<div className="p-4 border border-gray-300 rounded">
 					<h2 className="text-xl font-bold mb-4">Your Referrals</h2>
@@ -150,7 +147,6 @@ export function ReferralExample() {
 				</div>
 			)}
 
-			{/* Info Section */}
 			<div className="p-4 bg-blue-50 border border-blue-200 rounded">
 				<h3 className="font-bold text-blue-900 mb-2">How it works</h3>
 				<ul className="text-sm text-blue-800 space-y-1">

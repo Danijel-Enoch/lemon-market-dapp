@@ -716,7 +716,6 @@ export default function Home() {
 						</div>
 					)}
 
-					{/* Search Results */}
 					{searchQuery.length >= 2 && (
 						<SearchResults
 							results={searchResults}
@@ -728,7 +727,6 @@ export default function Home() {
 					)}
 				</div>
 
-				{/* Only show trending data if not searching */}
 				{!searchQuery && (
 					<div className="space-y-8">
 						{isLoading ? (

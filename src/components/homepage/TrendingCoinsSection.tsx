@@ -108,14 +108,12 @@ const PillItem: FC<Pill> = ({
 			role={tokenData ? "button" : undefined}
 			tabIndex={tokenData ? 0 : undefined}
 		>
-			{/* Glow effect background - blends border color into the center */}
 			<div
 				className="absolute inset-0 rounded-4xl"
 				style={{
 					background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`,
 				}}
 			/>
-			{/* Content layer */}
 			<div className="relative z-10 flex items-center w-full">
 				<Image
 					src={icon}
@@ -183,14 +181,12 @@ export const TrendingCoinsSection: FC = () => {
 	if (loading || pills.length === 0) {
 		const SkeletonPill = ({ minWidth }: { minWidth: number }) => (
 			<div className={cn(basePill, "pl-2 pr-6 py-2")} style={{ minWidth }}>
-				{/* Glow effect background */}
 				<div
 					className="absolute inset-0 rounded-4xl"
 					style={{
 						background: `radial-gradient(ellipse at center, #0a0a0a 0%, #0a0a0a 40%, rgba(104, 104, 104, 0.15) 70%, rgba(104, 104, 104, 0.25) 100%)`,
 					}}
 				/>
-				{/* Content layer */}
 				<div className="relative z-10 flex items-center w-full">
 					<Skeleton className="w-10 h-10 rounded-full" />
 					<div className="flex flex-col gap-2 ml-2">
@@ -207,7 +203,6 @@ export const TrendingCoinsSection: FC = () => {
 		return (
 			<section className="relative w-full overflow-hidden">
 				<div className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
-					{/* Top row skeleton with animation */}
 					<motion.div
 						className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px]"
 						animate={{
@@ -226,7 +221,6 @@ export const TrendingCoinsSection: FC = () => {
 							<SkeletonPill key={`skeleton-top-${Date.now()}-${i}`} minWidth={153} />
 						))}
 					</motion.div>{" "}
-					{/* Bottom row skeleton with animation */}
 					<motion.div
 						className="inline-flex items-center gap-5 mt-5"
 						animate={{
@@ -269,7 +263,6 @@ export const TrendingCoinsSection: FC = () => {
 						},
 					}}
 				>
-					{/* Duplicate items for seamless loop */}
 					{[...top, ...top, ...top].map((p, i) => (
 						<PillItem key={`top-${p.title}-${i}`} {...p} />
 					))}
@@ -289,7 +282,6 @@ export const TrendingCoinsSection: FC = () => {
 						},
 					}}
 				>
-					{/* Duplicate items for seamless loop */}
 					{[...bottom, ...bottom, ...bottom].map((p, i) => (
 						<PillItem key={`bottom-${p.title.replace(/\s+/g, "-")}-${i}`} {...p} />
 					))}

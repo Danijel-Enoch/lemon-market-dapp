@@ -96,7 +96,6 @@ export const RoadmapSection: FC = () => {
 			</div>
 
 			<div className="relative">
-				{/* Vertical timeline line */}
 				<div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-linear-to-b from-[#9DEA29]/20 via-[#9DEA29]/40 to-[#9DEA29]/20 -translate-x-1/2" />
 
 				<div className="space-y-16">
@@ -114,12 +113,10 @@ export const RoadmapSection: FC = () => {
 								transition={{ delay: idx * 0.1 }}
 								className={`relative flex ${isLeft ? "md:justify-start" : "md:justify-end"}`}
 							>
-								{/* Branch line connecting from timeline to phase */}
 								<div
 									className={`hidden md:block absolute top-6 ${isLeft ? "right-1/2 left-auto" : "left-1/2 right-auto"} w-12 h-px bg-[#9DEA29]/30`}
 								/>
 
-								{/* Timeline dot */}
 								<div className="absolute left-8 md:left-1/2 top-6 w-4 h-4 -translate-x-1/2 z-10">
 									<div
 										className={`w-full h-full rounded-full border-2 transition-all ${
@@ -135,7 +132,6 @@ export const RoadmapSection: FC = () => {
 								<div
 									className={`pl-20 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? "md:pl-16 md:flex md:flex-col md:items-end" : "md:pr-16"}`}
 								>
-									{/* Title box */}
 									<div className="inline-block mb-6 p-4 border border-white/20 bg-neutral-900/60 backdrop-blur-sm hover:border-[#9DEA29]/40 transition-colors">
 										<div className="flex items-baseline gap-3 mb-1">
 											<span className="text-sm font-mono text-white/50">{phase.phase}</span>
@@ -154,7 +150,6 @@ export const RoadmapSection: FC = () => {
 										)}
 									</div>
 
-									{/* Items list - no wrapper */}
 									<div className={`space-y-3 ${isLeft ? "md:text-right" : ""}`}>
 										{phase.things.map((thing, i) => (
 											<motion.div

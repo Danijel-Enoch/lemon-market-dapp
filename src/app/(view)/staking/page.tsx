@@ -23,7 +23,6 @@ export default function StakingPage() {
                 </div>*/}
 
 				<div className="max-w-4xl mx-auto space-y-6">
-					{/* Main Coming Soon Card */}
 					<Card className="bg-linear-to-br from-primary/10 via-card to-card border-primary/20">
 						<CardContent className="p-12 text-center">
 							<div className="mb-8">
@@ -45,7 +44,6 @@ export default function StakingPage() {
 						</CardContent>
 					</Card>
 
-					{/* Feature Preview Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<Card className="bg-card border-gray-100/10">
 							<CardContent className="p-6 text-center">
@@ -90,7 +88,6 @@ export default function StakingPage() {
 						</Card>
 					</div>
 
-					{/* Contact Info Card */}
 					<Card className="bg-linear-to-br from-green-800/60 via-green-800/40 to-green-950/60 border-white/10 backdrop-blur-sm">
 						<CardContent className="p-6">
 							<div className="text-center">

@@ -465,7 +465,6 @@ function PerpContent() {
 									{tickerTokens.map((token, index) => (
 										<TickerItem key={`${token.symbol}-${index}`} token={token} />
 									))}
-									{/* Duplicate for seamless loop */}
 									{tickerTokens.map((token, index) => (
 										<TickerItem key={`${token.symbol}-dup-${index}`} token={token} />
 									))}
@@ -489,11 +488,9 @@ function PerpContent() {
 					</div>
 				</div>
 
-				{/* Market Info Bar - Figma Design */}
 				{marketData && tradingPair.pairAddress && (
 					<div className="mb-6 bg-[#0a0a0a] rounded-lg border-t border-b border-[#4D4D4D] py-4">
 						<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
-							{/* Token Logo & Symbol */}
 							<div className="flex items-center gap-3 min-w-fit">
 								{marketData.tokenLogo && (
 									<Image
@@ -545,10 +542,8 @@ function PerpContent() {
 								</div>
 							</div>
 
-							{/* Vertical Divider */}
 							<div className="h-9 w-px bg-[#4F6347]" />
 
-							{/* 24h Volume */}
 							<div className="flex flex-col gap-1 min-w-fit">
 								<div className="text-[#A6A6A6] text-xs">24h Volume</div>
 								<div className="text-white text-sm font-medium">
@@ -556,10 +551,8 @@ function PerpContent() {
 								</div>
 							</div>
 
-							{/* Vertical Divider */}
 							<div className="h-9 w-px bg-[#4F6347]" />
 
-							{/* 6h Volume */}
 							<div className="flex flex-col gap-1 min-w-fit">
 								<div className="text-[#A6A6A6] text-xs">6h Volume</div>
 								<div className="text-white text-sm font-medium">
@@ -567,10 +560,8 @@ function PerpContent() {
 								</div>
 							</div>
 
-							{/* Vertical Divider */}
 							<div className="h-9 w-px bg-[#4F6347]" />
 
-							{/* 1h Volume */}
 							<div className="flex flex-col gap-1 min-w-fit">
 								<div className="text-[#A6A6A6] text-xs">1h Volume</div>
 								<div className="text-white text-sm font-medium">
@@ -578,10 +569,8 @@ function PerpContent() {
 								</div>
 							</div>
 
-							{/* Vertical Divider */}
 							<div className="h-9 w-px bg-[#4F6347]" />
 
-							{/* Liquidity */}
 							<div className="flex flex-col gap-1 min-w-fit">
 								<div className="text-[#A6A6A6] text-xs">Liquidity</div>
 								<div className="text-white text-sm font-medium">
@@ -589,10 +578,8 @@ function PerpContent() {
 								</div>
 							</div>
 
-							{/* Vertical Divider */}
 							<div className="h-9 w-px bg-[#4F6347]" />
 
-							{/* Market Cap */}
 							{marketData.marketCap && (
 								<>
 									<div className="flex flex-col gap-1 min-w-fit">
@@ -605,7 +592,6 @@ function PerpContent() {
 								</>
 							)}
 
-							{/* FDV */}
 							{marketData.fdv && (
 								<>
 									<div className="flex flex-col gap-1 min-w-fit">
@@ -618,7 +604,6 @@ function PerpContent() {
 								</>
 							)}
 
-							{/* 24h Txns */}
 							{marketData.txns24h && (
 								<>
 									<div className="flex flex-col gap-1 min-w-fit">
@@ -633,7 +618,6 @@ function PerpContent() {
 								</>
 							)}
 
-							{/* 6h Txns */}
 							{marketData.txns6h && (
 								<div className="flex flex-col gap-1 min-w-fit">
 									<div className="text-[#A6A6A6] text-xs">6h Txns</div>
@@ -649,9 +633,7 @@ function PerpContent() {
 				)}
 
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					{/* Trading Panel */}
 					<div className="lg:col-span-2 space-y-6">
-						{/* Price Chart Placeholder */}
 						<Card className="bg-card border-gray-100/10">
 							<CardHeader>
 								<CardTitle className="text-foreground flex items-center justify-between">
@@ -679,11 +661,9 @@ function PerpContent() {
 						</Card>
 					</div>
 
-					{/* Trading Form */}
 					<div className="space-y-6">
 						<Card className="bg-card border-gray-100/10">
 							<CardContent className="space-y-6 p-6">
-								{/* Long/Short Toggle */}
 								<div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg">
 									<Button
 										onClick={() => setIsLong(true)}
@@ -706,7 +686,6 @@ function PerpContent() {
 										SHORT
 									</Button>
 								</div>
-								{/* Wallet Balances */}
 								{isConnected && (
 									<div className="bg-muted p-4 rounded-lg">
 										<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
@@ -736,7 +715,6 @@ function PerpContent() {
 										</div>
 									</div>
 								)}
-								{/* USDC Approval Section */}
 								{isConnected && (
 									<div className="bg-muted p-4 rounded-lg">
 										<div className="flex justify-between items-center mb-3">
@@ -779,7 +757,6 @@ function PerpContent() {
 										)}
 									</div>
 								)}
-								{/* Value Input */}
 								<div className="space-y-2">
 									<div className="flex justify-between items-center">
 										<label
@@ -816,7 +793,6 @@ function PerpContent() {
 										</div>
 									</div>
 								</div>
-								{/* Leverage */}
 								<div className="space-y-3">
 									<div className="flex justify-between items-center">
 										<span className="text-sm text-primary uppercase font-medium">Leverage</span>
@@ -861,8 +837,6 @@ function PerpContent() {
 										</div>
 									</div>
 								</div>{" "}
-								{/* You Pay */}
-								{/* Position Details */}
 								<div className="space-y-3 text-sm">
 									<div className="flex justify-between">
 										<span className="text-muted-foreground uppercase">
@@ -895,7 +869,6 @@ function PerpContent() {
 										<span className="text-foreground">2%</span>
 									</div>
 								</div>
-								{/* Error Display */}
 								{(approvalError || transactionError) && (
 									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
 										<p className="text-destructive text-sm">
@@ -903,7 +876,6 @@ function PerpContent() {
 										</p>
 									</div>
 								)}
-								{/* Approval Success Message */}
 								{isApprovalConfirmed && approvalHash && !needsApproval && (
 									<div className="p-3 bg-green-900/50 border border-success rounded-lg">
 										<p className="text-success text-sm">
@@ -919,7 +891,6 @@ function PerpContent() {
 										</p>
 									</div>
 								)}
-								{/* Transaction Status */}
 								{hash && (
 									<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
 										<p className="text-primary text-sm">
@@ -946,7 +917,6 @@ function PerpContent() {
 										)}
 									</div>
 								)}
-								{/* Wallet Connection or Place Transaction */}
 								{!isConnected ? (
 									<div className="w-full">
 										<ConnectWallet />
@@ -981,7 +951,6 @@ function PerpContent() {
 					</div>
 				</div>
 
-				{/* Positions Table */}
 				<div className="mt-8">
 					<div className="mb-4">
 						<h2 className="text-xl font-bold text-foreground mb-2">

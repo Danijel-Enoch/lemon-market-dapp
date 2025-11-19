@@ -151,7 +151,6 @@ export function TradingPanel() {
 				onValueChange={setActiveTab}
 				className="w-full bg-[var(--trading-bg-primary)] p-2 h-full"
 			>
-				{/* Buy/Sell Tabs */}
 				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto">
 					<TabsTrigger
 						value="buy"

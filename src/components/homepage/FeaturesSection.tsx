@@ -36,12 +36,10 @@ export const FeaturesSection: FC = () => {
 			</div>
 
 			<div className="relative mb-8">
-				{/* Green glow effect - visible only on desktop */}
 				<div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
 					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-96 bg-[#9DEA29]/70 rounded-full blur-[80px]" />
 				</div>
 
-				{/* Feature cards */}
 				<div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					<FeatureCard
 						iconSrc="/assets/homepage/feature-icon-liquidity.png"

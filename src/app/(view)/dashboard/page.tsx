@@ -71,13 +71,11 @@ function DashboardContent() {
 	// Create a loading skeleton component
 	const LoadingSkeleton = () => (
 		<div className="space-y-8 pb-12 animate-in fade-in-50 duration-500">
-			{/* Header skeleton */}
 			<div className="space-y-2">
 				<Skeleton className="h-9 w-48" />
 				<Skeleton className="h-5 w-80" />
 			</div>
 
-			{/* Stats grid skeleton */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }, (_, i) => (
 					<Card key={`stat-skeleton-${Date.now()}-${i}`} className="border-accent/20">
@@ -95,7 +93,6 @@ function DashboardContent() {
 				))}
 			</div>
 
-			{/* Referral section skeleton */}
 			<div className="grid gap-6 lg:grid-cols-2">
 				{Array.from({ length: 2 }, (_, i) => (
 					<Card key={`referral-skeleton-${Date.now()}-${i}`} className="border-accent/20">
@@ -139,7 +136,6 @@ function DashboardContent() {
 					<p className="text-muted-foreground">
 						Connect your wallet to view your trading statistics and referral rewards
 					</p>
-					{/* Show connection status for debugging */}
 					<div className="mt-4 text-xs text-muted-foreground/70">
 						Debug: Connected: {String(isActuallyConnected)} | Address:{" "}
 						{actualAddress ? "Yes" : "No"} | Status: {status}
@@ -160,13 +156,11 @@ function DashboardContent() {
 
 	return (
 		<div className="space-y-8 pb-12">
-			{/* Header */}
 			<div className="space-y-2">
 				<h1 className="text-3xl font-bold">Dashboard</h1>
 				<p className="text-muted-foreground">Track your trading performance and referral rewards</p>
 			</div>
 
-			{/* Error Message */}
 			{error && (
 				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
 					<p className="font-medium">Error loading dashboard</p>
@@ -177,7 +171,6 @@ function DashboardContent() {
 				</div>
 			)}
 
-			{/* Main Stats Grid */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				<StatCard
 					title="Points Earned"
@@ -213,7 +206,6 @@ function DashboardContent() {
 				/>
 			</div>
 
-			{/* Referral Section */}
 			<div className="grid gap-6 lg:grid-cols-2">
 				<ReferralCodeSection
 					referralCode={referralCode}
@@ -227,9 +219,7 @@ function DashboardContent() {
 				/>
 			</div>
 
-			{/* Additional Info Cards */}
 			<div className="grid gap-6 lg:grid-cols-2">
-				{/* Trading Stats */}
 				<Card className="border-accent/20">
 					<CardHeader className="border-b border-accent/10 pb-4">
 						<CardTitle className="text-base font-semibold">Quick Stats</CardTitle>
@@ -273,7 +263,6 @@ function DashboardContent() {
 					</CardContent>
 				</Card>
 
-				{/* Referral Benefits Info */}
 				<Card className="border-accent/20">
 					<CardHeader className="border-b border-accent/10 pb-4">
 						<CardTitle className="text-base font-semibold">How Referrals Work</CardTitle>
@@ -309,7 +298,6 @@ function DashboardContent() {
 				</Card>
 			</div>
 
-			{/* CTA Section */}
 			<Card className="border-primary/30 bg-linear-to-r from-primary/10 to-primary/5">
 				<CardContent className="pt-8">
 					<div className="space-y-4 text-center">

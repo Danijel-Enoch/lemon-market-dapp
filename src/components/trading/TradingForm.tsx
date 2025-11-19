@@ -60,11 +60,10 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 
 	return (
 		<div className="space-y-4">
-			{/* You Pay Section */}
-			<div className="bg-[var(--trading-bg-secondary)] rounded p-4">
+			<div className="bg-(--trading-bg-secondary) rounded p-4">
 				<div className="flex justify-between items-center mb-2">
-					<span className="text-[var(--trading-text-secondary)] text-xs">You pay</span>
-					<span className="text-[var(--trading-text-secondary)] text-xs">
+					<span className="text-(--trading-text-secondary) text-xs">You pay</span>
+					<span className="text-(--trading-text-secondary) text-xs">
 						Balance: {tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
 					</span>
 				</div>
@@ -74,24 +73,24 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 						value={inputAmount}
 						onChange={(e) => setInputAmount(e.target.value)}
 						placeholder="0.00"
-						className="bg-transparent border-none text-[var(--trading-text-primary)] text-left flex-1 p-0 text-lg font-medium"
+						className="bg-transparent border-none text-(--trading-text-primary) text-left flex-1 p-0 text-lg font-medium"
 					/>
 					<Select value={inputToken} onValueChange={setInputToken}>
-						<SelectTrigger className="w-auto bg-[var(--trading-bg-tertiary)] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
+						<SelectTrigger className="w-auto bg-(--trading-bg-tertiary) border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
 							<SelectValue />
 						</SelectTrigger>
-						<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-bg-tertiary)]">
+						<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-bg-tertiary)">
 							{tokens.map((token) => (
 								<SelectItem
 									key={token.symbol}
 									value={token.symbol}
-									className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-bg-tertiary)] focus:bg-[var(--trading-bg-tertiary)]"
+									className="text-(--trading-text-primary) hover:bg-(--trading-bg-tertiary) focus:bg-(--trading-bg-tertiary)"
 								>
 									<div className="flex items-center gap-2">
 										<Image src={token.icon} alt={token.symbol} width={20} height={20} />
 										<div>
 											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-[var(--trading-text-secondary)]">
+											<div className="text-xs text-(--trading-text-secondary)">
 												{token.name}
 											</div>
 										</div>
@@ -104,30 +103,28 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 						variant="outline"
 						size="sm"
 						onClick={handleMaxClick}
-						className="bg-[var(--trading-bg-tertiary)] text-[var(--trading-text-secondary)] text-xs h-6 px-2 hover:bg-gray-600"
+						className="bg-(--trading-bg-tertiary) text-(--trading-text-secondary) text-xs h-6 px-2 hover:bg-gray-600"
 					>
 						MAX
 					</Button>
 				</div>
 			</div>
 
-			{/* Swap Button */}
 			<div className="flex justify-center">
 				<Button
 					variant="ghost"
 					size="sm"
 					onClick={handleSwap}
-					className="bg-[var(--trading-bg-tertiary)] hover:bg-gray-600 p-2 rounded-md"
+					className="bg-(--trading-bg-tertiary) hover:bg-gray-600 p-2 rounded-md"
 				>
-					<ArrowUpDown className="w-4 h-4 text-[var(--trading-text-secondary)]" />
+					<ArrowUpDown className="w-4 h-4 text-(--trading-text-secondary)" />
 				</Button>
 			</div>
 
-			{/* You Receive Section */}
-			<div className="bg-[var(--trading-bg-secondary)] rounded p-4">
+			<div className="bg-(--trading-bg-secondary) rounded p-4">
 				<div className="flex justify-between items-center mb-2">
-					<span className="text-[var(--trading-text-secondary)] text-xs">You receive</span>
-					<span className="text-[var(--trading-text-secondary)] text-xs">
+					<span className="text-(--trading-text-secondary) text-xs">You receive</span>
+					<span className="text-(--trading-text-secondary) text-xs">
 						Balance: {tokens.find((t) => t.symbol === outputToken)?.balance || "0.00"}
 					</span>
 				</div>
@@ -137,24 +134,24 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 						value={outputAmount}
 						onChange={(e) => setOutputAmount(e.target.value)}
 						placeholder="0.00"
-						className="bg-transparent border-none text-[var(--trading-text-primary)] text-left flex-1 p-0 text-lg font-medium"
+						className="bg-transparent border-none text-(--trading-text-primary) text-left flex-1 p-0 text-lg font-medium"
 					/>
 					<Select value={outputToken} onValueChange={setOutputToken}>
-						<SelectTrigger className="w-auto bg-[var(--trading-bg-tertiary)] border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
+						<SelectTrigger className="w-auto bg-(--trading-bg-tertiary) border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
 							<SelectValue />
 						</SelectTrigger>
-						<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-bg-tertiary)]">
+						<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-bg-tertiary)">
 							{tokens.map((token) => (
 								<SelectItem
 									key={token.symbol}
 									value={token.symbol}
-									className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-bg-tertiary)] focus:bg-[var(--trading-bg-tertiary)]"
+									className="text-(--trading-text-primary) hover:bg-(--trading-bg-tertiary) focus:bg-(--trading-bg-tertiary)"
 								>
 									<div className="flex items-center gap-2">
 										<Image src={token.icon} alt={token.symbol} width={20} height={20} />
 										<div>
 											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-[var(--trading-text-secondary)]">
+											<div className="text-xs text-(--trading-text-secondary)">
 												{token.name}
 											</div>
 										</div>
@@ -166,16 +163,14 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 				</div>
 			</div>
 
-			{/* Trade Button */}
 			<Button className={`w-full ${buttonColor} text-white text-sm font-medium py-3`}>
 				{isBuyMode ? "Buy / Long" : "Sell / Short"}
 			</Button>
 
-			{/* Leverage Section */}
-			<div className="bg-[var(--trading-bg-secondary)] rounded p-4">
+			<div className="bg-(--trading-bg-secondary) rounded p-4">
 				<div className="flex justify-between items-center mb-3">
-					<span className="text-[var(--trading-text-primary)] text-xs font-medium">Leverage</span>
-					<span className="text-[var(--trading-text-secondary)] text-xs">{selectedLeverage}</span>
+					<span className="text-(--trading-text-primary) text-xs font-medium">Leverage</span>
+					<span className="text-(--trading-text-secondary) text-xs">{selectedLeverage}</span>
 				</div>
 				<div className="mb-3">
 					<input
@@ -185,9 +180,9 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 						step="0.1"
 						value={selectedLeverage.replace("x", "")}
 						onChange={(e) => setSelectedLeverage(`${e.target.value}x`)}
-						className="w-full h-1 bg-[var(--trading-bg-tertiary)] rounded appearance-none cursor-pointer slider"
+						className="w-full h-1 bg-(--trading-bg-tertiary) rounded appearance-none cursor-pointer slider"
 					/>
-					<div className="flex justify-between text-[var(--trading-text-secondary)] text-xs">
+					<div className="flex justify-between text-(--trading-text-secondary) text-xs">
 						{leverageOptions.map((option) => (
 							<span key={option}>{option}</span>
 						))}
@@ -196,22 +191,22 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 			</div>
 
 			{/* Chain & Market Section */}
-			<div className="bg-[var(--trading-bg-secondary)] rounded p-4">
+			<div className="bg-(--trading-bg-secondary) rounded p-4">
 				<div className="flex justify-between items-center mb-3">
-					<span className="text-[var(--trading-text-primary)] text-xs font-medium">
+					<span className="text-(--trading-text-primary) text-xs font-medium">
 						Chain & Market
 					</span>
-					<span className="text-[var(--trading-text-secondary)] text-xs">ROE</span>
+					<span className="text-(--trading-text-secondary) text-xs">ROE</span>
 				</div>
 				<div className="space-y-2">
 					{chainMarkets.map((item) => (
 						<div
 							key={`${item.chain}-${item.market}`}
-							className="flex items-center justify-between p-2 bg-[var(--trading-bg-primary)] rounded hover:bg-gray-800 cursor-pointer transition-colors"
+							className="flex items-center justify-between p-2 bg-(--trading-bg-primary) rounded hover:bg-gray-800 cursor-pointer transition-colors"
 						>
 							<div className="flex items-center gap-3">
 								<Image src={item.icon} alt={item.chain} width={24} height={24} />
-								<span className="text-[var(--trading-text-primary)] text-xs font-medium">
+								<span className="text-(--trading-text-primary) text-xs font-medium">
 									{item.chain} • {item.market}
 								</span>
 							</div>
@@ -221,7 +216,7 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 				</div>
 				<button
 					type="button"
-					className="text-[var(--trading-text-secondary)] text-xs hover:text-[var(--trading-text-primary)] transition-colors"
+					className="text-(--trading-text-secondary) text-xs hover:text-(--trading-text-primary) transition-colors"
 				>
 					View all
 				</button>

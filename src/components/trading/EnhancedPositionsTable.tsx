@@ -127,7 +127,6 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 
 	return (
 		<div className={className}>
-			{/* Header with toggle */}
 			<Card className="mb-4">
 				<CardHeader>
 					<div className="flex items-center justify-between">
@@ -176,7 +175,6 @@ export function EnhancedPositionsTable({ className }: EnhancedPositionsTableProp
 				</CardHeader>
 			</Card>
 
-			{/* Positions Table */}
 			<Card>
 				<CardContent className="pt-6">
 					{openDisplayPositions.length === 0 ? (
