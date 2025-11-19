@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAsync } from "react-use";
 import {
 	Area,
 	Bar,
@@ -11,7 +12,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { fetchChartData, type OHLCVData } from "@/lib/chart-data-service";
+import { fetchChartData } from "@/lib/chart-data-service";
 
 interface ChartSectionProps {
 	pairAddress?: string;
@@ -29,38 +30,30 @@ const timeframes = [
 ];
 
 export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps) {
-	const [chartData, setChartData] = useState<OHLCVData[]>([]);
 	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
-	const [loading, setLoading] = useState(true);
-	const [latestCandle, setLatestCandle] = useState<OHLCVData | null>(null);
 	const [showMarketCap, setShowMarketCap] = useState(false);
+	const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+	const chartState = useAsync(async () => {
+		const result = await fetchChartData(pairAddress || "", chain, selectedTimeframe);
+		return result.data;
+	}, [pairAddress, chain, selectedTimeframe, refreshTrigger]);
+
+	const chartData = useMemo(() => chartState.value || [], [chartState.value]);
+	const loading = chartState.loading;
+	const latestCandle = useMemo(
+		() => (chartData.length > 0 ? chartData[chartData.length - 1] : null),
+		[chartData],
+	);
+
+	// Auto-refresh every 30 seconds (same as price refresh)
 	useEffect(() => {
-		async function loadChartData() {
-			setLoading(true);
-			try {
-				const result = await fetchChartData(pairAddress || "", chain, selectedTimeframe);
-				setChartData(result.data);
-
-				if (result.data.length > 0) {
-					setLatestCandle(result.data[result.data.length - 1]);
-				}
-			} catch (error) {
-				console.error("Error loading chart data:", error);
-			} finally {
-				setLoading(false);
-			}
-		}
-
-		loadChartData();
-
-		// Auto-refresh every 30 seconds (same as price refresh)
 		const interval = setInterval(() => {
-			loadChartData();
+			setRefreshTrigger((prev) => prev + 1);
 		}, 30000);
 
 		return () => clearInterval(interval);
-	}, [pairAddress, chain, selectedTimeframe]);
+	}, []);
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
 		if (selectedTimeframe === "1d") {
