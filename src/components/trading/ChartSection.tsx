@@ -116,7 +116,7 @@ export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSe
 
 	return (
 		<div className="">
-			<div className="flex items-center justify-between gap-4 p-4">
+			<div className="flex items-center justify-between gap-4 p-4 -mb-2">
 				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
 						<button
