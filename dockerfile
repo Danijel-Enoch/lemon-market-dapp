@@ -27,8 +27,6 @@ COPY components.json postcss.config.mjs ./
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-ENV NEXT_PRIVATE_STANDALONE=true
-ENV NEXT_PRIVATE_WORKER_THREADS=4
 RUN bun run build
 
 # Stage 3: Runner (Production)

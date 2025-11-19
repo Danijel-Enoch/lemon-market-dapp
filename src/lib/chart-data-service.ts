@@ -64,7 +64,7 @@ async function fetchPoolInfo(pairAddress: string, chain: string = "base"): Promi
 async function fetchFromGeckoTerminal(
 	pairAddress: string,
 	chain: string = "base",
-	timeframe: string = "hour",
+	timeframe: string = "1h",
 ): Promise<OHLCVData[]> {
 	try {
 		// Map chain IDs to GeckoTerminal network identifiers
@@ -82,27 +82,41 @@ async function fetchFromGeckoTerminal(
 
 		// Map timeframes to GeckoTerminal intervals
 		const timeframeMap: Record<string, string> = {
-			"0.25h": "hour",
-			"0.5h": "hour",
+			"5m": "minute",
+			"15m": "minute",
 			"1h": "hour",
 			"4h": "hour",
 			"6h": "hour",
 			"24h": "hour",
 			"7d": "day",
-			"1d": "day",
+			"30d": "day",
 		};
 
 		const interval = timeframeMap[timeframe] || "hour";
+
+		const aggregateMap: Record<string, number> = {
+			"5m": 5,
+			"15m": 15,
+			"1h": 1,
+			"4h": 4,
+			"6h": 1,
+			"24h": 4,
+			"7d": 1,
+			"30d": 1,
+		};
+
+		const aggregateInterval = aggregateMap[interval] || 1;
 
 		// Determine how much data to fetch based on timeframe
 		const limitMap: Record<string, string> = {
 			hour: "168", // 7 days of hourly data
 			day: "90", // 90 days of daily data
+			minute: "288", // 24 hours of 5-minute data
 		};
 
 		const limit = limitMap[interval] || "168";
 
-		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${pairAddress}/ohlcv/${interval}?limit=${limit}`;
+		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${pairAddress}/ohlcv/${interval}?limit=${limit}&aggregate=${aggregateInterval}`;
 
 		const response = await fetch(url, {
 			method: "GET",

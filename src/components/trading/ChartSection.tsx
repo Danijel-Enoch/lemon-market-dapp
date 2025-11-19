@@ -38,16 +38,19 @@ interface ChartSectionProps {
 }
 
 const timeframes = [
-	{ label: "3 Months", value: "1d" },
+	{ label: "3 Months", value: "30d" },
 	{ label: "7 Days", value: "7d" },
 	{ label: "24 Hours", value: "24h" },
-	// { label: "6 Hours", value: "6h" },
-	// { label: "4 Hours", value: "4h" },
-	// { label: "1 Hour", value: "1h" },
-];
+	{ label: "6 Hours", value: "6h" },
+	{ label: "4 Hours", value: "4h" },
+	{ label: "1 Hour", value: "1h" },
+	{ label: "15 Mins", value: "15m" },
+	{ label: "5 Mins", value: "5m" },
+] as const;
 
 export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSectionProps) {
-	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
+	const [selectedTimeframe, setSelectedTimeframe] =
+		useState<(typeof timeframes)[number]["value"]>("1h");
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -87,13 +90,12 @@ export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSe
 
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
-		if (selectedTimeframe === "7d" || selectedTimeframe === "1d") {
-			return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-		}
-		if (selectedTimeframe === "24h") {
-			return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-		}
-		return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+		return date.toLocaleDateString("en-US", {
+			month: "short",
+			hour: "2-digit",
+			minute: "2-digit",
+			day: "numeric",
+		});
 	};
 
 	const formatPrice = (value: number) => {

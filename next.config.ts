@@ -91,12 +91,6 @@ const nextConfig: NextConfig = {
 		webpackBuildWorker: true,
 		// Enable faster incremental builds
 		swcTraceProfiling: false,
-		cpus: 4,
-	},
-	modularizeImports: {
-		"lucide-react": {
-			transform: "lucide-react/dist/esm/icons/{{kebabCase member}}",
-		},
 	},
 	// Enable compression
 	compress: true,
@@ -108,20 +102,6 @@ const nextConfig: NextConfig = {
 	compiler: {
 		// Remove console logs in production
 		removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
-	},
-	// Webpack optimizations
-	webpack: (config, { isServer }) => {
-		if (!isServer) {
-			// Reduce client bundle size and build time
-			config.optimization = {
-				...config.optimization,
-				minimize: true,
-				moduleIds: "deterministic",
-			};
-		}
-		// Increase build parallelism
-		config.parallelism = 4;
-		return config;
 	},
 };
 
