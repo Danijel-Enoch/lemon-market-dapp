@@ -1,6 +1,6 @@
 /**
  * Chart Data Service
- * Fetches OHLCV data from multiple sources for charting
+ * Fetches OHLCV data from GeckoTerminal API for charting
  */
 
 export interface OHLCVData {
@@ -10,6 +10,7 @@ export interface OHLCVData {
 	low: number;
 	close: number;
 	volume: number;
+	marketCap?: number;
 }
 
 export interface ChartDataResponse {
@@ -19,131 +20,82 @@ export interface ChartDataResponse {
 }
 
 /**
- * Fetch historical data from Uniswap V3 subgraph on Base
+ * Fetch historical OHLCV data from GeckoTerminal API
  */
-async function fetchFromBaseSubgraph(
+async function fetchFromGeckoTerminal(
 	pairAddress: string,
-	timeframe: string = "1h",
+	chain: string = "base",
+	timeframe: string = "hour",
 ): Promise<OHLCVData[]> {
 	try {
-		const now = Math.floor(Date.now() / 1000);
-		const periods = {
-			"1m": 60,
-			"5m": 300,
-			"15m": 900,
-			"1h": 3600,
-			"4h": 14400,
-			"1d": 86400,
+		// Map chain IDs to GeckoTerminal network identifiers
+		const networkMap: Record<string, string> = {
+			base: "base",
+			ethereum: "eth",
+			bsc: "bsc",
+			polygon: "polygon_pos",
+			arbitrum: "arbitrum",
+			optimism: "optimism",
+			avalanche: "avax",
 		};
 
-		const periodSeconds = periods[timeframe as keyof typeof periods] || 3600;
-		const startTime = now - periodSeconds * 100; // Get last 100 periods
+		const network = networkMap[chain] || "base";
 
-		// Uniswap V3 Base subgraph
-		const query = `
-			{
-				poolHourDatas(
-					first: 100
-					orderBy: periodStartUnix
-					orderDirection: desc
-					where: {
-						pool: "${pairAddress.toLowerCase()}"
-						periodStartUnix_gte: ${startTime}
-					}
-				) {
-					periodStartUnix
-					open
-					high
-					low
-					close
-					volumeUSD
-				}
-			}
-		`;
+		// Map timeframes to GeckoTerminal intervals
+		const timeframeMap: Record<string, string> = {
+			"1m": "minute",
+			"5m": "minute",
+			"15m": "minute",
+			"1h": "hour",
+			"4h": "hour",
+			"1d": "day",
+		};
 
-		const response = await fetch(
-			"https://api.studio.thegraph.com/query/48211/uniswap-v3-base/version/latest",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ query }),
+		const interval = timeframeMap[timeframe] || "hour";
+
+		// Determine how much data to fetch based on timeframe
+		const limitMap: Record<string, string> = {
+			minute: "1440", // 24 hours of minute data
+			hour: "168", // 7 days of hourly data
+			day: "90", // 90 days of daily data
+		};
+
+		const limit = limitMap[interval] || "168";
+
+		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${pairAddress}/ohlcv/${interval}?limit=${limit}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				Accept: "application/json",
 			},
-		);
+		});
 
 		if (!response.ok) {
-			throw new Error(`Subgraph error: ${response.status}`);
+			console.error(`GeckoTerminal API error: ${response.status}`);
+			return [];
 		}
 
 		const result = await response.json();
 
-		if (result.errors) {
-			throw new Error(result.errors[0]?.message || "Subgraph query failed");
-		}
-
-		if (!result.data?.poolHourDatas || result.data.poolHourDatas.length === 0) {
+		if (!result.data?.attributes?.ohlcv_list || result.data.attributes.ohlcv_list.length === 0) {
+			console.log("No OHLCV data available from GeckoTerminal");
 			return [];
 		}
 
-		return result.data.poolHourDatas.map(
-			(item: {
-				periodStartUnix: number;
-				open: string;
-				high: string;
-				low: string;
-				close: string;
-				volumeUSD: string;
-			}) => ({
-				time: item.periodStartUnix * 1000,
-				open: parseFloat(item.open),
-				high: parseFloat(item.high),
-				low: parseFloat(item.low),
-				close: parseFloat(item.close),
-				volume: parseFloat(item.volumeUSD),
-			}),
-		);
+		// GeckoTerminal returns [timestamp, open, high, low, close, volume]
+		return result.data.attributes.ohlcv_list.map((candle: number[]) => ({
+			time: candle[0] * 1000, // Convert to milliseconds
+			open: candle[1],
+			high: candle[2],
+			low: candle[3],
+			close: candle[4],
+			volume: candle[5],
+		}));
 	} catch (error) {
-		console.error("Error fetching from Base subgraph:", error);
+		console.error("Error fetching from GeckoTerminal:", error);
 		return [];
 	}
-}
-
-/**
- * Generate mock OHLCV data based on current price
- * Used when real historical data is unavailable
- */
-function generateMockOHLCV(currentPrice: number, periods: number = 100): OHLCVData[] {
-	const data: OHLCVData[] = [];
-	const now = Date.now();
-	const hourInMs = 3600000;
-
-	let price = currentPrice * 0.95; // Start at 95% of current price
-
-	for (let i = periods; i >= 0; i--) {
-		const time = now - i * hourInMs;
-		const volatility = 0.02; // 2% volatility
-		const change = (Math.random() - 0.5) * volatility * price;
-
-		const open = price;
-		const close = price + change;
-		const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-		const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-		const volume = Math.random() * 1000000;
-
-		data.push({
-			time,
-			open: Number(open.toFixed(6)),
-			high: Number(high.toFixed(6)),
-			low: Number(low.toFixed(6)),
-			close: Number(close.toFixed(6)),
-			volume: Number(volume.toFixed(2)),
-		});
-
-		price = close;
-	}
-
-	return data;
 }
 
 /**
@@ -153,45 +105,36 @@ export async function fetchChartData(
 	pairAddress: string,
 	chain: string = "base",
 	timeframe: string = "1h",
-	currentPrice?: number,
 ): Promise<ChartDataResponse> {
 	try {
-		// Try to fetch from subgraph first
-		if (chain === "base" && pairAddress) {
-			const subgraphData = await fetchFromBaseSubgraph(pairAddress, timeframe);
+		// Fetch from GeckoTerminal
+		if (pairAddress) {
+			const geckoData = await fetchFromGeckoTerminal(pairAddress, chain, timeframe);
 
-			if (subgraphData.length > 0) {
+			if (geckoData.length > 0) {
 				return {
-					data: subgraphData.reverse(), // Oldest to newest
+					data: geckoData,
 					symbol: "Token",
-					source: "uniswap-v3-base",
+					source: "geckoterminal",
 				};
 			}
 		}
 
-		// Fallback to mock data if we have a current price
-		if (currentPrice && currentPrice > 0) {
-			return {
-				data: generateMockOHLCV(currentPrice),
-				symbol: "Token",
-				source: "mock",
-			};
-		}
-
-		// Last resort: generate data with a default price
+		// No data available
+		console.warn("No chart data available for this pair");
 		return {
-			data: generateMockOHLCV(1.0),
+			data: [],
 			symbol: "Token",
-			source: "mock",
+			source: "none",
 		};
 	} catch (error) {
 		console.error("Error fetching chart data:", error);
 
-		// Return mock data as fallback
+		// Return empty data on error
 		return {
-			data: generateMockOHLCV(currentPrice || 1.0),
+			data: [],
 			symbol: "Token",
-			source: "mock",
+			source: "error",
 		};
 	}
 }

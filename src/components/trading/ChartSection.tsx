@@ -17,7 +17,6 @@ interface ChartSectionProps {
 	pairAddress?: string;
 	chain?: string;
 	symbol?: string;
-	currentPrice?: number;
 }
 
 const timeframes = [
@@ -29,22 +28,18 @@ const timeframes = [
 	{ label: "1Min", value: "1m" },
 ];
 
-export function ChartSection({ pairAddress, chain = "base", currentPrice }: ChartSectionProps) {
+export function ChartSection({ pairAddress, chain = "base" }: ChartSectionProps) {
 	const [chartData, setChartData] = useState<OHLCVData[]>([]);
 	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
 	const [loading, setLoading] = useState(true);
 	const [latestCandle, setLatestCandle] = useState<OHLCVData | null>(null);
+	const [showVolume, setShowVolume] = useState(false);
 
 	useEffect(() => {
 		async function loadChartData() {
 			setLoading(true);
 			try {
-				const result = await fetchChartData(
-					pairAddress || "",
-					chain,
-					selectedTimeframe,
-					currentPrice,
-				);
+				const result = await fetchChartData(pairAddress || "", chain, selectedTimeframe);
 				setChartData(result.data);
 
 				if (result.data.length > 0) {
@@ -58,8 +53,7 @@ export function ChartSection({ pairAddress, chain = "base", currentPrice }: Char
 		}
 
 		loadChartData();
-	}, [pairAddress, chain, selectedTimeframe, currentPrice]);
-
+	}, [pairAddress, chain, selectedTimeframe]);
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
 		if (selectedTimeframe === "1d") {
@@ -100,6 +94,27 @@ export function ChartSection({ pairAddress, chain = "base", currentPrice }: Char
 						</button>
 					))}
 				</div>
+				<button
+					type="button"
+					onClick={() => setShowVolume(!showVolume)}
+					className={`text-xs px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
+						showVolume ? "bg-[#4DAD31] text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+					}`}
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+					>
+						<title>Volume</title>
+						<path d="M3 14h4l4 6h2V4h-2l-4 6H3z" />
+						<path d="M17 8c1.5 1.5 1.5 4.5 0 6" />
+					</svg>
+					Volume
+				</button>
 			</div>
 
 			{/* Price Info */}
@@ -135,8 +150,17 @@ export function ChartSection({ pairAddress, chain = "base", currentPrice }: Char
 			{/* Chart Container */}
 			<div className="relative w-full" style={{ height: "450px" }}>
 				{loading ? (
-					<div className="flex items-center justify-center h-full">
-						<div className="text-gray-500">Loading chart data...</div>
+					<div className="h-full flex flex-col gap-3 animate-pulse">
+						{/* Skeleton bars */}
+						<div className="flex items-end justify-between h-full gap-1 px-2">
+							{Array.from({ length: 50 }).map((_, i) => (
+								<div
+									key={`skeleton-bar-${i}`}
+									className="bg-gray-800 rounded-t flex-1"
+									style={{ height: `${Math.random() * 60 + 40}%` }}
+								/>
+							))}
+						</div>
 					</div>
 				) : chartData.length === 0 ? (
 					<div className="flex items-center justify-center h-full">
@@ -161,19 +185,13 @@ export function ChartSection({ pairAddress, chain = "base", currentPrice }: Char
 							/>
 							<YAxis
 								yAxisId="price"
-								orientation="right"
+								orientation="left"
 								tickFormatter={formatPrice}
 								stroke="#666"
 								style={{ fontSize: "11px" }}
 								domain={["auto", "auto"]}
 							/>
-							<YAxis
-								yAxisId="volume"
-								orientation="left"
-								stroke="#666"
-								style={{ fontSize: "11px" }}
-								tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
-							/>
+							<YAxis yAxisId="volume" orientation="right" hide={true} />
 							<Tooltip
 								contentStyle={{
 									backgroundColor: "#1a1a1a",
@@ -189,7 +207,9 @@ export function ChartSection({ pairAddress, chain = "base", currentPrice }: Char
 									return [formatPrice(value), name];
 								}}
 							/>
-							<Bar yAxisId="volume" dataKey="volume" fill="url(#colorVolume)" opacity={0.4} />
+							{showVolume && (
+								<Bar yAxisId="volume" dataKey="volume" fill="url(#colorVolume)" opacity={0.4} />
+							)}
 							<Area
 								yAxisId="price"
 								type="monotone"

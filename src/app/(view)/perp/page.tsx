@@ -479,9 +479,6 @@ function PerpContent() {
 										pairAddress={tradingPair.pairAddress}
 										chain={tradingPair.chain}
 										symbol={tradingPair.symbol}
-										currentPrice={
-											priceData?.price ? parseFloat(priceData.price.replace(/,/g, "")) : undefined
-										}
 									/>
 								) : (
 									<div style={{ height: "500px" }}>
