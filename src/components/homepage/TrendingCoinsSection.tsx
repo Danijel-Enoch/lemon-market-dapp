@@ -207,7 +207,7 @@ export const TrendingCoinsSection: FC = () => {
 				<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center">
 					{/* Top row skeleton with animation */}
 					<motion.div
-						className="inline-flex items-center gap-5 ml-[152px] mr-[34px]"
+						className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px]"
 						animate={{
 							x: [0, -1000],
 						}}
@@ -254,7 +254,7 @@ export const TrendingCoinsSection: FC = () => {
 		<section className="relative w-full overflow-hidden">
 			<div className="relative mx-auto max-w-[1248px] h-[273px] flex flex-col items-start justify-center">
 				<motion.div
-					className="inline-flex items-center gap-5 ml-[152px] mr-[34px]"
+					className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px]"
 					animate={{
 						x: [0, -1000],
 					}}

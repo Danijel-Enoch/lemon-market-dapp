@@ -80,7 +80,7 @@ const HomepageFooter = dynamic(
 
 export default function Homepage() {
 	return (
-		<main className="bg-black text-white">
+		<main className="bg-black text-white overflow-x-hidden">
 			<HeroSection />
 			<section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
 				<div className="flex items-center justify-center gap-6 opacity-80">

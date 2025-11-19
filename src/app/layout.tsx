@@ -74,7 +74,7 @@ export default function RootLayout({
 				<link rel="dns-prefetch" href="https://auth.farcaster.xyz" />
 			</head>
 			<body
-				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground`}
+				className={`${inter.variable} ${robotoMono.variable} ${raleway.className} antialiased bg-black text-foreground overflow-x-hidden`}
 			>
 				<MiniAppProvider>
 					<ToastProvider>
