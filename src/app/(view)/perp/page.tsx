@@ -13,6 +13,7 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
+import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Badge } from "@/components/ui/badge";
@@ -381,19 +382,6 @@ function PerpContent() {
 			}
 		}, [isConnected, address, valueUSDC, leverage, tradingPair, isLong, sendTransaction]);
 
-	const getChartUrl = () => {
-		if (tradingPair.pairAddress) {
-			return (
-				"https://dexscreener.com/" +
-				tradingPair.chain +
-				"/" +
-				tradingPair.pairAddress +
-				"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15&background=0a0a0a"
-			);
-		}
-		return "";
-	};
-
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-4 py-8">
@@ -487,18 +475,14 @@ function PerpContent() {
 									</div>
 								)}
 								{tradingPair.assetType === "crypto" ? (
-									<div id="dexscreener-embed" className="bg-[#0a0a0a] rounded-lg overflow-hidden">
-										<iframe
-											src={getChartUrl()}
-											width="100%"
-											height="500"
-											style={{
-												border: "none",
-												background: "#0a0a0a",
-											}}
-											title={`${tradingPair.symbol} Chart`}
-										></iframe>
-									</div>
+									<ChartSection
+										pairAddress={tradingPair.pairAddress}
+										chain={tradingPair.chain}
+										symbol={tradingPair.symbol}
+										currentPrice={
+											priceData?.price ? parseFloat(priceData.price.replace(/,/g, "")) : undefined
+										}
+									/>
 								) : (
 									<div style={{ height: "500px" }}>
 										<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />

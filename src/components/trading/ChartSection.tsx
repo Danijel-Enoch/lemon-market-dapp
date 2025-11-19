@@ -1,80 +1,100 @@
 "use client";
 
-import { CandlestickSeries, ColorType, createChart, type IChartApi } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import {
+	Area,
+	Bar,
+	CartesianGrid,
+	ComposedChart,
+	ResponsiveContainer,
+	Tooltip,
+	XAxis,
+	YAxis,
+} from "recharts";
+import { fetchChartData, type OHLCVData } from "@/lib/chart-data-service";
+
+interface ChartSectionProps {
+	pairAddress?: string;
+	chain?: string;
+	symbol?: string;
+	currentPrice?: number;
+}
 
 const timeframes = [
-	{ label: "1Day", value: "1D", active: false },
-	{ label: "4 Hours", value: "4H", active: true },
-	{ label: "1Hour", value: "1H", active: false },
-	{ label: "15 Mins", value: "15m", active: false },
-	{ label: "5 Mins", value: "5m", active: false },
-	{ label: "1Min", value: "1m", active: false },
+	{ label: "1Day", value: "1d" },
+	{ label: "4 Hours", value: "4h" },
+	{ label: "1Hour", value: "1h" },
+	{ label: "15 Mins", value: "15m" },
+	{ label: "5 Mins", value: "5m" },
+	{ label: "1Min", value: "1m" },
 ];
 
-const priceData = [
-	{ time: "2023-01-01", open: 4500, high: 4600, low: 4450, close: 4580 },
-	{ time: "2023-01-02", open: 4580, high: 4650, low: 4520, close: 4620 },
-	{ time: "2023-01-03", open: 4620, high: 4700, low: 4580, close: 4680 },
-	{ time: "2023-01-04", open: 4680, high: 4750, low: 4640, close: 4720 },
-	{ time: "2023-01-05", open: 4720, high: 4800, low: 4680, close: 4760 },
-];
-
-export function ChartSection() {
-	const chartContainerRef = useRef<HTMLDivElement>(null);
-	const chartRef = useRef<IChartApi | null>(null);
+export function ChartSection({ pairAddress, chain = "base", currentPrice }: ChartSectionProps) {
+	const [chartData, setChartData] = useState<OHLCVData[]>([]);
+	const [selectedTimeframe, setSelectedTimeframe] = useState("1h");
+	const [loading, setLoading] = useState(true);
+	const [latestCandle, setLatestCandle] = useState<OHLCVData | null>(null);
 
 	useEffect(() => {
-		if (!chartContainerRef.current) return;
+		async function loadChartData() {
+			setLoading(true);
+			try {
+				const result = await fetchChartData(
+					pairAddress || "",
+					chain,
+					selectedTimeframe,
+					currentPrice,
+				);
+				setChartData(result.data);
 
-		const chart = createChart(chartContainerRef.current, {
-			width: chartContainerRef.current.clientWidth,
-			height: 350,
-			layout: {
-				background: { type: ColorType.Solid, color: "#0a0b17" },
-				textColor: "#8a8d91",
-			},
-			grid: {
-				vertLines: { color: "#1c1e2a" },
-				horzLines: { color: "#1c1e2a" },
-			},
-			rightPriceScale: {
-				borderColor: "#1c1e2a",
-				textColor: "#8b8d97",
-			},
-			timeScale: {
-				borderColor: "#1c1e2a",
-			},
-		});
+				if (result.data.length > 0) {
+					setLatestCandle(result.data[result.data.length - 1]);
+				}
+			} catch (error) {
+				console.error("Error loading chart data:", error);
+			} finally {
+				setLoading(false);
+			}
+		}
 
-		const candlestickSeries = chart.addSeries(CandlestickSeries, {
-			upColor: "#26a69a",
-			downColor: "#ef5350",
-			borderVisible: false,
-			wickUpColor: "#26a69a",
-			wickDownColor: "#ef5350",
-		});
+		loadChartData();
+	}, [pairAddress, chain, selectedTimeframe, currentPrice]);
 
-		candlestickSeries.setData(priceData);
-		chartRef.current = chart;
+	const formatTime = (timestamp: number) => {
+		const date = new Date(timestamp);
+		if (selectedTimeframe === "1d") {
+			return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		}
+		return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+	};
 
-		return () => {
-			chart.remove();
-		};
-	}, []);
+	const formatPrice = (value: number) => {
+		if (value >= 1) {
+			return value.toFixed(2);
+		}
+		return value.toFixed(6);
+	};
+
+	const priceChange = latestCandle
+		? ((latestCandle.close - latestCandle.open) / latestCandle.open) * 100
+		: 0;
+	const isPositive = priceChange >= 0;
 
 	return (
-		<div className="bg-[var(--trading-bg-primary)] rounded p-6 flex-1">
+		<div className="bg-[#0a0a0a] rounded-lg p-4">
 			{/* Timeframe Controls */}
-			<div className="flex items-center justify-between gap-4 mb-6">
-				<div className="flex space-x-8">
+			<div className="flex items-center justify-between gap-4 mb-4">
+				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
 						<button
 							type="button"
 							key={tf.value}
-							className={`text-xs ${
-								tf.active ? "text-[var(--trading-blue)]" : "text-[var(--trading-text-secondary)]"
-							} hover:text-[var(--trading-blue)] transition-colors`}
+							onClick={() => setSelectedTimeframe(tf.value)}
+							className={`text-xs px-3 py-1 rounded transition-colors ${
+								selectedTimeframe === tf.value
+									? "bg-[#4DAD31] text-white"
+									: "text-gray-400 hover:text-white"
+							}`}
 						>
 							{tf.label}
 						</button>
@@ -83,29 +103,105 @@ export function ChartSection() {
 			</div>
 
 			{/* Price Info */}
-			<div className="flex items-center space-x-6 gap-4 mb-6 text-xs">
-				<span className="text-gray-400">O</span>
-				<span className="text-[var(--trading-green-alt)]">4519.23</span>
-				<span className="text-green-500">H4543.35</span>
-				<span className="text-gray-400">L</span>
-				<span className="text-[var(--trading-green-alt)]">4519.23</span>
-				<span className="text-gray-400">C</span>
-				<span className="text-green-500">4543.35</span>
-				<span className="text-green-600">+24.12(+0.53%)</span>
-			</div>
+			{latestCandle && (
+				<div className="flex items-center gap-6 mb-4 text-xs flex-wrap">
+					<div className="flex items-center gap-2">
+						<span className="text-gray-500">O</span>
+						<span className="text-gray-300">{formatPrice(latestCandle.open)}</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<span className="text-gray-500">H</span>
+						<span className="text-green-500">{formatPrice(latestCandle.high)}</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<span className="text-gray-500">L</span>
+						<span className="text-red-500">{formatPrice(latestCandle.low)}</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<span className="text-gray-500">C</span>
+						<span className="text-gray-300">{formatPrice(latestCandle.close)}</span>
+					</div>
+					<div
+						className={`flex items-center gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}
+					>
+						<span>
+							{isPositive ? "+" : ""}
+							{priceChange.toFixed(2)}%
+						</span>
+					</div>
+				</div>
+			)}
 
 			{/* Chart Container */}
-			<div className="relative">
-				<div ref={chartContainerRef} className="w-full" />
-
-				{/* Price Scale */}
-				<div className="absolute right-0 top-0 h-full flex flex-col justify-between gap-4 py-10 pr-3">
-					<span className="text-gray-400 text-2xl">500</span>
-					<span className="text-gray-400 text-2xl">490</span>
-					<span className="text-gray-400 text-2xl">480</span>
-					<span className="text-gray-400 text-2xl">470</span>
-					<span className="text-gray-400 text-2xl">AA0I</span>
-				</div>
+			<div className="relative w-full" style={{ height: "450px" }}>
+				{loading ? (
+					<div className="flex items-center justify-center h-full">
+						<div className="text-gray-500">Loading chart data...</div>
+					</div>
+				) : chartData.length === 0 ? (
+					<div className="flex items-center justify-center h-full">
+						<div className="text-gray-500">No chart data available</div>
+					</div>
+				) : (
+					<ResponsiveContainer width="100%" height="100%">
+						<ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+							<defs>
+								<linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="5%" stopColor="#4DAD31" stopOpacity={0.3} />
+									<stop offset="95%" stopColor="#4DAD31" stopOpacity={0} />
+								</linearGradient>
+							</defs>
+							<CartesianGrid strokeDasharray="3 3" stroke="#1c1e2a" vertical={false} />
+							<XAxis
+								dataKey="time"
+								tickFormatter={formatTime}
+								stroke="#666"
+								style={{ fontSize: "11px" }}
+								minTickGap={50}
+							/>
+							<YAxis
+								yAxisId="price"
+								orientation="right"
+								tickFormatter={formatPrice}
+								stroke="#666"
+								style={{ fontSize: "11px" }}
+								domain={["auto", "auto"]}
+							/>
+							<YAxis
+								yAxisId="volume"
+								orientation="left"
+								stroke="#666"
+								style={{ fontSize: "11px" }}
+								tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+							/>
+							<Tooltip
+								contentStyle={{
+									backgroundColor: "#1a1a1a",
+									border: "1px solid #333",
+									borderRadius: "4px",
+									fontSize: "12px",
+								}}
+								labelFormatter={(label) => formatTime(label as number)}
+								formatter={(value: number, name: string) => {
+									if (name === "volume") {
+										return [`$${(value / 1000).toFixed(1)}K`, "Volume"];
+									}
+									return [formatPrice(value), name];
+								}}
+							/>
+							<Bar yAxisId="volume" dataKey="volume" fill="url(#colorVolume)" opacity={0.4} />
+							<Area
+								yAxisId="price"
+								type="monotone"
+								dataKey="close"
+								stroke="#4DAD31"
+								strokeWidth={2}
+								fill="none"
+								dot={false}
+							/>
+						</ComposedChart>
+					</ResponsiveContainer>
+				)}
 			</div>
 		</div>
 	);
