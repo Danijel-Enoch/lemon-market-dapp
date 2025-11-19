@@ -3,8 +3,16 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import type { ComponentProps } from "react";
 
-export function ConnectWallet({ text = "Connect Wallet" }) {
+export function ConnectWallet({
+	text = "Connect Wallet",
+	connectedNode,
+	...props
+}: {
+	text?: string;
+	connectedNode?: React.ReactNode;
+} & ComponentProps<"button">) {
 	return (
 		<ConnectButton.Custom>
 			{({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
@@ -31,6 +39,7 @@ export function ConnectWallet({ text = "Connect Wallet" }) {
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
 										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										// {...props}
 									>
 										{text}
 									</motion.button>
@@ -39,54 +48,74 @@ export function ConnectWallet({ text = "Connect Wallet" }) {
 
 							if (chain.unsupported) {
 								return (
-									<button
+									<motion.button
 										onClick={openChainModal}
 										type="button"
-										className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2"
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										className="w-full inline-flex items-center justify-center rounded-xl border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-red-600 via-red-700 to-red-900 text-white font-bold text-xs md:text-sm"
 									>
 										Wrong network
-									</button>
+									</motion.button>
 								);
 							}
 
+							if (connectedNode) {
+								return (
+									// @ts-expect-error motion button props
+									<motion.button
+										type="button"
+										// onClick={openConnectModal}
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										{...props}
+									>
+										{connectedNode}
+									</motion.button>
+								);
+							}
 							return (
 								<div className="flex gap-2">
-									<button
+									<motion.button
 										onClick={openChainModal}
 										type="button"
-										className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-slate-800 text-white hover:bg-slate-700 h-10 px-3 py-2"
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										className="inline-flex items-center justify-center rounded-xl border border-white/60 gap-2 px-2.5 md:px-4 py-2 md:py-3 bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90 text-white font-bold text-xs md:text-sm"
 									>
 										{chain.hasIcon && (
 											<div
 												style={{
 													background: chain.iconBackground,
-													width: 12,
-													height: 12,
+													width: 16,
+													height: 16,
 													borderRadius: 999,
 													overflow: "hidden",
-													marginRight: 4,
 												}}
 											>
 												{chain.iconUrl && (
 													<Image
 														alt={chain.name ?? "Chain icon"}
 														src={chain.iconUrl}
-														width={12}
-														height={12}
+														width={16}
+														height={16}
 													/>
 												)}
 											</div>
 										)}
-										{chain.name}
-									</button>
+										<span className="hidden md:inline">{chain.name}</span>
+									</motion.button>
 
-									<button
+									<motion.button
 										onClick={openAccountModal}
 										type="button"
-										className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-teal-600 text-white hover:bg-teal-700 h-10 px-4 py-2"
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										className="inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
 									>
 										{account.displayName}
-									</button>
+									</motion.button>
 								</div>
 							);
 						})()}
