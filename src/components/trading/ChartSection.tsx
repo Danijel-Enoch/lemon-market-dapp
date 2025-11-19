@@ -28,6 +28,16 @@ interface ChartSectionProps {
 	};
 	fetchLatestPrice: () => Promise<unknown>;
 	isLoadingPrice: boolean;
+	marketData?: {
+		marketCap?: string;
+		fdv?: string;
+		liquidity?: string;
+		volume24h?: string;
+		volume1h?: string;
+		txns24h?: { buys: number; sells: number };
+		holders?: number;
+		poolCreated?: string;
+	};
 }
 
 const timeframes = [
@@ -80,6 +90,7 @@ export function ChartSection({
 
 		return () => clearInterval(interval);
 	}, []);
+
 	const formatTime = (timestamp: number) => {
 		const date = new Date(timestamp);
 		if (selectedTimeframe === "1d") {

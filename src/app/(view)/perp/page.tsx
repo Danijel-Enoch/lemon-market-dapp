@@ -99,6 +99,24 @@ function PerpContent() {
 		assetType: "crypto" as "crypto" | "stock" | "forex", // Track asset type
 	});
 
+	const [marketData, setMarketData] = useState<{
+		priceUsd?: string;
+		priceChange?: string;
+		marketCap?: string;
+		fdv?: string;
+		liquidity?: string;
+		volume24h?: string;
+		volume6h?: string;
+		volume1h?: string;
+		txns24h?: { buys: number; sells: number };
+		txns6h?: { buys: number; sells: number };
+		poolCreated?: string;
+		pairAddress?: string;
+		tokenLogo?: string;
+		baseTokenSymbol?: string;
+		quoteTokenSymbol?: string;
+	}>();
+
 	const {
 		positions,
 		isLoading: isLoadingPositions,
@@ -172,6 +190,59 @@ function PerpContent() {
 		}
 		return [];
 	}, []);
+
+	// Fetch market data for the current pair
+	const [{ loading: _isLoadingMarketData }, fetchMarketData] = useAsyncFn(async () => {
+		if (!tradingPair.pairAddress || tradingPair.assetType !== "crypto") {
+			setMarketData(undefined);
+			return;
+		}
+
+		try {
+			// Fetch from DexScreener API
+			const response = await fetch(
+				`https://api.dexscreener.com/latest/dex/pairs/${tradingPair.chain}/${tradingPair.pairAddress}`,
+			);
+			if (response.ok) {
+				const data = await response.json();
+				if (data.pair) {
+					const pair = data.pair;
+					setMarketData({
+						priceUsd: pair.priceUsd,
+						priceChange: pair.priceChange?.h24
+							? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
+							: undefined,
+						marketCap: pair.marketCap?.toString(),
+						fdv: pair.fdv?.toString(),
+						liquidity: pair.liquidity?.usd?.toString(),
+						volume24h: pair.volume?.h24?.toString(),
+						volume6h: pair.volume?.h6?.toString(),
+						volume1h: pair.volume?.h1?.toString(),
+						txns24h: pair.txns?.h24
+							? {
+									buys: pair.txns.h24.buys || 0,
+									sells: pair.txns.h24.sells || 0,
+								}
+							: undefined,
+						txns6h: pair.txns?.h6
+							? {
+									buys: pair.txns.h6.buys || 0,
+									sells: pair.txns.h6.sells || 0,
+								}
+							: undefined,
+						poolCreated: pair.pairCreatedAt
+							? new Date(pair.pairCreatedAt).toLocaleDateString()
+							: undefined,
+						tokenLogo: pair.info?.imageUrl,
+						baseTokenSymbol: pair.baseToken?.symbol,
+						quoteTokenSymbol: pair.quoteToken?.symbol,
+					});
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching market data:", error);
+		}
+	}, [tradingPair.pairAddress, tradingPair.chain, tradingPair.assetType]);
 
 	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
 		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
@@ -255,15 +326,17 @@ function PerpContent() {
 
 	useEffect(() => {
 		fetchLatestPrice();
-	}, [fetchLatestPrice]);
+		fetchMarketData();
+	}, [fetchLatestPrice, fetchMarketData]);
 
 	useEffect(() => {
 		const interval = setInterval(() => {
 			fetchLatestPrice();
+			fetchMarketData();
 		}, 30000); // 30 seconds
 
 		return () => clearInterval(interval);
-	}, [fetchLatestPrice]);
+	}, [fetchLatestPrice, fetchMarketData]);
 
 	// Fetch trending tokens on mount and periodically
 	useEffect(() => {
@@ -416,6 +489,165 @@ function PerpContent() {
 					</div>
 				</div>
 
+				{/* Market Info Bar - Figma Design */}
+				{marketData && tradingPair.pairAddress && (
+					<div className="mb-6 bg-[#0a0a0a] rounded-lg border-t border-b border-[#4D4D4D] py-4">
+						<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
+							{/* Token Logo & Symbol */}
+							<div className="flex items-center gap-3 min-w-fit">
+								{marketData.tokenLogo && (
+									<Image
+										src={marketData.tokenLogo}
+										alt={`${marketData.baseTokenSymbol} logo`}
+										width={28}
+										height={28}
+										className="w-7 h-7 rounded-full"
+										unoptimized
+									/>
+								)}
+								<div>
+									<div className="text-white font-medium text-sm">
+										{extractTokenSymbol(tradingPair.symbol)}
+									</div>
+									<div className="flex items-center gap-2 mt-0.5">
+										<span className="text-white text-xs">
+											{marketData.baseTokenSymbol}/{marketData.quoteTokenSymbol}
+										</span>
+										{marketData.priceChange && (
+											<span
+												className={`text-xs px-1.5 py-0.5 rounded ${
+													marketData.priceChange.startsWith("+")
+														? "bg-[#002400] text-[#4DAD31]"
+														: "bg-[#240000] text-[#FF4C4C]"
+												}`}
+											>
+												{marketData.priceChange}
+											</span>
+										)}
+										{marketData.priceChange && (
+											<svg
+												width="17"
+												height="17"
+												viewBox="0 0 17 17"
+												fill="none"
+												className={marketData.priceChange.startsWith("+") ? "" : "rotate-180"}
+											>
+												<title>Price Direction</title>
+												<path
+													fillRule="evenodd"
+													clipRule="evenodd"
+													d="M9.001 6.6258C8.868 6.7586 8.688 6.8332 8.5 6.8332C8.312 6.8332 8.132 6.7586 7.999 6.6258L3.992 2.6187C3.924 2.5534 3.871 2.4752 3.833 2.3888C3.796 2.3024 3.777 2.2094 3.776 2.1154C3.775 2.0213 3.793 1.9281 3.829 1.841C3.864 1.754 3.917 1.6749 3.983 1.6084C4.05 1.5419 4.129 1.4893 4.216 1.4537C4.303 1.418 4.396 1.4001 4.49 1.4009C4.584 1.4018 4.677 1.4213 4.764 1.4584C4.85 1.4955 4.928 1.5495 4.994 1.6172L8.5 5.1234L12.006 1.6172C12.14 1.4881 12.319 1.4167 12.504 1.4183C12.69 1.42 12.868 1.4945 12.999 1.6258C13.13 1.7571 13.205 1.9348 13.207 2.1205C13.208 2.3062 13.137 2.4851 13.008 2.6187L9.001 6.6258Z"
+													fill="white"
+												/>
+											</svg>
+										)}
+									</div>
+								</div>
+							</div>
+
+							{/* Vertical Divider */}
+							<div className="h-9 w-px bg-[#4F6347]" />
+
+							{/* 24h Volume */}
+							<div className="flex flex-col gap-1 min-w-fit">
+								<div className="text-[#A6A6A6] text-xs">24h Volume</div>
+								<div className="text-white text-sm font-medium">
+									${marketData.volume24h ? Number(marketData.volume24h).toLocaleString() : "0"}
+								</div>
+							</div>
+
+							{/* Vertical Divider */}
+							<div className="h-9 w-px bg-[#4F6347]" />
+
+							{/* 6h Volume */}
+							<div className="flex flex-col gap-1 min-w-fit">
+								<div className="text-[#A6A6A6] text-xs">6h Volume</div>
+								<div className="text-white text-sm font-medium">
+									${marketData.volume6h ? Number(marketData.volume6h).toLocaleString() : "0"}
+								</div>
+							</div>
+
+							{/* Vertical Divider */}
+							<div className="h-9 w-px bg-[#4F6347]" />
+
+							{/* 1h Volume */}
+							<div className="flex flex-col gap-1 min-w-fit">
+								<div className="text-[#A6A6A6] text-xs">1h Volume</div>
+								<div className="text-white text-sm font-medium">
+									${marketData.volume1h ? Number(marketData.volume1h).toLocaleString() : "0"}
+								</div>
+							</div>
+
+							{/* Vertical Divider */}
+							<div className="h-9 w-px bg-[#4F6347]" />
+
+							{/* Liquidity */}
+							<div className="flex flex-col gap-1 min-w-fit">
+								<div className="text-[#A6A6A6] text-xs">Liquidity</div>
+								<div className="text-white text-sm font-medium">
+									${marketData.liquidity ? Number(marketData.liquidity).toLocaleString() : "0"}
+								</div>
+							</div>
+
+							{/* Vertical Divider */}
+							<div className="h-9 w-px bg-[#4F6347]" />
+
+							{/* Market Cap */}
+							{marketData.marketCap && (
+								<>
+									<div className="flex flex-col gap-1 min-w-fit">
+										<div className="text-[#A6A6A6] text-xs">Market Cap</div>
+										<div className="text-white text-sm font-medium">
+											${Number(marketData.marketCap).toLocaleString()}
+										</div>
+									</div>
+									<div className="h-9 w-px bg-[#4F6347]" />
+								</>
+							)}
+
+							{/* FDV */}
+							{marketData.fdv && (
+								<>
+									<div className="flex flex-col gap-1 min-w-fit">
+										<div className="text-[#A6A6A6] text-xs">FDV</div>
+										<div className="text-white text-sm font-medium">
+											${Number(marketData.fdv).toLocaleString()}
+										</div>
+									</div>
+									<div className="h-9 w-px bg-[#4F6347]" />
+								</>
+							)}
+
+							{/* 24h Txns */}
+							{marketData.txns24h && (
+								<>
+									<div className="flex flex-col gap-1 min-w-fit">
+										<div className="text-[#A6A6A6] text-xs">24h Txns</div>
+										<div className="flex items-center gap-2 text-sm">
+											<span className="text-[#4DAD31]">{marketData.txns24h.buys}</span>
+											<span className="text-[#DEDEDE]">/</span>
+											<span className="text-[#FF4C4C]">{marketData.txns24h.sells}</span>
+										</div>
+									</div>
+									<div className="h-9 w-px bg-[#4F6347]" />
+								</>
+							)}
+
+							{/* 6h Txns */}
+							{marketData.txns6h && (
+								<div className="flex flex-col gap-1 min-w-fit">
+									<div className="text-[#A6A6A6] text-xs">6h Txns</div>
+									<div className="flex items-center gap-2 text-sm">
+										<span className="text-[#4DAD31]">{marketData.txns6h.buys}</span>
+										<span className="text-[#DEDEDE]">/</span>
+										<span className="text-[#FF4C4C]">{marketData.txns6h.sells}</span>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 					{/* Trading Panel */}
 					<div className="lg:col-span-2 space-y-6">
@@ -436,6 +668,7 @@ function PerpContent() {
 										priceData={priceData ?? undefined}
 										fetchLatestPrice={fetchLatestPrice}
 										isLoadingPrice={isLoadingPrice}
+										marketData={marketData}
 									/>
 								) : (
 									<div style={{ height: "500px" }}>
