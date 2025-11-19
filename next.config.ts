@@ -123,8 +123,6 @@ const nextConfig: NextConfig = {
 		config.parallelism = 4;
 		return config;
 	},
-	// Use SWC minifier (faster than Terser)
-	swcMinify: true,
 };
 
 export default nextConfig;
