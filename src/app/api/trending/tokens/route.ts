@@ -47,6 +47,7 @@ interface PoolData {
 			address: string;
 			name: string;
 			symbol: string;
+			logo?: string;
 		};
 		priceUsd?: string;
 		volume?: {
@@ -57,6 +58,11 @@ interface PoolData {
 		};
 		liquidity?: {
 			usd?: number;
+		};
+		marketCap?: number;
+		info?: {
+			imageUrl?: string;
+			header?: string;
 		};
 	} | null;
 }
@@ -116,9 +122,24 @@ export async function GET(_req: Request) {
 			.filter((result) => result.data)
 			.map((result, index) => {
 				const { chain, data: pair } = result;
-				const tokenSymbol = pair?.baseToken?.symbol;
-				const tokenAddress = extractTokenAddress(pair);
+				if (!pair) {
+					return null;
+				}
+				const tokenSymbol = pair.baseToken?.symbol;
+				const tokenAddress = extractTokenAddress(pair as Record<string, unknown>);
 				const virtualMarket = tokenSymbol ? marketLookupMap.get(tokenSymbol.toUpperCase()) : null;
+
+				// Try multiple sources for token logo
+				let logo = pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo;
+
+				// If no logo found and we have a token address, try to construct one from known sources
+				if (!logo && tokenAddress && chain !== "solana") {
+					// Use TrustWallet assets as fallback
+					logo = `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${chain}/assets/${tokenAddress}/logo.png`;
+				}
+
+				// Final fallback to coin emoji
+				logo = logo || "🪙";
 
 				// Get total liquidity from virtual market, fallback to DEX liquidity if no market exists
 				const totalLiquidity = virtualMarket
@@ -140,8 +161,8 @@ export async function GET(_req: Request) {
 						: "0.00%",
 					volume: pair.volume?.h24 ? `$${(pair.volume.h24 / 1000000).toFixed(2)}M` : "$0.00",
 					marketCap: pair.marketCap ? `$${(pair.marketCap / 1000000).toFixed(2)}M` : "N/A",
-					trend: pair.priceChange?.h24 >= 0 ? "up" : "down",
-					logo: pair.info?.imageUrl || "🪙",
+					trend: (pair.priceChange?.h24 ?? 0) >= 0 ? "up" : "down",
+					logo: pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo || "🪙",
 					// Virtual market specific fields
 					totalLiquidity: formatLiquidity(totalLiquidity),
 					realLiquidity: formatLiquidity(realLiquidity),
@@ -159,7 +180,8 @@ export async function GET(_req: Request) {
 					chainId: pair.chainId,
 					chain: chain, // Add chain information to response
 				};
-			});
+			})
+			.filter((item): item is NonNullable<typeof item> => item !== null);
 
 		return Response.json({ data: transformedData });
 	} catch (_error) {

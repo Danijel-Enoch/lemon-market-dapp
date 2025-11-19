@@ -176,3 +176,20 @@ button {
         border-color 0.3s;
     cursor: pointer;
 }
+
+@keyframes scroll-ticker {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.animate-scroll-ticker {
+    animation: scroll-ticker 30s linear infinite;
+}
+
+.animate-scroll-ticker:hover {
+    animation-play-state: paused;
+}

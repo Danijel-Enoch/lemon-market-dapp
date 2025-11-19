@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAsyncFn } from "react-use";
 import type { SearchResult } from "@/lib/search-service";
 
@@ -19,12 +19,10 @@ interface UseSearchReturn {
 export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 	const { debounceMs = 300, minQueryLength = 2, chains = ["base"] } = options;
 
-	const [results, setResults] = useState<SearchResult[]>([]);
-
 	const debounceTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 	const currentRequestRef = useRef<AbortController | undefined>(undefined);
 
-	const [{ loading: isLoading, error }, searchFn] = useAsyncFn(
+	const [{ loading: isLoading, error, value: results }, searchFn] = useAsyncFn(
 		async (query: string) => {
 			// Clear previous request
 			if (currentRequestRef.current) {
@@ -33,8 +31,7 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 
 			// Check minimum query length
 			if (query.trim().length < minQueryLength) {
-				setResults([]);
-				return;
+				return [];
 			}
 
 			// Create new abort controller for this request
@@ -57,10 +54,9 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 			const data = await response.json();
 
 			if (data.success) {
-				setResults(data.data || []);
-			} else {
-				throw new Error(data.error || "Search failed");
+				return data.data || [];
 			}
+			throw new Error(data.error || "Search failed");
 		},
 		[chains, minQueryLength],
 	);
