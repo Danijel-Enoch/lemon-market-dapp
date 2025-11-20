@@ -62,7 +62,7 @@ export function PositionsTable({
 			}
 
 			// Show initial loading toast
-			const loadingToastId = toast.loading(`Closing ${position.pair} position...`, { icon: null });
+			const loadingToastId = toast.loading(`Closing ${position.pair} position...`);
 
 			try {
 				const tokenSymbol = extractTokenSymbol(position.pair);
@@ -101,8 +101,7 @@ export function PositionsTable({
 						<div className="text-xs text-muted-foreground">
 							Transaction is being processed on the blockchain
 						</div>
-					</div>,
-					{ icon: null },
+					</div>
 				);
 
 				// Close the dialog
@@ -115,7 +114,6 @@ export function PositionsTable({
 						Failed to close position
 						<div className="text-xs text-muted-foreground">{errorMessage}</div>
 					</div>,
-					{ icon: null },
 				);
 				throw error;
 			}
@@ -142,9 +140,7 @@ export function PositionsTable({
 			}
 
 			// Show initial loading toast
-			const loadingToastId = toast.loading(`Modifying ${selectedPosition.pair} position...`, {
-				icon: null,
-			});
+			const loadingToastId = toast.loading(`Modifying ${selectedPosition.pair} position...`);
 
 			try {
 				const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
@@ -185,7 +181,6 @@ export function PositionsTable({
 							Transaction is being processed on the blockchain
 						</div>
 					</div>,
-					{ icon: null },
 				);
 
 				// Close the dialog and reset form
@@ -200,7 +195,6 @@ export function PositionsTable({
 						Failed to modify position
 						<div className="text-xs text-muted-foreground">{errorMessage}</div>
 					</div>,
-					{ icon: null },
 				);
 				throw error;
 			}
@@ -228,8 +222,7 @@ export function PositionsTable({
 				<div className="text-xs text-muted-foreground">
 					Your transaction has been confirmed on the blockchain
 				</div>
-			</div>,
-			{ icon: null },
+			</div>
 		);
 
 		// Refresh positions after confirmation

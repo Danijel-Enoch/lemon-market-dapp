@@ -31,9 +31,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				setStatus({ status: "pending" });
 
 				// Show loading toast
-				const loadingToastId = toast.loading(opts.pendingMessage || "Transaction pending...", {
-					icon: null,
-				});
+				const loadingToastId = toast.loading(opts.pendingMessage || "Transaction pending...");
 
 				// Execute the transaction
 				const hash = await transactionFn();
@@ -45,7 +43,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				setStatus({ status: "success", hash });
 
 				// Show success toast
-				toast.success(opts.successMessage || "Transaction submitted successfully!", { icon: null });
+				toast.success(opts.successMessage || "Transaction submitted successfully!");
 
 				// Call success callback
 				if (opts.onSuccess) {
@@ -62,7 +60,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				});
 
 				// Show error toast
-				toast.error(opts.errorMessage || "Transaction failed", { icon: null });
+				toast.error(opts.errorMessage || "Transaction failed");
 
 				// Call error callback
 				if (opts.onError) {
@@ -76,7 +74,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 	);
 
 	const showConfirmation = useCallback((_hash: string, message?: string) => {
-		toast.success(message || "Transaction confirmed!", { icon: null });
+		toast.success(message || "Transaction confirmed!");
 	}, []);
 
 	return {

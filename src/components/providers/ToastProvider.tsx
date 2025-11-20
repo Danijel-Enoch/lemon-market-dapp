@@ -1,7 +1,45 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Toaster } from "react-hot-toast";
+import { type Toast, Toaster } from "react-hot-toast";
+
+interface CustomToastProps {
+	toast: Toast;
+}
+
+export function ErrorToast({ toast }: CustomToastProps) {
+	return (
+		<div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+			<img src="/icon-error.svg" alt="Error" className="w-5 h-5" />
+			<p className="text-sm text-red-400">{toast.message?.toString()}</p>
+		</div>
+	);
+}
+
+export function SuccessToast({ toast }: CustomToastProps) {
+	return (
+		<div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+			<p className="text-sm text-green-400">{toast.message?.toString()}</p>
+		</div>
+	);
+}
+
+export function InfoToast({ toast }: CustomToastProps) {
+	return (
+		<div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+			<p className="text-sm text-blue-400">{toast.message?.toString()}</p>
+		</div>
+	);
+}
+
+export function LoadingToast({ toast }: CustomToastProps) {
+	return (
+		<div className="shadow p-3 bg-neutral-500/10 border border-neutral-500/20 rounded-lg flex items-center gap-2">
+			<div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+			<p className="text-sm text-neutral-400">{toast.message?.toString()}</p>
+		</div>
+	);
+}
 
 // Dynamically import WalletProvider with SSR disabled to avoid localStorage issues
 const WalletProvider = dynamic(
@@ -28,7 +66,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
 						color: "hsl(var(--foreground))",
 					},
 					// Don't show emoji icons by default
-					theme: "dark",
+					// theme: "dark",
 					duration: 4000,
 					className: "rounded-md border",
 					error: {
@@ -54,7 +92,14 @@ export function ToastProvider({ children }: ToastProviderProps) {
 						},
 					},
 				}}
-			/>
+			>
+				{(toast) => {
+					if (toast.type === "error") return <ErrorToast toast={toast} />;
+					if (toast.type === "success") return <SuccessToast toast={toast} />;
+					if (toast.type === "loading") return <LoadingToast toast={toast} />;
+					return <InfoToast toast={toast} />;
+				}}
+			</Toaster>
 		</WalletProvider>
 	);
 }
