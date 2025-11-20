@@ -17,10 +17,10 @@ import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import {
@@ -38,6 +38,7 @@ import {
 	validateLeverage,
 	validateMargin,
 } from "@/lib/position-api";
+
 // Ticker is moved to a top-level layout component
 
 function PerpContent() {

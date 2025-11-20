@@ -3,11 +3,11 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useRef } from "react";
 import type { ComponentProps } from "react";
+import { useRef } from "react";
+import { useAsync } from "react-use";
 import { useAccount } from "wagmi";
 import { verifyTask } from "@/lib/kickoff-service";
-import { useAsync } from "react-use";
 
 export function ConnectWallet({
 	text = "Connect Wallet",

@@ -1,13 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useChainId } from "wagmi";
-import { Toast } from "@/components/ui/toast";
-import {
-	getExplorerUrl,
-	parseTransactionError,
-	type TransactionStatus,
-} from "@/lib/transaction-utils";
+import toast from "react-hot-toast";
+import { parseTransactionError, type TransactionStatus } from "@/lib/transaction-utils";
 
 interface UseTransactionOptions {
 	onSuccess?: (hash: string) => void;
@@ -19,7 +14,7 @@ interface UseTransactionOptions {
 
 export function useTransactionToast(options: UseTransactionOptions = {}) {
 	const [status, setStatus] = useState<TransactionStatus>({ status: "idle" });
-	const chainId = useChainId();
+	// const chainId = useChainId();
 
 	const reset = useCallback(() => {
 		setStatus({ status: "idle" });
@@ -36,28 +31,21 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				setStatus({ status: "pending" });
 
 				// Show loading toast
-				const loadingToastId = Toast.transaction.pending(
-					opts.pendingMessage || "Transaction pending...",
-					{
-						description: "Please confirm the transaction in your wallet",
-					},
-				);
+				const loadingToastId = toast.loading(opts.pendingMessage || "Transaction pending...", {
+					icon: null,
+				});
 
 				// Execute the transaction
 				const hash = await transactionFn();
 
 				// Dismiss loading toast
-				Toast.dismiss(loadingToastId);
+				toast.dismiss(loadingToastId);
 
 				// Update status
 				setStatus({ status: "success", hash });
 
 				// Show success toast
-				Toast.transaction.success(opts.successMessage || "Transaction submitted successfully!", {
-					hash,
-					explorerUrl: getExplorerUrl(hash, chainId),
-					description: "Your transaction is being processed",
-				});
+				toast.success(opts.successMessage || "Transaction submitted successfully!", { icon: null });
 
 				// Call success callback
 				if (opts.onSuccess) {
@@ -74,9 +62,7 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				});
 
 				// Show error toast
-				Toast.transaction.failed(opts.errorMessage || "Transaction failed", {
-					description: errorMessage,
-				});
+				toast.error(opts.errorMessage || "Transaction failed", { icon: null });
 
 				// Call error callback
 				if (opts.onError) {
@@ -86,19 +72,12 @@ export function useTransactionToast(options: UseTransactionOptions = {}) {
 				throw error;
 			}
 		},
-		[options, chainId],
+		[options],
 	);
 
-	const showConfirmation = useCallback(
-		(hash: string, message?: string) => {
-			Toast.transaction.confirmed(message || "Transaction confirmed!", {
-				hash,
-				explorerUrl: getExplorerUrl(hash, chainId),
-				description: "Your transaction has been confirmed on the blockchain",
-			});
-		},
-		[chainId],
-	);
+	const showConfirmation = useCallback((_hash: string, message?: string) => {
+		toast.success(message || "Transaction confirmed!", { icon: null });
+	}, []);
 
 	return {
 		status,

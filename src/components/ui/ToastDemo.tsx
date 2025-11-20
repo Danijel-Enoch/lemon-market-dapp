@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Toast } from "@/components/ui/toast";
 
 export function ToastDemo() {
 	const [message, setMessage] = useState("Hello from toast!");
@@ -31,7 +31,7 @@ export function ToastDemo() {
 
 				<div className="grid grid-cols-2 gap-2">
 					<Button
-						onClick={() => Toast.success(message)}
+						onClick={() => toast.success(message, { icon: null })}
 						variant="outline"
 						className="text-green-600 border-green-600"
 					>
@@ -39,7 +39,7 @@ export function ToastDemo() {
 					</Button>
 
 					<Button
-						onClick={() => Toast.error(message)}
+						onClick={() => toast.error(message, { icon: null })}
 						variant="outline"
 						className="text-red-600 border-red-600"
 					>
@@ -47,7 +47,7 @@ export function ToastDemo() {
 					</Button>
 
 					<Button
-						onClick={() => Toast.warning(message)}
+						onClick={() => toast(message, { icon: null })}
 						variant="outline"
 						className="text-yellow-600 border-yellow-600"
 					>
@@ -55,7 +55,7 @@ export function ToastDemo() {
 					</Button>
 
 					<Button
-						onClick={() => Toast.info(message)}
+						onClick={() => toast(message, { icon: null })}
 						variant="outline"
 						className="text-blue-600 border-blue-600"
 					>
@@ -67,7 +67,7 @@ export function ToastDemo() {
 					<h3 className="font-medium">Transaction Toasts:</h3>
 					<div className="grid grid-cols-2 gap-2">
 						<Button
-							onClick={() => Toast.transaction.pending("Transaction pending...")}
+							onClick={() => toast.loading("Transaction pending...", { icon: null })}
 							variant="outline"
 							size="sm"
 						>
@@ -76,10 +76,21 @@ export function ToastDemo() {
 
 						<Button
 							onClick={() =>
-								Toast.transaction.success("Transaction successful!", {
-									hash: txHash,
-									explorerUrl: `https://etherscan.io/tx/${txHash}`,
-								})
+								toast.success(
+									<div>
+										Transaction successful!
+										<div className="text-xs text-muted-foreground">
+											<a
+												href={`https://etherscan.io/tx/${txHash}`}
+												target="_blank"
+												rel="noreferrer"
+											>
+												View on Explorer
+											</a>
+										</div>
+									</div>,
+									{ icon: null },
+								)
 							}
 							variant="outline"
 							size="sm"
@@ -88,7 +99,7 @@ export function ToastDemo() {
 						</Button>
 
 						<Button
-							onClick={() => Toast.transaction.failed("Transaction failed")}
+							onClick={() => toast.error("Transaction failed", { icon: null })}
 							variant="outline"
 							size="sm"
 						>
@@ -97,10 +108,21 @@ export function ToastDemo() {
 
 						<Button
 							onClick={() =>
-								Toast.transaction.confirmed("Transaction confirmed!", {
-									hash: txHash,
-									explorerUrl: `https://etherscan.io/tx/${txHash}`,
-								})
+								toast.success(
+									<div>
+										Transaction confirmed!
+										<div className="text-xs text-muted-foreground">
+											<a
+												href={`https://etherscan.io/tx/${txHash}`}
+												target="_blank"
+												rel="noreferrer"
+											>
+												View on Explorer
+											</a>
+										</div>
+									</div>,
+									{ icon: null },
+								)
 							}
 							variant="outline"
 							size="sm"
@@ -110,7 +132,7 @@ export function ToastDemo() {
 					</div>
 				</div>
 
-				<Button onClick={() => Toast.dismiss()} variant="destructive" size="sm" className="w-full">
+				<Button onClick={() => toast.dismiss()} variant="destructive" size="sm" className="w-full">
 					Dismiss All
 				</Button>
 			</CardContent>

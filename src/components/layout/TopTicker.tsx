@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import type { FC } from "react";
 import { useEffect, useMemo } from "react";
 import { useAsyncFn } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { FC } from "react";
 
 interface TickerToken {
 	symbol: string;

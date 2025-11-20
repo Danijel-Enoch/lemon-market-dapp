@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { useAsyncFn } from "react-use";
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toast } from "@/components/ui/toast";
 import {
 	calculatePnlPercentage,
 	closePosition,
@@ -62,9 +62,7 @@ export function PositionsTable({
 			}
 
 			// Show initial loading toast
-			const loadingToastId = Toast.transaction.pending(`Closing ${position.pair} position...`, {
-				description: "Please confirm the transaction in your wallet",
-			});
+			const loadingToastId = toast.loading(`Closing ${position.pair} position...`, { icon: null });
 
 			try {
 				const tokenSymbol = extractTokenSymbol(position.pair);
@@ -78,12 +76,12 @@ export function PositionsTable({
 				});
 
 				if (!result.success) {
-					Toast.dismiss(loadingToastId);
+					toast.dismiss(loadingToastId);
 					throw new Error(result.error || "Failed to close position");
 				}
 
 				if (!result.data) {
-					Toast.dismiss(loadingToastId);
+					toast.dismiss(loadingToastId);
 					throw new Error("No transaction data returned from API");
 				}
 
@@ -96,12 +94,15 @@ export function PositionsTable({
 				});
 
 				// Dismiss loading toast and show success
-				Toast.dismiss(loadingToastId);
-				Toast.transaction.success(
-					`Successfully submitted close transaction for ${position.pair}!`,
-					{
-						description: "Transaction is being processed on the blockchain",
-					},
+				toast.dismiss(loadingToastId);
+				toast.success(
+					<div>
+						{`Successfully submitted close transaction for ${position.pair}!`}
+						<div className="text-xs text-muted-foreground">
+							Transaction is being processed on the blockchain
+						</div>
+					</div>,
+					{ icon: null },
 				);
 
 				// Close the dialog
@@ -109,9 +110,13 @@ export function PositionsTable({
 				setSelectedPosition(null);
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Failed to close position";
-				Toast.transaction.failed("Failed to close position", {
-					description: errorMessage,
-				});
+				toast.error(
+					<div>
+						Failed to close position
+						<div className="text-xs text-muted-foreground">{errorMessage}</div>
+					</div>,
+					{ icon: null },
+				);
 				throw error;
 			}
 		},
@@ -137,12 +142,9 @@ export function PositionsTable({
 			}
 
 			// Show initial loading toast
-			const loadingToastId = Toast.transaction.pending(
-				`Modifying ${selectedPosition.pair} position...`,
-				{
-					description: "Please confirm the transaction in your wallet",
-				},
-			);
+			const loadingToastId = toast.loading(`Modifying ${selectedPosition.pair} position...`, {
+				icon: null,
+			});
 
 			try {
 				const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
@@ -157,12 +159,12 @@ export function PositionsTable({
 				});
 
 				if (!result.success) {
-					Toast.dismiss(loadingToastId);
+					toast.dismiss(loadingToastId);
 					throw new Error(result.error || "Failed to modify position");
 				}
 
 				if (!result.data) {
-					Toast.dismiss(loadingToastId);
+					toast.dismiss(loadingToastId);
 					throw new Error("No transaction data returned from API");
 				}
 
@@ -175,12 +177,15 @@ export function PositionsTable({
 				});
 
 				// Dismiss loading toast and show success
-				Toast.dismiss(loadingToastId);
-				Toast.transaction.success(
-					`Successfully submitted modification for ${selectedPosition.pair}!`,
-					{
-						description: "Transaction is being processed on the blockchain",
-					},
+				toast.dismiss(loadingToastId);
+				toast.success(
+					<div>
+						{`Successfully submitted modification for ${selectedPosition.pair}!`}
+						<div className="text-xs text-muted-foreground">
+							Transaction is being processed on the blockchain
+						</div>
+					</div>,
+					{ icon: null },
 				);
 
 				// Close the dialog and reset form
@@ -190,9 +195,13 @@ export function PositionsTable({
 				setNewLeverage(2);
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Failed to modify position";
-				Toast.transaction.failed("Failed to modify position", {
-					description: errorMessage,
-				});
+				toast.error(
+					<div>
+						Failed to modify position
+						<div className="text-xs text-muted-foreground">{errorMessage}</div>
+					</div>,
+					{ icon: null },
+				);
 				throw error;
 			}
 		}, [address, selectedPosition, newMargin, newLeverage, tradingPairAddress, sendTransaction]);
@@ -213,10 +222,15 @@ export function PositionsTable({
 	// Handle transaction confirmation
 	if (isConfirmed && hash) {
 		// Show confirmation toast
-		Toast.transaction.confirmed("Transaction confirmed!", {
-			hash,
-			description: "Your transaction has been confirmed on the blockchain",
-		});
+		toast.success(
+			<div>
+				Transaction confirmed!
+				<div className="text-xs text-muted-foreground">
+					Your transaction has been confirmed on the blockchain
+				</div>
+			</div>,
+			{ icon: null },
+		);
 
 		// Refresh positions after confirmation
 		setTimeout(() => {
