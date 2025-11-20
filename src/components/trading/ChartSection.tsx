@@ -39,13 +39,8 @@ interface ChartSectionProps {
 
 const timeframes = [
 	{ label: "3 Months", value: "30d" },
-	{ label: "7 Days", value: "7d" },
-	{ label: "24 Hours", value: "24h" },
-	{ label: "6 Hours", value: "6h" },
-	{ label: "4 Hours", value: "4h" },
-	{ label: "1 Hour", value: "1h" },
-	{ label: "15 Mins", value: "15m" },
-	{ label: "5 Mins", value: "5m" },
+	{ label: "7 Days", value: "1h" },
+	{ label: "24 Hours", value: "15m" },
 ] as const;
 
 export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSectionProps) {
