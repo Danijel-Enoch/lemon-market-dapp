@@ -1,9 +1,10 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
-	coinbaseWallet,
 	metaMaskWallet,
 	trustWallet,
 	walletConnectWallet,
+	braveWallet,
+	baseAccount,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { sepolia } from "wagmi/chains";
@@ -24,7 +25,7 @@ const connectors = connectorsForWallets(
 	[
 		{
 			groupName: "Popular",
-			wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet, trustWallet],
+			wallets: [metaMaskWallet, braveWallet, walletConnectWallet, baseAccount, trustWallet],
 		},
 	],
 	{

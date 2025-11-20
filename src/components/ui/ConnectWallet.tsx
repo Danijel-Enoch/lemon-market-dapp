@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { useAsync } from "react-use";
 import { useAccount } from "wagmi";
 import { verifyTask } from "@/lib/kickoff-service";
+import toast from "react-hot-toast";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
@@ -24,7 +25,9 @@ export function ConnectWallet({
 		if (!isConnected || !address) return;
 		if (lastVerifiedRef.current === address) return;
 		lastVerifiedRef.current = address;
+		toast.loading("Verifying wallet connection...");
 		await verifyTask(address, "connect_wallet");
+		toast.success("Wallet connected and task verified!");
 	}, [isConnected, address]);
 
 	return (

@@ -15,7 +15,7 @@ const items = [
 	},
 	{
 		q: "How do I get started with Lemon Markets?",
-		a: "Simply connect your Web3 wallet (MetaMask, WalletConnect, or Coinbase Wallet), deposit collateral, and start trading. No KYC required. Our intuitive interface makes it easy for both beginners and experienced traders.",
+		a: "Simply connect your Web3 wallet (e.g., MetaMask, Brave Wallet, WalletConnect, or Coinbase Wallet), deposit collateral, and start trading. No KYC required. Our intuitive interface makes it easy for both beginners and experienced traders.",
 	},
 	{
 		q: "What leverage options are available?",
