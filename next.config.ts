@@ -3,39 +3,76 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	// Security headers
 	async headers() {
+		const commonHeaders = [
+			{
+				key: "X-DNS-Prefetch-Control",
+				value: "on",
+			},
+			{
+				key: "X-Frame-Options",
+				value: "DENY",
+			},
+			{
+				key: "X-Content-Type-Options",
+				value: "nosniff",
+			},
+			{
+				key: "X-XSS-Protection",
+				value: "1; mode=block",
+			},
+			{
+				key: "Referrer-Policy",
+				value: "strict-origin-when-cross-origin",
+			},
+			{
+				key: "Permissions-Policy",
+				value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+			},
+		];
+
+		const contentSecurityPolicy = [
+			"default-src 'self'",
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org https://www.googletagmanager.com https://www.google-analytics.com",
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+			"img-src 'self' data: blob: https: http:",
+			"font-src 'self' data: https://fonts.gstatic.com",
+			"connect-src 'self' https: wss: ws:",
+			"frame-src 'self' https://telegram.org https://*.telegram.org",
+			"frame-ancestors 'none'",
+			"base-uri 'self'",
+			"form-action 'self'",
+			"object-src 'none'",
+			"media-src 'self' https:",
+			"worker-src 'self' blob:",
+			"manifest-src 'self'",
+		].join("; ");
+
+		// Only set HSTS (Strict-Transport-Security) and upgrade directives in production builds
+		const headers =
+			process.env.NODE_ENV === "production"
+				? [
+						...commonHeaders,
+						{
+							key: "Content-Security-Policy",
+							value: `${contentSecurityPolicy}; upgrade-insecure-requests; block-all-mixed-content;`,
+						},
+						{
+							key: "Strict-Transport-Security",
+							value: "max-age=31536000; includeSubDomains; preload",
+						},
+					]
+				: [
+						...commonHeaders,
+						{
+							key: "Content-Security-Policy",
+							value: contentSecurityPolicy,
+						},
+					];
+
 		return [
 			{
 				source: "/:path*",
-				headers: [
-					{
-						key: "X-DNS-Prefetch-Control",
-						value: "on",
-					},
-					{
-						key: "Strict-Transport-Security",
-						value: "max-age=31536000; includeSubDomains; preload",
-					},
-					{
-						key: "X-Frame-Options",
-						value: "DENY",
-					},
-					{
-						key: "X-Content-Type-Options",
-						value: "nosniff",
-					},
-					{
-						key: "X-XSS-Protection",
-						value: "1; mode=block",
-					},
-					{
-						key: "Referrer-Policy",
-						value: "strict-origin-when-cross-origin",
-					},
-					{
-						key: "Permissions-Policy",
-						value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-					},
-				],
+				headers,
 			},
 		];
 	},
