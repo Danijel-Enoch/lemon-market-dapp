@@ -384,7 +384,7 @@ function PerpContent() {
 	return (
 		<>
 			{marketData && tradingPair.pairAddress && (
-				<div className="border-b border-[#4D4D4D] py-4">
+				<div className="border-b border-[#4D4D4D]/40 py-4">
 					<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
 						<div className="flex items-center gap-3 min-w-fit">
 							{marketData.tokenLogo && (
@@ -527,7 +527,7 @@ function PerpContent() {
 				</div>
 			)}
 
-			<div className="grid grid-cols-1 lg:grid-cols-3">
+			<div className="grid grid-cols-1 lg:grid-cols-3 border-b border-r border-l border-[#4D4D4D]/40">
 				<div className="lg:col-span-2">
 					{tradingPair.assetType === "crypto" ? (
 						<ChartSection
@@ -546,7 +546,7 @@ function PerpContent() {
 					)}
 				</div>
 
-				<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-4 border-l border-[#4D4D4D]/40">
 					<Tabs
 						value={isLong ? "long" : "short"}
 						onValueChange={(value) => setIsLong(value === "long")}
@@ -555,19 +555,19 @@ function PerpContent() {
 						<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
 							<TabsTrigger
 								value="long"
-								className={`w-full h-full font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
+								className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
 							>
 								Long
 							</TabsTrigger>
 							<TabsTrigger
 								value="short"
-								className={`w-full h-full font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
+								className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
 							>
 								Short
 							</TabsTrigger>
 						</TabsList>
 					</Tabs>
-					<div>
+					<div className="p-4">
 						{isConnected && (
 							<div className="bg-muted p-4 rounded-lg">
 								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
@@ -799,7 +799,7 @@ function PerpContent() {
 								)}
 							</div>
 						)}
-						<div className="w-full">
+						<div className="w-full mt-4">
 							<ConnectWallet
 								disabled={
 									needsApproval ||
