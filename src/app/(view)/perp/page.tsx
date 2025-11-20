@@ -17,6 +17,7 @@ import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -546,275 +547,283 @@ function PerpContent() {
 				</div>
 
 				<div className="flex flex-col gap-4">
-					<div className="grid grid-cols-2 gap-0.5 bg-[#071405] p-0.5 rounded-xl border border-white/40">
-						<Button
-							onClick={() => setIsLong(true)}
-							className={`rounded-xl h-[42px] font-medium text-sm transition-all ${
-								isLong
-									? "bg-transparent text-[#4DAD31] hover:bg-[#1C6200]/90 border-b border-green-500"
-									: "bg-transparent text-[#818181] hover:bg-transparent hover:text-[#818181]"
-							}`}
-						>
-							Long
-						</Button>
-						<Button
-							onClick={() => setIsLong(false)}
-							className={`rounded-xl h-[42px] font-medium text-sm transition-all ${
-								!isLong
-									? "bg-transparent text-[#4DAD31] hover:bg-[#1C6200]/90 border-b border-green-500"
-									: "bg-transparent text-[#818181] hover:bg-transparent hover:text-[#818181]"
-							}`}
-						>
-							Short
-						</Button>
-					</div>
-					{isConnected && (
-						<div className="bg-muted p-4 rounded-lg">
-							<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
-								Wallet Balance
-							</h4>
-							<div className="space-y-2">
-								<div className="flex justify-between items-center">
-									<span className="text-muted-foreground">ETH:</span>
-									<span className="text-foreground font-medium">
-										{ethBalance
-											? `${parseFloat(formatUnits(ethBalance.value, ethBalance.decimals)).toFixed(
-													4,
-												)} ETH`
-											: "0.0000 ETH"}
+					<Tabs
+						value={isLong ? "long" : "short"}
+						onValueChange={(value) => setIsLong(value === "long")}
+						className="w-full"
+					>
+						<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
+							<TabsTrigger
+								value="long"
+								className={`w-full h-full font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
+							>
+								Long
+							</TabsTrigger>
+							<TabsTrigger
+								value="short"
+								className={`w-full h-full font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
+							>
+								Short
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+					<div>
+						{isConnected && (
+							<div className="bg-muted p-4 rounded-lg">
+								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
+									Wallet Balance
+								</h4>
+								<div className="space-y-2">
+									<div className="flex justify-between items-center">
+										<span className="text-muted-foreground">ETH:</span>
+										<span className="text-foreground font-medium">
+											{ethBalance
+												? `${parseFloat(formatUnits(ethBalance.value, ethBalance.decimals)).toFixed(
+														4,
+													)} ETH`
+												: "0.0000 ETH"}
+										</span>
+									</div>
+									<div className="flex justify-between items-center">
+										<span className="text-muted-foreground">USDC:</span>
+										<span className="text-foreground font-medium">
+											{usdcBalance
+												? `${parseFloat(formatUnits(BigInt(usdcBalance as string), 6)).toFixed(
+														2,
+													)} USDC`
+												: "0.00 USDC"}
+										</span>
+									</div>
+								</div>
+							</div>
+						)}
+						{isConnected && (
+							<div className="bg-muted p-4 rounded-lg">
+								<div className="flex justify-between items-center mb-3">
+									<h4 className="text-sm text-muted-foreground uppercase font-medium">
+										USDC Approval
+									</h4>
+									<span
+										className={`text-xs px-2 py-1 rounded ${
+											needsApproval
+												? "bg-red-900/50 text-destructive"
+												: "bg-green-900/50 text-success"
+										}`}
+									>
+										{needsApproval ? "Required" : "Approved"}
 									</span>
 								</div>
-								<div className="flex justify-between items-center">
-									<span className="text-muted-foreground">USDC:</span>
-									<span className="text-foreground font-medium">
-										{usdcBalance
-											? `${parseFloat(formatUnits(BigInt(usdcBalance as string), 6)).toFixed(
-													2,
-												)} USDC`
-											: "0.00 USDC"}
+
+								{needsApproval ? (
+									<div className="space-y-3">
+										<p className="text-sm text-muted-foreground">
+											Approve USDC spending to create positions
+										</p>
+										<Button
+											onClick={handleApproveUSDC}
+											disabled={isApprovingUSDC || isApproving || isApprovalConfirming}
+											className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{isApprovingUSDC || isApproving
+												? "Confirm in Wallet..."
+												: isApprovalConfirming
+													? "Confirming..."
+													: "Approve USDC"}
+										</Button>
+									</div>
+								) : (
+									<div className="flex items-center space-x-2">
+										<div className="w-2 h-2 bg-green-400 rounded-full"></div>
+										<p className="text-sm text-success">USDC spending approved</p>
+									</div>
+								)}
+							</div>
+						)}
+						<div className="space-y-2">
+							<div className="flex justify-between items-center">
+								<label
+									htmlFor="margin-input"
+									className="text-sm text-primary uppercase font-medium"
+								>
+									Margin (USDC)
+								</label>
+								{valueUSDC && !validateMargin(valueUSDC).valid && (
+									<span className="text-xs text-destructive">
+										{validateMargin(valueUSDC).error}
 									</span>
+								)}
+							</div>
+							<div className="relative">
+								<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
+									<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+										<span className="text-foreground text-xs font-bold">$</span>
+									</div>
+								</div>
+								<Input
+									placeholder="100"
+									value={valueUSDC}
+									onChange={(e) => setValueUSDC(e.target.value)}
+									className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
+										valueUSDC && !validateMargin(valueUSDC).valid
+											? "border-red-500 focus:border-red-500"
+											: "focus:border-cyan-500"
+									}`}
+								/>
+								<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+									<div className="w-6 h-6 bg-gray-300 rounded"></div>
+									<span className="text-primary font-medium">USDC</span>
 								</div>
 							</div>
 						</div>
-					)}
-					{isConnected && (
-						<div className="bg-muted p-4 rounded-lg">
-							<div className="flex justify-between items-center mb-3">
-								<h4 className="text-sm text-muted-foreground uppercase font-medium">
-									USDC Approval
-								</h4>
-								<span
-									className={`text-xs px-2 py-1 rounded ${
-										needsApproval
-											? "bg-red-900/50 text-destructive"
-											: "bg-green-900/50 text-success"
-									}`}
-								>
-									{needsApproval ? "Required" : "Approved"}
+						<div className="space-y-3">
+							<div className="flex justify-between items-center">
+								<span className="text-sm text-primary uppercase font-medium">Leverage</span>
+								<span className="text-success text-lg font-bold">{leverage}x</span>
+							</div>
+							<div className="relative">
+								<div className="flex items-center space-x-4 bg-muted rounded-lg p-4">
+									<button
+										type="button"
+										onClick={() => handleLeverageChange(-1)}
+										className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
+									>
+										-
+									</button>
+									<div className="flex-1 relative">
+										<div className="h-2 bg-slate-700 rounded-full">
+											<div
+												className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
+												style={{
+													width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
+												}}
+											></div>
+										</div>
+										<div className="flex justify-between text-xs text-muted-foreground mt-2">
+											{Array.from({ length: maxLeverage }, (_, i) => i + 1).map((lev) => (
+												<span
+													key={lev}
+													className={leverage === lev ? "text-primary font-bold" : ""}
+												>
+													{lev}x
+												</span>
+											))}
+										</div>
+									</div>
+									<button
+										type="button"
+										onClick={() => handleLeverageChange(1)}
+										className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
+									>
+										+
+									</button>
+								</div>
+							</div>
+						</div>
+						<div className="space-y-3 text-sm">
+							<div className="flex justify-between">
+								<span className="text-muted-foreground uppercase">
+									Position Size ({extractTokenSymbol(tradingPair.symbol)})
+								</span>
+								<span className="text-foreground">
+									{(
+										(parseFloat(valueUSDC || "0") * leverage) /
+										parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+									).toFixed(6)}
 								</span>
 							</div>
-
-							{needsApproval ? (
-								<div className="space-y-3">
-									<p className="text-sm text-muted-foreground">
-										Approve USDC spending to create positions
-									</p>
-									<Button
-										onClick={handleApproveUSDC}
-										disabled={isApprovingUSDC || isApproving || isApprovalConfirming}
-										className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{isApprovingUSDC || isApproving
-											? "Confirm in Wallet..."
-											: isApprovalConfirming
-												? "Confirming..."
-												: "Approve USDC"}
-									</Button>
-								</div>
-							) : (
-								<div className="flex items-center space-x-2">
-									<div className="w-2 h-2 bg-green-400 rounded-full"></div>
-									<p className="text-sm text-success">USDC spending approved</p>
-								</div>
-							)}
-						</div>
-					)}
-					<div className="space-y-2">
-						<div className="flex justify-between items-center">
-							<label htmlFor="margin-input" className="text-sm text-primary uppercase font-medium">
-								Margin (USDC)
-							</label>
-							{valueUSDC && !validateMargin(valueUSDC).valid && (
-								<span className="text-xs text-destructive">{validateMargin(valueUSDC).error}</span>
-							)}
-						</div>
-						<div className="relative">
-							<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-								<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-									<span className="text-foreground text-xs font-bold">$</span>
-								</div>
+							<div className="flex justify-between">
+								<span className="text-muted-foreground uppercase">Total Exposure</span>
+								<span className="text-foreground">
+									${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
+								</span>
 							</div>
-							<Input
-								placeholder="100"
-								value={valueUSDC}
-								onChange={(e) => setValueUSDC(e.target.value)}
-								className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
-									valueUSDC && !validateMargin(valueUSDC).valid
-										? "border-red-500 focus:border-red-500"
-										: "focus:border-cyan-500"
-								}`}
-							/>
-							<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-								<div className="w-6 h-6 bg-gray-300 rounded"></div>
-								<span className="text-primary font-medium">USDC</span>
+							<div className="flex justify-between">
+								<span className="text-muted-foreground uppercase">Open Fee</span>
+								<span className="text-foreground">
+									0.1% (~$
+									{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
+								</span>
+							</div>
+							<div className="flex justify-between">
+								<span className="text-muted-foreground uppercase">
+									Close Fee (Applied only to profits)
+								</span>
+								<span className="text-foreground">2%</span>
 							</div>
 						</div>
-					</div>
-					<div className="space-y-3">
-						<div className="flex justify-between items-center">
-							<span className="text-sm text-primary uppercase font-medium">Leverage</span>
-							<span className="text-success text-lg font-bold">{leverage}x</span>
-						</div>
-						<div className="relative">
-							<div className="flex items-center space-x-4 bg-muted rounded-lg p-4">
-								<button
-									type="button"
-									onClick={() => handleLeverageChange(-1)}
-									className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
-								>
-									-
-								</button>
-								<div className="flex-1 relative">
-									<div className="h-2 bg-slate-700 rounded-full">
-										<div
-											className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
-											style={{
-												width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
-											}}
-										></div>
-									</div>
-									<div className="flex justify-between text-xs text-muted-foreground mt-2">
-										{Array.from({ length: maxLeverage }, (_, i) => i + 1).map((lev) => (
-											<span key={lev} className={leverage === lev ? "text-primary font-bold" : ""}>
-												{lev}x
-											</span>
-										))}
-									</div>
-								</div>
-								<button
-									type="button"
-									onClick={() => handleLeverageChange(1)}
-									className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
-								>
-									+
-								</button>
-							</div>
-						</div>
-					</div>
-					<div className="space-y-3 text-sm">
-						<div className="flex justify-between">
-							<span className="text-muted-foreground uppercase">
-								Position Size ({extractTokenSymbol(tradingPair.symbol)})
-							</span>
-							<span className="text-foreground">
-								{(
-									(parseFloat(valueUSDC || "0") * leverage) /
-									parseFloat(tradingPair.price.replace(/[$,]/g, ""))
-								).toFixed(6)}
-							</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-muted-foreground uppercase">Total Exposure</span>
-							<span className="text-foreground">
-								${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
-							</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-muted-foreground uppercase">Open Fee</span>
-							<span className="text-foreground">
-								0.1% (~$
-								{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
-							</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-muted-foreground uppercase">
-								Close Fee (Applied only to profits)
-							</span>
-							<span className="text-foreground">2%</span>
-						</div>
-					</div>
-					{(approvalError || transactionError) && (
-						<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
-							<p className="text-destructive text-sm">
-								{approvalError?.message || transactionError?.message}
-							</p>
-						</div>
-					)}
-					{isApprovalConfirmed && approvalHash && !needsApproval && (
-						<div className="p-3 bg-green-900/50 border border-success rounded-lg">
-							<p className="text-success text-sm">
-								✅ USDC approval confirmed! You can now create positions.
-								<a
-									href={getEtherscanUrl(approvalHash)}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-primary hover:text-cyan-300 underline ml-1"
-								>
-									View transaction
-								</a>
-							</p>
-						</div>
-					)}
-					{hash && (
-						<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
-							<p className="text-primary text-sm">
-								Transaction submitted:
-								<a
-									href={getEtherscanUrl(hash)}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-primary hover:text-cyan-300 underline ml-1"
-								>
-									{formatTxHash(hash)}
-								</a>
-							</p>
-							{isConfirming && (
-								<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
-							)}
-							{isConfirmed && (
-								<p className="text-success text-sm mt-1">✅ Position created successfully!</p>
-							)}
-							{error && (
-								<p className="text-destructive text-sm mt-1">
-									❌ Transaction failed: {String(error)}
+						{(approvalError || transactionError) && (
+							<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
+								<p className="text-destructive text-sm">
+									{approvalError?.message || transactionError?.message}
 								</p>
-							)}
+							</div>
+						)}
+						{isApprovalConfirmed && approvalHash && !needsApproval && (
+							<div className="p-3 bg-green-900/50 border border-success rounded-lg">
+								<p className="text-success text-sm">
+									✅ USDC approval confirmed! You can now create positions.
+									<a
+										href={getEtherscanUrl(approvalHash)}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:text-cyan-300 underline ml-1"
+									>
+										View transaction
+									</a>
+								</p>
+							</div>
+						)}
+						{hash && (
+							<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
+								<p className="text-primary text-sm">
+									Transaction submitted:
+									<a
+										href={getEtherscanUrl(hash)}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:text-cyan-300 underline ml-1"
+									>
+										{formatTxHash(hash)}
+									</a>
+								</p>
+								{isConfirming && (
+									<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
+								)}
+								{isConfirmed && (
+									<p className="text-success text-sm mt-1">✅ Position created successfully!</p>
+								)}
+								{error && (
+									<p className="text-destructive text-sm mt-1">
+										❌ Transaction failed: {String(error)}
+									</p>
+								)}
+							</div>
+						)}
+						<div className="w-full">
+							<ConnectWallet
+								disabled={
+									needsApproval ||
+									isCreatingPosition ||
+									isPending ||
+									isConfirming ||
+									isApprovingUSDC ||
+									isApproving ||
+									isApprovalConfirming
+								}
+								onClick={handlePlaceTransaction}
+								connectedNode={
+									needsApproval
+										? "Approve USDC First"
+										: isCreatingPosition
+											? "Preparing Transaction..."
+											: isPending
+												? "Confirm in Wallet..."
+												: isConfirming
+													? "Confirming..."
+													: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
+								}
+							/>
 						</div>
-					)}
-					<div className="w-full">
-						<ConnectWallet
-							disabled={
-								needsApproval ||
-								isCreatingPosition ||
-								isPending ||
-								isConfirming ||
-								isApprovingUSDC ||
-								isApproving ||
-								isApprovalConfirming
-							}
-							onClick={handlePlaceTransaction}
-							connectedNode={
-								needsApproval
-									? "Approve USDC First"
-									: isCreatingPosition
-										? "Preparing Transaction..."
-										: isPending
-											? "Confirm in Wallet..."
-											: isConfirming
-												? "Confirming..."
-												: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
-							}
-						/>
 					</div>
 				</div>
 			</div>
