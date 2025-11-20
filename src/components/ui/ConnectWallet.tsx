@@ -3,7 +3,11 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useRef } from "react";
 import type { ComponentProps } from "react";
+import { useAccount } from "wagmi";
+import { verifyTask } from "@/lib/kickoff-service";
+import { useAsync } from "react-use";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
@@ -13,6 +17,16 @@ export function ConnectWallet({
 	text?: string;
 	connectedNode?: React.ReactNode;
 } & ComponentProps<"button">) {
+	const { address, isConnected } = useAccount();
+	const lastVerifiedRef = useRef<string | null>(null);
+
+	useAsync(async () => {
+		if (!isConnected || !address) return;
+		if (lastVerifiedRef.current === address) return;
+		lastVerifiedRef.current = address;
+		await verifyTask(address, "connect_wallet");
+	}, [isConnected, address]);
+
 	return (
 		<ConnectButton.Custom>
 			{({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
