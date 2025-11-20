@@ -38,7 +38,7 @@ export async function verifyTask(
 
 		if (!response.ok) {
 			console.error("Kickoff task verification failed:", { json, status: response.status });
-			throw new Error(json?.message || `Kickoff responded with status ${response.status}`);
+			return { success: false, message: json?.message || json.error || "Verification failed" };
 		}
 
 		return {
@@ -52,7 +52,8 @@ export async function verifyTask(
 		if (err instanceof Error) message = err.message;
 		else {
 			try {
-				message = JSON.stringify(err as object);
+				// @ts-expect-error
+				message = "error" in err ? String(err.error) : JSON.stringify(err as object);
 			} catch {
 				message = String(err);
 			}

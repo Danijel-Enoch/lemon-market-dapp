@@ -26,8 +26,8 @@ export function ConnectWallet({
 		if (lastVerifiedRef.current === address) return;
 		lastVerifiedRef.current = address;
 		toast.loading("Verifying wallet connection...");
-		await verifyTask(address, "connect_wallet");
-		toast.success("Wallet connected and task verified!");
+		const { message } = await verifyTask(address, "connect_wallet");
+		toast.success(message || "Wallet connected and task verified!");
 	}, [isConnected, address]);
 
 	return (
