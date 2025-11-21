@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAsyncFn } from "react-use";
 import { formatUnits, parseUnits } from "viem";
@@ -39,10 +39,10 @@ import {
 	validateMargin,
 } from "@/lib/position-api";
 
-// Ticker is moved to a top-level layout component
-
 function PerpContent() {
 	const searchParams = useSearchParams();
+	const router = useRouter();
+	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "",
 		price: "",
@@ -239,6 +239,31 @@ function PerpContent() {
 		const chain = searchParams.get("chain") || "base";
 		const assetType = (searchParams.get("assetType") || "crypto") as "crypto" | "stock" | "forex";
 
+		// If no symbol/pair/token was passed in the URL, redirect to the top performing trending token
+		if (!symbol && !pairAddress && !tokenAddress && !didDefaultTrendingRedirect) {
+			setDidDefaultTrendingRedirect(true);
+			(async () => {
+				try {
+					const response = await fetch("/api/trending/top");
+					const data = await response.json();
+					// Support both array-shaped and single object responses for backwards compatibility
+					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
+					if (top) {
+						const params = new URLSearchParams();
+						if (top.symbol) params.set("symbol", top.symbol);
+						if (top.pairAddress) params.set("pairAddress", top.pairAddress);
+						if (top.tokenAddress) params.set("tokenAddress", top.tokenAddress);
+						params.set("chain", top.chain || "base");
+						params.set("assetType", "crypto");
+						router.replace(`/perp?${params.toString()}`);
+						return;
+					}
+				} catch (err) {
+					console.error("Failed to fetch top trending token for default redirect", err);
+				}
+			})();
+		}
+
 		if (symbol) {
 			// Format the symbol for display
 			// For stocks and forex, use symbol as-is
@@ -255,7 +280,7 @@ function PerpContent() {
 				assetType: assetType,
 			}));
 		}
-	}, [searchParams]);
+	}, [searchParams, router, didDefaultTrendingRedirect]);
 
 	useEffect(() => {
 		fetchLatestPrice();

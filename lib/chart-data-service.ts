@@ -206,7 +206,7 @@ export async function fetchChartData(
 /**
  * Aggregate data to different timeframes
  */
-export function aggregateToTimeframe(data: OHLCVData[], targetTimeframe: string): OHLCVData[] {
+function aggregateToTimeframe(data: OHLCVData[], targetTimeframe: string): OHLCVData[] {
 	const timeframes: Record<string, number> = {
 		"0.25h": 900000, // 15 minutes in milliseconds
 		"0.5h": 1800000, // 30 minutes in milliseconds
