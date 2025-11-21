@@ -1,7 +1,4 @@
-/**
- * Chart Data Service
- * Fetches OHLCV data from GeckoTerminal API for charting
- */
+"use server";
 
 export interface OHLCVData {
 	time: number; // Unix timestamp

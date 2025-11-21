@@ -7,17 +7,22 @@ import type { ComponentProps } from "react";
 import { useRef } from "react";
 import { useAsync } from "react-use";
 import { useAccount } from "wagmi";
+import { useRouter } from "next/navigation";
 import { verifyTask } from "@/lib/kickoff-service";
 import toast from "react-hot-toast";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
 	connectedNode,
+	href,
+	onClick,
 	...props
 }: {
 	text?: string;
 	connectedNode?: React.ReactNode;
+	href?: string;
 } & ComponentProps<"button">) {
+	const router = useRouter();
 	const { address, isConnected } = useAccount();
 	const lastVerifiedRef = useRef<string | null>(null);
 
@@ -63,19 +68,6 @@ export function ConnectWallet({
 								);
 							}
 
-							if (chain.unsupported) {
-								return (
-									<motion.button
-										onClick={openChainModal}
-										type="button"
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className="w-full inline-flex items-center justify-center rounded-xl border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-red-600 via-red-700 to-red-900 text-white font-bold text-xs md:text-sm"
-									>
-										Wrong network
-									</motion.button>
-								);
-							}
 
 							if (connectedNode) {
 								return (
@@ -86,9 +78,32 @@ export function ConnectWallet({
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
 										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										onClick={(e) => {
+											if (href) {
+												e.preventDefault();
+												router.push(href);
+											}
+											if (onClick) {
+												onClick(e);
+											}
+										}}
 										{...props}
 									>
 										{connectedNode}
+									</motion.button>
+								);
+							}
+							
+							if (chain.unsupported) {
+								return (
+									<motion.button
+										onClick={openChainModal}
+										type="button"
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										className="w-full inline-flex items-center justify-center rounded-xl border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-red-600 via-red-700 to-red-900 text-white font-bold text-xs md:text-sm"
+									>
+										Wrong network
 									</motion.button>
 								);
 							}
