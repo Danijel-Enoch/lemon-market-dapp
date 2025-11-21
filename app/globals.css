@@ -186,10 +186,27 @@ button {
     }
 }
 
+@keyframes scroll-ticker-reverse {
+    0% {
+        transform: translateX(-50%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
 .animate-scroll-ticker {
     animation: scroll-ticker 30s linear infinite;
 }
 
 .animate-scroll-ticker:hover {
+    animation-play-state: paused;
+}
+
+.animate-scroll-ticker-reverse {
+    animation: scroll-ticker-reverse 30s linear infinite;
+}
+
+.animate-scroll-ticker-reverse:hover {
     animation-play-state: paused;
 }
