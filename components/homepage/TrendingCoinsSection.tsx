@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { FC } from "react";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useAsync } from "react-use";
+import { useAsync, useTimeout } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -137,42 +137,39 @@ const PillItem: FC<Pill> = ({
 	);
 };
 
+// Convert API data to Pill format
+const convertToPills = (tokens: TrendingToken[]): Pill[] => {
+	if (!tokens || tokens.length === 0) return [];
+
+	return tokens.slice(0, 12).map((token) => {
+		const changeValue = parseFloat(token.change24h);
+		const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
+
+		return {
+			icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
+			title: token.symbol,
+			price: token.price,
+			change: token.change24h,
+			changeColor,
+			largeIcon: false,
+			tokenData: {
+				symbol: token.symbol,
+				tokenAddress: token.tokenAddress,
+				pairAddress: token.pairAddress,
+				chain: token.chain,
+			},
+		};
+	});
+};
+
 export const TrendingCoinsSection: FC = () => {
+	const [isReady] = useTimeout(15_000);
 	// Fetch trending tokens from API
 	const { value: trendingData, loading } = useAsync(async () => {
-		try {
-			const response = await fetch("/api/trending/tokens");
-			const data = await response.json();
-			return data.data as TrendingToken[];
-		} catch (_error) {
-			return [];
-		}
-	}, []);
-
-	// Convert API data to Pill format
-	const convertToPills = (tokens: TrendingToken[]): Pill[] => {
-		if (!tokens || tokens.length === 0) return [];
-
-		return tokens.slice(0, 12).map((token) => {
-			const changeValue = parseFloat(token.change24h);
-			const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
-
-			return {
-				icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
-				title: token.symbol,
-				price: token.price,
-				change: token.change24h,
-				changeColor,
-				largeIcon: false,
-				tokenData: {
-					symbol: token.symbol,
-					tokenAddress: token.tokenAddress,
-					pairAddress: token.pairAddress,
-					chain: token.chain,
-				},
-			};
-		});
-	};
+		const response = await fetch("/api/trending/tokens");
+		const data = await response.json();
+		return data.data as TrendingToken[];
+	}, [isReady]);
 
 	const pills = convertToPills(trendingData || []);
 	const top = pills.slice(0, Math.ceil(pills.length / 2));

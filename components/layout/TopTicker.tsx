@@ -3,7 +3,7 @@
 import Image from "next/image";
 import type { FC } from "react";
 import { useEffect, useMemo } from "react";
-import { useAsyncFn } from "react-use";
+import { useAsyncFn, useTimeout } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface TickerToken {
@@ -55,6 +55,7 @@ const TickerItem: FC<{ token: TickerToken }> = ({ token }) => {
 };
 
 export const TopTicker: FC = () => {
+	const [isReady] = useTimeout(15_000);
 	const skeletonIds = useMemo(() => Array.from({ length: 16 }).map((_, i) => `skeleton-${i}`), []);
 	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
 		const response = await fetch("/api/trending/tokens");
@@ -75,7 +76,7 @@ export const TopTicker: FC = () => {
 			return tokens;
 		}
 		return [] as TickerToken[];
-	}, []);
+	}, [isReady]);
 
 	useEffect(() => {
 		fetchTickerData();

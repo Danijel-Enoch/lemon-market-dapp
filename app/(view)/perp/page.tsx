@@ -115,7 +115,7 @@ function PerpContent() {
 	});
 
 	const [isLong, setIsLong] = useState(true);
-	const [valueUSDC, setValueUSDC] = useState("100");
+	const [valueUSDC, setValueUSDC] = useState("0");
 	const [leverage, setLeverage] = useState(2);
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
@@ -424,9 +424,9 @@ function PerpContent() {
 								/>
 							)}
 							<div>
-								<div className="text-white font-medium text-sm">
+								{/* <div className="text-white font-medium text-sm">
 									{extractTokenSymbol(tradingPair.symbol)}
-								</div>
+								</div> */}
 								<div className="flex items-center gap-2 mt-0.5">
 									<span className="text-white text-xs">
 										{marketData.baseTokenSymbol}/{marketData.quoteTokenSymbol}

@@ -7,7 +7,7 @@ import {
 	baseAccount,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
-import { sepolia } from "wagmi/chains";
+import { base } from "wagmi/chains";
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "your-project-id";
 
@@ -36,10 +36,10 @@ const connectors = connectorsForWallets(
 
 export const config = createConfig({
 	connectors,
-	chains: [sepolia],
+	chains: [base],
 	ssr: true,
 	transports: {
-		[sepolia.id]: http(),
+		[base.id]: http(),
 	},
 });
 
