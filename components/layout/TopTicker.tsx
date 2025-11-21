@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { FC } from "react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncFn, useTimeout } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -57,6 +57,9 @@ const TickerItem: FC<{ token: TickerToken }> = ({ token }) => {
 export const TopTicker: FC = () => {
 	const [isReady] = useTimeout(15_000);
 	const skeletonIds = useMemo(() => Array.from({ length: 16 }).map((_, i) => `skeleton-${i}`), []);
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const baseRef = useRef<HTMLDivElement | null>(null);
+	const [repeat, setRepeat] = useState(2);
 	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
 		const response = await fetch("/api/trending/tokens");
 		const result = await response.json();
@@ -84,30 +87,68 @@ export const TopTicker: FC = () => {
 		return () => clearInterval(interval);
 	}, [fetchTickerData]);
 
+	useEffect(() => {
+		// Calculate how many times we need to repeat the base set so that the
+		// animated container's width is at least twice the visible container
+		// width. This ensures translateX(-50%) slides exactly one copy and
+		// avoids a visual jump.
+		const recalc = () => {
+			const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+			const baseWidth = baseRef.current?.scrollWidth || 0;
+			const multiplier = baseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / baseWidth));
+			setRepeat(multiplier);
+		};
+
+		recalc();
+		window.addEventListener("resize", recalc);
+		window.addEventListener("load", recalc);
+		return () => {
+			window.removeEventListener("resize", recalc);
+			window.removeEventListener("load", recalc);
+		};
+	}, [tickerTokens?.length]);
+
 	return (
 		<div className="relative overflow-hidden">
 			<div className="bg-neutral-700">
-				<div className="flex gap-0.5 animate-scroll-ticker">
-					{tickerTokens && tickerTokens.length > 0 ? (
-						<>
-							{tickerTokens.map((token, index) => (
-								<TickerItem key={`${token.symbol}-${index}`} token={token} />
-							))}
-							{tickerTokens.map((token, index) => (
-								<TickerItem key={`${token.symbol}-dup-${index}`} token={token} />
-							))}
-						</>
-					) : (
-						<div className="flex items-center gap-0.5">
-							{skeletonIds.map((id) => (
-								<div key={id} className="flex items-center gap-2 px-4 py-2 bg-[#001500]">
+				{/* Hidden base container for measurement */}
+				<div className="sr-only" aria-hidden>
+					<div ref={baseRef} className="inline-flex items-center gap-0.5">
+						{tickerTokens && tickerTokens.length > 0 ? (
+							tickerTokens.map((token, index) => (
+								<TickerItem key={`base-${token.symbol}-${index}`} token={token} />
+							))
+						) : (
+							skeletonIds.map((id) => (
+								<div key={`base-${id}`} className="flex items-center gap-2 px-4 py-2 bg-[#001500]">
 									<Skeleton className="w-4 h-4 rounded-full" />
 									<Skeleton className="h-3 w-12" />
 									<Skeleton className="w-4 h-4" />
 									<Skeleton className="h-3 w-16" />
 								</div>
-							))}
-						</div>
+							))
+						)}
+					</div>
+				</div>
+
+				<div ref={containerRef} className="inline-flex items-center gap-0.5 md:ml-[16px] md:mr-[8px] animate-scroll-ticker whitespace-nowrap">
+					{tickerTokens && tickerTokens.length > 0 ? (
+						Array.from({ length: repeat }).flatMap((_, rep) =>
+							tickerTokens.map((token, index) => (
+								<TickerItem key={`ticker-${rep}-${token.symbol}-${index}`} token={token} />
+							)),
+						)
+					) : (
+						Array.from({ length: repeat }).flatMap((_, rep) =>
+							skeletonIds.map((id) => (
+								<div key={`skeleton-${rep}-${id}`} className="flex items-center gap-2 px-4 py-2 bg-[#001500]">
+									<Skeleton className="w-4 h-4 rounded-full" />
+									<Skeleton className="h-3 w-12" />
+									<Skeleton className="w-4 h-4" />
+									<Skeleton className="h-3 w-16" />
+								</div>
+							)),
+						)
 					)}
 				</div>
 			</div>

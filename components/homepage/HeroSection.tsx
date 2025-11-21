@@ -27,7 +27,7 @@ export const HeroSection: FC = () => {
 					Trade any asset class with up to 100x leverage on the most efficient decentralized
 					perpetual protocol
 				</p>
-				<ConnectWallet text="Start Trading" connectedNode="Start Trading" />
+				<ConnectWallet text="Start Trading" connectedNode="Start Trading" href="/perp" />
 				<p className="mt-72 text-sm text-white/60 animate-fade-up animate-delay-700">
 					Powering over $50M in daily trading volume
 				</p>
