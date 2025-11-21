@@ -195,8 +195,10 @@ export const TrendingCoinsSection: FC = () => {
 			const topBaseWidth = topBaseRef.current?.scrollWidth || 0;
 			const bottomBaseWidth = bottomBaseRef.current?.scrollWidth || 0;
 
-			const topNeeded = topBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / topBaseWidth));
-			const bottomNeeded = bottomBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / bottomBaseWidth));
+			const topNeeded =
+				topBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / topBaseWidth));
+			const bottomNeeded =
+				bottomBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / bottomBaseWidth));
 
 			setTopRepeat(topNeeded);
 			setBottomRepeat(bottomNeeded);
@@ -233,18 +235,21 @@ export const TrendingCoinsSection: FC = () => {
 
 		return (
 			<section className="relative w-full overflow-hidden">
-				<div ref={containerRef} className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
+				<div
+					ref={containerRef}
+					className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center"
+				>
 					{/* Hidden base containers used to measure a single sequence width for top & bottom */}
 					<div className="sr-only" aria-hidden>
 						<div ref={topBaseRef} className="inline-flex items-center gap-5">
 							{skeletonIds.map((id) => (
-									<SkeletonPill key={`skeleton-base-top-${id}`} minWidth={153} />
-								))}
+								<SkeletonPill key={`skeleton-base-top-${id}`} minWidth={153} />
+							))}
 						</div>
 						<div ref={bottomBaseRef} className="inline-flex items-center gap-5 mt-5">
 							{skeletonIds.map((id) => (
-									<SkeletonPill key={`skeleton-base-bottom-${id}`} minWidth={170} />
-								))}
+								<SkeletonPill key={`skeleton-base-bottom-${id}`} minWidth={170} />
+							))}
 						</div>
 					</div>
 
@@ -271,36 +276,45 @@ export const TrendingCoinsSection: FC = () => {
 
 	return (
 		<section className="relative w-full overflow-hidden">
-					<div ref={containerRef} className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
-						{/* Hidden base containers used to measure a single sequence width for top & bottom */}
-						<div className="sr-only" aria-hidden>
-							<div ref={topBaseRef} className="inline-flex items-center gap-5">
-								{top.map((p, i) => (
-									<PillItem key={`top-base-${p.title}-${i}`} {...p} width={153} />
-								))}
-							</div>
-							<div ref={bottomBaseRef} className="inline-flex items-center gap-5 mt-5">
-								{bottom.map((p, i) => (
-									<PillItem key={`bottom-base-${p.title.replace(/\s+/g, "-")}-${i}`} {...p} width={170} />
-								))}
-							</div>
-						</div>
+			<div
+				ref={containerRef}
+				className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center"
+			>
+				{/* Hidden base containers used to measure a single sequence width for top & bottom */}
+				<div className="sr-only" aria-hidden>
+					<div ref={topBaseRef} className="inline-flex items-center gap-5">
+						{top.map((p, i) => (
+							<PillItem key={`top-base-${p.title}-${i}`} {...p} width={153} />
+						))}
+					</div>
+					<div ref={bottomBaseRef} className="inline-flex items-center gap-5 mt-5">
+						{bottom.map((p, i) => (
+							<PillItem
+								key={`bottom-base-${p.title.replace(/\s+/g, "-")}-${i}`}
+								{...p}
+								width={170}
+							/>
+						))}
+					</div>
+				</div>
 
-						<div className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px] animate-scroll-ticker whitespace-nowrap">
-							{Array.from({ length: topRepeat }).flatMap((_, idx) =>
-								top.map((p, i) => (
-									<PillItem key={`top-${p.title}-${idx}-${i}`} {...p} width={153} />
-								)),
-							)}
-						</div>
+				<div className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px] animate-scroll-ticker whitespace-nowrap">
+					{Array.from({ length: topRepeat }).flatMap((_, idx) =>
+						top.map((p, i) => <PillItem key={`top-${p.title}-${idx}-${i}`} {...p} width={153} />),
+					)}
+				</div>
 
-						<div className="inline-flex items-center gap-5 mt-5 animate-scroll-ticker-reverse whitespace-nowrap">
-							{Array.from({ length: bottomRepeat }).flatMap((_, idx) =>
-								bottom.map((p, i) => (
-									<PillItem key={`bottom-${p.title.replace(/\s+/g, "-")}-${idx}-${i}`} {...p} width={170} />
-								)),
-							)}
-						</div>
+				<div className="inline-flex items-center gap-5 mt-5 animate-scroll-ticker-reverse whitespace-nowrap">
+					{Array.from({ length: bottomRepeat }).flatMap((_, idx) =>
+						bottom.map((p, i) => (
+							<PillItem
+								key={`bottom-${p.title.replace(/\s+/g, "-")}-${idx}-${i}`}
+								{...p}
+								width={170}
+							/>
+						)),
+					)}
+				</div>
 			</div>
 			<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 			<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
