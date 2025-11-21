@@ -1,9 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { FC } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useAsync } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -178,6 +178,36 @@ export const TrendingCoinsSection: FC = () => {
 	const top = pills.slice(0, Math.ceil(pills.length / 2));
 	const bottom = pills.slice(Math.ceil(pills.length / 2));
 
+	// stable skeleton IDs
+	const skeletonIds = useMemo(() => Array.from({ length: 18 }).map((_, i) => `skeleton-${i}`), []);
+
+	// Refs for measurement & dynamic repetition
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const topBaseRef = useRef<HTMLDivElement | null>(null);
+	const bottomBaseRef = useRef<HTMLDivElement | null>(null);
+
+	const [topRepeat, setTopRepeat] = useState(2);
+	const [bottomRepeat, setBottomRepeat] = useState(2);
+
+	useEffect(() => {
+		const recalc = () => {
+			const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+			const topBaseWidth = topBaseRef.current?.scrollWidth || 0;
+			const bottomBaseWidth = bottomBaseRef.current?.scrollWidth || 0;
+
+			const topNeeded = topBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / topBaseWidth));
+			const bottomNeeded = bottomBaseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / bottomBaseWidth));
+
+			setTopRepeat(topNeeded);
+			setBottomRepeat(bottomNeeded);
+		};
+
+		recalc();
+		const onResize = () => recalc();
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, [topBaseRef.current, bottomBaseRef.current, top.length, bottom.length]);
+
 	// Show loading state
 	if (loading || pills.length === 0) {
 		const SkeletonPill = ({ minWidth }: { minWidth: number }) => (
@@ -203,43 +233,35 @@ export const TrendingCoinsSection: FC = () => {
 
 		return (
 			<section className="relative w-full overflow-hidden">
-				<div className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
-					<motion.div
-						className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px]"
-						animate={{
-							x: [0, -1000],
-						}}
-						transition={{
-							x: {
-								repeat: Infinity,
-								repeatType: "loop",
-								duration: 30,
-								ease: "linear",
-							},
-						}}
-					>
-						{Array.from({ length: 18 }).map((_, i) => (
-							<SkeletonPill key={`skeleton-top-${Date.now()}-${i}`} minWidth={153} />
-						))}
-					</motion.div>{" "}
-					<motion.div
-						className="inline-flex items-center gap-5 mt-5"
-						animate={{
-							x: [-1000, 0],
-						}}
-						transition={{
-							x: {
-								repeat: Infinity,
-								repeatType: "loop",
-								duration: 30,
-								ease: "linear",
-							},
-						}}
-					>
-						{Array.from({ length: 18 }).map((_, i) => (
-							<SkeletonPill key={`skeleton-bottom-${Date.now()}-${i}`} minWidth={170} />
-						))}
-					</motion.div>
+				<div ref={containerRef} className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
+					{/* Hidden base containers used to measure a single sequence width for top & bottom */}
+					<div className="sr-only" aria-hidden>
+						<div ref={topBaseRef} className="inline-flex items-center gap-5">
+							{skeletonIds.map((id) => (
+									<SkeletonPill key={`skeleton-base-top-${id}`} minWidth={153} />
+								))}
+						</div>
+						<div ref={bottomBaseRef} className="inline-flex items-center gap-5 mt-5">
+							{skeletonIds.map((id) => (
+									<SkeletonPill key={`skeleton-base-bottom-${id}`} minWidth={170} />
+								))}
+						</div>
+					</div>
+
+					<div className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px] animate-scroll-ticker whitespace-nowrap">
+						{Array.from({ length: topRepeat }).flatMap((_, idx) =>
+							skeletonIds.map((id) => (
+								<SkeletonPill key={`skeleton-top-${idx}-${id}`} minWidth={153} />
+							)),
+						)}
+					</div>
+					<div className="inline-flex items-center gap-5 mt-5 animate-scroll-ticker-reverse whitespace-nowrap">
+						{Array.from({ length: bottomRepeat }).flatMap((_, idx) =>
+							skeletonIds.map((id) => (
+								<SkeletonPill key={`skeleton-bottom-${idx}-${id}`} minWidth={170} />
+							)),
+						)}
+					</div>
 				</div>
 				<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 				<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
@@ -249,44 +271,36 @@ export const TrendingCoinsSection: FC = () => {
 
 	return (
 		<section className="relative w-full overflow-hidden">
-			<div className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
-				<motion.div
-					className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px]"
-					animate={{
-						x: [0, -1000],
-					}}
-					transition={{
-						x: {
-							repeat: Infinity,
-							repeatType: "loop",
-							duration: 30,
-							ease: "linear",
-						},
-					}}
-				>
-					{[...top, ...top, ...top].map((p, i) => (
-						<PillItem key={`top-${p.title}-${i}`} {...p} />
-					))}
-				</motion.div>
+					<div ref={containerRef} className="relative mx-auto max-w-7xl h-64 flex flex-col items-start justify-center">
+						{/* Hidden base containers used to measure a single sequence width for top & bottom */}
+						<div className="sr-only" aria-hidden>
+							<div ref={topBaseRef} className="inline-flex items-center gap-5">
+								{top.map((p, i) => (
+									<PillItem key={`top-base-${p.title}-${i}`} {...p} width={153} />
+								))}
+							</div>
+							<div ref={bottomBaseRef} className="inline-flex items-center gap-5 mt-5">
+								{bottom.map((p, i) => (
+									<PillItem key={`bottom-base-${p.title.replace(/\s+/g, "-")}-${i}`} {...p} width={170} />
+								))}
+							</div>
+						</div>
 
-				<motion.div
-					className="inline-flex items-center gap-5 mt-5"
-					animate={{
-						x: [-1000, 0],
-					}}
-					transition={{
-						x: {
-							repeat: Infinity,
-							repeatType: "loop",
-							duration: 30,
-							ease: "linear",
-						},
-					}}
-				>
-					{[...bottom, ...bottom, ...bottom].map((p, i) => (
-						<PillItem key={`bottom-${p.title.replace(/\s+/g, "-")}-${i}`} {...p} />
-					))}
-				</motion.div>
+						<div className="inline-flex items-center gap-5 md:ml-[152px] md:mr-[34px] animate-scroll-ticker whitespace-nowrap">
+							{Array.from({ length: topRepeat }).flatMap((_, idx) =>
+								top.map((p, i) => (
+									<PillItem key={`top-${p.title}-${idx}-${i}`} {...p} width={153} />
+								)),
+							)}
+						</div>
+
+						<div className="inline-flex items-center gap-5 mt-5 animate-scroll-ticker-reverse whitespace-nowrap">
+							{Array.from({ length: bottomRepeat }).flatMap((_, idx) =>
+								bottom.map((p, i) => (
+									<PillItem key={`bottom-${p.title.replace(/\s+/g, "-")}-${idx}-${i}`} {...p} width={170} />
+								)),
+							)}
+						</div>
 			</div>
 			<div className="absolute inset-y-0 left-0 w-[30%] [background:linear-gradient(to_right,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />
 			<div className="absolute inset-y-0 right-0 w-[30%] [background:linear-gradient(to_left,#000_0%,rgba(0,0,0,0.7)_60%,rgba(0,0,0,0)_100%)] pointer-events-none z-10" />

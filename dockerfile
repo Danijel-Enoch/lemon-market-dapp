@@ -20,7 +20,11 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy necessary files only (not entire directory)
 COPY package.json bun.lockb* next.config.ts tsconfig.json ./
 COPY public ./public
-COPY src ./src
+COPY app ./app
+COPY components ./components
+COPY lib ./lib
+COPY hooks ./hooks
+COPY contexts ./contexts
 COPY components.json postcss.config.mjs ./
 
 # Build Next.js with optimizations and increased memory
