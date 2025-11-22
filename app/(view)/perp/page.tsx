@@ -1,5 +1,6 @@
 "use client";
 
+import * as RadixSlider from "@radix-ui/react-slider";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -790,25 +791,22 @@ function PerpContent() {
 									<div className="relative">
 										<div className="flex items-center bg-muted rounded-lg p-4">
 											<div className="flex-1 relative w-full">
-												<div className="h-2 bg-slate-700 rounded-full">
-													<div
-														className="h-0.5 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
-														style={{
-															width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
-														}}
-													></div>
+												<div className="w-full">
+													<RadixSlider.Root
+														className="relative flex items-center select-none touch-none w-full h-6"
+														value={[leverage]}
+														min={1}
+														max={maxLeverage}
+														step={1}
+														onValueChange={(v: number[]) => setLeverageValue(v[0])}
+														aria-label="Leverage"
+													>
+														<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
+															<RadixSlider.Range className="absolute h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full" />
+														</RadixSlider.Track>
+														<RadixSlider.Thumb className="block w-4 h-4 bg-white rounded-full shadow border border-gray-200" />
+													</RadixSlider.Root>
 												</div>
-												<input
-													id="leverage-slider"
-													type="range"
-													min={1}
-													max={maxLeverage}
-													step={1}
-													value={leverage}
-													onChange={(e) => setLeverageValue(Number(e.target.value))}
-													aria-label="Leverage"
-													className="absolute left-0 top-0 w-full h-6 bg-transparent appearance-none slider"
-												/>
 												<div className="flex justify-between text-xs text-muted-foreground mt-2">
 													{[1, 5, 10, 25, 50, maxLeverage].map((lev) => (
 														<span
