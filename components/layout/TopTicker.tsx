@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAsyncFn, useEvent } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -39,12 +39,16 @@ const TickerItem: FC<{ token: TickerToken; isActive?: boolean }> = ({ token, isA
 	return (
 		<div
 			onClick={canNavigate ? handleNavigate : undefined}
-			onKeyDown={canNavigate ? (e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					handleNavigate();
-				}
-			} : undefined}
+			onKeyDown={
+				canNavigate
+					? (e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								handleNavigate();
+							}
+						}
+					: undefined
+			}
 			role={canNavigate ? "button" : undefined}
 			tabIndex={canNavigate ? 0 : undefined}
 			className={`flex items-center gap-2 px-4 py-2 bg-[#001500] ${isActive ? "shadow-[0_0_8px_rgba(77,173,49,0.24)] rounded" : ""} ${canNavigate ? "cursor-pointer hover:bg-[#0b210b] transition-colors" : ""}`}
@@ -99,25 +103,35 @@ export const TopTicker: FC = () => {
 		const result = await response.json();
 
 		if (result.data && Array.isArray(result.data)) {
-				const tokens: TickerToken[] = result.data
+			const tokens: TickerToken[] = result.data
 				.slice(0, 15)
-					.map((token: { symbol: string; change24h?: string | number; logo?: string; pairAddress?: string; tokenAddress?: string; chain?: string; assetType?: string }) => {
-					const changeRaw = token.change24h ?? 0;
-					const priceChange24h =
-						typeof changeRaw === "number"
-							? changeRaw
-							: parseFloat(String(changeRaw).replace("%", ""));
-					return {
-						symbol: token.symbol,
-						priceChange24h,
-						isLong: priceChange24h > 0,
-						logo: token.logo,
+				.map(
+					(token: {
+						symbol: string;
+						change24h?: string | number;
+						logo?: string;
+						pairAddress?: string;
+						tokenAddress?: string;
+						chain?: string;
+						assetType?: string;
+					}) => {
+						const changeRaw = token.change24h ?? 0;
+						const priceChange24h =
+							typeof changeRaw === "number"
+								? changeRaw
+								: parseFloat(String(changeRaw).replace("%", ""));
+						return {
+							symbol: token.symbol,
+							priceChange24h,
+							isLong: priceChange24h > 0,
+							logo: token.logo,
 							pairAddress: token.pairAddress,
 							tokenAddress: token.tokenAddress,
 							chain: token.chain,
 							assetType: token.assetType,
-					};
-				});
+						};
+					},
+				);
 			return tokens;
 		}
 		return [] as TickerToken[];
@@ -189,9 +203,14 @@ export const TopTicker: FC = () => {
 										token={token}
 										isActive={
 											pathname === "/perp" &&
-											(!!token.pairAddress && token.pairAddress.toLowerCase() === (searchParams?.get("pairAddress") || "").toLowerCase()
-												|| !!token.tokenAddress && token.tokenAddress.toLowerCase() === (searchParams?.get("tokenAddress") || "").toLowerCase()
-												|| token.symbol.toUpperCase() === (searchParams?.get("symbol") || "").toUpperCase())
+											((!!token.pairAddress &&
+												token.pairAddress.toLowerCase() ===
+													(searchParams?.get("pairAddress") || "").toLowerCase()) ||
+												(!!token.tokenAddress &&
+													token.tokenAddress.toLowerCase() ===
+														(searchParams?.get("tokenAddress") || "").toLowerCase()) ||
+												token.symbol.toUpperCase() ===
+													(searchParams?.get("symbol") || "").toUpperCase())
 										}
 									/>
 								)),

@@ -1,8 +1,10 @@
 "use client";
 
 import type React from "react";
-import { createContext, type ReactNode, useContext, useEffect, useReducer } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
+import toast from "react-hot-toast";
 import { useAccount, useBalance } from "wagmi";
+import { verifyTask } from "@/lib/kickoff-service";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";
 
 interface AppState {
@@ -22,6 +24,12 @@ interface AppState {
 		minROE: number;
 		includeRewards: boolean;
 	};
+
+	// Kickoff verification state
+	isVerifying: boolean;
+	verifiedAddress: string | null;
+	verificationMessage: string | null;
+	verificationError: string | null;
 }
 
 type AppAction =
@@ -47,6 +55,14 @@ type AppAction =
 	| { type: "SET_BALANCE"; payload: number }
 	| { type: "UPDATE_FILTERS"; payload: Partial<AppState["filters"]> };
 
+// Add verification-specific actions
+type VerificationAction =
+	| { type: "START_VERIFICATION" }
+	| { type: "SET_VERIFIED"; payload: { address: string; message?: string | null } }
+	| { type: "SET_VERIFICATION_ERROR"; payload: { message?: string | null } };
+
+type AppActionExtended = AppAction | VerificationAction;
+
 const initialState: AppState = {
 	selectedPair: null,
 	selectedChain: "ethereum",
@@ -66,7 +82,7 @@ const initialState: AppState = {
 	},
 };
 
-function appReducer(state: AppState, action: AppAction): AppState {
+function appReducer(state: AppState, action: AppActionExtended): AppState {
 	switch (action.type) {
 		case "SET_SELECTED_PAIR":
 			return { ...state, selectedPair: action.payload };
@@ -113,6 +129,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
 			return { ...state, balance: action.payload };
 		case "UPDATE_FILTERS":
 			return { ...state, filters: { ...state.filters, ...action.payload } };
+		case "START_VERIFICATION":
+			return { ...state, isVerifying: true, verificationError: null, verificationMessage: null };
+		case "SET_VERIFIED":
+			return {
+				...state,
+				isVerifying: false,
+				verifiedAddress: action.payload?.address || null,
+				verificationMessage: action.payload?.message || null,
+				verificationError: null,
+			};
+		case "SET_VERIFICATION_ERROR":
+			return {
+				...state,
+				isVerifying: false,
+				verificationError: action.payload?.message || null,
+			};
 		default:
 			return state;
 	}
@@ -120,7 +152,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
 const AppContext = createContext<{
 	state: AppState;
-	dispatch: React.Dispatch<AppAction>;
+	dispatch: React.Dispatch<AppActionExtended>;
 } | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -147,6 +179,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			});
 		}
 	}, [balance]);
+
+	// Deduplicate verification attempts across multiple components by storing last verified address
+	const lastVerifiedRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (!isConnected || !address) return;
+		if (lastVerifiedRef.current === address) return;
+		lastVerifiedRef.current = address;
+
+		(async () => {
+			try {
+				dispatch({ type: "START_VERIFICATION" });
+				toast.loading("Verifying wallet connection...");
+				const { success, message } = await verifyTask(address, "connect_wallet");
+				if (success) {
+					dispatch({ type: "SET_VERIFIED", payload: { address, message } });
+					toast.success(message || "Wallet connected and task verified!");
+				} else {
+					dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message } });
+					toast.error(message || "Verification failed");
+				}
+			} catch (err: unknown) {
+				let msg = "Verification failed";
+				if (err instanceof Error) msg = err.message;
+				dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message: msg } });
+				toast.error(msg);
+			}
+		})();
+	}, [isConnected, address]);
 
 	return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
