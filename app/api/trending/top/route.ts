@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // Keep the list in sync with /api/trending/tokens
-const chainPairs: Record<string, string[]> = {
+const _chainPairs: Record<string, string[]> = {
 	base: [
 		"0x7f1a5b66ba3bb56c4b68cfc353a5e041c9763a4c",
 		"0xfab2f613d2b4c43ae304860f759575359eac0566",
@@ -64,7 +64,7 @@ interface PoolData {
 	} | null;
 }
 
-const fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> => {
+const _fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> => {
 	try {
 		let url: string;
 		if (chain === "solana") {
@@ -99,10 +99,13 @@ export async function GET(req: Request) {
 		const limit = Math.min(Number(url.searchParams.get("limit") || 5), 5);
 
 		const baseUrl = url.origin;
-		const tokensResp = await fetch(`${baseUrl}/api/trending/tokens?chain=${chain}&limit=${limit}&page=${page}&sort=change`, {
-			method: "GET",
-			headers: { Accept: "application/json" },
-		});
+		const tokensResp = await fetch(
+			`${baseUrl}/api/trending/tokens?chain=${chain}&limit=${limit}&page=${page}&sort=change`,
+			{
+				method: "GET",
+				headers: { Accept: "application/json" },
+			},
+		);
 
 		if (!tokensResp.ok) {
 			return Response.json({ error: "Failed to fetch trending tokens" }, { status: 502 });
@@ -128,8 +131,12 @@ export async function GET(req: Request) {
 			symbol: tokenSymbol,
 			name: topToken.name || tokenSymbol,
 			price: topToken.priceUsd ? `$${Number(topToken.priceUsd).toFixed(6)}` : "$0.00",
-			change24h: topToken.change24h ? `${topToken.change24h >= 0 ? "+" : ""}${Number(topToken.change24h).toFixed(2)}%` : "0.00%",
-			volume: topToken.volume24h ? `$${(Number(topToken.volume24h) / 1000000).toFixed(2)}M` : "$0.00",
+			change24h: topToken.change24h
+				? `${topToken.change24h >= 0 ? "+" : ""}${Number(topToken.change24h).toFixed(2)}%`
+				: "0.00%",
+			volume: topToken.volume24h
+				? `$${(Number(topToken.volume24h) / 1000000).toFixed(2)}M`
+				: "$0.00",
 			marketCap: "N/A",
 			trend: (topToken.change24h ?? 0) >= 0 ? "up" : "down",
 			logo: topToken.logo || "",

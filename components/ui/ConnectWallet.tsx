@@ -3,13 +3,13 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
 import { useRef } from "react";
+import toast from "react-hot-toast";
 import { useAsync } from "react-use";
 import { useAccount } from "wagmi";
-import { useRouter } from "next/navigation";
 import { verifyTask } from "@/lib/kickoff-service";
-import toast from "react-hot-toast";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
@@ -68,7 +68,6 @@ export function ConnectWallet({
 								);
 							}
 
-
 							if (connectedNode) {
 								return (
 									// @ts-expect-error motion button props
@@ -93,7 +92,7 @@ export function ConnectWallet({
 									</motion.button>
 								);
 							}
-							
+
 							if (chain.unsupported) {
 								return (
 									<motion.button

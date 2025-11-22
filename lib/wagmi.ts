@@ -1,10 +1,10 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
+	baseAccount,
+	braveWallet,
 	metaMaskWallet,
 	trustWallet,
 	walletConnectWallet,
-	braveWallet,
-	baseAccount,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";

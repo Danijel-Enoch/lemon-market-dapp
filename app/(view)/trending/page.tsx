@@ -148,12 +148,7 @@ export default function Home() {
 	};
 
 	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
-		async (
-			page: number,
-			append: boolean = false,
-			chain?: string,
-			hasMarket?: boolean | null,
-		) => {
+		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
 			const params = new URLSearchParams();
 			params.set("page", String(page));
 			params.set("limit", "10");
@@ -171,7 +166,8 @@ export default function Home() {
 				symbol: t.symbol,
 				name: t.name || t.symbol,
 				price: t.priceUsd ? `$${Number(t.priceUsd).toFixed(6)}` : t.price || "$0.00",
-				change24h: typeof t.change24h === "number" ? `${t.change24h.toFixed(2)}%` : (t.change24h || "0.00%"),
+				change24h:
+					typeof t.change24h === "number" ? `${t.change24h.toFixed(2)}%` : t.change24h || "0.00%",
 				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
 				marketCap: "N/A",
 				trend: (t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
@@ -306,7 +302,12 @@ export default function Home() {
 				if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
 					setCurrentPage((prev) => {
 						const nextPage = prev + 1;
-							fetchTokens(nextPage, true, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
+						fetchTokens(
+							nextPage,
+							true,
+							chainFilter === "all" ? undefined : chainFilter,
+							onlyPerpMarkets,
+						);
 						return nextPage;
 					});
 				}
@@ -331,14 +332,16 @@ export default function Home() {
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
-	const filteredFX = apiData.fx.filter((fx) =>
-		fx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-		fx.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	const filteredFX = apiData.fx.filter(
+		(fx) =>
+			fx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			fx.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
-	const filteredStocks = apiData.stocks.filter((stock) =>
-		stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-		stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	const filteredStocks = apiData.stocks.filter(
+		(stock) =>
+			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
 	const renderTokenTable = (items: Token[], title: string) => (
@@ -383,7 +386,10 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
+									<tr
+										key={item.id}
+										className="border-b border-primary/20 hover:bg-primary/5 transition-colors"
+									>
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -509,7 +515,10 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
+									<tr
+										key={item.id}
+										className="border-b border-primary/20 hover:bg-primary/5 transition-colors"
+									>
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -600,7 +609,10 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
+									<tr
+										key={item.id}
+										className="border-b border-primary/20 hover:bg-primary/5 transition-colors"
+									>
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -802,44 +814,92 @@ export default function Home() {
 							<>
 								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
 									<div className="flex gap-2 items-center">
-										<Button size="sm" variant={chainFilter === "all" ? "default" : "ghost"} onClick={() => {
-											setChainFilter("all");
-											setCurrentPage(1);
-											fetchTokens(1, false, undefined, onlyPerpMarkets);
-										}}>All Chains</Button>
-										{[
-											"base",
-											"ethereum",
-											"bsc",
-											"solana",
-										].map((c) => (
-											<Button key={c} size="sm" variant={chainFilter === c ? "default" : "ghost"} onClick={() => {
-												setChainFilter(c);
+										<Button
+											size="sm"
+											variant={chainFilter === "all" ? "default" : "ghost"}
+											onClick={() => {
+												setChainFilter("all");
 												setCurrentPage(1);
-												fetchTokens(1, false, c, onlyPerpMarkets);
-											}}>{c}</Button>
+												fetchTokens(1, false, undefined, onlyPerpMarkets);
+											}}
+										>
+											All Chains
+										</Button>
+										{["base", "ethereum", "bsc", "solana"].map((c) => (
+											<Button
+												key={c}
+												size="sm"
+												variant={chainFilter === c ? "default" : "ghost"}
+												onClick={() => {
+													setChainFilter(c);
+													setCurrentPage(1);
+													fetchTokens(1, false, c, onlyPerpMarkets);
+												}}
+											>
+												{c}
+											</Button>
 										))}
-										<Button size="sm" variant={onlyPerpMarkets ? "default" : "ghost"} onClick={() => {
-											setOnlyPerpMarkets((v) => {
-												const newVal = !v;
-												setCurrentPage(1);
-												fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, newVal);
-												return newVal;
-											});
-										}}>Perp Markets</Button>
+										<Button
+											size="sm"
+											variant={onlyPerpMarkets ? "default" : "ghost"}
+											onClick={() => {
+												setOnlyPerpMarkets((v) => {
+													const newVal = !v;
+													setCurrentPage(1);
+													fetchTokens(
+														1,
+														false,
+														chainFilter === "all" ? undefined : chainFilter,
+														newVal,
+													);
+													return newVal;
+												});
+											}}
+										>
+											Perp Markets
+										</Button>
 									</div>
 									<div className="flex gap-2 items-center">
-										<Button size="sm" variant={filterType === "all" ? "default" : "ghost"} onClick={() => setFilterType("all")}>All</Button>
-										<Button size="sm" variant={filterType === "tokens" ? "default" : "ghost"} onClick={() => setFilterType("tokens")}>Tokens</Button>
-										<Button size="sm" variant={filterType === "fx" ? "default" : "ghost"} onClick={() => setFilterType("fx")}>Forex</Button>
-										<Button size="sm" variant={filterType === "stocks" ? "default" : "ghost"} onClick={() => setFilterType("stocks")}>Stocks</Button>
+										<Button
+											size="sm"
+											variant={filterType === "all" ? "default" : "ghost"}
+											onClick={() => setFilterType("all")}
+										>
+											All
+										</Button>
+										<Button
+											size="sm"
+											variant={filterType === "tokens" ? "default" : "ghost"}
+											onClick={() => setFilterType("tokens")}
+										>
+											Tokens
+										</Button>
+										<Button
+											size="sm"
+											variant={filterType === "fx" ? "default" : "ghost"}
+											onClick={() => setFilterType("fx")}
+										>
+											Forex
+										</Button>
+										<Button
+											size="sm"
+											variant={filterType === "stocks" ? "default" : "ghost"}
+											onClick={() => setFilterType("stocks")}
+										>
+											Stocks
+										</Button>
 									</div>
 								</div>
 
-								{(filterType === "all" || filterType === "tokens") && filteredTokens.length > 0 &&
+								{(filterType === "all" || filterType === "tokens") &&
+									filteredTokens.length > 0 &&
 									renderTokenTable(filteredTokens, "Top Trending Tokens")}
-								{(filterType === "all" || filterType === "fx") && filteredFX.length > 0 && renderForexTable(filteredFX, "Forex Pairs")}
-								{(filterType === "all" || filterType === "stocks") && filteredStocks.length > 0 && renderStocksTable(filteredStocks, "Top Stocks")}
+								{(filterType === "all" || filterType === "fx") &&
+									filteredFX.length > 0 &&
+									renderForexTable(filteredFX, "Forex Pairs")}
+								{(filterType === "all" || filterType === "stocks") &&
+									filteredStocks.length > 0 &&
+									renderStocksTable(filteredStocks, "Top Stocks")}
 								{filteredTokens.length === 0 &&
 									filteredFX.length === 0 &&
 									filteredStocks.length === 0 && (
@@ -855,7 +915,7 @@ export default function Home() {
 					</div>
 				)}
 
-					{/* Filters were moved above the table content */}
+				{/* Filters were moved above the table content */}
 			</main>
 		</div>
 	);

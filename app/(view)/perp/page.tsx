@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAsyncFn } from "react-use";
 import { formatUnits, parseUnits } from "viem";
@@ -244,7 +244,9 @@ function PerpContent() {
 			setDidDefaultTrendingRedirect(true);
 			(async () => {
 				try {
-					const response = await fetch("/api/trending/tokens?chain=base&limit=5&page=1&sort=change");
+					const response = await fetch(
+						"/api/trending/tokens?chain=base&limit=5&page=1&sort=change",
+					);
 					const data = await response.json();
 					// Support both array-shaped and single object responses for backwards compatibility
 					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;

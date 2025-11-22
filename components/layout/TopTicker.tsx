@@ -68,10 +68,12 @@ export const TopTicker: FC = () => {
 		if (result.data && Array.isArray(result.data)) {
 			const tokens: TickerToken[] = result.data
 				.slice(0, 15)
-				    .map((token: { symbol: string; change24h?: string | number; logo?: string }) => {
-					    const changeRaw = token.change24h ?? 0;
-					    const priceChange24h =
-						typeof changeRaw === "number" ? changeRaw : parseFloat(String(changeRaw).replace("%", ""));
+				.map((token: { symbol: string; change24h?: string | number; logo?: string }) => {
+					const changeRaw = token.change24h ?? 0;
+					const priceChange24h =
+						typeof changeRaw === "number"
+							? changeRaw
+							: parseFloat(String(changeRaw).replace("%", ""));
 					return {
 						symbol: token.symbol,
 						priceChange24h,

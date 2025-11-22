@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { FC } from "react";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsync, useTimeout } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -143,14 +143,16 @@ const convertToPills = (tokens: TrendingToken[]): Pill[] => {
 	if (!tokens || tokens.length === 0) return [];
 
 	return tokens.slice(0, 12).map((token) => {
-		const changeValue = typeof token.change24h === "number" ? token.change24h : parseFloat(token.change24h || "0");
+		const changeValue =
+			typeof token.change24h === "number" ? token.change24h : parseFloat(token.change24h || "0");
 		const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
 
 		return {
 			icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
 			title: token.symbol,
 			price: token.price,
-			change: typeof token.change24h === "number" ? `${token.change24h.toFixed(2)}%` : token.change24h,
+			change:
+				typeof token.change24h === "number" ? `${token.change24h.toFixed(2)}%` : token.change24h,
 			changeColor,
 			largeIcon: false,
 			tokenData: {
@@ -206,7 +208,7 @@ export const TrendingCoinsSection: FC = () => {
 		const onResize = () => recalc();
 		window.addEventListener("resize", onResize);
 		return () => window.removeEventListener("resize", onResize);
-	}, [topBaseRef.current, bottomBaseRef.current, top.length, bottom.length]);
+	}, []);
 
 	// Show loading state
 	if (loading || pills.length === 0) {

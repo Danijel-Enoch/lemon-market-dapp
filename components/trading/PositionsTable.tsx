@@ -101,7 +101,7 @@ export function PositionsTable({
 						<div className="text-xs text-muted-foreground">
 							Transaction is being processed on the blockchain
 						</div>
-					</div>
+					</div>,
 				);
 
 				// Close the dialog
@@ -222,7 +222,7 @@ export function PositionsTable({
 				<div className="text-xs text-muted-foreground">
 					Your transaction has been confirmed on the blockchain
 				</div>
-			</div>
+			</div>,
 		);
 
 		// Refresh positions after confirmation
