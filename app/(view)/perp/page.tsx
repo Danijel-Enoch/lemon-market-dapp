@@ -145,12 +145,12 @@ function PerpContent() {
 	// Compute available margin token amount from contract balance
 	const decimals =
 		decimalsFromChain !== undefined ? Number(decimalsFromChain) : marginTokenDecimals;
-	const availableUSDC = marginBalance
+	const availableMargin = marginBalance
 		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
 		: 0;
 
 	const handleSetMaxMargin = () => {
-		const maxVal = availableUSDC || 0;
+		const maxVal = availableMargin || 0;
 		setMarginValue(String(maxVal.toFixed(2)));
 	};
 
@@ -792,7 +792,7 @@ function PerpContent() {
 											<div className="flex-1 relative w-full">
 												<div className="h-2 bg-slate-700 rounded-full">
 													<div
-														className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
+														className="h-0.5 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
 														style={{
 															width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
 														}}
