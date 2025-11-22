@@ -196,7 +196,9 @@ button {
 }
 
 .animate-scroll-ticker {
-    animation: scroll-ticker 30s linear infinite;
+    /* Allow components to override duration via --scroll-ticker-duration (in seconds)
+       Default to a slower 90s duration to prevent overly fast animations */
+    animation: scroll-ticker var(--scroll-ticker-duration, 90s) linear infinite;
 }
 
 .animate-scroll-ticker:hover {
@@ -204,7 +206,7 @@ button {
 }
 
 .animate-scroll-ticker-reverse {
-    animation: scroll-ticker-reverse 30s linear infinite;
+    animation: scroll-ticker-reverse var(--scroll-ticker-duration, 90s) linear infinite;
 }
 
 .animate-scroll-ticker-reverse:hover {

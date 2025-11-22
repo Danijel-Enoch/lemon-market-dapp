@@ -3,7 +3,7 @@
 import Image from "next/image";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAsyncFn, useTimeout } from "react-use";
+import { useAsyncFn, useEvent } from "react-use";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface TickerToken {
@@ -55,11 +55,12 @@ const TickerItem: FC<{ token: TickerToken }> = ({ token }) => {
 };
 
 export const TopTicker: FC = () => {
-	const [isReady] = useTimeout(15_000);
 	const skeletonIds = useMemo(() => Array.from({ length: 16 }).map((_, i) => `skeleton-${i}`), []);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const baseRef = useRef<HTMLDivElement | null>(null);
 	const [repeat, setRepeat] = useState(2);
+	// animationDuration will be applied as CSS custom property --scroll-ticker-duration
+	const [animationDuration, setAnimationDuration] = useState<string>("90s");
 	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
 		const response = await fetch("/api/trending/tokens");
 		const result = await response.json();
@@ -79,7 +80,7 @@ export const TopTicker: FC = () => {
 			return tokens;
 		}
 		return [] as TickerToken[];
-	}, [isReady]);
+	}, []);
 
 	useEffect(() => {
 		fetchTickerData();
@@ -87,26 +88,28 @@ export const TopTicker: FC = () => {
 		return () => clearInterval(interval);
 	}, [fetchTickerData]);
 
-	useEffect(() => {
+	useEvent("resize", () => {
 		// Calculate how many times we need to repeat the base set so that the
 		// animated container's width is at least twice the visible container
 		// width. This ensures translateX(-50%) slides exactly one copy and
 		// avoids a visual jump.
-		const recalc = () => {
-			const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-			const baseWidth = baseRef.current?.scrollWidth || 0;
-			const multiplier = baseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / baseWidth));
-			setRepeat(multiplier);
-		};
-
-		recalc();
-		window.addEventListener("resize", recalc);
-		window.addEventListener("load", recalc);
-		return () => {
-			window.removeEventListener("resize", recalc);
-			window.removeEventListener("load", recalc);
-		};
-	}, [tickerTokens?.length]);
+		const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+		const baseWidth = baseRef.current?.scrollWidth || 0;
+		const multiplier =
+			baseWidth <= 0 ? 2 : Math.max(2, Math.ceil((containerWidth * 2) / baseWidth));
+		setRepeat(multiplier);
+		// Calculate an animation duration based on how far the animation needs to travel
+		// so the perceived speed (pixels per second) is consistent across screen sizes.
+		// The animation moves translateX(-50%) of the container, which equals half the
+		// total container width. With 'multiplier' copies, the travel distance equals
+		// (baseWidth * multiplier) / 2.
+		const distancePx = (baseWidth * multiplier) / 2 || 0;
+		// Choose a pixels-per-second target to achieve a comfortable speed.
+		// Increase this value to make the ticker move faster, decrease to slow it.
+		const pxPerSecond = 100; // 100 px / sec is a conservative default.
+		const durationSeconds = Math.max(30, Math.round(distancePx / pxPerSecond));
+		setAnimationDuration(`${durationSeconds}s`);
+	});
 
 	return (
 		<div className="relative overflow-hidden">
@@ -114,42 +117,48 @@ export const TopTicker: FC = () => {
 				{/* Hidden base container for measurement */}
 				<div className="sr-only" aria-hidden>
 					<div ref={baseRef} className="inline-flex items-center gap-0.5">
-						{tickerTokens && tickerTokens.length > 0 ? (
-							tickerTokens.map((token, index) => (
-								<TickerItem key={`base-${token.symbol}-${index}`} token={token} />
-							))
-						) : (
-							skeletonIds.map((id) => (
-								<div key={`base-${id}`} className="flex items-center gap-2 px-4 py-2 bg-[#001500]">
-									<Skeleton className="w-4 h-4 rounded-full" />
-									<Skeleton className="h-3 w-12" />
-									<Skeleton className="w-4 h-4" />
-									<Skeleton className="h-3 w-16" />
-								</div>
-							))
-						)}
+						{tickerTokens && tickerTokens.length > 0
+							? tickerTokens.map((token, index) => (
+									<TickerItem key={`base-${token.symbol}-${index}`} token={token} />
+								))
+							: skeletonIds.map((id) => (
+									<div
+										key={`base-${id}`}
+										className="flex items-center gap-2 px-4 py-2 bg-[#001500]"
+									>
+										<Skeleton className="w-4 h-4 rounded-full" />
+										<Skeleton className="h-3 w-12" />
+										<Skeleton className="w-4 h-4" />
+										<Skeleton className="h-3 w-16" />
+									</div>
+								))}
 					</div>
 				</div>
 
-				<div ref={containerRef} className="inline-flex items-center gap-0.5 md:ml-[16px] md:mr-[8px] animate-scroll-ticker whitespace-nowrap">
-					{tickerTokens && tickerTokens.length > 0 ? (
-						Array.from({ length: repeat }).flatMap((_, rep) =>
-							tickerTokens.map((token, index) => (
-								<TickerItem key={`ticker-${rep}-${token.symbol}-${index}`} token={token} />
-							)),
-						)
-					) : (
-						Array.from({ length: repeat }).flatMap((_, rep) =>
-							skeletonIds.map((id) => (
-								<div key={`skeleton-${rep}-${id}`} className="flex items-center gap-2 px-4 py-2 bg-[#001500]">
-									<Skeleton className="w-4 h-4 rounded-full" />
-									<Skeleton className="h-3 w-12" />
-									<Skeleton className="w-4 h-4" />
-									<Skeleton className="h-3 w-16" />
-								</div>
-							)),
-						)
-					)}
+				<div
+					ref={containerRef}
+					className="inline-flex items-center gap-0.5 md:ml-[16px] md:mr-[8px] animate-scroll-ticker whitespace-nowrap"
+					style={{ "--scroll-ticker-duration": animationDuration } as React.CSSProperties}
+				>
+					{tickerTokens && tickerTokens.length > 0
+						? Array.from({ length: repeat }).flatMap((_, rep) =>
+								tickerTokens.map((token, index) => (
+									<TickerItem key={`ticker-${rep}-${token.symbol}-${index}`} token={token} />
+								)),
+							)
+						: Array.from({ length: repeat }).flatMap((_, rep) =>
+								skeletonIds.map((id) => (
+									<div
+										key={`skeleton-${rep}-${id}`}
+										className="flex items-center gap-2 px-4 py-2 bg-[#001500]"
+									>
+										<Skeleton className="w-4 h-4 rounded-full" />
+										<Skeleton className="h-3 w-12" />
+										<Skeleton className="w-4 h-4" />
+										<Skeleton className="h-3 w-16" />
+									</div>
+								)),
+							)}
 				</div>
 			</div>
 		</div>

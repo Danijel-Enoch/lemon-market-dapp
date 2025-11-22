@@ -1,5 +1,3 @@
-"use server";
-
 export interface OHLCVData {
 	time: number; // Unix timestamp
 	open: number;
