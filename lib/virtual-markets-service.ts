@@ -1,6 +1,7 @@
 // GraphQL service for fetching virtual market data
-import { parseLiquidityWith6Decimals } from "./virtual-markets-utils";
+
 import fetchWithTimeout from "./fetch-with-timeout";
+import { parseLiquidityWith6Decimals } from "./virtual-markets-utils";
 export interface VirtualMarket {
 	id: string;
 	marketId: string;
@@ -81,17 +82,21 @@ class VirtualMarketsService {
 		query: string,
 		variables?: Record<string, unknown>,
 	): Promise<GraphQLResponse> {
-		const response = await fetchWithTimeout(this.subgraphUrl, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
+		const response = await fetchWithTimeout(
+			this.subgraphUrl,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: "Bearer 7d3c97e52a57d84a7a12d456559b745b",
+				},
+				body: JSON.stringify({
+					query,
+					variables,
+				}),
 			},
-			body: JSON.stringify({
-				query,
-				variables,
-			}),
-		}, Number(process.env.SUBGRAPH_FETCH_TIMEOUT_MS || 6000));
+			Number(process.env.SUBGRAPH_FETCH_TIMEOUT_MS || 6000),
+		);
 
 		if (!response.ok) {
 			throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);

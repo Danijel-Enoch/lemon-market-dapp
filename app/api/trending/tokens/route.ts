@@ -1,6 +1,6 @@
+import fetchWithTimeout from "@/lib/fetch-with-timeout";
 import { createMarketLookupMap } from "@/lib/virtual-markets-service";
 import { extractTokenAddress } from "@/lib/virtual-markets-utils";
-import fetchWithTimeout from "@/lib/fetch-with-timeout";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,9 +13,20 @@ interface PoolData {
 // Module-level cache to persist across requests (30 second TTL)
 const TOKEN_CACHE_TTL = 30000;
 const POOL_CACHE_TTL = 20000;
-interface CachedItem<T> { data: T; expires: number; }
-const tokenInfoCache = new Map<string, CachedItem<{ address: string | null; symbol: string | null; name: string | null; logo: string | null; }>>();
-const poolCache = new Map<string, CachedItem<{ pools: PoolData[]; total?: number; }>>();
+interface CachedItem<T> {
+	data: T;
+	expires: number;
+}
+const tokenInfoCache = new Map<
+	string,
+	CachedItem<{
+		address: string | null;
+		symbol: string | null;
+		name: string | null;
+		logo: string | null;
+	}>
+>();
+const poolCache = new Map<string, CachedItem<{ pools: PoolData[]; total?: number }>>();
 
 // Cleanup expired cache entries periodically (every 5 minutes)
 setInterval(() => {
@@ -53,10 +64,14 @@ const fetchPoolsFromGecko = async (
 			network,
 		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page}`;
 
-		const response = await fetchWithTimeout(url, {
-			method: "GET",
-			headers: { Accept: "application/json" },
-		}, 4000);
+		const response = await fetchWithTimeout(
+			url,
+			{
+				method: "GET",
+				headers: { Accept: "application/json" },
+			},
+			4000,
+		);
 
 		if (!response.ok) return null;
 
@@ -109,7 +124,10 @@ const fetchDexScreenerPair = async (chain: string, pair: string): Promise<PoolDa
 const getBaseTokenInfo = async (
 	pair: any,
 	chain: string,
-	tokenCache: Map<string, { address: string | null; symbol: string | null; name: string | null; logo: string | null }>,
+	tokenCache: Map<
+		string,
+		{ address: string | null; symbol: string | null; name: string | null; logo: string | null }
+	>,
 ): Promise<{
 	address: string | null;
 	symbol: string | null;
@@ -134,11 +152,12 @@ const getBaseTokenInfo = async (
 				const cached = tokenCache.get(addr.toLowerCase());
 				if (cached) return cached;
 
-					const tokenResp = await fetchWithTimeout(
+				const tokenResp = await fetchWithTimeout(
 					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
 					{ method: "GET", headers: { Accept: "application/json" } },
-				3500,
-				);				if (tokenResp.ok) {
+					3500,
+				);
+				if (tokenResp.ok) {
 					const tokenJson = await tokenResp.json();
 					const tok = tokenJson.data?.attributes;
 					if (tok) {
@@ -209,13 +228,13 @@ const getBaseTokenInfo = async (
 			const tokenResp = await fetchWithTimeout(
 				`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${id}`,
 				{ method: "GET", headers: { Accept: "application/json" } },
-			3500,
+				3500,
 			);
 
 			if (tokenResp.ok) {
 				const tokenJson = await tokenResp.json();
 				const tok = tokenJson.data?.attributes;
-					if (tok) {
+				if (tok) {
 					const result = {
 						address: tok.address || id || null,
 						symbol: tok.symbol || null,
@@ -269,7 +288,11 @@ const fetchGeckoPoolByAddress = async (
 ): Promise<PoolData | null> => {
 	try {
 		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
-		const resp = await fetchWithTimeout(url, { method: "GET", headers: { Accept: "application/json" } }, 4000);
+		const resp = await fetchWithTimeout(
+			url,
+			{ method: "GET", headers: { Accept: "application/json" } },
+			4000,
+		);
 		if (!resp.ok) return null;
 
 		const json = await resp.json();
@@ -334,7 +357,7 @@ async function batchProcess<T, R>(
 	for (let i = 0; i < items.length; i += concurrency) {
 		const batch = items.slice(i, i + concurrency);
 		const batchResults = await Promise.all(
-			batch.map((item, batchIndex) => processor(item, i + batchIndex))
+			batch.map((item, batchIndex) => processor(item, i + batchIndex)),
 		);
 		results.push(...batchResults);
 	}
@@ -365,10 +388,14 @@ export async function GET(req: Request) {
 		} else {
 			// Fallback to DexScreener search
 			try {
-			const dsResp = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/search?q=`, {
-				method: "GET",
-				headers: { Accept: "*/*" },
-			}, 4000);
+				const dsResp = await fetchWithTimeout(
+					`https://api.dexscreener.com/latest/dex/search?q=`,
+					{
+						method: "GET",
+						headers: { Accept: "*/*" },
+					},
+					4000,
+				);
 				if (dsResp.ok) {
 					const dsData = await dsResp.json();
 					results = (dsData.pairs || [])
@@ -394,9 +421,10 @@ export async function GET(req: Request) {
 		}
 
 		// Token info cache scoped to this GET request (avoid repeated network calls for duplicate tokens)
-		const tokenCache = new Map<string, {address: string|null; symbol: string|null; name: string|null; logo: string|null;}>(
-			[],
-		);
+		const tokenCache = new Map<
+			string,
+			{ address: string | null; symbol: string | null; name: string | null; logo: string | null }
+		>([]);
 
 		// Extract token symbols for market lookup
 		const tokenSymbols = results
@@ -447,8 +475,7 @@ export async function GET(req: Request) {
 						),
 						name: baseInfo.name || baseInfo.symbol || tokenSymbol,
 						priceUsd: pair.priceUsd || pair.attributes?.base_token_price_usd || null,
-						change24h:
-							pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0,
+						change24h: pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0,
 						volume24h: pair.volume?.h24 ?? pair.attributes?.volume_usd?.h24 ?? 0,
 						liquidityUsd: pair.liquidity?.usd ?? pair.attributes?.reserve_in_usd ?? 0,
 						trend:

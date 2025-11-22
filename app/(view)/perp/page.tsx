@@ -68,6 +68,8 @@ function PerpContent() {
 		poolCreated?: string;
 		pairAddress?: string;
 		tokenLogo?: string;
+		baseTokenLogo?: string;
+		quoteTokenLogo?: string;
 		baseTokenSymbol?: string;
 		quoteTokenSymbol?: string;
 		baseTokenAddress?: string;
@@ -106,6 +108,7 @@ function PerpContent() {
 	const [marginTokenSymbol, setMarginTokenSymbol] = useState("USDC");
 	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
 	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<number | null>(null);
+	const [marginTokenLogo, setMarginTokenLogo] = useState<string | null>(null);
 
 	const { data: marginBalance, refetch: refetchMarginBalance } = useReadContract({
 		address: marginTokenAddress as `0x${string}`,
@@ -207,6 +210,8 @@ function PerpContent() {
 							? new Date(pair.pairCreatedAt).toLocaleDateString()
 							: undefined,
 						tokenLogo: pair.info?.imageUrl,
+						baseTokenLogo: pair.baseToken?.logo,
+						quoteTokenLogo: pair.quoteToken?.logo,
 						baseTokenSymbol: pair.baseToken?.symbol,
 						quoteTokenSymbol: pair.quoteToken?.symbol,
 						baseTokenAddress: pair.baseToken?.address,
@@ -264,6 +269,51 @@ function PerpContent() {
 			clearInterval(interval);
 		};
 	}, [marginTokenAddress, tradingPair.chain]);
+
+	// Fetch margin token logo. Prefer logos from the marketData (quote/base) when possible,
+	// otherwise query DexScreener tokens endpoint for metadata
+	useEffect(() => {
+		let cancelled = false;
+		async function fetchMarginTokenLogo() {
+			if (!marginTokenAddress) {
+				setMarginTokenLogo(null);
+				return;
+			}
+
+			// Prefer logos already found in marketData
+			if (marketData?.quoteTokenAddress && marketData.quoteTokenAddress === marginTokenAddress) {
+				setMarginTokenLogo(marketData.quoteTokenLogo || null);
+				return;
+			}
+			if (marketData?.baseTokenAddress && marketData.baseTokenAddress === marginTokenAddress) {
+				setMarginTokenLogo(marketData.baseTokenLogo || null);
+				return;
+			}
+
+			try {
+				const chainParam = tradingPair.chain || "base";
+				const resp = await fetch(
+					`https://api.dexscreener.com/latest/dex/tokens/${chainParam}/${marginTokenAddress}`,
+				);
+				if (!resp.ok) {
+					if (!cancelled) setMarginTokenLogo(null);
+					return;
+				}
+				const json = await resp.json();
+				const firstPair = json.pairs?.[0] || json.pair || null;
+				const tokenLogoFound =
+					firstPair?.baseToken?.logo || firstPair?.info?.imageUrl || json?.info?.imageUrl || null;
+				if (!cancelled) setMarginTokenLogo(tokenLogoFound || null);
+			} catch (err) {
+				console.error("Failed to fetch margin token logo:", err);
+				if (!cancelled) setMarginTokenLogo(null);
+			}
+		}
+		fetchMarginTokenLogo();
+		return () => {
+			cancelled = true;
+		};
+	}, [marginTokenAddress, marketData, tradingPair.chain]);
 
 	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
 		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
@@ -796,9 +846,20 @@ function PerpContent() {
 									</div>
 									<div className="relative">
 										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-											<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-												<span className="text-foreground text-xs font-bold">$</span>
-											</div>
+											{marginTokenLogo ? (
+												<Image
+													src={marginTokenLogo}
+													alt={`${marginTokenSymbol} logo`}
+													width={24}
+													height={24}
+													className="w-6 h-6 rounded-full"
+													unoptimized
+												/>
+											) : (
+												<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+													<span className="text-foreground text-xs font-bold">$</span>
+												</div>
+											)}
 										</div>
 										<Input
 											placeholder="100"
