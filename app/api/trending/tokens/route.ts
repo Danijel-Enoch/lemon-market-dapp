@@ -19,7 +19,7 @@ const fetchPoolsFromGecko = async (
 		// Use the network-specific pools endpoint instead of search for better included token data
 		const url = `https://api.geckoterminal.com/api/v2/networks/${encodeURIComponent(
 			network,
-		)}/pools?include=base_token,quote_token,dex&page=${page}`;
+		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page}`;
 
 		const response = await fetch(url, {
 			method: "GET",
@@ -82,7 +82,7 @@ const getBaseTokenInfo = async (
 }> => {
 	// DexScreener format
 	if (pair.baseToken) {
-		const addr = pair.baseToken.address || null;
+		const addr = pair.quoteToken.address || null;
 
 		// Try to fetch enhanced data from GeckoTerminal
 		if (addr && chain) {
@@ -135,7 +135,7 @@ const getBaseTokenInfo = async (
 
 	// GeckoTerminal relationships format
 	if (pair.relationships?.base_token?.data?.id) {
-		const id = pair.relationships.base_token.data.id;
+		const id = pair.relationships.quote_token.data.id;
 
 		try {
 			const tokenResp = await fetch(
@@ -251,9 +251,9 @@ export async function GET(req: Request) {
 		const searchParams = url.searchParams;
 
 		const chain = (searchParams.get("chain") || "base").toLowerCase();
-		const limitParam = Number(searchParams.get("limit") || searchParams.get("perPage") || 15);
+		const limitParam = Number(searchParams.get("limit") || searchParams.get("perPage") || 30);
 		const pageParam = Number(searchParams.get("page") || 1);
-		const limit = Math.min(Math.max(1, Number.isFinite(limitParam) ? limitParam : 15), 15);
+		const limit = Math.min(Math.max(1, Number.isFinite(limitParam) ? limitParam : 30), 30);
 		const page = Math.max(1, Number.isFinite(pageParam) ? pageParam : 1);
 		const sortMode = (searchParams.get("sort") || "liquidity").toLowerCase();
 		const hasMarketFilterRaw = searchParams.get("hasMarket");
@@ -340,7 +340,10 @@ export async function GET(req: Request) {
 
 						return {
 							id: idx + 1,
-							symbol: baseInfo.symbol || tokenSymbol,
+							symbol: (pair?.attributes?.name || baseInfo.symbol || tokenSymbol).replace(
+								/\s+[\.\d]+\%/g,
+								"",
+							),
 							name: baseInfo.name || baseInfo.symbol || tokenSymbol,
 							priceUsd: pair.priceUsd || pair.attributes?.base_token_price_usd || null,
 							change24h:
