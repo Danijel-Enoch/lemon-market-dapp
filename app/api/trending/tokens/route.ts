@@ -85,11 +85,36 @@ const getBaseTokenInfo = async (
 }> => {
 	// DexScreener style
 	if (pair.baseToken) {
+		const addr = pair.baseToken.address || null;
+		const initialLogo = pair.baseToken.logo || pair.info?.imageUrl || pair.info?.header || null;
+		// If we have an address, prefer GeckoTerminal details (logo/name/symbol) when available.
+		if (addr && chain) {
+			try {
+				const tokenResp = await fetch(
+					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
+					{ method: "GET", headers: { Accept: "application/json" } },
+				);
+				if (tokenResp.ok) {
+					const tokenJson = await tokenResp.json();
+					const tok = tokenJson.data?.attributes || tokenJson.data;
+					if (tok) {
+						return {
+							address: addr || null,
+							symbol: tok.symbol || pair.baseToken.symbol || null,
+							name: tok.name || pair.baseToken.name || null,
+							logo: tok.image_url || tok.logo || pair.baseToken.logo || null,
+						};
+					}
+				}
+			} catch (_err) {
+				// ignore gecko fetch errors; fall back to whatever DexScreener provided
+			}
+		}
 		return {
-			address: pair.baseToken.address || null,
+			address: addr || null,
 			symbol: pair.baseToken.symbol || null,
 			name: pair.baseToken.name || null,
-			logo: pair.baseToken.logo || pair.info?.imageUrl || pair.info?.header || null,
+			logo: initialLogo,
 		};
 	}
 
@@ -147,70 +172,71 @@ const getBaseTokenInfo = async (
 	return { address: null, symbol: null, name: null, logo: null };
 };
 
+// Fetch a specific pool from GeckoTerminal by its pool address (useful for Base chain fallbacks)
+const fetchGeckoPoolByAddress = async (
+	network: string,
+	poolAddress: string,
+): Promise<PoolData | null> => {
+	try {
+		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
+		const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+		if (!resp.ok) return null;
+		const json = await resp.json();
+		// Use data and included tokens if available
+		const pool = json.data;
+		if (!pool) return null;
+		const includedBaseToken = json.included?.find(
+			(i: any) => i.type === "token" && i.id === pool.relationships?.base_token?.data?.id,
+		);
+		return {
+			chain: network,
+			data: {
+				attributes: pool.attributes,
+				relationships: pool.relationships,
+				includedBaseToken,
+			},
+		};
+	} catch (_err) {
+		return null;
+	}
+};
+
+// Define a default/fallback static list of pairs (used when external APIs don't return trending data)
+// These are the original hard-coded pairs the app used prior to dynamic fetching.
+const defaultChainPairs: Record<string, string[]> = {
+	base: [
+		"0x7f1a5b66ba3bb56c4b68cfc353a5e041c9763a4c",
+		"0xfab2f613d2b4c43ae304860f759575359eac0566",
+		"0xedc625b74537ee3a10874f53d170e9c17a906b9c",
+		"0x9cda3a1ca4814877cfc50f17cb3f428dd553a53bdb5836c6f181ff24574e4320",
+		"0xaec085e5a5ce8d96a7bdd3eb3a62445d4f6ce703",
+		"0x06d7874037e622d6ef42294cf32eb259806cb1c6",
+	],
+	ethereum: [
+		"0x4acc0598be5dff69635cbbadbc2e30925caa8e9e",
+		"0xd681aeeb7a24a14ccd76016495f9f8e72476dd87",
+		"0xc4704f13d5e08b27b039d53873e813dd2fad99d9",
+		"0x66af30a2a6158fe6c57057800a8efecc32d524ba",
+		"0x69c7bd26512f52bf6f76fab834140d13dda673ca",
+	],
+	bsc: [
+		"0x3e1d78a38235d1fab9cfd02d7eb99cd9bcb19f4f",
+		"0xf0a949d3d93b833c183a27ee067165b6f2c9625e",
+		"0x55d398326f99059ff775485246999027b3197955",
+		"0xd6b652aecb704b0aebec6317315afb90ba641d57",
+		"0xba20fe9506a904a30ebb8b7c348f4969f5a5ea07",
+	],
+	solana: [
+		"2ggvmk4sxcfyumuwtmre6sxwwtnptryaaxlvmaueauav",
+		"avsj8vkxsrgjyaqfovs7menkf8hsdjp3mvdo92ezg5wh",
+		"35tqqmeirwebk6fr5qipwastuaavo32vjnuljpxvsxuk",
+	],
+};
+
 export async function GET(req: Request) {
 	try {
-		// Fetch a specific pool from GeckoTerminal by its pool address (useful for Base chain fallbacks)
-		const fetchGeckoPoolByAddress = async (
-			network: string,
-			poolAddress: string,
-		): Promise<PoolData | null> => {
-			try {
-				const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
-				const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
-				if (!resp.ok) return null;
-				const json = await resp.json();
-				// Use data and included tokens if available
-				const pool = json.data;
-				if (!pool) return null;
-				const includedBaseToken = json.included?.find(
-					(i: any) => i.type === "token" && i.id === pool.relationships?.base_token?.data?.id,
-				);
-				return {
-					chain: network,
-					data: {
-						attributes: pool.attributes,
-						relationships: pool.relationships,
-						includedBaseToken,
-					},
-				};
-			} catch (_err) {
-				return null;
-			}
-		};
-
 		const url = new URL(req.url);
 		const searchParams = url.searchParams;
-		// Define a default/fallback static list of pairs (used when external APIs don't return trending data)
-		// These are the original hard-coded pairs the app used prior to dynamic fetching.
-		const defaultChainPairs: Record<string, string[]> = {
-			base: [
-				"0x7f1a5b66ba3bb56c4b68cfc353a5e041c9763a4c",
-				"0xfab2f613d2b4c43ae304860f759575359eac0566",
-				"0xedc625b74537ee3a10874f53d170e9c17a906b9c",
-				"0x9cda3a1ca4814877cfc50f17cb3f428dd553a53bdb5836c6f181ff24574e4320",
-				"0xaec085e5a5ce8d96a7bdd3eb3a62445d4f6ce703",
-				"0x06d7874037e622d6ef42294cf32eb259806cb1c6",
-			],
-			ethereum: [
-				"0x4acc0598be5dff69635cbbadbc2e30925caa8e9e",
-				"0xd681aeeb7a24a14ccd76016495f9f8e72476dd87",
-				"0xc4704f13d5e08b27b039d53873e813dd2fad99d9",
-				"0x66af30a2a6158fe6c57057800a8efecc32d524ba",
-				"0x69c7bd26512f52bf6f76fab834140d13dda673ca",
-			],
-			bsc: [
-				"0x3e1d78a38235d1fab9cfd02d7eb99cd9bcb19f4f",
-				"0xf0a949d3d93b833c183a27ee067165b6f2c9625e",
-				"0x55d398326f99059ff775485246999027b3197955",
-				"0xd6b652aecb704b0aebec6317315afb90ba641d57",
-				"0xba20fe9506a904a30ebb8b7c348f4969f5a5ea07",
-			],
-			solana: [
-				"2ggvmk4sxcfyumuwtmre6sxwwtnptryaaxlvmaueauav",
-				"avsj8vkxsrgjyaqfovs7menkf8hsdjp3mvdo92ezg5wh",
-				"35tqqmeirwebk6fr5qipwastuaavo32vjnuljpxvsxuk",
-			],
-		};
 
 		const chain = (searchParams.get("chain") || "base").toLowerCase();
 		const limitParam = Number(searchParams.get("limit") || searchParams.get("perPage") || 15);
@@ -290,6 +316,7 @@ export async function GET(req: Request) {
 					.map(async (r, idx) => {
 						const pair = r.data as any;
 						const baseInfo = await getBaseTokenInfo(pair, chain);
+						console.log("baseInfo:", { baseInfo, pair: JSON.stringify(r) });
 						const tokenSymbol =
 							baseInfo.symbol ||
 							baseInfo.name ||
