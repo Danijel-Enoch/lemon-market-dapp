@@ -2,9 +2,11 @@
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
+import { AccountModal } from "@/components/ui/AccountModal";
 import { cn } from "@/lib/utils";
 
 export function ConnectWallet({
@@ -20,6 +22,7 @@ export function ConnectWallet({
 	href?: string;
 } & ComponentProps<"button">) {
 	const router = useRouter();
+ const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 		// verification now handled globally in AppProvider; connect button only opens modals
 
 	return (
@@ -140,7 +143,7 @@ export function ConnectWallet({
 									</motion.button>
 
 									<motion.button
-										onClick={openAccountModal}
+												onClick={() => setIsAccountModalOpen(true)}
 										type="button"
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
@@ -155,6 +158,14 @@ export function ConnectWallet({
 								</div>
 							);
 						})()}
+						{/* Custom account modal */}
+						<AccountModal
+							open={isAccountModalOpen}
+							onOpenChange={setIsAccountModalOpen}
+							account={account}
+							chain={chain}
+							openConnectModal={openConnectModal}
+						/>
 					</div>
 				);
 			}}
