@@ -16,9 +16,10 @@ const fetchPoolsFromGecko = async (
 	perPage: number,
 ): Promise<{ pools: PoolData[]; total?: number } | null> => {
 	try {
-		const url = `https://api.geckoterminal.com/api/v2/search/pools?query=&network=${encodeURIComponent(
+		// Use the network-specific pools endpoint instead of search for better included token data
+		const url = `https://api.geckoterminal.com/api/v2/networks/${encodeURIComponent(
 			network,
-		)}&include=base_token,quote_token,dex&page=${page}&per_page=${perPage}`;
+		)}/pools?include=base_token,quote_token,dex&page=${page}`;
 
 		const response = await fetch(url, {
 			method: "GET",
@@ -44,7 +45,7 @@ const fetchPoolsFromGecko = async (
 			},
 		}));
 
-		return { pools, total: data.meta?.total };
+		return { pools: pools.slice(0, perPage), total: data.meta?.total };
 	} catch {
 		return null;
 	}
@@ -94,11 +95,6 @@ const getBaseTokenInfo = async (
 				if (tokenResp.ok) {
 					const tokenJson = await tokenResp.json();
 					const tok = tokenJson.data?.attributes;
-					console.log("GeckoTerminal token data:", {
-						address: addr,
-						attributes: tok,
-						image_url: tok?.image_url,
-					});
 					if (tok) {
 						return {
 							address: addr,
@@ -113,16 +109,11 @@ const getBaseTokenInfo = async (
 						};
 					}
 				}
-			} catch (err) {
-				console.error("GeckoTerminal fetch error:", err);
+			} catch {
+				// Fall back to DexScreener data
 			}
 		}
 
-		console.log("DexScreener baseToken data:", {
-			address: addr,
-			baseToken: pair.baseToken,
-			info: pair.info,
-		});
 		return {
 			address: addr,
 			symbol: pair.baseToken.symbol || null,
@@ -134,11 +125,6 @@ const getBaseTokenInfo = async (
 	// GeckoTerminal included token format
 	if (pair.includedBaseToken?.attributes) {
 		const a = pair.includedBaseToken.attributes;
-		console.log("GeckoTerminal included token:", {
-			address: a.address,
-			symbol: a.symbol,
-			image_url: a.image_url,
-		});
 		return {
 			address: a.address || null,
 			symbol: a.symbol || null,
@@ -160,11 +146,6 @@ const getBaseTokenInfo = async (
 			if (tokenResp.ok) {
 				const tokenJson = await tokenResp.json();
 				const tok = tokenJson.data?.attributes;
-				console.log("GeckoTerminal token from relationship:", {
-					id,
-					attributes: tok,
-					image_url: tok?.image_url,
-				});
 				if (tok) {
 					return {
 						address: tok.address || id || null,
@@ -174,8 +155,8 @@ const getBaseTokenInfo = async (
 					};
 				}
 			}
-		} catch (err) {
-			console.error("GeckoTerminal relationship fetch error:", err);
+		} catch {
+			// Fall back to minimal data
 		}
 
 		return { address: id || null, symbol: null, name: null, logo: null };
@@ -338,19 +319,13 @@ export async function GET(req: Request) {
 					.map(async (r, idx) => {
 						const pair = r.data;
 						const baseInfo = await getBaseTokenInfo(pair, chain);
-						
-						console.log(`Token ${idx + 1} baseInfo:`, {
-							symbol: baseInfo.symbol,
-							name: baseInfo.name,
-							logo: baseInfo.logo,
-							address: baseInfo.address,
-						});
 
 						const tokenSymbol =
 							baseInfo.symbol ||
 							pair.baseToken?.symbol ||
 							pair.attributes?.base_token_symbol ||
-							pair.attributes?.pool_name ||"";
+							pair.attributes?.pool_name ||
+							"";
 
 						const tokenAddress =
 							extractTokenAddress(pair as Record<string, unknown>) ||
@@ -412,12 +387,6 @@ export async function GET(req: Request) {
 		const end = start + limit;
 		const pagedData = transformedData.slice(start, end);
 		const pagination = { page, limit, total, hasMore: end < total };
-
-		console.log("Final pagedData sample:", pagedData.slice(0, 2).map(d => ({
-			symbol: d.symbol,
-			logo: d.logo,
-			hasLogo: !!d.logo
-		})));
 
 		return Response.json({ data: pagedData, pagination });
 	} catch {
