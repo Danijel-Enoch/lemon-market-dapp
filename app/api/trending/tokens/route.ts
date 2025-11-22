@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { createMarketLookupMap } from "@/lib/virtual-markets-service";
 import { extractTokenAddress } from "@/lib/virtual-markets-utils";
 
@@ -10,7 +9,7 @@ interface PoolData {
 	data: any | null;
 }
 
-// Fetch a page of pools from GeckoTerminal and return simplified pool objects
+// Fetch pools from GeckoTerminal API with pagination
 const fetchPoolsFromGecko = async (
 	network: string,
 	page: number,
@@ -23,21 +22,18 @@ const fetchPoolsFromGecko = async (
 
 		const response = await fetch(url, {
 			method: "GET",
-			headers: {
-				Accept: "application/json",
-			},
+			headers: { Accept: "application/json" },
 		});
-		if (!response.ok) {
-			return null;
-		}
+
+		if (!response.ok) return null;
 
 		const data = await response.json();
 
 		// Build a map of included tokens for lookup
 		const includedMap = new Map<string, any>();
-		(data.included || []).forEach((item: any) => {
+		for (const item of data.included || []) {
 			if (item.type === "token") includedMap.set(item.id, item);
-		});
+		}
 
 		const pools: PoolData[] = (data.data || []).map((pool: any) => ({
 			chain: network,
@@ -48,79 +44,101 @@ const fetchPoolsFromGecko = async (
 			},
 		}));
 
-		return { pools, total: data.meta?.total || undefined };
-	} catch (_err) {
+		return { pools, total: data.meta?.total };
+	} catch {
 		return null;
 	}
 };
 
-// Fetch a specific pair details from DexScreener for fallback situations
+// Fetch a specific pair from DexScreener
 const fetchDexScreenerPair = async (chain: string, pair: string): Promise<PoolData | null> => {
 	try {
-		let url: string;
-		if (chain === "solana") url = `https://api.dexscreener.com/latest/dex/tokens/${pair}`;
-		else url = `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`;
+		const url =
+			chain === "solana"
+				? `https://api.dexscreener.com/latest/dex/tokens/${pair}`
+				: `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`;
 
 		const resp = await fetch(url, { method: "GET" });
 		if (!resp.ok) return null;
+
 		const json = await resp.json();
 		const p = json.pairs?.[0] || json.pair || null;
 		return p ? { chain, data: p } : null;
-	} catch (_err) {
+	} catch {
 		return null;
 	}
 };
 
-// Transform results to a smaller object shape
-// Helper: robustly extract base token info (symbol, name, address, logo)
-// This is async now because we may call external token endpoints to fill missing fields
+// Extract base token information from pair data, fetching from API when needed
 const getBaseTokenInfo = async (
 	pair: any,
 	chain: string,
 ): Promise<{
-	address?: string | null;
-	symbol?: string | null;
-	name?: string | null;
-	logo?: string | null;
+	address: string | null;
+	symbol: string | null;
+	name: string | null;
+	logo: string | null;
 }> => {
-	// DexScreener style
+	// DexScreener format
 	if (pair.baseToken) {
 		const addr = pair.baseToken.address || null;
-		const initialLogo = pair.baseToken.logo || pair.info?.imageUrl || pair.info?.header || null;
-		// If we have an address, prefer GeckoTerminal details (logo/name/symbol) when available.
+
+		// Try to fetch enhanced data from GeckoTerminal
 		if (addr && chain) {
 			try {
 				const tokenResp = await fetch(
 					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
 					{ method: "GET", headers: { Accept: "application/json" } },
 				);
+
 				if (tokenResp.ok) {
 					const tokenJson = await tokenResp.json();
-					const tok = tokenJson.data?.attributes || tokenJson.data;
+					const tok = tokenJson.data?.attributes;
+					console.log("GeckoTerminal token data:", {
+						address: addr,
+						attributes: tok,
+						image_url: tok?.image_url,
+					});
 					if (tok) {
 						return {
-							address: addr || null,
+							address: addr,
 							symbol: tok.symbol || pair.baseToken.symbol || null,
 							name: tok.name || pair.baseToken.name || null,
-							logo: tok.image_url || tok.logo || pair.baseToken.logo || null,
+							logo:
+								tok.image_url ||
+								pair.baseToken.logo ||
+								pair.info?.imageUrl ||
+								pair.info?.header ||
+								null,
 						};
 					}
 				}
-			} catch (_err) {
-				// ignore gecko fetch errors; fall back to whatever DexScreener provided
+			} catch (err) {
+				console.error("GeckoTerminal fetch error:", err);
 			}
 		}
+
+		console.log("DexScreener baseToken data:", {
+			address: addr,
+			baseToken: pair.baseToken,
+			info: pair.info,
+		});
 		return {
-			address: addr || null,
+			address: addr,
 			symbol: pair.baseToken.symbol || null,
 			name: pair.baseToken.name || null,
-			logo: initialLogo,
+			logo: pair.baseToken.logo || pair.info?.imageUrl || pair.info?.header || null,
 		};
 	}
 
-	// GeckoTerminal included token attributes
+	// GeckoTerminal included token format
 	if (pair.includedBaseToken?.attributes) {
 		const a = pair.includedBaseToken.attributes;
+		console.log("GeckoTerminal included token:", {
+			address: a.address,
+			symbol: a.symbol,
+			image_url: a.image_url,
+		});
 		return {
 			address: a.address || null,
 			symbol: a.symbol || null,
@@ -129,50 +147,62 @@ const getBaseTokenInfo = async (
 		};
 	}
 
-	// GeckoTerminal relationships -> base token id
+	// GeckoTerminal relationships format
 	if (pair.relationships?.base_token?.data?.id) {
 		const id = pair.relationships.base_token.data.id;
-		// Sometimes id is the token address; normalize
-		// Try to treat id as address and call geckoterminal token endpoint for more info
+
 		try {
 			const tokenResp = await fetch(
 				`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${id}`,
 				{ method: "GET", headers: { Accept: "application/json" } },
 			);
+
 			if (tokenResp.ok) {
 				const tokenJson = await tokenResp.json();
-				const tok = tokenJson.data?.attributes || tokenJson.data;
+				const tok = tokenJson.data?.attributes;
+				console.log("GeckoTerminal token from relationship:", {
+					id,
+					attributes: tok,
+					image_url: tok?.image_url,
+				});
 				if (tok) {
 					return {
 						address: tok.address || id || null,
 						symbol: tok.symbol || null,
 						name: tok.name || null,
-						logo: tok.image_url || tok.logo || null,
+						logo: tok.image_url || null,
 					};
 				}
 			}
-		} catch (_err) {
-			// ignore
+		} catch (err) {
+			console.error("GeckoTerminal relationship fetch error:", err);
 		}
-		// If gecko token lookup failed, return address hint
+
 		return { address: id || null, symbol: null, name: null, logo: null };
 	}
 
-	// GeckoTerminal attributes fallback - some pools embed name/address in attributes
+	// GeckoTerminal attributes fallback
 	if (pair.attributes) {
 		const attrs = pair.attributes;
+		console.log("GeckoTerminal attributes fallback:", {
+			base_token_address: attrs.base_token_address,
+			base_token_symbol: attrs.base_token_symbol,
+			base_token_image_url: attrs.base_token_image_url,
+			image_url: attrs.image_url,
+		});
 		return {
 			address: attrs.base_token_address || attrs.token_address || attrs.address || null,
 			symbol: attrs.base_token_symbol || attrs.symbol || null,
 			name: attrs.base_token_name || attrs.name || null,
-			logo: attrs.base_token_image_url || attrs.image_url || attrs.logo || null,
+			logo: attrs.base_token_image_url || attrs.image_url || null,
 		};
 	}
 
+	console.log("No matching format found for pair:", Object.keys(pair));
 	return { address: null, symbol: null, name: null, logo: null };
 };
 
-// Fetch a specific pool from GeckoTerminal by its pool address (useful for Base chain fallbacks)
+// Fetch a specific pool from GeckoTerminal by pool address
 const fetchGeckoPoolByAddress = async (
 	network: string,
 	poolAddress: string,
@@ -181,13 +211,15 @@ const fetchGeckoPoolByAddress = async (
 		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
 		const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
 		if (!resp.ok) return null;
+
 		const json = await resp.json();
-		// Use data and included tokens if available
 		const pool = json.data;
 		if (!pool) return null;
+
 		const includedBaseToken = json.included?.find(
 			(i: any) => i.type === "token" && i.id === pool.relationships?.base_token?.data?.id,
 		);
+
 		return {
 			chain: network,
 			data: {
@@ -196,13 +228,12 @@ const fetchGeckoPoolByAddress = async (
 				includedBaseToken,
 			},
 		};
-	} catch (_err) {
+	} catch {
 		return null;
 	}
 };
 
-// Define a default/fallback static list of pairs (used when external APIs don't return trending data)
-// These are the original hard-coded pairs the app used prior to dynamic fetching.
+// Default pairs for fallback when APIs don't return data
 const defaultChainPairs: Record<string, string[]> = {
 	base: [
 		"0x7f1a5b66ba3bb56c4b68cfc353a5e041c9763a4c",
@@ -252,10 +283,10 @@ export async function GET(req: Request) {
 		let results: PoolData[] = [];
 		let total: number | undefined = gecko?.total;
 
-		if (gecko && gecko.pools.length > 0) {
+		if (gecko?.pools.length) {
 			results = gecko.pools;
 		} else {
-			// fallback to DexScreener search
+			// Fallback to DexScreener search
 			try {
 				const dsResp = await fetch(`https://api.dexscreener.com/latest/dex/search?q=`, {
 					method: "GET",
@@ -263,30 +294,22 @@ export async function GET(req: Request) {
 				});
 				if (dsResp.ok) {
 					const dsData = await dsResp.json();
-					const flatPairs = dsData.pairs || [];
-					results = flatPairs
+					results = (dsData.pairs || [])
 						.filter((p: any) => p.chainId?.toLowerCase() === chain)
 						.map((p: any) => ({ chain, data: p }));
 				}
-			} catch (_err) {
-				// ignore fallback error
+			} catch {
+				// Ignore fallback error
 			}
 		}
 
-		// If still empty, fallback to static pair list and try gecko per-pool fetch (useful for Base)
-		if (
-			(!results || results.length === 0) &&
-			defaultChainPairs[chain] &&
-			defaultChainPairs[chain].length > 0
-		) {
-			const pairs = defaultChainPairs[chain] || [];
+		// If still empty, use default pairs
+		if (!results.length && defaultChainPairs[chain]?.length) {
 			const fetchedPools = await Promise.all(
-				pairs.map(async (p) => {
-					// Try gecko network pool fetch first (supports base)
-					const gp = await fetchGeckoPoolByAddress(chain, p);
+				defaultChainPairs[chain].map(async (pairAddress) => {
+					const gp = await fetchGeckoPoolByAddress(chain, pairAddress);
 					if (gp) return gp;
-					// If gecko doesn't work for this chain, try dexscreener per-pair fetch
-					return await fetchDexScreenerPair(chain, p);
+					return await fetchDexScreenerPair(chain, pairAddress);
 				}),
 			);
 			results = fetchedPools.filter((r): r is PoolData => r !== null);
@@ -295,44 +318,47 @@ export async function GET(req: Request) {
 
 		// Extract token symbols for market lookup
 		const tokenSymbols = results
-			.filter((r) => r.data)
 			.map((r) => r.data?.baseToken?.symbol || r.data?.includedBaseToken?.attributes?.symbol)
 			.filter(Boolean) as string[];
 
 		let marketLookupMap = new Map<string, any>();
-		if (tokenSymbols.length > 0) {
+		if (tokenSymbols.length) {
 			try {
 				marketLookupMap = await createMarketLookupMap(tokenSymbols);
-			} catch (_err) {
-				// ignore
+			} catch {
+				// Ignore market lookup errors
 			}
 		}
 
-		// Map and enrich results asynchronously so we can call token endpoints when needed
+		// Transform and enrich results
 		let transformedData = (
 			await Promise.all(
 				results
 					.filter((r) => r.data)
 					.map(async (r, idx) => {
-						const pair = r.data as any;
+						const pair = r.data;
 						const baseInfo = await getBaseTokenInfo(pair, chain);
-						console.log("baseInfo:", { baseInfo, pair: JSON.stringify(r) });
+						
+						console.log(`Token ${idx + 1} baseInfo:`, {
+							symbol: baseInfo.symbol,
+							name: baseInfo.name,
+							logo: baseInfo.logo,
+							address: baseInfo.address,
+						});
+
 						const tokenSymbol =
 							baseInfo.symbol ||
-							baseInfo.name ||
 							pair.baseToken?.symbol ||
 							pair.attributes?.base_token_symbol ||
-							pair.attributes?.base_token_name ||
-							pair.attributes?.pool_name ||
-							`TOKEN-${String(pair.pairAddress || pair.attributes?.address || idx).slice(0, 8)}`;
-						// If extractTokenAddress fails, use the included base token address (e.g. gecko)
-						const extracted = extractTokenAddress(pair as Record<string, unknown>);
+							pair.attributes?.pool_name ||"";
+
 						const tokenAddress =
-							extracted ||
+							extractTokenAddress(pair as Record<string, unknown>) ||
 							baseInfo.address ||
 							pair.relationships?.base_token?.data?.id ||
 							pair.baseToken?.address ||
 							null;
+
 						const virtualMarket = tokenSymbol
 							? marketLookupMap.get(String(tokenSymbol).toUpperCase())
 							: null;
@@ -350,9 +376,9 @@ export async function GET(req: Request) {
 								(pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0) >= 0
 									? "up"
 									: "down",
-							logo: baseInfo.logo || pair.info?.imageUrl || pair.info?.header || "",
-							pairAddress: pair.pairAddress || pair.attributes?.address || pair.attributes?.address,
-							tokenAddress: tokenAddress,
+							logo: baseInfo.logo || null,
+							pairAddress: pair.pairAddress || pair.attributes?.address,
+							tokenAddress,
 							dexId: pair.dexId || pair.attributes?.dex_id || pair.relationships?.dex?.data?.id,
 							chainId: pair.chainId || r.chain,
 							chain: r.chain,
@@ -361,99 +387,40 @@ export async function GET(req: Request) {
 						};
 					}),
 			)
-		).filter((i) => i !== undefined) as any[];
-
-		// Apply chainFilter (if provided as chain param) - already applied but keep for safety
-		const chainFilter = searchParams.get("chain");
-		if (chainFilter) transformedData = transformedData.filter((t) => t.chain === chainFilter);
+		).filter(Boolean);
 
 		// Apply hasMarket filter if specified
 		if (hasMarketFilter !== null) {
 			transformedData = transformedData.filter((t) =>
-				hasMarketFilter ? !!t.hasMarket : !t.hasMarket,
+				hasMarketFilter ? t.hasMarket : !t.hasMarket,
 			);
 		}
 
-		// Sorting
-		if (sortMode === "change")
+		// Sort results
+		if (sortMode === "change") {
 			transformedData.sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0));
-		else if (sortMode === "volume")
+		} else if (sortMode === "volume") {
 			transformedData.sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0));
-		else transformedData.sort((a, b) => (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0));
+		} else {
+			transformedData.sort((a, b) => (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0));
+		}
 
-		// If total not defined from gecko, compute it from the full transformed list
 		total = total ?? transformedData.length;
 
-		// Pagination
+		// Paginate results
 		const start = (page - 1) * limit;
 		const end = start + limit;
 		const pagedData = transformedData.slice(start, end);
 		const pagination = { page, limit, total, hasMore: end < total };
 
-		// Attempt to fill unknown symbols/addresses by doing a per-pool GeckoTerminal or DexScreener lookup
-		const needsFixIndices: number[] = [];
-		pagedData.forEach((d, i) => {
-			if (!d.symbol || d.symbol === "UNKNOWN" || !d.tokenAddress) {
-				needsFixIndices.push(i + start);
-			}
-		});
-
-		if (needsFixIndices.length > 0) {
-			await Promise.all(
-				needsFixIndices.map(async (idx) => {
-					const token = transformedData[idx];
-					if (!token || !token.pairAddress) return;
-					// Try Gecko per-pool
-					const gp = await fetchGeckoPoolByAddress(token.chain || chain, token.pairAddress);
-					if (gp?.data) {
-						const baseInfo = await getBaseTokenInfo(gp.data, chain);
-						token.symbol = baseInfo.symbol || token.symbol;
-						token.name = baseInfo.name || token.name;
-						token.logo = baseInfo.logo || token.logo;
-						token.tokenAddress = token.tokenAddress || baseInfo.address || null;
-						token.hasMarket =
-							token.hasMarket ||
-							!!(baseInfo.symbol && marketLookupMap.get(baseInfo.symbol.toUpperCase()));
-						token.marketId =
-							token.marketId ||
-							(baseInfo.symbol && marketLookupMap.get(baseInfo.symbol.toUpperCase())?.marketId) ||
-							token.marketId;
-						// Update privacy in pagedData view as well
-						const localIndex = idx - start;
-						if (localIndex >= 0 && localIndex < pagedData.length) {
-							pagedData[localIndex] = token;
-						}
-					} else if (token.chain && token.chain !== "base") {
-						// Fallback to DexScreener pair lookup for other networks
-						const dp = await fetchDexScreenerPair(token.chain, token.pairAddress);
-						if (dp?.data) {
-							const basePair = dp.data;
-							const baseToken =
-								basePair.baseToken || basePair.base_token || basePair.base_token_address;
-							// normalize
-							const addr = baseToken?.address || basePair.baseToken?.address || null;
-							token.tokenAddress = token.tokenAddress || addr || token.tokenAddress;
-							token.symbol = token.symbol || basePair.baseToken?.symbol || token.symbol;
-							token.name = token.name || basePair.baseToken?.name || token.name;
-							token.logo = token.logo || basePair.baseToken?.logo || token.logo;
-							const symbolKey = token.symbol ? String(token.symbol).toUpperCase() : null;
-							if (symbolKey) {
-								token.hasMarket = token.hasMarket || !!marketLookupMap.get(symbolKey);
-								token.marketId =
-									token.marketId || marketLookupMap.get(symbolKey)?.marketId || token.marketId;
-							}
-							const localIndex = idx - start;
-							if (localIndex >= 0 && localIndex < pagedData.length) {
-								pagedData[localIndex] = token;
-							}
-						}
-					}
-				}),
-			);
-		}
+		console.log("Final pagedData sample:", pagedData.slice(0, 2).map(d => ({
+			symbol: d.symbol,
+			logo: d.logo,
+			hasLogo: !!d.logo
+		})));
 
 		return Response.json({ data: pagedData, pagination });
-	} catch (_error) {
+	} catch {
 		return Response.json({ error: "Failed to fetch token data" }, { status: 500 });
 	}
 }
