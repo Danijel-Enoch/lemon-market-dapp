@@ -5,11 +5,6 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
-import { useRef } from "react";
-import toast from "react-hot-toast";
-import { useAsync } from "react-use";
-import { useAccount } from "wagmi";
-import { verifyTask } from "@/lib/kickoff-service";
 import { cn } from "@/lib/utils";
 
 export function ConnectWallet({
@@ -25,17 +20,7 @@ export function ConnectWallet({
 	href?: string;
 } & ComponentProps<"button">) {
 	const router = useRouter();
-	const { address, isConnected } = useAccount();
-	const lastVerifiedRef = useRef<string | null>(null);
-
-	useAsync(async () => {
-		if (!isConnected || !address) return;
-		if (lastVerifiedRef.current === address) return;
-		lastVerifiedRef.current = address;
-		toast.loading("Verifying wallet connection...");
-		const { message } = await verifyTask(address, "connect_wallet");
-		toast.success(message || "Wallet connected and task verified!");
-	}, [isConnected, address]);
+		// verification now handled globally in AppProvider; connect button only opens modals
 
 	return (
 		<ConnectButton.Custom>
