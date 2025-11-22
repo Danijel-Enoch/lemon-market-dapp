@@ -341,7 +341,7 @@ export async function GET(req: Request) {
 						return {
 							id: idx + 1,
 							symbol: (pair?.attributes?.name || baseInfo.symbol || tokenSymbol).replace(
-								/\s+[\.\d]+\%/g,
+								/\s+[.\d]+%/g,
 								"",
 							),
 							name: baseInfo.name || baseInfo.symbol || tokenSymbol,

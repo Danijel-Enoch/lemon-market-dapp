@@ -120,7 +120,15 @@ function PerpContent() {
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
-	const maxLeverage = 2;
+	// Compute available USDC amount from contract balance
+	const availableUSDC = usdcBalance ? parseFloat(formatUnits(BigInt(usdcBalance as string), 6)) : 0;
+
+	const handleSetMaxMargin = () => {
+		const maxVal = availableUSDC || 0;
+		setValueUSDC(String(maxVal.toFixed(2)));
+	};
+
+	const maxLeverage = 100;
 
 	// Ticker tokens are fetched via TopTicker in layout
 
@@ -345,8 +353,8 @@ function PerpContent() {
 		}
 	}, [isConfirmed, hash, address, fetchUserPositions]);
 
-	const handleLeverageChange = (delta: number) => {
-		const newLeverage = Math.max(1, Math.min(maxLeverage, leverage + delta));
+	const setLeverageValue = (value: number) => {
+		const newLeverage = Math.max(1, Math.min(maxLeverage, value));
 		setLeverage(newLeverage);
 	};
 
@@ -596,7 +604,7 @@ function PerpContent() {
 						</TabsList>
 					</Tabs>
 					<div className="p-4">
-						{isConnected && (
+						{isConnected && !needsApproval && (
 							<div className="bg-muted p-4 rounded-lg">
 								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
 									Wallet Balance
@@ -667,191 +675,218 @@ function PerpContent() {
 								)}
 							</div>
 						)}
-						<div className="space-y-2">
-							<div className="flex justify-between items-center">
-								<label
-									htmlFor="margin-input"
-									className="text-sm text-primary uppercase font-medium"
-								>
-									Margin (USDC)
-								</label>
-								{valueUSDC && !validateMargin(valueUSDC).valid && (
-									<span className="text-xs text-destructive">
-										{validateMargin(valueUSDC).error}
-									</span>
-								)}
-							</div>
-							<div className="relative">
-								<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-									<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-										<span className="text-foreground text-xs font-bold">$</span>
-									</div>
-								</div>
-								<Input
-									placeholder="100"
-									value={valueUSDC}
-									onChange={(e) => setValueUSDC(e.target.value)}
-									className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
-										valueUSDC && !validateMargin(valueUSDC).valid
-											? "border-red-500 focus:border-red-500"
-											: "focus:border-cyan-500"
-									}`}
-								/>
-								<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-									<div className="w-6 h-6 bg-gray-300 rounded"></div>
-									<span className="text-primary font-medium">USDC</span>
-								</div>
-							</div>
-						</div>
-						<div className="space-y-3">
-							<div className="flex justify-between items-center">
-								<span className="text-sm text-primary uppercase font-medium">Leverage</span>
-								<span className="text-success text-lg font-bold">{leverage}x</span>
-							</div>
-							<div className="relative">
-								<div className="flex items-center space-x-4 bg-muted rounded-lg p-4">
-									<button
-										type="button"
-										onClick={() => handleLeverageChange(-1)}
-										className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
-									>
-										-
-									</button>
-									<div className="flex-1 relative">
-										<div className="h-2 bg-slate-700 rounded-full">
-											<div
-												className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
-												style={{
-													width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
-												}}
-											></div>
-										</div>
-										<div className="flex justify-between text-xs text-muted-foreground mt-2">
-											{Array.from({ length: maxLeverage }, (_, i) => i + 1).map((lev) => (
-												<span
-													key={lev}
-													className={leverage === lev ? "text-primary font-bold" : ""}
-												>
-													{lev}x
+						{!needsApproval && (
+							<>
+								<div className="space-y-2">
+									<div className="flex justify-between items-center">
+										<label
+											htmlFor="margin-input"
+											className="text-sm text-primary uppercase font-medium"
+										>
+											Margin (USDC)
+										</label>
+										<div className="flex items-center gap-3">
+											<span className="text-xs text-muted-foreground">{`Available: $${availableUSDC.toFixed(2)}`}</span>
+											{valueUSDC && !validateMargin(valueUSDC).valid && (
+												<span className="text-xs text-destructive">
+													{validateMargin(valueUSDC).error}
 												</span>
-											))}
+											)}
 										</div>
 									</div>
-									<button
-										type="button"
-										onClick={() => handleLeverageChange(1)}
-										className="w-8 h-8 border border-primary/40 text-primary rounded-full flex items-center justify-center text-lg hover:bg-primary hover:text-black transition-colors"
-									>
-										+
-									</button>
+									<div className="relative">
+										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
+											<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+												<span className="text-foreground text-xs font-bold">$</span>
+											</div>
+										</div>
+										<Input
+											placeholder="100"
+											id="margin-input"
+											value={valueUSDC}
+											onChange={(e) => setValueUSDC(e.target.value)}
+											className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
+												valueUSDC && !validateMargin(valueUSDC).valid
+													? "border-red-500 focus:border-red-500"
+													: "focus:border-cyan-500"
+											}`}
+										/>
+										<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+											<button
+												type="button"
+												onClick={handleSetMaxMargin}
+												className="text-xs px-2 py-1 bg-primary/10 border border-primary/30 rounded text-primary hover:bg-primary/20"
+											>
+												MAX
+											</button>
+											<span className="text-primary font-medium">USDC</span>
+										</div>
+									</div>
 								</div>
-							</div>
-						</div>
-						<div className="space-y-3 text-sm">
-							<div className="flex justify-between">
-								<span className="text-muted-foreground uppercase">
-									Position Size ({extractTokenSymbol(tradingPair.symbol)})
-								</span>
-								<span className="text-foreground">
-									{(
-										(parseFloat(valueUSDC || "0") * leverage) /
-										parseFloat(tradingPair.price.replace(/[$,]/g, ""))
-									).toFixed(6)}
-								</span>
-							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground uppercase">Total Exposure</span>
-								<span className="text-foreground">
-									${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
-								</span>
-							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground uppercase">Open Fee</span>
-								<span className="text-foreground">
-									0.1% (~$
-									{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
-								</span>
-							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground uppercase">
-									Close Fee (Applied only to profits)
-								</span>
-								<span className="text-foreground">2%</span>
-							</div>
-						</div>
-						{(approvalError || transactionError) && (
-							<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
-								<p className="text-destructive text-sm">
-									{approvalError?.message || transactionError?.message}
-								</p>
-							</div>
-						)}
-						{isApprovalConfirmed && approvalHash && !needsApproval && (
-							<div className="p-3 bg-green-900/50 border border-success rounded-lg">
-								<p className="text-success text-sm">
-									✅ USDC approval confirmed! You can now create positions.
-									<a
-										href={getEtherscanUrl(approvalHash)}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary hover:text-cyan-300 underline ml-1"
-									>
-										View transaction
-									</a>
-								</p>
-							</div>
-						)}
-						{hash && (
-							<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
-								<p className="text-primary text-sm">
-									Transaction submitted:
-									<a
-										href={getEtherscanUrl(hash)}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary hover:text-cyan-300 underline ml-1"
-									>
-										{formatTxHash(hash)}
-									</a>
-								</p>
-								{isConfirming && (
-									<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
+								<div className="space-y-3">
+									<div className="flex justify-between items-center">
+										<span className="text-sm text-primary uppercase font-medium">Leverage</span>
+										<span className="text-success text-lg font-bold">{leverage}x</span>
+									</div>
+									<div className="relative">
+										<div className="flex items-center bg-muted rounded-lg p-4">
+											<div className="flex-1 relative w-full">
+												<div className="h-2 bg-slate-700 rounded-full">
+													<div
+														className="h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full"
+														style={{
+															width: `${((leverage - 1) / (maxLeverage - 1)) * 100}%`,
+														}}
+													></div>
+												</div>
+												<input
+													id="leverage-slider"
+													type="range"
+													min={1}
+													max={maxLeverage}
+													step={1}
+													value={leverage}
+														onChange={(e) => setLeverageValue(Number(e.target.value))}
+													aria-label="Leverage"
+													className="absolute left-0 top-0 w-full h-6 bg-transparent appearance-none slider"
+												/>
+												<div className="flex justify-between text-xs text-muted-foreground mt-2">
+													{[1, 5, 10, 25, 50, maxLeverage].map((lev) => (
+														<span
+															key={lev}
+															className={leverage === lev ? "text-primary font-bold" : ""}
+														>
+															{lev}x
+														</span>
+													))}
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div className="space-y-3 text-sm">
+									<div className="flex justify-between">
+										<span
+											className="text-muted-foreground uppercase"
+											title="Estimated position size at current price"
+										>
+											Position Size ({extractTokenSymbol(tradingPair.symbol)})
+										</span>
+										<span className="text-foreground">
+											{(
+												(parseFloat(valueUSDC || "0") * leverage) /
+												parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+											).toFixed(6)}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span
+											className="text-muted-foreground uppercase"
+											title="Total exposure equals margin times leverage"
+										>
+											Total Exposure
+										</span>
+										<span className="text-foreground">
+											${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span
+											className="text-muted-foreground uppercase"
+											title="Fee charged when opening a position"
+										>
+											Open Fee
+										</span>
+										<span className="text-foreground">
+											0.1% (~$
+											{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
+										</span>
+									</div>
+									<div className="flex justify-between">
+										<span
+											className="text-muted-foreground uppercase"
+											title="Fee charged on closing, applied to profits only"
+										>
+											Close Fee (Applied only to profits)
+										</span>
+										<span className="text-foreground">2%</span>
+									</div>
+								</div>
+								{(approvalError || transactionError) && (
+									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
+										<p className="text-destructive text-sm">
+											{approvalError?.message || transactionError?.message}
+										</p>
+									</div>
 								)}
-								{isConfirmed && (
-									<p className="text-success text-sm mt-1">✅ Position created successfully!</p>
+								{isApprovalConfirmed && approvalHash && !needsApproval && (
+									<div className="p-3 bg-green-900/50 border border-success rounded-lg">
+										<p className="text-success text-sm">
+											✅ USDC approval confirmed! You can now create positions.
+											<a
+												href={getEtherscanUrl(approvalHash)}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="text-primary hover:text-cyan-300 underline ml-1"
+											>
+												View transaction
+											</a>
+										</p>
+									</div>
 								)}
-								{error && (
-									<p className="text-destructive text-sm mt-1">
-										❌ Transaction failed: {String(error)}
-									</p>
+								{hash && (
+									<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
+										<p className="text-primary text-sm">
+											Transaction submitted:
+											<a
+												href={getEtherscanUrl(hash)}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="text-primary hover:text-cyan-300 underline ml-1"
+											>
+												{formatTxHash(hash)}
+											</a>
+										</p>
+										{isConfirming && (
+											<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
+										)}
+										{isConfirmed && (
+											<p className="text-success text-sm mt-1">✅ Position created successfully!</p>
+										)}
+										{error && (
+											<p className="text-destructive text-sm mt-1">
+												❌ Transaction failed: {String(error)}
+											</p>
+										)}
+									</div>
 								)}
-							</div>
+								<div className="w-full mt-4">
+									<ConnectWallet
+										disabled={
+											needsApproval ||
+											isCreatingPosition ||
+											isPending ||
+											isConfirming ||
+											isApprovingUSDC ||
+											isApproving ||
+											isApprovalConfirming
+										}
+										onClick={handlePlaceTransaction}
+										connectedNode={
+											needsApproval
+												? "Approve USDC First"
+												: isCreatingPosition
+													? "Preparing Transaction..."
+													: isPending
+														? "Confirm in Wallet..."
+														: isConfirming
+															? "Confirming..."
+															: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
+										}
+									/>
+								</div>
+							</>
 						)}
-						<div className="w-full mt-4">
-							<ConnectWallet
-								disabled={
-									needsApproval ||
-									isCreatingPosition ||
-									isPending ||
-									isConfirming ||
-									isApprovingUSDC ||
-									isApproving ||
-									isApprovalConfirming
-								}
-								onClick={handlePlaceTransaction}
-								connectedNode={
-									needsApproval
-										? "Approve USDC First"
-										: isCreatingPosition
-											? "Preparing Transaction..."
-											: isPending
-												? "Confirm in Wallet..."
-												: isConfirming
-													? "Confirming..."
-													: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
-								}
-							/>
-						</div>
 					</div>
 				</div>
 			</div>
