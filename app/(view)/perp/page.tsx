@@ -69,6 +69,8 @@ function PerpContent() {
 		tokenLogo?: string;
 		baseTokenSymbol?: string;
 		quoteTokenSymbol?: string;
+		baseTokenAddress?: string;
+		quoteTokenAddress?: string;
 	}>();
 
 	const {
@@ -98,30 +100,54 @@ function PerpContent() {
 		query: { enabled: !!address },
 	});
 
-	const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
-		address: usdc as `0x${string}`,
+	// dynamic margin token support: use the pair quote token as the default margin token (fallback to USDC)
+	const [marginTokenAddress, setMarginTokenAddress] = useState(usdc as `0x${string}`);
+	const [marginTokenSymbol, setMarginTokenSymbol] = useState("USDC");
+	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
+
+	const { data: marginBalance, refetch: refetchMarginBalance } = useReadContract({
+		address: marginTokenAddress as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "balanceOf",
 		args: address ? [address] : undefined,
-		query: { enabled: !!address },
+		query: { enabled: !!address && !!marginTokenAddress },
 	});
 
-	const { data: usdcAllowance, refetch: refetchAllowance } = useReadContract({
-		address: usdc as `0x${string}`,
+	const { data: marginAllowance, refetch: refetchAllowance } = useReadContract({
+		address: marginTokenAddress as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "allowance",
 		args: address ? [address, SyntheticPerpetualContract as `0x${string}`] : undefined,
-		query: { enabled: !!address },
+		query: { enabled: !!address && !!marginTokenAddress },
 	});
+
+	const { data: decimalsFromChain } = useReadContract({
+		address: marginTokenAddress as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "decimals",
+		args: [],
+		query: { enabled: !!marginTokenAddress },
+	});
+
+	useEffect(() => {
+		if (decimalsFromChain !== undefined) {
+			setMarginTokenDecimals(Number(decimalsFromChain));
+		}
+	}, [decimalsFromChain]);
 
 	const [isLong, setIsLong] = useState(true);
 	const [valueUSDC, setValueUSDC] = useState("0");
+	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
-	// Compute available USDC amount from contract balance
-	const availableUSDC = usdcBalance ? parseFloat(formatUnits(BigInt(usdcBalance as string), 6)) : 0;
+	// Compute available margin token amount from contract balance
+	const decimals =
+		decimalsFromChain !== undefined ? Number(decimalsFromChain) : marginTokenDecimals;
+	const availableUSDC = marginBalance
+		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
+		: 0;
 
 	const handleSetMaxMargin = () => {
 		const maxVal = availableUSDC || 0;
@@ -177,6 +203,8 @@ function PerpContent() {
 						tokenLogo: pair.info?.imageUrl,
 						baseTokenSymbol: pair.baseToken?.symbol,
 						quoteTokenSymbol: pair.quoteToken?.symbol,
+						baseTokenAddress: pair.baseToken?.address,
+						quoteTokenAddress: pair.quoteToken?.address,
 					});
 				}
 			}
@@ -184,6 +212,20 @@ function PerpContent() {
 			console.error("Error fetching market data:", error);
 		}
 	}, [tradingPair.pairAddress, tradingPair.chain, tradingPair.assetType]);
+
+	// Update margin token address/symbol whenever marketData or tradingPair changes
+	useEffect(() => {
+		if (marketData?.quoteTokenAddress) {
+			setMarginTokenAddress(marketData.quoteTokenAddress as `0x${string}`);
+			setMarginTokenSymbol(marketData.quoteTokenSymbol || "USDC");
+		} else if (tradingPair.tokenAddress) {
+			setMarginTokenAddress(tradingPair.tokenAddress as `0x${string}`);
+			setMarginTokenSymbol(extractTokenSymbol(tradingPair.symbol) || "USDC");
+		} else {
+			setMarginTokenAddress(usdc as `0x${string}`);
+			setMarginTokenSymbol("USDC");
+		}
+	}, [marketData, tradingPair]);
 
 	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
 		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
@@ -309,18 +351,24 @@ function PerpContent() {
 	// Ticker logic moved to TopTicker component
 
 	useEffect(() => {
-		if (usdcAllowance !== undefined && valueUSDC && parseFloat(valueUSDC) > 0) {
-			const marginInWei = parseUnits(valueUSDC, 6); // USDC has 6 decimals
-			const allowanceAmount = BigInt(usdcAllowance as string);
+		// only check allowance and set approval if user has entered a value AND user opted-in auto swap & approve
+		if (!autoSwapAndApprove || !valueUSDC || parseFloat(valueUSDC) <= 0) {
+			setNeedsApproval(false);
+			return;
+		}
+
+		if (marginAllowance !== undefined && valueUSDC && parseFloat(valueUSDC) > 0) {
+			const marginInWei = parseUnits(valueUSDC, decimals);
+			const allowanceAmount = BigInt(marginAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
-		} else if (usdcAllowance !== undefined) {
+		} else if (marginAllowance !== undefined) {
 			// If we have allowance data but no valid margin, assume no approval needed for now
 			setNeedsApproval(false);
 		} else {
 			// If we don't have allowance data yet, assume approval is needed
 			setNeedsApproval(true);
 		}
-	}, [usdcAllowance, valueUSDC]);
+	}, [marginAllowance, valueUSDC, autoSwapAndApprove, decimals]);
 
 	useEffect(() => {
 		if (!isConnected) {
@@ -332,10 +380,10 @@ function PerpContent() {
 		if (isConfirmed && hash) {
 			setLastTransactionHash(hash);
 			// Refetch balances after successful transaction
-			refetchUsdcBalance();
+			refetchMarginBalance();
 			refetchAllowance();
 		}
-	}, [isConfirmed, hash, refetchUsdcBalance, refetchAllowance]);
+	}, [isConfirmed, hash, refetchMarginBalance, refetchAllowance]);
 
 	useEffect(() => {
 		if (isApprovalConfirmed && approvalHash) {
@@ -358,16 +406,16 @@ function PerpContent() {
 		setLeverage(newLeverage);
 	};
 
-	const [{ loading: isApprovingUSDC, error: approvalError }, handleApproveUSDC] =
+	const [{ loading: isApprovingToken, error: approvalError }, handleApproveToken] =
 		useAsyncFn(async () => {
 			if (!isConnected || !address) {
 				throw new Error("Please connect your wallet first");
 			}
 
-			const approvalAmount = parseUnits("1000000", 6);
+			const approvalAmount = parseUnits("1000000", decimals);
 
 			writeContract({
-				address: usdc as `0x${string}`,
+				address: marginTokenAddress as `0x${string}`,
 				abi: ERC20Abi,
 				functionName: "approve",
 				args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount],
@@ -399,6 +447,7 @@ function PerpContent() {
 				margin: valueUSDC,
 				leverage,
 				tokenAddress: tradingPair.tokenAddress,
+				marginTokenAddress: marginTokenAddress,
 				userAddress: address,
 				pairAddress: tradingPair.pairAddress,
 			});
@@ -604,7 +653,7 @@ function PerpContent() {
 						</TabsList>
 					</Tabs>
 					<div className="p-4">
-						{isConnected && needsApproval && (
+						{isConnected && needsApproval && autoSwapAndApprove && (
 							<div className="bg-muted p-4 rounded-lg">
 								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
 									Wallet Balance
@@ -621,13 +670,13 @@ function PerpContent() {
 										</span>
 									</div>
 									<div className="flex justify-between items-center">
-										<span className="text-muted-foreground">USDC:</span>
+										<span className="text-muted-foreground">{marginTokenSymbol}:</span>
 										<span className="text-foreground font-medium">
-											{usdcBalance
-												? `${parseFloat(formatUnits(BigInt(usdcBalance as string), 6)).toFixed(
-														2,
-													)} USDC`
-												: "0.00 USDC"}
+											{marginBalance
+												? `${parseFloat(
+														formatUnits(BigInt(marginBalance as string), decimals),
+													).toFixed(Math.min(6, decimals))} ${marginTokenSymbol}`
+												: `0.00 ${marginTokenSymbol}`}
 										</span>
 									</div>
 								</div>
@@ -637,7 +686,7 @@ function PerpContent() {
 							<div className="bg-muted p-4 rounded-lg">
 								<div className="flex justify-between items-center mb-3">
 									<h4 className="text-sm text-muted-foreground uppercase font-medium">
-										USDC Approval
+										{marginTokenSymbol} Approval
 									</h4>
 									<span
 										className={`text-xs px-2 py-1 rounded ${
@@ -653,24 +702,30 @@ function PerpContent() {
 								{needsApproval ? (
 									<div className="space-y-3">
 										<p className="text-sm text-muted-foreground">
-											Approve USDC spending to create positions
+											Approve {marginTokenSymbol} spending to create positions
 										</p>
 										<Button
-											onClick={handleApproveUSDC}
-											disabled={isApprovingUSDC || isApproving || isApprovalConfirming}
+											onClick={handleApproveToken}
+											disabled={
+												isApprovingToken ||
+												isApproving ||
+												isApprovalConfirming ||
+												!valueUSDC ||
+												parseFloat(valueUSDC) <= 0
+											}
 											className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 										>
-											{isApprovingUSDC || isApproving
+											{isApprovingToken || isApproving
 												? "Confirm in Wallet..."
 												: isApprovalConfirming
 													? "Confirming..."
-													: "Approve USDC"}
+													: `Approve ${marginTokenSymbol}`}
 										</Button>
 									</div>
 								) : (
 									<div className="flex items-center space-x-2">
 										<div className="w-2 h-2 bg-green-400 rounded-full"></div>
-										<p className="text-sm text-success">USDC spending approved</p>
+										<p className="text-sm text-success">{marginTokenSymbol} spending approved</p>
 									</div>
 								)}
 							</div>
@@ -683,15 +738,29 @@ function PerpContent() {
 											htmlFor="margin-input"
 											className="text-sm text-primary uppercase font-medium"
 										>
-											Margin (USDC)
+											Margin ({marginTokenSymbol})
 										</label>
 										<div className="flex items-center gap-3">
-											<span className="text-xs text-muted-foreground">{`Available: $${availableUSDC.toFixed(2)}`}</span>
+											<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
+												formatUnits(BigInt((marginBalance as string) || "0"), decimals),
+											).toFixed(Math.min(6, decimals))} ${marginTokenSymbol}`}</span>
 											{valueUSDC && !validateMargin(valueUSDC).valid && (
 												<span className="text-xs text-destructive">
 													{validateMargin(valueUSDC).error}
 												</span>
 											)}
+											<div className="flex items-center gap-2 ml-3">
+												<input
+													id="auto-swap-approve"
+													type="checkbox"
+													checked={autoSwapAndApprove}
+													onChange={(e) => setAutoSwapAndApprove(e.target.checked)}
+													className="w-4 h-4 rounded border bg-muted"
+												/>
+												<label htmlFor="auto-swap-approve" className="text-xs">
+													Auto swap & approve
+												</label>
+											</div>
 										</div>
 									</div>
 									<div className="relative">
@@ -719,7 +788,7 @@ function PerpContent() {
 											>
 												MAX
 											</button>
-											<span className="text-primary font-medium">USDC</span>
+											<span className="text-primary font-medium">{marginTokenSymbol}</span>
 										</div>
 									</div>
 								</div>
@@ -746,7 +815,7 @@ function PerpContent() {
 													max={maxLeverage}
 													step={1}
 													value={leverage}
-														onChange={(e) => setLeverageValue(Number(e.target.value))}
+													onChange={(e) => setLeverageValue(Number(e.target.value))}
 													aria-label="Leverage"
 													className="absolute left-0 top-0 w-full h-6 bg-transparent appearance-none slider"
 												/>
@@ -822,7 +891,7 @@ function PerpContent() {
 								{isApprovalConfirmed && approvalHash && !needsApproval && (
 									<div className="p-3 bg-green-900/50 border border-success rounded-lg">
 										<p className="text-success text-sm">
-											✅ USDC approval confirmed! You can now create positions.
+											✅ {marginTokenSymbol} approval confirmed! You can now create positions.
 											<a
 												href={getEtherscanUrl(approvalHash)}
 												target="_blank"
@@ -867,7 +936,7 @@ function PerpContent() {
 											isCreatingPosition ||
 											isPending ||
 											isConfirming ||
-											isApprovingUSDC ||
+											isApprovingToken ||
 											isApproving ||
 											isApprovalConfirming
 										}
@@ -875,7 +944,7 @@ function PerpContent() {
 										// className={!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined}
 										connectedNode={
 											needsApproval
-												? "Approve USDC First"
+												? `Approve ${marginTokenSymbol} First`
 												: isCreatingPosition
 													? "Preparing Transaction..."
 													: isPending

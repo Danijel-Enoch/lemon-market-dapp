@@ -45,7 +45,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
-import { SyntheticAbi, SyntheticPerpetualContract } from "@/lib/contracts";
+import { ERC20Abi, SyntheticAbi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import { getTokenPriceService } from "@/lib/token-price-service";
 import { calculateVirtualFundingForMarket } from "@/lib/volatility-utils";
 
@@ -56,6 +56,7 @@ interface CreatePositionRequest {
 	margin: string; // in USDC
 	leverage: number;
 	tokenAddress: string;
+	marginTokenAddress?: string; // optional - which ERC20 is used for margin
 	userAddress: string;
 	pairAddress?: string; // Optional pair address for more accurate price fetching
 }
@@ -245,6 +246,12 @@ export async function POST(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
+		if (body.marginTokenAddress && !/^0x[a-fA-F0-9]{40}$/.test(body.marginTokenAddress)) {
+			return NextResponse.json(
+				{ success: false, error: "Invalid margin token address format" },
+				{ status: 400 },
+			);
+		}
 
 		// Validate leverage bounds (check contract MAX_LEVERAGE)
 		if (body.leverage <= 0 || body.leverage > 100) {
@@ -349,8 +356,24 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Convert margin to wei (USDC has 6 decimals)
-		const marginInWei = parseUnits(body.margin, 6);
+		// Determine margin token decimals
+		const marginTokenAddr = body.marginTokenAddress || (usdc as `0x${string}`);
+		let marginDecimals = 6;
+		try {
+			const decimalsRead = await publicClient.readContract({
+				address: marginTokenAddr as `0x${string}`,
+				abi: ERC20Abi,
+				functionName: "decimals",
+				args: [],
+			});
+			marginDecimals = Number(decimalsRead);
+		} catch (_error) {
+			// If we fail to read decimals, default to 6 (USDC-like)
+			marginDecimals = 6;
+		}
+
+		// Convert margin to wei using discovered decimals
+		const marginInWei = parseUnits(body.margin, marginDecimals);
 
 		// Encode the function call data
 		let calldata: `0x${string}`;

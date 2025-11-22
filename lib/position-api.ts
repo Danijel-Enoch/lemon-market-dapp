@@ -10,6 +10,7 @@ export interface CreatePositionRequest {
 	margin: string; // in USDC
 	leverage: number;
 	tokenAddress: string;
+	marginTokenAddress?: string; // Optional (where margin comes from), default USDC on backend
 	userAddress: string;
 	pairAddress?: string; // optional pair address for accurate pricing
 }
@@ -105,11 +106,11 @@ export function validateMargin(margin: string): {
 	}
 
 	if (amount < 10) {
-		return { valid: false, error: "Minimum margin is $10 USDC" };
+		return { valid: false, error: "Minimum margin is $10" };
 	}
 
 	if (amount > 100000) {
-		return { valid: false, error: "Maximum margin is $100,000 USDC" };
+		return { valid: false, error: "Maximum margin is $100,000" };
 	}
 
 	return { valid: true };

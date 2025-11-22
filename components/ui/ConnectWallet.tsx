@@ -5,12 +5,12 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import { useAsync } from "react-use";
 import { useAccount } from "wagmi";
 import { verifyTask } from "@/lib/kickoff-service";
+import { cn } from "@/lib/utils";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
@@ -124,8 +124,9 @@ export function ConnectWallet({
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
 										className={cn(
-											"inline-flex items-center justify-center rounded-xl border border-white/60 gap-2 px-2.5 md:px-4 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											props.className || "bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90",
+											"inline-flex items-center justify-center gap-2 px-2.5 md:px-4 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											// " rounded-xl border border-white/60 ",
+											// props.className || "bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90",
 										)}
 										// {...props}
 									>
