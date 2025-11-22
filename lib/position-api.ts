@@ -7,7 +7,7 @@ import { getTokenPriceService } from "./token-price-service";
 export interface CreatePositionRequest {
 	tokenSymbol: string;
 	isLong: boolean;
-	margin: string; // in USDC
+	margin: string; // margin amount in token units (e.g., "100.0") - see marginTokenAddress
 	leverage: number;
 	tokenAddress: string;
 	marginTokenAddress?: string; // Optional (where margin comes from), default USDC on backend

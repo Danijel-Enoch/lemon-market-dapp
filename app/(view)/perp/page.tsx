@@ -466,7 +466,11 @@ function PerpContent() {
 				throw new Error("Please connect your wallet first");
 			}
 
-			const marginValidation = validateMargin(marginValue);
+			// Convert margin token amount to USD for validation (if price available)
+			const marginUsdForValidation = marginTokenPriceUsd
+				? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
+				: marginValue;
+			const marginValidation = validateMargin(marginUsdForValidation);
 			if (!marginValidation.valid) {
 				throw new Error(marginValidation.error || "Invalid margin");
 			}
