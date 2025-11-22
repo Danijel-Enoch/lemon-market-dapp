@@ -29,7 +29,7 @@ import {
 	formatPriceChange,
 	getForexPrice,
 	getStockPrice,
-	getTokenPriceByPair
+	getTokenPriceByPair,
 } from "@/lib/oracle";
 import {
 	createPosition,
@@ -150,9 +150,10 @@ function PerpContent() {
 	const availableMargin = marginBalance
 		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
 		: 0;
-	const availableMarginUsd = Number.isFinite(Number(availableMargin)) && marginTokenPriceUsd
-		? availableMargin * (marginTokenPriceUsd || 0)
-		: 0;
+	const availableMarginUsd =
+		Number.isFinite(Number(availableMargin)) && marginTokenPriceUsd
+			? availableMargin * (marginTokenPriceUsd || 0)
+			: 0;
 
 	const handleSetMaxMargin = () => {
 		const maxVal = availableMargin || 0;
@@ -875,7 +876,7 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											{(
-												((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * leverage) /
+												(parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1) * leverage) /
 												parseFloat(tradingPair.price.replace(/[$,]/g, ""))
 											).toFixed(6)}
 										</span>
@@ -888,7 +889,12 @@ function PerpContent() {
 											Total Exposure
 										</span>
 										<span className="text-foreground">
-											${(((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * leverage)).toLocaleString()}
+											$
+											{(
+												parseFloat(marginValue || "0") *
+												(marginTokenPriceUsd || 1) *
+												leverage
+											).toLocaleString()}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -900,7 +906,12 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											0.1% (~$
-											{(((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * 0.001).toFixed(2))})
+											{(
+												parseFloat(marginValue || "0") *
+												(marginTokenPriceUsd || 1) *
+												0.001
+											).toFixed(2)}
+											)
 										</span>
 									</div>
 									<div className="flex justify-between">

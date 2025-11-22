@@ -34,14 +34,14 @@ export const revalidate = 0;
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
-    createPublicClient,
-    createWalletClient,
-    encodeFunctionData,
-    encodePacked,
-    http,
-    keccak256,
-    parseUnits,
-    recoverMessageAddress,
+	createPublicClient,
+	createWalletClient,
+	encodeFunctionData,
+	encodePacked,
+	http,
+	keccak256,
+	parseUnits,
+	recoverMessageAddress,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
@@ -378,12 +378,14 @@ export async function POST(request: NextRequest) {
 
 		// Fetch margin token USD price for validation and USD exposure conversion
 		let marginTokenPriceData:
-			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>['getTokenPriceWithAddress']>>
+			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>["getTokenPriceWithAddress"]>>
 			| undefined;
 		let marginTokenUsdPrice = 1;
 		try {
 			const tokenPriceService = getTokenPriceService();
-			marginTokenPriceData = await tokenPriceService.getTokenPriceWithAddress(marginTokenAddr as `0x${string}`);
+			marginTokenPriceData = await tokenPriceService.getTokenPriceWithAddress(
+				marginTokenAddr as `0x${string}`,
+			);
 			if (marginTokenPriceData?.data?.bestPriceUSD?.price) {
 				marginTokenUsdPrice = parseFloat(marginTokenPriceData.data.bestPriceUSD.price);
 			} else if (marginTokenPriceData?.data?.averagePrice) {
@@ -401,7 +403,10 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ success: false, error: "Minimum margin is $10" }, { status: 400 });
 		}
 		if (marginUsdAmount > 100000) {
-			return NextResponse.json({ success: false, error: "Maximum margin is $100,000" }, { status: 400 });
+			return NextResponse.json(
+				{ success: false, error: "Maximum margin is $100,000" },
+				{ status: 400 },
+			);
 		}
 
 		// Encode the function call data
@@ -494,7 +499,8 @@ export async function GET() {
 			requiredParams: {
 				tokenSymbol: 'string (e.g., "ETH", "BTC")',
 				isLong: "boolean",
-				margin: 'string (amount in token units - specify marginTokenAddress to indicate which token)',
+				margin:
+					"string (amount in token units - specify marginTokenAddress to indicate which token)",
 				leverage: "number (1-100)",
 				userAddress: "string (0x...)",
 				pairAddress: "string (optional, for accurate pricing)",
