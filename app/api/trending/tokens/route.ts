@@ -1,5 +1,6 @@
 import { createMarketLookupMap } from "@/lib/virtual-markets-service";
 import { extractTokenAddress } from "@/lib/virtual-markets-utils";
+import fetchWithTimeout from "@/lib/fetch-with-timeout";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,10 +22,10 @@ const fetchPoolsFromGecko = async (
 			network,
 		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page}`;
 
-		const response = await fetch(url, {
+		const response = await fetchWithTimeout(url, {
 			method: "GET",
 			headers: { Accept: "application/json" },
-		});
+		}, 6000);
 
 		if (!response.ok) return null;
 
@@ -59,7 +60,7 @@ const fetchDexScreenerPair = async (chain: string, pair: string): Promise<PoolDa
 				? `https://api.dexscreener.com/latest/dex/tokens/${pair}`
 				: `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`;
 
-		const resp = await fetch(url, { method: "GET" });
+		const resp = await fetchWithTimeout(url, { method: "GET" }, 6000);
 		if (!resp.ok) return null;
 
 		const json = await resp.json();
@@ -74,6 +75,7 @@ const fetchDexScreenerPair = async (chain: string, pair: string): Promise<PoolDa
 const getBaseTokenInfo = async (
 	pair: any,
 	chain: string,
+	tokenCache: Map<string, { address: string | null; symbol: string | null; name: string | null; logo: string | null }>,
 ): Promise<{
 	address: string | null;
 	symbol: string | null;
@@ -87,9 +89,15 @@ const getBaseTokenInfo = async (
 		// Try to fetch enhanced data from GeckoTerminal
 		if (addr && chain) {
 			try {
-				const tokenResp = await fetch(
+				// Check cache first
+				// Note: tokenCache is attached to the outer scope where GET is executed
+				const cached = tokenCache.get(addr.toLowerCase());
+				if (cached) return cached;
+
+						const tokenResp = await fetchWithTimeout(
 					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
 					{ method: "GET", headers: { Accept: "application/json" } },
+				4500,
 				);
 
 				if (tokenResp.ok) {
@@ -114,12 +122,15 @@ const getBaseTokenInfo = async (
 			}
 		}
 
-		return {
+		const res = {
 			address: addr,
 			symbol: pair.baseToken.symbol || null,
 			name: pair.baseToken.name || null,
 			logo: pair.baseToken.logo || pair.info?.imageUrl || pair.info?.header || null,
 		};
+
+		if (addr) tokenCache.set(addr.toLowerCase(), res);
+		return res;
 	}
 
 	// GeckoTerminal included token format
@@ -138,15 +149,19 @@ const getBaseTokenInfo = async (
 		const id = pair.relationships.quote_token.data.id;
 
 		try {
-			const tokenResp = await fetch(
+			const cached = tokenCache.get(pair.includedBaseToken?.attributes?.address?.toLowerCase?.());
+			if (cached) return cached;
+
+			const tokenResp = await fetchWithTimeout(
 				`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${id}`,
 				{ method: "GET", headers: { Accept: "application/json" } },
+			4500,
 			);
 
 			if (tokenResp.ok) {
 				const tokenJson = await tokenResp.json();
 				const tok = tokenJson.data?.attributes;
-				if (tok) {
+					if (tok) {
 					return {
 						address: tok.address || id || null,
 						symbol: tok.symbol || null,
@@ -159,7 +174,9 @@ const getBaseTokenInfo = async (
 			// Fall back to minimal data
 		}
 
-		return { address: id || null, symbol: null, name: null, logo: null };
+		const res = { address: id || null, symbol: null, name: null, logo: null };
+		if (id) tokenCache.set(String(id).toLowerCase(), res);
+		return res;
 	}
 
 	// GeckoTerminal attributes fallback
@@ -190,7 +207,7 @@ const fetchGeckoPoolByAddress = async (
 ): Promise<PoolData | null> => {
 	try {
 		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
-		const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+		const resp = await fetchWithTimeout(url, { method: "GET", headers: { Accept: "application/json" } }, 6000);
 		if (!resp.ok) return null;
 
 		const json = await resp.json();
@@ -269,10 +286,10 @@ export async function GET(req: Request) {
 		} else {
 			// Fallback to DexScreener search
 			try {
-				const dsResp = await fetch(`https://api.dexscreener.com/latest/dex/search?q=`, {
+				const dsResp = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/search?q=`, {
 					method: "GET",
 					headers: { Accept: "*/*" },
-				});
+				}, 6000);
 				if (dsResp.ok) {
 					const dsData = await dsResp.json();
 					results = (dsData.pairs || [])
@@ -297,6 +314,11 @@ export async function GET(req: Request) {
 			total = total ?? results.length;
 		}
 
+		// Token info cache scoped to this GET request (avoid repeated network calls for duplicate tokens)
+		const tokenCache = new Map<string, {address: string|null; symbol: string|null; name: string|null; logo: string|null;}>(
+			[],
+		);
+
 		// Extract token symbols for market lookup
 		const tokenSymbols = results
 			.map((r) => r.data?.baseToken?.symbol || r.data?.includedBaseToken?.attributes?.symbol)
@@ -318,7 +340,7 @@ export async function GET(req: Request) {
 					.filter((r) => r.data)
 					.map(async (r, idx) => {
 						const pair = r.data;
-						const baseInfo = await getBaseTokenInfo(pair, chain);
+						const baseInfo = await getBaseTokenInfo(pair, chain, tokenCache);
 
 						const tokenSymbol =
 							baseInfo.symbol ||

@@ -1,5 +1,6 @@
 // GraphQL service for fetching virtual market data
 import { parseLiquidityWith6Decimals } from "./virtual-markets-utils";
+import fetchWithTimeout from "./fetch-with-timeout";
 export interface VirtualMarket {
 	id: string;
 	marketId: string;
@@ -68,11 +69,19 @@ class VirtualMarketsService {
 		this.subgraphUrl = process.env.SUBGRAPH_URL || "";
 	}
 
+	// Cache for markets to avoid repeated GraphQL requests in short time
+	private marketCache: {
+		map: Map<string, VirtualMarket>;
+		fetchedAt: number;
+	} | null = null;
+
+	private marketCacheTTLMs = Number(process.env.VIRTUAL_MARKETS_CACHE_TTL_MS || 60000);
+
 	private async makeGraphQLRequest(
 		query: string,
 		variables?: Record<string, unknown>,
 	): Promise<GraphQLResponse> {
-		const response = await fetch(this.subgraphUrl, {
+		const response = await fetchWithTimeout(this.subgraphUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -82,7 +91,7 @@ class VirtualMarketsService {
 				query,
 				variables,
 			}),
-		});
+		}, Number(process.env.SUBGRAPH_FETCH_TIMEOUT_MS || 6000));
 
 		if (!response.ok) {
 			throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
@@ -126,6 +135,12 @@ class VirtualMarketsService {
 	 * @returns Map of token symbol to virtual market data
 	 */
 	async createMarketLookupMap(_tokenSymbols: string[]): Promise<Map<string, VirtualMarket>> {
+		// Return cached map if still valid
+		const now = Date.now();
+		if (this.marketCache && now - this.marketCache.fetchedAt < this.marketCacheTTLMs) {
+			return new Map(this.marketCache.map);
+		}
+
 		const markets = await this.getAllVirtualMarkets();
 		const marketMap = new Map<string, VirtualMarket>();
 		// Create a lookup map - marketId corresponds to token symbol
@@ -134,6 +149,9 @@ class VirtualMarketsService {
 			const normalizedMarketId = market.marketId.toUpperCase();
 			marketMap.set(normalizedMarketId, market);
 		});
+
+		// Update cache
+		this.marketCache = { map: new Map(marketMap), fetchedAt: Date.now() };
 
 		return marketMap;
 	}
