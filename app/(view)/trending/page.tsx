@@ -82,6 +82,10 @@ export default function Home() {
 		fx: [] as ForexPair[],
 		tokens: [] as Token[],
 	});
+	// UI filter state: all | tokens | fx | stocks
+	const [filterType, setFilterType] = useState<"all" | "tokens" | "fx" | "stocks">("all");
+	const [chainFilter, setChainFilter] = useState<"all" | string>("all");
+	const [onlyPerpMarkets, setOnlyPerpMarkets] = useState(false);
 
 	// New search functionality
 	const {
@@ -144,15 +148,47 @@ export default function Home() {
 	};
 
 	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
-		async (page: number, append: boolean = false) => {
-			const tokensResponse = await fetch(`/api/trending/tokens?page=${page}&limit=10`);
+		async (
+			page: number,
+			append: boolean = false,
+			chain?: string,
+			hasMarket?: boolean | null,
+		) => {
+			const params = new URLSearchParams();
+			params.set("page", String(page));
+			params.set("limit", "10");
+			if (chain && chain !== "all") params.set("chain", chain);
+			if (hasMarket !== undefined && hasMarket !== null) params.set("hasMarket", String(hasMarket));
+
+			const tokensResponse = await fetch(`/api/trending/tokens?${params.toString()}`);
 			if (!tokensResponse.ok) {
 				throw new Error(`Tokens API failed: ${tokensResponse.status}`);
 			}
 			const tokensData: TokenAPIResponse = await tokensResponse.json();
+			// Normalize tokens to the local Token interface
+			const normalizedTokens = (tokensData.data || []).map((t, i) => ({
+				id: i + 1,
+				symbol: t.symbol,
+				name: t.name || t.symbol,
+				price: t.priceUsd ? `$${Number(t.priceUsd).toFixed(6)}` : t.price || "$0.00",
+				change24h: typeof t.change24h === "number" ? `${t.change24h.toFixed(2)}%` : (t.change24h || "0.00%"),
+				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
+				marketCap: "N/A",
+				trend: (t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+				logo: t.logo || "",
+				tokenAddress: t.tokenAddress || "",
+				pairAddress: t.pairAddress || "",
+				totalLiquidity: undefined,
+				realLiquidity: undefined,
+				openInterest: undefined,
+				hasMarket: undefined,
+				marketId: undefined,
+				virtualLiquidity: undefined,
+				chain: t.chain || undefined,
+			}));
 
 			return {
-				tokens: tokensData.data,
+				tokens: normalizedTokens,
 				append,
 				hasMore: tokensData.pagination?.hasMore ?? false,
 			};
@@ -163,7 +199,7 @@ export default function Home() {
 	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
 		useAsyncFn(async () => {
 			// Fetch tokens with pagination
-			fetchTokens(1, false);
+			fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
 
 			const stocksResponse = await fetch("/api/trending/stocks");
 			if (!stocksResponse.ok) {
@@ -258,13 +294,19 @@ export default function Home() {
 	useEffect(() => {
 		fetchTrendingData();
 	}, [fetchTrendingData]); // Infinite scroll with Intersection Observer
+
+	// Refetch tokens when chain or perp filter changes
+	useEffect(() => {
+		setCurrentPage(1);
+		fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
+	}, [chainFilter, onlyPerpMarkets, fetchTokens]);
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
 					setCurrentPage((prev) => {
 						const nextPage = prev + 1;
-						fetchTokens(nextPage, true);
+							fetchTokens(nextPage, true, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
 						return nextPage;
 					});
 				}
@@ -281,7 +323,7 @@ export default function Home() {
 				observer.unobserve(observerTarget.current);
 			}
 		};
-	}, [hasMore, isLoadingMore, isLoading, fetchTokens]);
+	}, [hasMore, isLoadingMore, isLoading, fetchTokens, chainFilter, onlyPerpMarkets]);
 
 	const filteredTokens = apiData.tokens.filter(
 		(token) =>
@@ -289,20 +331,26 @@ export default function Home() {
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
-	const filteredFX = apiData.fx;
+	const filteredFX = apiData.fx.filter((fx) =>
+		fx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+		fx.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
 
-	const filteredStocks = apiData.stocks;
+	const filteredStocks = apiData.stocks.filter((stock) =>
+		stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+		stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
 
 	const renderTokenTable = (items: Token[], title: string) => (
-		<Card className="overflow-hidden border-gray-100/10">
-			<CardHeader className="border-b border-gray-100/10">
+		<Card className="overflow-hidden border-primary/30 rounded-xl">
+			<CardHeader className="border-b border-primary/30 bg-primary/5 rounded-t-xl">
 				<CardTitle className="text-lg font-semibold">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="p-0">
+			<CardContent className="p-0 rounded-b-xl">
 				<div className="overflow-x-auto">
 					<table className="w-full">
 						<thead>
-							<tr className="border-b border-gray-100/10 bg-muted/30">
+							<tr className="border-b border-primary/20 bg-muted/30">
 								<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
 									#
 								</th>
@@ -335,10 +383,7 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr
-										key={item.id}
-										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
-									>
+									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -429,15 +474,15 @@ export default function Home() {
 	);
 
 	const renderForexTable = (items: ForexPair[], title: string) => (
-		<Card className="overflow-hidden border-gray-100/10">
-			<CardHeader className="border-b border-gray-100/10">
+		<Card className="overflow-hidden border-primary/30 rounded-xl">
+			<CardHeader className="border-b border-primary/30 bg-primary/5 rounded-t-xl">
 				<CardTitle className="text-lg font-semibold">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="p-0">
+			<CardContent className="p-0 rounded-b-xl">
 				<div className="overflow-x-auto">
 					<table className="w-full">
 						<thead>
-							<tr className="border-b border-gray-100/10 bg-muted/30">
+							<tr className="border-b border-primary/20 bg-muted/30">
 								<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
 									#
 								</th>
@@ -464,10 +509,7 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr
-										key={item.id}
-										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
-									>
+									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -523,15 +565,15 @@ export default function Home() {
 	);
 
 	const renderStocksTable = (items: Token[], title: string) => (
-		<Card className="overflow-hidden border-gray-100/10">
-			<CardHeader className="border-b border-gray-100/10">
+		<Card className="overflow-hidden border-primary/30 rounded-xl">
+			<CardHeader className="border-b border-primary/30 bg-primary/5 rounded-t-xl">
 				<CardTitle className="text-lg font-semibold">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="p-0">
+			<CardContent className="p-0 rounded-b-xl">
 				<div className="overflow-x-auto">
 					<table className="w-full">
 						<thead>
-							<tr className="border-b border-gray-100/10 bg-muted/30">
+							<tr className="border-b border-primary/20 bg-muted/30">
 								<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase tracking-wider">
 									#
 								</th>
@@ -558,10 +600,7 @@ export default function Home() {
 						<tbody>
 							{items.length > 0 ? (
 								items.map((item, index) => (
-									<tr
-										key={item.id}
-										className="border-b border-gray-100/10 hover:bg-card-hover transition-colors"
-									>
+									<tr key={item.id} className="border-b border-primary/20 hover:bg-primary/5 transition-colors">
 										<td className="p-3 text-muted-foreground text-sm">{index + 1}</td>
 										<td className="p-3">
 											<div className="flex items-center gap-3">
@@ -761,10 +800,46 @@ export default function Home() {
 							</div>
 						) : (
 							<>
-								{filteredTokens.length > 0 &&
+								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+									<div className="flex gap-2 items-center">
+										<Button size="sm" variant={chainFilter === "all" ? "default" : "ghost"} onClick={() => {
+											setChainFilter("all");
+											setCurrentPage(1);
+											fetchTokens(1, false, undefined, onlyPerpMarkets);
+										}}>All Chains</Button>
+										{[
+											"base",
+											"ethereum",
+											"bsc",
+											"solana",
+										].map((c) => (
+											<Button key={c} size="sm" variant={chainFilter === c ? "default" : "ghost"} onClick={() => {
+												setChainFilter(c);
+												setCurrentPage(1);
+												fetchTokens(1, false, c, onlyPerpMarkets);
+											}}>{c}</Button>
+										))}
+										<Button size="sm" variant={onlyPerpMarkets ? "default" : "ghost"} onClick={() => {
+											setOnlyPerpMarkets((v) => {
+												const newVal = !v;
+												setCurrentPage(1);
+												fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, newVal);
+												return newVal;
+											});
+										}}>Perp Markets</Button>
+									</div>
+									<div className="flex gap-2 items-center">
+										<Button size="sm" variant={filterType === "all" ? "default" : "ghost"} onClick={() => setFilterType("all")}>All</Button>
+										<Button size="sm" variant={filterType === "tokens" ? "default" : "ghost"} onClick={() => setFilterType("tokens")}>Tokens</Button>
+										<Button size="sm" variant={filterType === "fx" ? "default" : "ghost"} onClick={() => setFilterType("fx")}>Forex</Button>
+										<Button size="sm" variant={filterType === "stocks" ? "default" : "ghost"} onClick={() => setFilterType("stocks")}>Stocks</Button>
+									</div>
+								</div>
+
+								{(filterType === "all" || filterType === "tokens") && filteredTokens.length > 0 &&
 									renderTokenTable(filteredTokens, "Top Trending Tokens")}
-								{filteredFX.length > 0 && renderForexTable(filteredFX, "Forex Pairs")}
-								{filteredStocks.length > 0 && renderStocksTable(filteredStocks, "Top Stocks")}
+								{(filterType === "all" || filterType === "fx") && filteredFX.length > 0 && renderForexTable(filteredFX, "Forex Pairs")}
+								{(filterType === "all" || filterType === "stocks") && filteredStocks.length > 0 && renderStocksTable(filteredStocks, "Top Stocks")}
 								{filteredTokens.length === 0 &&
 									filteredFX.length === 0 &&
 									filteredStocks.length === 0 && (
@@ -779,6 +854,8 @@ export default function Home() {
 						)}
 					</div>
 				)}
+
+					{/* Filters were moved above the table content */}
 			</main>
 		</div>
 	);

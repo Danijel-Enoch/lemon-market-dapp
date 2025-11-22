@@ -10,35 +10,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // Define pairs per chain
-const chainPairs: Record<string, string[]> = {
-	base: [
-		"0x7f1a5b66ba3bb56c4b68cfc353a5e041c9763a4c",
-		"0xfab2f613d2b4c43ae304860f759575359eac0566",
-		"0xedc625b74537ee3a10874f53d170e9c17a906b9c",
-		"0x9cda3a1ca4814877cfc50f17cb3f428dd553a53bdb5836c6f181ff24574e4320",
-		"0xaec085e5a5ce8d96a7bdd3eb3a62445d4f6ce703",
-		"0x06d7874037e622d6ef42294cf32eb259806cb1c6",
-	],
-	ethereum: [
-		"0x4acc0598be5dff69635cbbadbc2e30925caa8e9e", // UNI
-		"0xd681aeeb7a24a14ccd76016495f9f8e72476dd87", // WBTC
-		"0xc4704f13d5e08b27b039d53873e813dd2fad99d9", // USDT
-		"0x66af30a2a6158fe6c57057800a8efecc32d524ba",
-		"0x69c7bd26512f52bf6f76fab834140d13dda673ca",
-	],
-	bsc: [
-		"0x3e1d78a38235d1fab9cfd02d7eb99cd9bcb19f4f", // BTCB
-		"0xf0a949d3d93b833c183a27ee067165b6f2c9625e", // WETH
-		"0x55d398326f99059ff775485246999027b3197955", // USDT
-		"0xd6b652aecb704b0aebec6317315afb90ba641d57",
-		"0xba20fe9506a904a30ebb8b7c348f4969f5a5ea07",
-	],
-	solana: [
-		"2ggvmk4sxcfyumuwtmre6sxwwtnptryaaxlvmaueauav", // USDT
-		"avsj8vkxsrgjyaqfovs7menkf8hsdjp3mvdo92ezg5wh", // USDC
-		"35tqqmeirwebk6fr5qipwastuaavo32vjnuljpxvsxuk", // COPE
-	],
-};
+// We removed the static pair lists and now default to pulling trending pools from GeckoTerminal
+// The endpoint supports pagination and a max page size of 15 by default
+const chainPairs: Record<string, string[]> = {};
 
 interface PoolData {
 	chain: string;
@@ -71,112 +45,186 @@ interface PoolData {
 }
 
 // Function to fetch pool details for a specific chain and pair
-const fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> => {
+// Fetch a page of pools from GeckoTerminal and return simplified pool objects
+const fetchPoolsFromGecko = async (
+	network: string,
+	page: number,
+	perPage: number,
+): Promise<{ pools: PoolData[]; total?: number } | null> => {
 	try {
-		let url: string;
-
-		// Solana uses token mint addresses, not pair addresses
-		if (chain === "solana") {
-			url = `https://api.dexscreener.com/latest/dex/tokens/${pair}`;
-		} else {
-			url = `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`;
-		}
+		const url = `https://api.geckoterminal.com/api/v2/search/pools?query=&network=${encodeURIComponent(
+			network,
+		)}&include=base_token,quote_token,dex&page=${page}&per_page=${perPage}`;
 
 		const response = await fetch(url, {
 			method: "GET",
+			headers: {
+				Accept: "application/json",
+			},
 		});
 
+		if (!response.ok) {
+			return null;
+		}
+
 		const data = await response.json();
-		const pairData = data.pairs?.[0] || data.pair;
+
+		// Build a map of included tokens for lookup
+		const includedMap = new Map<string, any>();
+		(data.included || []).forEach((item: any) => {
+			if (item.type === "token") {
+				includedMap.set(item.id, item);
+			}
+		});
+
+		const pools: PoolData[] = (data.data || [])
+			.filter((pool: any) => !!pool.attributes)
+			.map((pool: any) => {
+				const baseTokenId = pool.relationships?.base_token?.data?.id;
+				const baseToken = includedMap.get(baseTokenId);
+				return {
+					chain: network,
+					data: {
+						chainId: pool.attributes?.network || network,
+						dexId: pool.attributes?.dex_id || pool.relationships?.dex?.data?.id,
+						pairAddress: pool.attributes?.address,
+						baseToken: baseToken
+							? {
+								  address: baseToken.attributes.address,
+								  name: baseToken.attributes.name,
+								  symbol: baseToken.attributes.symbol,
+								  logo: baseToken.attributes.image_url,
+							  }
+							: undefined,
+						priceUsd: pool.attributes?.base_token_price_usd,
+						volume: {
+							h24: pool.attributes?.volume_usd?.h24
+								? Number(pool.attributes.volume_usd.h24)
+								: undefined,
+						},
+						priceChange: {
+							h24: pool.attributes?.price_change_percentage?.h24
+								? Number(pool.attributes.price_change_percentage.h24)
+								: undefined,
+						},
+						liquidity: {
+							usd: pool.attributes?.reserve_in_usd
+								? Number(pool.attributes.reserve_in_usd)
+								: undefined,
+						},
+						marketCap: pool.attributes?.market_cap_usd
+							? Number(pool.attributes.market_cap_usd)
+							: undefined,
+						info: {
+							imageUrl: baseToken?.attributes?.image_url,
+							header: pool.attributes?.name,
+						},
+					},
+				};
+			});
 
 		return {
-			chain,
-			data: pairData,
+			pools,
+			total: data.meta?.total || undefined,
 		};
 	} catch (_error) {
-		return {
-			chain,
-			data: null,
-		};
+		return null;
 	}
 };
 
 // Create pool details requests for all chains
-const poolsDetails = Object.entries(chainPairs).flatMap(([chain, pairs]) =>
-	pairs.map((pair) => fetchPoolDetails(chain, pair)),
-);
+// NOTE: we now perform dynamic fetches per-request instead of using a static list
+const poolsDetails = [];
 
-export async function GET(_req: Request) {
-	try {
-		// Fetch DexScreener data for all chains
-		const results = await Promise.all(poolsDetails);
+export async function GET(req: Request) {
+	const { searchParams } = new URL(req.url);
+		const url = new URL(_req.url);
+		const searchParams = url.searchParams;
 
-		// Extract token symbols for market lookup
+		const chain = (searchParams.get("chain") || "base").toLowerCase();
+		const limitParam = Number(searchParams.get("limit") || searchParams.get("perPage") || 15);
+		const pageParam = Number(searchParams.get("page") || 1);
+		const limit = Math.min(Math.max(1, Number.isFinite(limitParam) ? limitParam : 15), 15);
+		const page = Math.max(1, Number.isFinite(pageParam) ? pageParam : 1);
+
+		// Try GeckoTerminal first to fetch pools for the network
+		const geckoResult = await fetchPoolsFromGecko(chain, page, limit);
+		let results: PoolData[] = [];
+		let total = geckoResult?.total;
+
+		if (geckoResult && geckoResult.pools.length > 0) {
+			results = geckoResult.pools;
+		} else {
+			// Fallback: Try DexScreener search endpoint (general search with empty query)
+			// This is slower, but provides a fallback if GeckoTerminal isn't responding
+			try {
+				const dsUrl = `https://api.dexscreener.com/latest/dex/search?q=`;
+				const dsResp = await fetch(dsUrl, { method: "GET", headers: { Accept: "*/*" } });
+				if (dsResp.ok) {
+					const dsData = await dsResp.json();
+					const flatPairs = dsData.pairs || [];
+					// Filter by chain
+					results = flatPairs
+						.filter((p: any) => p.chainId?.toLowerCase() === chain)
+						.map((p: any) => ({ chain, data: p }));
+				}
+			} catch (_err) {
+				// ignore fallback errors
+			}
+		}
+	const chainFilter = searchParams.get("chain");
+		// Extract token symbols for market lookup (used to enrich minimal fields)
 		const tokenSymbols = results
 			.filter((result) => result.data)
+			.map((result) => result.data?.baseToken?.symbol)
+			.filter(Boolean) as string[];
+
+		// Enrich minimal market info (hasMarket, marketId) without pulling large fields
+		let marketLookupMap = new Map<string, any>();
+		if (tokenSymbols.length > 0) {
+			try {
+				marketLookupMap = await createMarketLookupMap(tokenSymbols);
+			} catch (_err) {
+				// ignore market lookup errors
+			}
+		}
+
+		// Reduce payload and map to a smaller, faster-to-serialize object
+		const transformedData = results
+			.filter((result) => result.data)
+			.map((result, index) => {
 			.map((result) => result.data?.baseToken?.symbol)
 			.filter(Boolean) as string[];
 
 		// Fetch virtual market data for all tokens using symbols
 		const marketLookupMap = await createMarketLookupMap(tokenSymbols);
 
-		// Transform the DexScreener data to match our expected format
-		const transformedData = results
-			.filter((result) => result.data)
-			.map((result, index) => {
-				const { chain, data: pair } = result;
-				if (!pair) {
-					return null;
-				}
-				const tokenSymbol = pair.baseToken?.symbol;
-				const tokenAddress = extractTokenAddress(pair as Record<string, unknown>);
+				// Build a much smaller response payload for speed
 				const virtualMarket = tokenSymbol ? marketLookupMap.get(tokenSymbol.toUpperCase()) : null;
-
-				// Try multiple sources for token logo
-				let logo = pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo;
-
-				// If no logo found and we have a token address, try to construct one from known sources
-				if (!logo && tokenAddress && chain !== "solana") {
-					// Use TrustWallet assets as fallback
-					logo = `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${chain}/assets/${tokenAddress}/logo.png`;
-				}
-
-				// Final fallback to coin emoji
-				logo = logo || "🪙";
-
-				// Get total liquidity from virtual market, fallback to DEX liquidity if no market exists
-				const totalLiquidity = virtualMarket
-					? parseLiquidityWith6Decimals(virtualMarket.totalLiquidity)
-					: parseLiquidityWith6Decimals(pair.liquidity?.usd || 0);
-
-				// Real liquidity is total open interest from virtual market
-				const realLiquidity = virtualMarket
-					? parseLiquidityWith6Decimals(virtualMarket.realLiquidity)
-					: 0;
-
 				return {
 					id: index + 1,
 					symbol: pair.baseToken?.symbol || "UNKNOWN",
 					name: pair.baseToken?.name || pair.baseToken?.symbol || "Unknown Token",
-					price: pair.priceUsd ? `$${parseFloat(pair.priceUsd).toFixed(6)}` : "$0.00",
-					change24h: pair.priceChange?.h24
-						? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
-						: "0.00%",
-					volume: pair.volume?.h24 ? `$${(pair.volume.h24 / 1000000).toFixed(2)}M` : "$0.00",
-					marketCap: pair.marketCap ? `$${(pair.marketCap / 1000000).toFixed(2)}M` : "N/A",
+					priceUsd: pair.priceUsd || pair?.price || null,
+					change24h: pair.priceChange?.h24 ?? pair.priceChange ?? 0,
+					volume24h: pair.volume?.h24 ?? pair.volume ?? 0,
+					liquidityUsd: pair.liquidity?.usd ?? pair?.reserve_in_usd ?? 0,
 					trend: (pair.priceChange?.h24 ?? 0) >= 0 ? "up" : "down",
-					logo: pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo || "🪙",
-					// Virtual market specific fields
-					totalLiquidity: formatLiquidity(totalLiquidity),
-					realLiquidity: formatLiquidity(realLiquidity),
-					openInterest: formatLiquidity(realLiquidity), // Alias for real liquidity
+					logo: pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo || "",
+					pairAddress: pair.pairAddress || pair.attributes?.address,
+					tokenAddress: tokenAddress,
+					dexId: pair.dexId || pair.attributes?.dex_id || pair.relationships?.dex?.data?.id,
+					chainId: pair.chainId || chain,
+					chain: chain,
 					hasMarket: !!virtualMarket,
 					marketId: virtualMarket?.marketId || null,
-					virtualLiquidity: virtualMarket
+				};
 						? formatLiquidity(parseLiquidityWith6Decimals(virtualMarket.virtualLiquidity))
 						: "$0.00",
 					// Additional fields for potential future use
-					pairAddress: pair.pairAddress,
+		const hasMore = typeof total === "number" ? page * limit < total : transformedData.length === limit;
+		const pagination = { page, limit, total: total ?? transformedData.length, hasMore };
+		return Response.json({ data: transformedData, pagination });
 					tokenAddress: tokenAddress,
 					liquidity: pair.liquidity?.usd,
 					dexId: pair.dexId,
@@ -186,7 +234,31 @@ export async function GET(_req: Request) {
 			})
 			.filter((item): item is NonNullable<typeof item> => item !== null);
 
-		return Response.json({ data: transformedData });
+		// Apply chain filter if provided
+		if (chainFilter) {
+			transformedData = transformedData.filter((t) => t.chain === chainFilter);
+		}
+
+		// Apply hasMarket filter if provided (true/false)
+		if (hasMarketFilter !== null) {
+			transformedData = transformedData.filter((t) => (hasMarketFilter ? !!t.hasMarket : !t.hasMarket));
+		}
+
+		// Pagination
+		const total = transformedData.length;
+		const start = (page - 1) * limit;
+		const end = start + limit;
+		const pagedData = transformedData.slice(start, end);
+
+		return Response.json({
+			data: pagedData,
+			pagination: {
+				page,
+				limit,
+				total,
+				hasMore: end < total,
+			},
+		});
 	} catch (_error) {
 		return Response.json({ error: "Failed to fetch token data" }, { status: 500 });
 	}

@@ -75,7 +75,7 @@ export function SearchResults({
 
 	if (isLoading) {
 		return (
-			<Card className="border-gray-100/10">
+			<Card className="border-primary/30 rounded-xl">
 				<CardContent className="flex items-center justify-center py-8">
 					<div className="flex items-center gap-3 text-muted-foreground">
 						<Loader2 className="w-5 h-5 animate-spin" />
@@ -88,7 +88,7 @@ export function SearchResults({
 
 	if (error) {
 		return (
-			<Card className="border-gray-100/10">
+			<Card className="border-primary/30 rounded-xl">
 				<CardContent className="py-8">
 					<div className="text-center">
 						<p className="text-red-400 mb-2">Search Error</p>
@@ -101,7 +101,7 @@ export function SearchResults({
 
 	if (results.length === 0 && query.length >= 2) {
 		return (
-			<Card className="border-gray-100/10">
+			<Card className="border-primary/30 rounded-xl">
 				<CardContent className="py-8">
 					<div className="text-center text-muted-foreground">
 						<p className="mb-2">No results found for "{query}"</p>
@@ -123,12 +123,12 @@ export function SearchResults({
 	}
 
 	return (
-		<Card className="border-gray-100/10">
+		<Card className="border-primary/30 rounded-xl">
 			<CardContent className="p-0">
 				<div className="overflow-x-auto">
 					<table className="w-full">
 						<thead>
-							<tr className="border-b border-gray-100/10 bg-muted/30">
+							<tr className="border-b border-primary/20 bg-muted/30">
 								<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
 									Token
 								</th>
@@ -156,7 +156,7 @@ export function SearchResults({
 							{results.map((result, index) => (
 								<tr
 									key={`${result.id}-${index}`}
-									className="border-b border-gray-100/5 hover:bg-muted/20 transition-colors"
+									className="border-b border-primary/20 hover:bg-muted/20 transition-colors"
 								>
 									<td className="p-3">
 										<div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ export function SearchResults({
 				</div>
 
 				{results.length > 0 && (
-					<div className="p-3 border-t border-gray-100/10 bg-muted/10">
+					<div className="p-3 border-t border-primary/30 bg-muted/10 rounded-b-xl">
 						<div className="text-xs text-muted-foreground text-center">
 							Found {results.length} results on Base network from DexScreener and GeckoTerminal
 						</div>

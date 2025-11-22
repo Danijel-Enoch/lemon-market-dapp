@@ -27,10 +27,11 @@ type Pill = {
 type TrendingToken = {
 	symbol: string;
 	name: string;
-	price: string;
-	change24h: string;
-	trend: "up" | "down";
-	logo: string;
+	price?: string;
+	priceUsd?: number | string;
+	change24h?: string | number;
+	trend?: "up" | "down";
+	logo?: string;
 	tokenAddress?: string;
 	pairAddress?: string;
 	chain?: string;
@@ -142,14 +143,14 @@ const convertToPills = (tokens: TrendingToken[]): Pill[] => {
 	if (!tokens || tokens.length === 0) return [];
 
 	return tokens.slice(0, 12).map((token) => {
-		const changeValue = parseFloat(token.change24h);
+		const changeValue = typeof token.change24h === "number" ? token.change24h : parseFloat(token.change24h || "0");
 		const changeColor: Pill["changeColor"] = changeValue >= 0 ? "green" : "red";
 
 		return {
 			icon: token.logo && token.logo !== "🪙" ? token.logo : "/assets/trending-coins/default.png",
 			title: token.symbol,
 			price: token.price,
-			change: token.change24h,
+			change: typeof token.change24h === "number" ? `${token.change24h.toFixed(2)}%` : token.change24h,
 			changeColor,
 			largeIcon: false,
 			tokenData: {

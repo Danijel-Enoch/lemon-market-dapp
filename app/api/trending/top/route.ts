@@ -97,72 +97,51 @@ const fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> 
 
 export async function GET(_req: Request) {
 	try {
-		// Fetch details for all configured pairs
-		const poolsDetails = Object.entries(chainPairs).flatMap(([chain, pairs]) =>
-			pairs.map((pair) => fetchPoolDetails(chain, pair)),
-		);
+		// Reuse the /api/trending/tokens endpoint to get a page of results and pick the top by change24h
+		const url = new URL(_req.url);
+		const chain = (url.searchParams.get("chain") || "base").toLowerCase();
+		const page = Number(url.searchParams.get("page") || 1);
+		// For top we only need a few results to compute the actual top token. Fetch limit of 15 by default
+		const limit = Math.min(Number(url.searchParams.get("limit") || 15), 15);
 
-		const results = await Promise.all(poolsDetails);
+		const baseUrl = new URL(_req.url).origin;
+		const tokensResp = await fetch(`${baseUrl}/api/trending/tokens?chain=${chain}&limit=${limit}&page=${page}`, {
+			method: "GET",
+			headers: { Accept: "application/json" },
+		});
 
-		// Pick the top token by 24h % change
-		let top: PoolData | null = null;
-		for (const r of results) {
-			if (!r.data) continue;
-			const change = typeof r.data.priceChange?.h24 === "number" ? r.data.priceChange.h24 : 0;
-			if (!top) {
-				top = r;
-			} else {
-				const topChange = top.data?.priceChange?.h24 ?? 0;
-				if ((change ?? 0) > (topChange ?? 0)) {
-					top = r;
-				}
-			}
+		if (!tokensResp.ok) {
+			return Response.json({ error: "Failed to fetch trending tokens" }, { status: 502 });
 		}
 
-		if (!top || !top.data) {
+		const tokensData = await tokensResp.json();
+
+		if (!tokensData || !Array.isArray(tokensData.data) || tokensData.data.length === 0) {
 			return Response.json({ error: "No trending token found" }, { status: 404 });
 		}
 
-		const pair = top.data;
-		const tokenSymbol = pair.baseToken?.symbol ?? "UNKNOWN";
-		const tokenAddress = extractTokenAddress(pair as Record<string, unknown>);
+		// Pick the token with the highest 24h % change
+		let topToken = tokensData.data[0];
+		for (const candidate of tokensData.data) {
+			if ((candidate.change24h ?? 0) > (topToken.change24h ?? 0)) {
+				topToken = candidate;
+			}
+		}
 
-		// Fetch virtual market only for the top token (more efficient than fetching all markets)
-		const virtualMarket = tokenSymbol
-			? await getVirtualMarketById(tokenSymbol.toUpperCase())
-			: null;
-		const totalLiquidity = virtualMarket
-			? parseLiquidityWith6Decimals(virtualMarket.totalLiquidity)
-			: parseLiquidityWith6Decimals(pair.liquidity?.usd || 0);
-		const realLiquidity = virtualMarket
-			? parseLiquidityWith6Decimals(virtualMarket.realLiquidity)
-			: 0;
-
+		const tokenSymbol = topToken.symbol || "UNKNOWN";
+		const tokenAddress = topToken.tokenAddress;
 		const transformed = {
 			symbol: tokenSymbol,
-			name: pair.baseToken?.name || tokenSymbol,
-			price: pair.priceUsd ? `$${parseFloat(pair.priceUsd).toFixed(6)}` : "$0.00",
-			change24h: pair.priceChange?.h24
-				? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
-				: "0.00%",
-			volume: pair.volume?.h24 ? `$${(pair.volume.h24 / 1000000).toFixed(2)}M` : "$0.00",
-			marketCap: pair.marketCap ? `$${(pair.marketCap / 1000000).toFixed(2)}M` : "N/A",
-			trend: (pair.priceChange?.h24 ?? 0) >= 0 ? "up" : "down",
-			logo: pair.info?.imageUrl || pair.info?.header || pair.baseToken?.logo || "🪙",
-			totalLiquidity: formatLiquidity(totalLiquidity),
-			realLiquidity: formatLiquidity(realLiquidity),
-			openInterest: formatLiquidity(realLiquidity),
-			hasMarket: !!virtualMarket,
-			marketId: virtualMarket?.marketId || null,
-			virtualLiquidity: virtualMarket
-				? formatLiquidity(parseLiquidityWith6Decimals(virtualMarket.virtualLiquidity))
-				: "$0.00",
-			pairAddress: pair.pairAddress,
-			tokenAddress: tokenAddress,
-			liquidity: pair.liquidity?.usd,
-			dexId: pair.dexId,
-			chainId: pair.chainId,
-			chain: top.chain,
+			name: topToken.name || tokenSymbol,
+			price: topToken.priceUsd ? `$${Number(topToken.priceUsd).toFixed(6)}` : "$0.00",
+			change24h: topToken.change24h ? `${topToken.change24h >= 0 ? "+" : ""}${Number(topToken.change24h).toFixed(2)}%` : "0.00%",
+			volume: topToken.volume24h ? `$${(Number(topToken.volume24h) / 1000000).toFixed(2)}M` : "$0.00",
+			marketCap: "N/A",
+			trend: (topToken.change24h ?? 0) >= 0 ? "up" : "down",
+			logo: topToken.logo || "",
+			pairAddress: topToken.pairAddress || null,
+			tokenAddress: tokenAddress || null,
+			chain: topToken.chain || chain,
 		};
 
 		return Response.json({ data: transformed });
