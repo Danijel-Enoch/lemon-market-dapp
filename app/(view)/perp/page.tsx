@@ -604,7 +604,7 @@ function PerpContent() {
 						</TabsList>
 					</Tabs>
 					<div className="p-4">
-						{isConnected && !needsApproval && (
+						{isConnected && needsApproval && (
 							<div className="bg-muted p-4 rounded-lg">
 								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
 									Wallet Balance
@@ -633,7 +633,7 @@ function PerpContent() {
 								</div>
 							</div>
 						)}
-						{isConnected && (
+						{isConnected && needsApproval && (
 							<div className="bg-muted p-4 rounded-lg">
 								<div className="flex justify-between items-center mb-3">
 									<h4 className="text-sm text-muted-foreground uppercase font-medium">
@@ -872,6 +872,7 @@ function PerpContent() {
 											isApprovalConfirming
 										}
 										onClick={handlePlaceTransaction}
+										// className={!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined}
 										connectedNode={
 											needsApproval
 												? "Approve USDC First"

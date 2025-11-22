@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
+import { cn } from "@/lib/utils";
 import { useRef } from "react";
 import toast from "react-hot-toast";
 import { useAsync } from "react-use";
@@ -60,7 +61,10 @@ export function ConnectWallet({
 										onClick={openConnectModal}
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										className={cn(
+											"w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											props.className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
+										)}
 										// {...props}
 									>
 										{text}
@@ -76,7 +80,10 @@ export function ConnectWallet({
 										// onClick={openConnectModal}
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										className={cn(
+											"w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											props.className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
+										)}
 										onClick={(e) => {
 											if (href) {
 												e.preventDefault();
@@ -100,7 +107,10 @@ export function ConnectWallet({
 										type="button"
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="w-full inline-flex items-center justify-center rounded-xl border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-red-600 via-red-700 to-red-900 text-white font-bold text-xs md:text-sm"
+										className={cn(
+											"w-full inline-flex items-center justify-center rounded-xl border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											props.className || "bg-linear-to-r from-red-600 via-red-700 to-red-900",
+										)}
 									>
 										Wrong network
 									</motion.button>
@@ -113,7 +123,11 @@ export function ConnectWallet({
 										type="button"
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="inline-flex items-center justify-center rounded-xl border border-white/60 gap-2 px-2.5 md:px-4 py-2 md:py-3 bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90 text-white font-bold text-xs md:text-sm"
+										className={cn(
+											"inline-flex items-center justify-center rounded-xl border border-white/60 gap-2 px-2.5 md:px-4 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											props.className || "bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90",
+										)}
+										// {...props}
 									>
 										{chain.hasIcon && (
 											<div
@@ -143,7 +157,11 @@ export function ConnectWallet({
 										type="button"
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
-										className="inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 bg-linear-to-r from-lime-600 via-lime-700 to-[#004530] text-white font-bold text-xs md:text-sm"
+										className={cn(
+											"inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											props.className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
+										)}
+										// {...props}
 									>
 										{account.displayName}
 									</motion.button>
