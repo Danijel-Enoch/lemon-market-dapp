@@ -34,14 +34,14 @@ export const revalidate = 0;
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
-	createPublicClient,
-	createWalletClient,
-	encodeFunctionData,
-	encodePacked,
-	http,
-	keccak256,
-	parseUnits,
-	recoverMessageAddress,
+    createPublicClient,
+    createWalletClient,
+    encodeFunctionData,
+    encodePacked,
+    http,
+    keccak256,
+    parseUnits,
+    recoverMessageAddress,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
@@ -53,7 +53,7 @@ import { calculateVirtualFundingForMarket } from "@/lib/volatility-utils";
 interface CreatePositionRequest {
 	tokenSymbol: string;
 	isLong: boolean;
-	margin: string; // in USDC
+	margin: string; // margin amount in token units (e.g., 100.0) - specify marginTokenAddress to indicate which token
 	leverage: number;
 	tokenAddress: string;
 	marginTokenAddress?: string; // optional - which ERC20 is used for margin
@@ -76,6 +76,7 @@ interface CreatePositionResponse {
 		data: string;
 		value: string;
 		gasEstimate?: string;
+		marginUsd?: string;
 	};
 	error?: string;
 }
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Validate margin amount
+		// Validate margin amount - interpret body.margin as token amount for marginTokenAddress
 		const marginAmount = parseFloat(body.margin);
 		if (Number.isNaN(marginAmount) || marginAmount <= 0) {
 			return NextResponse.json({ success: false, error: "Invalid margin amount" }, { status: 400 });
@@ -375,6 +376,34 @@ export async function POST(request: NextRequest) {
 		// Convert margin to wei using discovered decimals
 		const marginInWei = parseUnits(body.margin, marginDecimals);
 
+		// Fetch margin token USD price for validation and USD exposure conversion
+		let marginTokenPriceData:
+			| Awaited<ReturnType<ReturnType<typeof getTokenPriceService>['getTokenPriceWithAddress']>>
+			| undefined;
+		let marginTokenUsdPrice = 1;
+		try {
+			const tokenPriceService = getTokenPriceService();
+			marginTokenPriceData = await tokenPriceService.getTokenPriceWithAddress(marginTokenAddr as `0x${string}`);
+			if (marginTokenPriceData?.data?.bestPriceUSD?.price) {
+				marginTokenUsdPrice = parseFloat(marginTokenPriceData.data.bestPriceUSD.price);
+			} else if (marginTokenPriceData?.data?.averagePrice) {
+				marginTokenUsdPrice = parseFloat(marginTokenPriceData.data.averagePrice);
+			}
+		} catch (_error) {
+			// If we fail to fetch margin token price, assume stable USD = 1
+			marginTokenUsdPrice = 1;
+		}
+
+		const marginUsdAmount = marginAmount * marginTokenUsdPrice;
+
+		// Validate margin value in USD (min/max checks)
+		if (marginUsdAmount < 10) {
+			return NextResponse.json({ success: false, error: "Minimum margin is $10" }, { status: 400 });
+		}
+		if (marginUsdAmount > 100000) {
+			return NextResponse.json({ success: false, error: "Maximum margin is $100,000" }, { status: 400 });
+		}
+
 		// Encode the function call data
 		let calldata: `0x${string}`;
 		try {
@@ -422,6 +451,7 @@ export async function POST(request: NextRequest) {
 				data: calldata,
 				value: "0x0", // No ETH value needed
 				gasEstimate: gasEstimate ? gasEstimate.toString() : undefined,
+				marginUsd: marginUsdAmount ? marginUsdAmount.toString() : undefined,
 			},
 		};
 
@@ -464,7 +494,7 @@ export async function GET() {
 			requiredParams: {
 				tokenSymbol: 'string (e.g., "ETH", "BTC")',
 				isLong: "boolean",
-				margin: "string (amount in USDC)",
+				margin: 'string (amount in token units - specify marginTokenAddress to indicate which token)',
 				leverage: "number (1-100)",
 				userAddress: "string (0x...)",
 				pairAddress: "string (optional, for accurate pricing)",

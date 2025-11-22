@@ -29,7 +29,7 @@ import {
 	formatPriceChange,
 	getForexPrice,
 	getStockPrice,
-	getTokenPriceByPair,
+	getTokenPriceByPair
 } from "@/lib/oracle";
 import {
 	createPosition,
@@ -105,6 +105,7 @@ function PerpContent() {
 	const [marginTokenAddress, setMarginTokenAddress] = useState(usdc as `0x${string}`);
 	const [marginTokenSymbol, setMarginTokenSymbol] = useState("USDC");
 	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
+	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<number | null>(null);
 
 	const { data: marginBalance, refetch: refetchMarginBalance } = useReadContract({
 		address: marginTokenAddress as `0x${string}`,
@@ -149,6 +150,9 @@ function PerpContent() {
 	const availableMargin = marginBalance
 		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
 		: 0;
+	const availableMarginUsd = Number.isFinite(Number(availableMargin)) && marginTokenPriceUsd
+		? availableMargin * (marginTokenPriceUsd || 0)
+		: 0;
 
 	const handleSetMaxMargin = () => {
 		const maxVal = availableMargin || 0;
@@ -167,13 +171,13 @@ function PerpContent() {
 		}
 
 		try {
-			// Fetch from DexScreener API
+			// Fetch via our server-side market data API (proxies DexScreener and provides consistent behavior)
 			const response = await fetch(
-				`https://api.dexscreener.com/latest/dex/pairs/${tradingPair.chain}/${tradingPair.pairAddress}`,
+				`/api/market/pair?chain=${tradingPair.chain}&pairAddress=${tradingPair.pairAddress}`,
 			);
 			if (response.ok) {
 				const data = await response.json();
-				if (data.pair) {
+				if (data.success && data.pair) {
 					const pair = data.pair;
 					setMarketData({
 						priceUsd: pair.priceUsd,
@@ -227,6 +231,38 @@ function PerpContent() {
 			setMarginTokenSymbol("USDC");
 		}
 	}, [marketData, tradingPair]);
+
+	// Fetch margin token USD price whenever marginTokenAddress changes
+	useEffect(() => {
+		let cancelled = false;
+		async function fetchMarginTokenPrice() {
+			if (!marginTokenAddress) {
+				setMarginTokenPriceUsd(null);
+				return;
+			}
+			try {
+				const res = await fetch(
+					`/api/price/token?tokenAddress=${marginTokenAddress}&chain=${tradingPair.chain || "base"}`,
+				);
+				if (res.ok) {
+					const data = await res.json();
+					if (!cancelled) {
+						setMarginTokenPriceUsd(Number(data.priceUsd || null));
+					}
+				}
+			} catch (err) {
+				console.error("Failed to fetch margin token price:", err);
+				if (!cancelled) setMarginTokenPriceUsd(null);
+			}
+		}
+		fetchMarginTokenPrice();
+
+		const interval = setInterval(fetchMarginTokenPrice, 30000);
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
+	}, [marginTokenAddress, tradingPair.chain]);
 
 	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
 		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
@@ -678,7 +714,9 @@ function PerpContent() {
 											{marginBalance
 												? `${parseFloat(
 														formatUnits(BigInt(marginBalance as string), decimals),
-													).toFixed(Math.min(6, decimals))} ${marginTokenSymbol}`
+													).toFixed(Math.min(6, decimals))} ${marginTokenSymbol} ${
+														marginTokenPriceUsd ? `(~$${marginTokenPriceUsd.toFixed(4)})` : ""
+													}`
 												: `0.00 ${marginTokenSymbol}`}
 										</span>
 									</div>
@@ -746,7 +784,9 @@ function PerpContent() {
 										<div className="flex items-center gap-3">
 											<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
 												formatUnits(BigInt((marginBalance as string) || "0"), decimals),
-											).toFixed(Math.min(6, decimals))} ${marginTokenSymbol}`}</span>
+											).toFixed(Math.min(6, decimals))} ${marginTokenSymbol} ${
+												marginTokenPriceUsd ? `(~$${availableMarginUsd.toFixed(2)})` : ""
+											}`}</span>
 											{marginValue && !validateMargin(marginValue).valid && (
 												<span className="text-xs text-destructive">
 													{validateMargin(marginValue).error}
@@ -831,7 +871,7 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											{(
-												(parseFloat(marginValue || "0") * leverage) /
+												((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * leverage) /
 												parseFloat(tradingPair.price.replace(/[$,]/g, ""))
 											).toFixed(6)}
 										</span>
@@ -844,7 +884,7 @@ function PerpContent() {
 											Total Exposure
 										</span>
 										<span className="text-foreground">
-											${(parseFloat(marginValue || "0") * leverage).toLocaleString()}
+											${(((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * leverage)).toLocaleString()}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -856,7 +896,7 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											0.1% (~$
-											{(parseFloat(marginValue || "0") * 0.001).toFixed(2)})
+											{(((parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1)) * 0.001).toFixed(2))})
 										</span>
 									</div>
 									<div className="flex justify-between">
