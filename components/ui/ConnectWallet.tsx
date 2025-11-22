@@ -17,6 +17,7 @@ export function ConnectWallet({
 	connectedNode,
 	href,
 	onClick,
+	className,
 	...props
 }: {
 	text?: string;
@@ -63,7 +64,7 @@ export function ConnectWallet({
 										whileTap={{ scale: 0.95 }}
 										className={cn(
 											"w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											 "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
+											"bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
 										)}
 										// {...props}
 									>
@@ -82,7 +83,7 @@ export function ConnectWallet({
 										whileTap={{ scale: 0.95 }}
 										className={cn(
 											"w-full inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											props.className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
+											className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
 										)}
 										onClick={(e) => {
 											if (href) {

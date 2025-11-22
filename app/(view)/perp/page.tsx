@@ -136,7 +136,7 @@ function PerpContent() {
 	}, [decimalsFromChain]);
 
 	const [isLong, setIsLong] = useState(true);
-	const [valueUSDC, setValueUSDC] = useState("0");
+	const [marginValue, setMarginValue] = useState("0");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
@@ -151,7 +151,7 @@ function PerpContent() {
 
 	const handleSetMaxMargin = () => {
 		const maxVal = availableUSDC || 0;
-		setValueUSDC(String(maxVal.toFixed(2)));
+		setMarginValue(String(maxVal.toFixed(2)));
 	};
 
 	const maxLeverage = 100;
@@ -352,13 +352,13 @@ function PerpContent() {
 
 	useEffect(() => {
 		// only check allowance and set approval if user has entered a value AND user opted-in auto swap & approve
-		if (!autoSwapAndApprove || !valueUSDC || parseFloat(valueUSDC) <= 0) {
+		if (!autoSwapAndApprove || !marginValue || parseFloat(marginValue) <= 0) {
 			setNeedsApproval(false);
 			return;
 		}
 
-		if (marginAllowance !== undefined && valueUSDC && parseFloat(valueUSDC) > 0) {
-			const marginInWei = parseUnits(valueUSDC, decimals);
+		if (marginAllowance !== undefined && marginValue && parseFloat(marginValue) > 0) {
+			const marginInWei = parseUnits(marginValue, decimals);
 			const allowanceAmount = BigInt(marginAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
 		} else if (marginAllowance !== undefined) {
@@ -368,7 +368,7 @@ function PerpContent() {
 			// If we don't have allowance data yet, assume approval is needed
 			setNeedsApproval(true);
 		}
-	}, [marginAllowance, valueUSDC, autoSwapAndApprove, decimals]);
+	}, [marginAllowance, marginValue, autoSwapAndApprove, decimals]);
 
 	useEffect(() => {
 		if (!isConnected) {
@@ -429,7 +429,7 @@ function PerpContent() {
 				throw new Error("Please connect your wallet first");
 			}
 
-			const marginValidation = validateMargin(valueUSDC);
+			const marginValidation = validateMargin(marginValue);
 			if (!marginValidation.valid) {
 				throw new Error(marginValidation.error || "Invalid margin");
 			}
@@ -444,7 +444,7 @@ function PerpContent() {
 			const result = await createPosition({
 				tokenSymbol,
 				isLong,
-				margin: valueUSDC,
+				margin: marginValue,
 				leverage,
 				tokenAddress: tradingPair.tokenAddress,
 				marginTokenAddress: marginTokenAddress,
@@ -464,7 +464,7 @@ function PerpContent() {
 					gas: result.data.gasEstimate ? BigInt(String(result.data.gasEstimate)) : undefined,
 				});
 			}
-		}, [isConnected, address, valueUSDC, leverage, tradingPair, isLong, sendTransaction]);
+		}, [isConnected, address, marginValue, leverage, tradingPair, isLong, sendTransaction]);
 
 	return (
 		<>
@@ -632,26 +632,28 @@ function PerpContent() {
 				</div>
 
 				<div className="flex flex-col gap-4 border-l border-[#4D4D4D]/40">
-					<Tabs
-						value={isLong ? "long" : "short"}
-						onValueChange={(value) => setIsLong(value === "long")}
-						className="w-full"
-					>
-						<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
-							<TabsTrigger
-								value="long"
-								className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
-							>
-								Long
-							</TabsTrigger>
-							<TabsTrigger
-								value="short"
-								className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
-							>
-								Short
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
+					<div className="flex items-center justify-between px-2">
+						<Tabs
+							value={isLong ? "long" : "short"}
+							onValueChange={(value) => setIsLong(value === "long")}
+							className="w-full"
+						>
+							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
+								<TabsTrigger
+									value="long"
+									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
+								>
+									Long
+								</TabsTrigger>
+								<TabsTrigger
+									value="short"
+									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
+								>
+									Short
+								</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					</div>
 					<div className="p-4">
 						{isConnected && needsApproval && autoSwapAndApprove && (
 							<div className="bg-muted p-4 rounded-lg">
@@ -710,8 +712,8 @@ function PerpContent() {
 												isApprovingToken ||
 												isApproving ||
 												isApprovalConfirming ||
-												!valueUSDC ||
-												parseFloat(valueUSDC) <= 0
+												!marginValue ||
+												parseFloat(marginValue) <= 0
 											}
 											className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 										>
@@ -744,23 +746,11 @@ function PerpContent() {
 											<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
 												formatUnits(BigInt((marginBalance as string) || "0"), decimals),
 											).toFixed(Math.min(6, decimals))} ${marginTokenSymbol}`}</span>
-											{valueUSDC && !validateMargin(valueUSDC).valid && (
+											{marginValue && !validateMargin(marginValue).valid && (
 												<span className="text-xs text-destructive">
-													{validateMargin(valueUSDC).error}
+													{validateMargin(marginValue).error}
 												</span>
 											)}
-											<div className="flex items-center gap-2 ml-3">
-												<input
-													id="auto-swap-approve"
-													type="checkbox"
-													checked={autoSwapAndApprove}
-													onChange={(e) => setAutoSwapAndApprove(e.target.checked)}
-													className="w-4 h-4 rounded border bg-muted"
-												/>
-												<label htmlFor="auto-swap-approve" className="text-xs">
-													Auto swap & approve
-												</label>
-											</div>
 										</div>
 									</div>
 									<div className="relative">
@@ -772,10 +762,10 @@ function PerpContent() {
 										<Input
 											placeholder="100"
 											id="margin-input"
-											value={valueUSDC}
-											onChange={(e) => setValueUSDC(e.target.value)}
+											value={marginValue}
+											onChange={(e) => setMarginValue(e.target.value)}
 											className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
-												valueUSDC && !validateMargin(valueUSDC).valid
+												marginValue && !validateMargin(marginValue).valid
 													? "border-red-500 focus:border-red-500"
 													: "focus:border-cyan-500"
 											}`}
@@ -843,7 +833,7 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											{(
-												(parseFloat(valueUSDC || "0") * leverage) /
+												(parseFloat(marginValue || "0") * leverage) /
 												parseFloat(tradingPair.price.replace(/[$,]/g, ""))
 											).toFixed(6)}
 										</span>
@@ -856,7 +846,7 @@ function PerpContent() {
 											Total Exposure
 										</span>
 										<span className="text-foreground">
-											${(parseFloat(valueUSDC || "0") * leverage).toLocaleString()}
+											${(parseFloat(marginValue || "0") * leverage).toLocaleString()}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -868,7 +858,7 @@ function PerpContent() {
 										</span>
 										<span className="text-foreground">
 											0.1% (~$
-											{(parseFloat(valueUSDC || "0") * 0.001).toFixed(2)})
+											{(parseFloat(marginValue || "0") * 0.001).toFixed(2)})
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -930,6 +920,18 @@ function PerpContent() {
 									</div>
 								)}
 								<div className="w-full mt-4">
+									<div className="flex items-center gap-3 mb-4">
+										<input
+											id="auto-swap-approve"
+											type="checkbox"
+											checked={autoSwapAndApprove}
+											onChange={(e) => setAutoSwapAndApprove(e.target.checked)}
+											className="w-4 h-4 rounded border bg-muted"
+										/>
+										<label htmlFor="auto-swap-approve" className="text-xs text-muted-foreground">
+											Auto swap & approve
+										</label>
+									</div>
 									<ConnectWallet
 										disabled={
 											needsApproval ||
@@ -941,7 +943,9 @@ function PerpContent() {
 											isApprovalConfirming
 										}
 										onClick={handlePlaceTransaction}
-										// className={!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined}
+										className={
+											!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined
+										}
 										connectedNode={
 											needsApproval
 												? `Approve ${marginTokenSymbol} First`
