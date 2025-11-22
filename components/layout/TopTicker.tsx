@@ -139,7 +139,7 @@ export const TopTicker: FC = () => {
 
 				<div
 					ref={containerRef}
-					className="inline-flex items-center gap-0.5 md:ml-[16px] md:mr-[8px] animate-scroll-ticker whitespace-nowrap"
+					className="inline-flex items-center gap-0.5 md:ml-4 md:mr-2 animate-scroll-ticker whitespace-nowrap"
 					style={{ "--scroll-ticker-duration": animationDuration } as React.CSSProperties}
 				>
 					{tickerTokens && tickerTokens.length > 0

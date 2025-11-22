@@ -1,10 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { getVirtualMarketById } from "@/lib/virtual-markets-service";
-import {
-	extractTokenAddress,
-	formatLiquidity,
-	parseLiquidityWith6Decimals,
-} from "@/lib/virtual-markets-utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -95,17 +89,17 @@ const fetchPoolDetails = async (chain: string, pair: string): Promise<PoolData> 
 	}
 };
 
-export async function GET(_req: Request) {
+export async function GET(req: Request) {
 	try {
 		// Reuse the /api/trending/tokens endpoint to get a page of results and pick the top by change24h
-		const url = new URL(_req.url);
+		const url = new URL(req.url);
 		const chain = (url.searchParams.get("chain") || "base").toLowerCase();
 		const page = Number(url.searchParams.get("page") || 1);
-		// For top we only need a few results to compute the actual top token. Fetch limit of 15 by default
-		const limit = Math.min(Number(url.searchParams.get("limit") || 15), 15);
+		// For top we only need a few results to compute the actual top token. Fetch limit of 5 by default
+		const limit = Math.min(Number(url.searchParams.get("limit") || 5), 5);
 
-		const baseUrl = new URL(_req.url).origin;
-		const tokensResp = await fetch(`${baseUrl}/api/trending/tokens?chain=${chain}&limit=${limit}&page=${page}`, {
+		const baseUrl = url.origin;
+		const tokensResp = await fetch(`${baseUrl}/api/trending/tokens?chain=${chain}&limit=${limit}&page=${page}&sort=change`, {
 			method: "GET",
 			headers: { Accept: "application/json" },
 		});
