@@ -113,9 +113,10 @@ export default function RootLayout({
 					<ToastProvider>
 						<AppProvider>
 							<ReferralHandler />
-							<BProgressProvider />
-							<Header />
-							<PageTransition>{children}</PageTransition>
+							<BProgressProvider>
+								<Header />
+								<PageTransition>{children}</PageTransition>
+							</BProgressProvider>
 						</AppProvider>
 					</ToastProvider>
 				</MiniAppProvider>
