@@ -792,11 +792,6 @@ function PerpContent() {
 											).toFixed(Math.min(6, decimals))} ${marginTokenSymbol} ${
 												marginTokenPriceUsd ? `(~$${availableMarginUsd.toFixed(2)})` : ""
 											}`}</span>
-											{marginValue && !validateMargin(marginValue).valid && (
-												<span className="text-xs text-destructive">
-													{validateMargin(marginValue).error}
-												</span>
-											)}
 										</div>
 									</div>
 									<div className="relative">
@@ -810,7 +805,7 @@ function PerpContent() {
 											id="margin-input"
 											value={marginValue}
 											onChange={(e) => setMarginValue(e.target.value)}
-											className={`bg-muted border-gray-100/10 text-foreground text-center text-2xl font-bold h-14 pl-12 pr-20 ${
+											className={`bg-muted border-gray-100/10 text-foreground text-right text-3xl font-bold h-14 pl-12 pr-30 ${
 												marginValue && !validateMargin(marginValue).valid
 													? "border-red-500 focus:border-red-500"
 													: "focus:border-cyan-500"
@@ -827,6 +822,12 @@ function PerpContent() {
 											<span className="text-primary font-medium">{marginTokenSymbol}</span>
 										</div>
 									</div>
+
+									{marginValue && !validateMargin(marginValue).valid && (
+										<div className="text-xs mb-2 text-destructive">
+											{validateMargin(marginValue).error}
+										</div>
+									)}
 								</div>
 								<div className="space-y-3">
 									<div className="flex justify-between items-center">
@@ -847,7 +848,7 @@ function PerpContent() {
 														aria-label="Leverage"
 													>
 														<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
-															<RadixSlider.Range className="absolute h-2 bg-linear-to-r from-green-400 to-cyan-400 rounded-full" />
+															<RadixSlider.Range className="absolute h-2 bg-green-600 rounded-full" />
 														</RadixSlider.Track>
 														<RadixSlider.Thumb className="block w-4 h-4 bg-white rounded-full shadow border border-gray-200" />
 													</RadixSlider.Root>
