@@ -8,30 +8,31 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
+import { Badge } from "@/components/ui/badge";
+
+const tradeSubItems = [
+	{ href: "/perp", label: "Perpetuals" },
+	{ href: "/positions", label: "My Positions" },
+];
+
+const earnSubItems = [
+	{ href: "/dashboard", label: "Dashboard" },
+	{ href: "/leaderboard", label: "Leaderboard" },
+	{ href: "/staking", label: "Staking" },
+];
+
+const navItems = [
+	{ label: "Trade", icon: TrendingUp, subItems: tradeSubItems },
+	{ label: "Earn", icon: Trophy, subItems: earnSubItems },
+	{ href: "/positions", label: "Portfolio", icon: Wallet },
+	{ href: "/trending", label: "Spot", icon: BarChart3 },
+	{ href: "/staking", label: "Stake", icon: Coins },
+];
 
 export function Header() {
 	const pathname = usePathname();
 	const { isMiniApp, context } = useMiniApp();
 	const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-
-	const tradeSubItems = [
-		{ href: "/perp", label: "Perpetuals" },
-		{ href: "/positions", label: "My Positions" },
-	];
-
-	const earnSubItems = [
-		{ href: "/dashboard", label: "Dashboard" },
-		{ href: "/leaderboard", label: "Leaderboard" },
-		{ href: "/staking", label: "Staking" },
-	];
-
-	const navItems = [
-		{ label: "Trade", icon: TrendingUp, subItems: tradeSubItems },
-		{ label: "Earn", icon: Trophy, subItems: earnSubItems },
-		{ href: "/positions", label: "Portfolio", icon: Wallet },
-		{ href: "/trending", label: "Spot", icon: BarChart3 },
-		{ href: "/staking", label: "Stake", icon: Coins },
-	];
 
 	// Apply safe area insets if in Mini App
 	const safeAreaStyle =
@@ -58,8 +59,14 @@ export function Header() {
 							height={40}
 							style={{ width: "auto", height: "auto" }}
 						/>
-						<span className="hidden sm:inline bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+						<span className="hidden sm:inline-flex items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 							Lemon Markets
+							<Badge
+								variant="secondary"
+								className="ml-2 text-[10px] border-lime-500 bg-transparent text-white"
+							>
+								BETA
+							</Badge>
 						</span>
 					</Link>{" "}
 					<nav className="hidden md:inline-flex items-center gap-9">
