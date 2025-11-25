@@ -28,7 +28,7 @@ export const HeroSection: FC = () => {
 					perpetual protocol
 				</p>
 				<ConnectWallet text="Start Trading" connectedNode="Start Trading" href="/perp" />
-				<div className="mt-72 overflow-hidden animate-fade-up animate-delay-700">
+				<div className="mt-52 overflow-hidden animate-fade-up animate-delay-700">
 					<div className="flex animate-scroll-ticker space-x-8">
 						{/* <Image
 							src="/assets/homepage/partners-btc.svg"
