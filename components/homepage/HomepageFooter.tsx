@@ -29,7 +29,7 @@ const defaultNavigation: ReadonlyArray<LinkItem> = [
 
 const defaultSocials: ReadonlyArray<LinkItem> = [
 	{ label: "X (Twitter)", href: "https://x.com/LemonMarkets", external: true },
-	{ label: "Discord", href: "https://discord.gg/LemonMarkets", external: true },
+	// { label: "Discord", href: "https://discord.gg/LemonMarkets", external: true },
 	{ label: "Telegram", href: "https://t.me/LemonMarkets", external: true },
 	{ label: "GitHub", href: "https://github.com/Lemon-Markets-Perp", external: true },
 ];

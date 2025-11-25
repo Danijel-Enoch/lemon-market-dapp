@@ -84,11 +84,11 @@ export const TestimonialsSection: FC = () => {
 					</div>
 					<div className="mt-6">
 						<h3 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
-							Trusted by Crypto Natives Worldwide
+							Trusted by Cracked Traders
 						</h3>
 						<p className="mt-3 text-white/70 max-w-md">
-							Thousands of crypto investors rely on Lemon Markets to leverage their assets with
-							confidence and clarity.
+							Join thousands of crypto investors who choose on-chain perpetual protocol to trader
+							diverse assets.
 						</p>
 						<a
 							href="/trending"

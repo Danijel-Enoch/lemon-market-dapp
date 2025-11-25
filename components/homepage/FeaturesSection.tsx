@@ -28,10 +28,10 @@ export const FeaturesSection: FC = () => {
 					/>
 				</div>
 				<h2 className="mt-6 text-4xl md:text-5xl font-semibold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
-					Built For Infinite Markets
+					Built for traders who desire freedom
 				</h2>
 				<p className="mt-3 text-white/70 max-w-2xl mx-auto">
-					Trade with confidence through the most efficient on-chain perpetual protocol.
+					Trade without boundaries through the most.
 				</p>
 			</div>
 
@@ -45,7 +45,7 @@ export const FeaturesSection: FC = () => {
 						iconSrc="/assets/homepage/feature-icon-liquidity.png"
 						alt="Liquidity icon"
 						title="Unified Liquidity Model"
-						description="All trades settle against a shared collateral reserve, unlocking deeper liquidity and capital efficiency across every asset."
+						description="All trades settle against a shared collateral reserve, unlocking liquidity across every asset."
 					/>
 					<FeatureCard
 						iconSrc="/assets/homepage/feature-icon-synthetic.png"
