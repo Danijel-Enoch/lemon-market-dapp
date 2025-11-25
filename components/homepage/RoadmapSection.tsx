@@ -132,22 +132,21 @@ export const RoadmapSection: FC = () => {
 								<div
 									className={`pl-20 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? "md:pl-16 md:flex md:flex-col md:items-end" : "md:pr-16"}`}
 								>
-									<div className="inline-block mb-6 p-4 border border-white/20 bg-neutral-900/60 backdrop-blur-sm hover:border-[#9DEA29]/40 transition-colors">
+									<div className="inline-block mb-6 py-2 px-4 border border-white/20 bg-neutral-900/60 backdrop-blur-sm hover:border-[#9DEA29]/40 transition-colors rounded-lg">
 										<div className="flex items-baseline gap-3 mb-1">
 											<span className="text-sm font-mono text-white/50">{phase.phase}</span>
-											<span className="text-sm font-mono text-[#9DEA29]/70">• {phase.when}</span>
+											{/* <span className="text-sm font-mono text-[#9DEA29]/70">• {phase.when}</span> */}
+											{isDone && (
+												<span className="inline-block mt-2 text-xs px-2 py-1 bg-[#9DEA29]/10 text-[#9DEA29] border border-[#9DEA29]/20 rounded-lg">
+													Completed
+												</span>
+											)}
+											{isNow && (
+												<span className="inline-block mt-2 text-xs px-2 py-1 bg-[#9DEA29]/10 text-[#9DEA29] border border-[#9DEA29]/20 rounded-lg">
+													In Progress
+												</span>
+											)}
 										</div>
-										<h3 className="text-2xl font-bold text-white">{phase.what}</h3>
-										{isDone && (
-											<span className="inline-block mt-2 text-xs px-2 py-1 bg-[#9DEA29]/10 text-[#9DEA29] border border-[#9DEA29]/20">
-												Completed
-											</span>
-										)}
-										{isNow && (
-											<span className="inline-block mt-2 text-xs px-2 py-1 bg-[#9DEA29]/10 text-[#9DEA29] border border-[#9DEA29]/20">
-												In Progress
-											</span>
-										)}
 									</div>
 
 									<div className={`space-y-3 ${isLeft ? "md:text-right" : ""}`}>
