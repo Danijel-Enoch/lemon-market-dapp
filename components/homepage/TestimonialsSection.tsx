@@ -120,13 +120,13 @@ export const TestimonialsSection: FC = () => {
 							>
 								<p className="text-white/80 text-sm">"{t.quote}"</p>
 								<div className="mt-4 flex items-center gap-3">
-									<Image
+									{/* <Image
 										src={t.avatar}
 										alt={t.author}
 										width={40}
 										height={40}
 										className="rounded-full"
-									/>
+									/> */}
 									<div>
 										<p className="text-white font-semibold text-sm">{t.author}</p>
 										<p className="text-white/60 text-xs">{t.role}</p>
@@ -164,13 +164,13 @@ export const TestimonialsSection: FC = () => {
 									>
 										<p className="text-white/80">“{t.quote}”</p>
 										<div className="mt-4 flex items-center gap-3">
-											<Image
+											{/* <Image
 												src={t.avatar}
 												alt={t.author}
 												width={40}
 												height={40}
 												className="rounded-full"
-											/>
+											/> */}
 											<div>
 												<p className="text-white font-semibold text-sm">{t.author}</p>
 												<p className="text-white/60 text-xs">{t.role}</p>
@@ -202,13 +202,13 @@ export const TestimonialsSection: FC = () => {
 									>
 										<p className="text-white/80">“{t.quote}”</p>
 										<div className="mt-4 flex items-center gap-3">
-											<Image
+											{/* <Image
 												src={t.avatar}
 												alt={t.author}
 												width={40}
 												height={40}
 												className="rounded-full"
-											/>
+											/> */}
 											<div>
 												<p className="text-white font-semibold text-sm">{t.author}</p>
 												<p className="text-white/60 text-xs">{t.role}</p>
