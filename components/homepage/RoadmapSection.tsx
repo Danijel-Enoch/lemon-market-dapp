@@ -65,7 +65,7 @@ const phases: Phase[] = [
 
 export const RoadmapSection: FC = () => {
 	return (
-		<section className="py-24 px-6 max-w-7xl mx-auto relative">
+		<section className="py-24 max-w-7xl mx-auto relative">
 			<div className="absolute inset-0 -z-10 overflow-hidden">
 				<div className="absolute top-20 -left-20 w-96 h-96 bg-[#9DEA29]/5 rounded-full blur-3xl" />
 				<div className="absolute bottom-20 -right-20 w-96 h-96 bg-[#9DEA29]/5 rounded-full blur-3xl" />

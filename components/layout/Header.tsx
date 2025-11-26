@@ -41,6 +41,8 @@ export function Header() {
 					paddingTop: context.client.safeAreaInsets.top,
 				}
 			: {};
+	
+	const otherPages = pathname.split("/").length > 1;
 
 	return (
 		<>
@@ -49,15 +51,16 @@ export function Header() {
 					initial={{ opacity: 0.5 }}
 					animate={{ opacity: 1 }}
 					transition={{ duration: 0.6 }}
-					className="max-w-7xl sm:mx-auto flex items-center justify-between sm:rounded-xl backdrop-blur-md px-4 md:px-6 py-4 bg-[#13151b99] border border-gray-100/10"
+					className={`${otherPages ? "" : "max-w-7xl"} sm:mx-auto flex items-center justify-between sm:rounded-xl backdrop-blur-md px-4 md:px-6 py-4 bg-[#13151b99] border border-gray-100/10`}
 				>
 					<Link href="/" className="inline-flex items-center gap-2 md:gap-3.5">
 						<Image
 							src="/image/logo.png"
 							alt="Lemon Markets"
-							width={39}
+							width={38}
 							height={40}
 							style={{ width: "auto", height: "auto" }}
+							// className="animate-spin"
 						/>
 						<span className="hidden sm:inline-flex items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 							Lemon Markets

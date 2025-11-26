@@ -18,7 +18,7 @@ export const HeroSection: FC = () => {
 			</div>
 
 			<div className="relative z-10 max-w-7xl mx-auto px-6 mt-28 md:px-10 flex flex-col items-center text-center gap-6">
-				<h1 className="text-4xl md:text-6xl font-medium leading-tight bg-linear-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100">
+				<h1 className="text-4xl md:text-6xl font-medium leading-tight bg-linear-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100 tracking-tight">
 					Unlimited Markets.
 					<br />
 					Unlimited Opportunities.

@@ -4,7 +4,7 @@ import { FeatureCard } from "./FeatureCard";
 
 export const FeaturesSection: FC = () => {
 	return (
-		<section className="py-20 px-6 md:px-10 max-w-7xl mx-auto">
+		<section className="py-20 max-w-7xl mx-auto">
 			<div className="text-center mb-12">
 				<div className="inline-flex items-center gap-8">
 					<Image

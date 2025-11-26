@@ -35,7 +35,7 @@ export const FAQSection: FC = () => {
 	const [open, setOpen] = useState<number>(0);
 
 	return (
-		<section className="flex flex-col md:flex-row items-center gap-8 py-20 px-6 md:px-10 max-w-7xl mx-auto">
+		<section className="flex flex-col md:flex-row items-center gap-8 py-20 max-w-7xl mx-auto">
 			<div className="">
 				<div className="inline-flex items-center gap-8">
 					<Image

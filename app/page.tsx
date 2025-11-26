@@ -29,16 +29,16 @@ const FeaturesSection = nextDynamic(
 	},
 );
 
-const TestimonialsSection = nextDynamic(
-	() =>
-		import("@/components/homepage/TestimonialsSection").then((mod) => ({
-			default: mod.TestimonialsSection,
-		})),
-	{
-		loading: () => <div className="h-128 w-full" />,
-		ssr: true,
-	},
-);
+// const TestimonialsSection = nextDynamic(
+// 	() =>
+// 		import("@/components/homepage/TestimonialsSection").then((mod) => ({
+// 			default: mod.TestimonialsSection,
+// 		})),
+// 	{
+// 		loading: () => <div className="h-128 w-full" />,
+// 		ssr: true,
+// 	},
+// );
 
 const VideoSection = nextDynamic(
 	() => import("@/components/homepage/VideoSection").then((mod) => ({ default: mod.VideoSection })),
@@ -83,7 +83,7 @@ const HomepageFooter = nextDynamic(
 
 export default function Homepage() {
 	return (
-		<main className="bg-black text-white overflow-x-hidden">
+		<main className="text-white overflow-x-hidden">
 			<HeroSection />
 			{/* <section className="px-6 md:px-10 max-w-7xl mx-auto py-10">
 				<div className="flex items-center justify-center gap-6 opacity-80">
@@ -122,9 +122,9 @@ export default function Homepage() {
 			<Suspense fallback={<div className="h-150 w-full" />}>
 				<FeaturesSection />
 			</Suspense>
-			<Suspense fallback={<div className="h-128 w-full" />}>
+			{/* <Suspense fallback={<div className="h-128 w-full" />}>
 				<TestimonialsSection />
-			</Suspense>
+			</Suspense> */}
 			<Suspense fallback={<div className="h-96 w-full" />}>
 				<VideoSection />
 			</Suspense>
