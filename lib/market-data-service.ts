@@ -22,20 +22,20 @@ export async function fetchPairFromDexScreener(pairAddress: string, chain: strin
 		if (!pair) return null;
 
 		// Helper to fetch token logo via GeckoTerminal (if available)
-		async function fetchLogoFromGecko(address: string | undefined) {
-			if (!address) return null;
-			try {
-				const resp = await fetch(
-					`https://api.geckoterminal.com/api/v2/networks/${encodeURIComponent(chain)}/tokens/${encodeURIComponent(address)}`,
-					{ method: "GET", headers: { Accept: "application/json" } },
-				);
-				if (!resp.ok) return null;
-				const json = await resp.json();
-				return json?.data?.attributes?.image_url || null;
-			} catch (_err) {
-				return null;
-			}
-		}
+		// async function fetchLogoFromGecko(address: string | undefined) {
+		// 	if (!address) return null;
+		// 	try {
+		// 		const resp = await fetch(
+		// 			`https://api.geckoterminal.com/api/v2/networks/${encodeURIComponent(chain)}/tokens/${encodeURIComponent(address)}`,
+		// 			{ method: "GET", headers: { Accept: "application/json" } },
+		// 		);
+		// 		if (!resp.ok) return null;
+		// 		const json = await resp.json();
+		// 		return json?.data?.attributes?.image_url || null;
+		// 	} catch (_err) {
+		// 		return null;
+		// 	}
+		// }
 
 		// Normalize returned object
 		const response: PairResponseShape = {
@@ -53,24 +53,25 @@ export async function fetchPairFromDexScreener(pairAddress: string, chain: strin
 		};
 
 		// Try to fetch or enrich logos when explicit logos are not present
-		try {
-			const baseAddr = pair.baseToken?.address || pair.attributes?.base_token_address;
-			const quoteAddr = pair.quoteToken?.address || pair.attributes?.quote_token_address;
+		// Skip for performance if logos are not critical
+		// try {
+		// 	const baseAddr = pair.baseToken?.address || pair.attributes?.base_token_address;
+		// 	const quoteAddr = pair.quoteToken?.address || pair.attributes?.quote_token_address;
 
-			const [baseLogo, quoteLogo] = await Promise.all([
-				(pair.baseToken?.logo as string | undefined)
-					? Promise.resolve(pair.baseToken.logo)
-					: fetchLogoFromGecko(baseAddr),
-				(pair.quoteToken?.logo as string | undefined)
-					? Promise.resolve(pair.quoteToken.logo)
-					: fetchLogoFromGecko(quoteAddr),
-			]);
+		// 	const [baseLogo, quoteLogo] = await Promise.all([
+		// 		(pair.baseToken?.logo as string | undefined)
+		// 			? Promise.resolve(pair.baseToken.logo)
+		// 			: fetchLogoFromGecko(baseAddr),
+		// 		(pair.quoteToken?.logo as string | undefined)
+		// 			? Promise.resolve(pair.quoteToken.logo)
+		// 			: fetchLogoFromGecko(quoteAddr),
+		// 	]);
 
-			if (baseLogo) response.baseToken = { ...(response.baseToken || {}), logo: baseLogo };
-			if (quoteLogo) response.quoteToken = { ...(response.quoteToken || {}), logo: quoteLogo };
-		} catch (_err) {
-			// ignore enrichment errors
-		}
+		// 	if (baseLogo) response.baseToken = { ...(response.baseToken || {}), logo: baseLogo };
+		// 	if (quoteLogo) response.quoteToken = { ...(response.quoteToken || {}), logo: quoteLogo };
+		// } catch (_err) {
+		// 	// ignore enrichment errors
+		// }
 
 		return response;
 	} catch (error) {

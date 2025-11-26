@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchPairFromDexScreener } from "@/lib/market-data-service";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60; // Cache for 60 seconds
 
 export async function GET(request: Request) {
 	try {

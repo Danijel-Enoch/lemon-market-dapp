@@ -788,13 +788,13 @@ function PerpContent() {
 												: "text-gray-400 hover:text-white bg-black/50 backdrop-blur-sm"
 										}`}
 									>
-										Beta Chart
+										Lemon Chart
 									</button>
 								</div>
 								{chartType === "dexscreener" ? (
-									<div style={{ height: "500px" }}>
+									<div style={{ height: "600px" }}>
 										<iframe
-											src={`https://dexscreener.com/${tradingPair.chain}/${tradingPair.pairAddress}?embed=1&theme=dark`}
+											src={`https://dexscreener.com/${tradingPair.chain}/${tradingPair.pairAddress}?embed=1&theme=dark&info=0&sidebar=0&settings=0&trades=0&pair=0&toolbar=0&header=0&footer=0`}
 											width="100%"
 											height="100%"
 											style={{ border: "none" }}
@@ -862,13 +862,13 @@ function PerpContent() {
 							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
 								<TabsTrigger
 									value="long"
-									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-green-500 py-4`}
+									className={`font-medium text-sm transition-all rounded-none border-transparent bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-b-[#4DAD31] py-4`}
 								>
 									Long
 								</TabsTrigger>
 								<TabsTrigger
 									value="short"
-									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-red-500`}
+									className={`font-medium text-sm transition-all rounded-none border-transparent bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-b-[#FF4C4C] py-4`}
 								>
 									Short
 								</TabsTrigger>
