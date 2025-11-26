@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
 			"img-src 'self' data: blob: https: http:",
 			"font-src 'self' data: https://fonts.gstatic.com",
 			"connect-src 'self' https: wss: ws:",
-			"frame-src 'self' https://telegram.org https://*.telegram.org",
+			"frame-src 'self' https://telegram.org https://*.telegram.org https://dexscreener.com",
 			"frame-ancestors 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",

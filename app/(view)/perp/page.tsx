@@ -147,6 +147,7 @@ function PerpContent() {
 	const [marginValue, setMarginValue] = useState("0");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
+	const [chartType, setChartType] = useState<"dexscreener" | "beta">("dexscreener");
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
@@ -764,15 +765,54 @@ function PerpContent() {
 				<div className="lg:col-span-2">
 					{tradingPair.pairAddress || tradingPair.symbol ? (
 						tradingPair.assetType === "crypto" ? (
-							<ChartSection
-								pairAddress={tradingPair.pairAddress}
-								chain={tradingPair.chain}
-								symbol={tradingPair.symbol}
-								priceData={priceData ?? undefined}
-								fetchLatestPrice={fetchLatestPrice}
-								isLoadingPrice={isLoadingPrice}
-								marketData={marketData}
-							/>
+							<div className="relative">
+								{/* Chart Type Toggle */}
+								<div className="absolute bottom-2 left-2 z-10 flex items-center gap-2">
+									<button
+										type="button"
+										onClick={() => setChartType("dexscreener")}
+										className={`px-3 py-1 text-xs rounded transition-colors ${
+											chartType === "dexscreener"
+												? "bg-[#4DAD31] text-white"
+												: "text-gray-400 hover:text-white bg-black/50 backdrop-blur-sm"
+										}`}
+									>
+										DexScreener
+									</button>
+									<button
+										type="button"
+										onClick={() => setChartType("beta")}
+										className={`px-3 py-1 text-xs rounded transition-colors ${
+											chartType === "beta"
+												? "bg-[#4DAD31] text-white"
+												: "text-gray-400 hover:text-white bg-black/50 backdrop-blur-sm"
+										}`}
+									>
+										Beta Chart
+									</button>
+								</div>
+								{chartType === "dexscreener" ? (
+									<div style={{ height: "500px" }}>
+										<iframe
+											src={`https://dexscreener.com/${tradingPair.chain}/${tradingPair.pairAddress}?embed=1&theme=dark`}
+											width="100%"
+											height="100%"
+											style={{ border: "none" }}
+											title="DexScreener Chart"
+										/>
+									</div>
+								) : (
+									<ChartSection
+										pairAddress={tradingPair.pairAddress}
+										chain={tradingPair.chain}
+										symbol={tradingPair.symbol}
+										priceData={priceData ?? undefined}
+										fetchLatestPrice={fetchLatestPrice}
+										isLoadingPrice={isLoadingPrice}
+										marketData={marketData}
+									/>
+								)}
+							</div>
 						) : (
 							<div style={{ height: "500px" }}>
 								<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />
