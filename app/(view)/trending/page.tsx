@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAsyncFn } from "react-use";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SearchResults } from "@/components/ui/SearchResults";
@@ -96,6 +95,10 @@ interface TokenAPIResponse {
 	};
 }
 
+interface Asset extends Token {
+	type: "crypto" | "forex" | "stocks";
+}
+
 export default function Home() {
 	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -111,8 +114,10 @@ export default function Home() {
 	const [filterType, setFilterType] = useState<
 		"all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft"
 	>("all");
-	const [chainFilter, setChainFilter] = useState<"all" | string>("all");
-	const [onlyPerpMarkets, setOnlyPerpMarkets] = useState(false);
+
+	type FilterKey = "all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft";
+	const [chainFilter] = useState<"all" | string>("all");
+	const [onlyPerpMarkets] = useState(false);
 
 	// New search functionality
 	const {
@@ -359,11 +364,6 @@ export default function Home() {
 			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
 
-	// Unified assets that combine tokens, fx and stocks for a single table
-	interface Asset extends Token {
-		type: "crypto" | "forex" | "stocks";
-	}
-
 	const combinedAssets: Asset[] = [
 		...filteredTokens.map((t) => ({ ...t, type: "crypto" }) as Asset),
 		...filteredFX.map(
@@ -393,27 +393,63 @@ export default function Home() {
 		// The other categories (commodities, rwa, gdp, nft) currently map to none
 		return false;
 	});
+	// Filter tabs with typed keys to satisfy TypeScript and enable mapping
+	const filterTabs = [
+		["all", "All"],
+		["crypto", "Crypto"],
+		["forex", "Forex"],
+		["commodities", "Commodities"],
+		["rwa", "RWA's"],
+		["stocks", "Stocks"],
+		["gdp", "GDP"],
+		["nft", "NFT"],
+	] as const;
+
 	return (
 		<>
-			<div className="mb-8 space-y-4">
-				<div className="relative max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-					<Input
-						type="text"
-						placeholder="Search Base tokens by symbol, address, or pair address..."
-						value={searchQuery}
-						onChange={handleSearchChange}
-						className="pl-10"
-					/>
+			<div className="py-6 border-l border-r border-[#202020]">
+				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+					<div className="flex-1 min-w-0 flex items-center gap-4">
+						<div className="relative w-full max-w-lg">
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+							<Input
+								type="text"
+								placeholder="Search Base tokens by symbol, address, or pair address..."
+								value={searchQuery}
+								onChange={handleSearchChange}
+								className="pl-10"
+							/>
+						</div>
+					</div>
+
+					<div className="flex-none w-full sm:w-auto">
+						<nav className="flex gap-4 items-center justify-start sm:justify-end overflow-x-auto px-1">
+							{filterTabs.map(([key, label]) => (
+								<button
+									type="button"
+									key={String(key)}
+									onClick={() => setFilterType(key as FilterKey)}
+									className={`text-sm font-medium px-3 py-2 -mb-px whitespace-nowrap uppercase ${
+										filterType === key
+											? "text-[#0BB37E] border-b-2 border-[#0BB37E]"
+											: "text-[#9AA0A0] hover:text-[#ffffff]"
+									}`}
+								>
+									{label}
+								</button>
+							))}
+						</nav>
+					</div>
 				</div>
+
 				{searchQuery && (
-					<div className="space-y-2">
-						<p className="text-muted-foreground text-xs">
+					<div className="space-y-2 mt-2 text-xs">
+						<p className="text-muted-foreground">
 							Searching for &quot;{searchQuery}&quot; on Base network via DexScreener and
 							GeckoTerminal
 						</p>
 						{searchQuery.startsWith("0x") && (
-							<p className="text-muted-foreground text-xs bg-blue-500/10 border border-blue-500/20 rounded p-2">
+							<p className="text-muted-foreground bg-blue-500/10 border border-blue-500/20 rounded p-2">
 								💡 Detected contract address - searching on Base chain
 							</p>
 						)}
@@ -421,13 +457,15 @@ export default function Home() {
 				)}
 
 				{searchQuery.length >= 2 && (
-					<SearchResults
-						results={searchResults}
-						isLoading={isSearchLoading}
-						error={searchError}
-						query={searchQuery}
-						onTradeClick={handleSearchResultTradeClick}
-					/>
+					<div className="mt-2">
+						<SearchResults
+							results={searchResults}
+							isLoading={isSearchLoading}
+							error={searchError}
+							query={searchQuery}
+							onTradeClick={handleSearchResultTradeClick}
+						/>
+					</div>
 				)}
 			</div>
 
@@ -463,228 +501,140 @@ export default function Home() {
 								</Card>
 							))}
 						</div>
-					) : (
-						<>
-							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-								<div className="flex gap-2 items-center">
-									<Button
-										size="sm"
-										variant={chainFilter === "all" ? "default" : "ghost"}
-										onClick={() => {
-											setChainFilter("all");
-											setCurrentPage(1);
-											fetchTokens(1, false, undefined, onlyPerpMarkets);
-										}}
-									>
-										All Chains
-									</Button>
-									{["base", "ethereum", "bsc", "solana"].map((c) => (
-										<Button
-											key={c}
-											size="sm"
-											variant={chainFilter === c ? "default" : "ghost"}
-											onClick={() => {
-												setChainFilter(c);
-												setCurrentPage(1);
-												fetchTokens(1, false, c, onlyPerpMarkets);
-											}}
-										>
-											{c}
-										</Button>
-									))}
-									<Button
-										size="sm"
-										variant={onlyPerpMarkets ? "default" : "ghost"}
-										onClick={() => {
-											setOnlyPerpMarkets((v) => {
-												const newVal = !v;
-												setCurrentPage(1);
-												fetchTokens(
-													1,
-													false,
-													chainFilter === "all" ? undefined : chainFilter,
-													newVal,
-												);
-												return newVal;
-											});
-										}}
-									>
-										Perp Markets
-									</Button>
-								</div>
-								<div className="flex gap-2 items-center">
-									<Button
-										size="sm"
-										variant={filterType === "all" ? "default" : "ghost"}
-										onClick={() => setFilterType("all")}
-									>
-										All
-									</Button>
-									<Button
-										size="sm"
-										variant={filterType === "crypto" ? "default" : "ghost"}
-										onClick={() => setFilterType("crypto")}
-									>
-										Tokens
-									</Button>
-									<Button
-										size="sm"
-										variant={filterType === "forex" ? "default" : "ghost"}
-										onClick={() => setFilterType("forex")}
-									>
-										Forex
-									</Button>
-									<Button
-										size="sm"
-										variant={filterType === "stocks" ? "default" : "ghost"}
-										onClick={() => setFilterType("stocks")}
-									>
-										Stocks
-									</Button>
-								</div>
-							</div>
-
-							{combinedAssets.length > 0 ? (
-								<div className="relative">
-									<Card className="overflow-hidden rounded-xl border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
-										<div className="p-0 rounded-b-xl">
-											<div className="overflow-x-auto">
-												<table className="w-full min-w-[900px] border-collapse">
-													<thead>
-														<tr className="border-b border-[#222022] bg-[#070707] p-0">
-															<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
-																Market
-															</th>
-															<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
-																XP
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
-																Price
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-																Market Cap
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-																Total Liquidity
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-																24h Change
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-																Open Interest
-															</th>
-															<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-																24h Volume
-															</th>
-														</tr>
-													</thead>
-													<tbody>
-														{combinedAssets.length > 0 ? (
-															combinedAssets.map((item: Asset, idx: number) => (
-																<tr
-																	key={`${item.type}-${item.id}-${idx}`}
-																	className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
-																	onClick={() => handleTradeClick(item)}
-																>
-																	<td className="px-4 py-4 align-middle">
-																		<div className="flex items-center gap-4">
-																			<div className="relative">
-																				<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
-																					{item.logo?.startsWith?.("http") ? (
-																						<Image
-																							src={item.logo}
-																							alt={item.symbol}
-																							width={44}
-																							height={44}
-																							className="w-full h-full object-cover"
-																						/>
-																					) : (
-																						<span className="text-sm">{item.logo || "🪙"}</span>
-																					)}
-																				</div>
-																				{item.leverage && (
-																					<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
-																						{item.leverage}
-																					</div>
-																				)}
-																			</div>
-																			<div className="min-w-0">
-																				<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
-																					{item.symbol}
-																				</div>
-																				<div className="text-[#9AA0A0] text-xs truncate">
-																					{item.name}
-																				</div>
-																			</div>
+					) : combinedAssets.length > 0 ? (
+						<div className="relative">
+							<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+								<div className="p-0">
+									<div className="overflow-x-auto">
+										<table className="w-full min-w-[900px] border-collapse">
+											<thead>
+												<tr className="border-b border-[#222022] bg-[#070707] p-0">
+													<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
+														Market
+													</th>
+													<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
+														XP
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
+														Price
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+														Market Cap
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+														Total Liquidity
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+														24h Change
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+														Open Interest
+													</th>
+													<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+														24h Volume
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{combinedAssets.length > 0 ? (
+													combinedAssets.map((item: Asset, idx: number) => (
+														<tr
+															key={`${item.type}-${item.id}-${idx}`}
+															className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
+															onClick={() => handleTradeClick(item)}
+														>
+															<td className="px-4 py-4 align-middle">
+																<div className="flex items-center gap-4">
+																	<div className="relative">
+																		<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
+																			{item.logo?.startsWith?.("http") ? (
+																				<Image
+																					src={item.logo}
+																					alt={item.symbol}
+																					width={44}
+																					height={44}
+																					className="w-full h-full object-cover"
+																				/>
+																			) : (
+																				<span className="text-sm">{item.logo || "🪙"}</span>
+																			)}
 																		</div>
-																	</td>
-																	<td className="px-4 py-4 text-center">
-																		<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
-																			{item.xp ?? "5:23"}
-																		</div>
-																	</td>
-																	<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
-																		{item.price}
-																	</td>
-																	<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-																		{item.marketCap || "N/A"}
-																	</td>
-																	<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-																		{item.totalLiquidity ?? "$0.00"}
-																	</td>
-																	<td className="px-4 py-4 text-right">
-																		<div className="inline-flex items-center gap-2 justify-end">
-																			<div
-																				className={`inline-flex items-center gap-1 px-2 py-1 rounded-md ${item.trend === "up" ? "text-[#30E5A7]" : "text-[#FF6B6B]"}`}
-																			>
-																				{item.trend === "up" ? (
-																					<ArrowUpRight className="w-3 h-3" />
-																				) : (
-																					<ArrowDownRight className="w-3 h-3" />
-																				)}
-																				<span className="font-medium text-sm">
-																					{item.change24h}
-																				</span>
+																		{item.leverage && (
+																			<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
+																				{item.leverage}
 																			</div>
+																		)}
+																	</div>
+																	<div className="min-w-0">
+																		<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
+																			{item.symbol}
 																		</div>
-																	</td>
-																	<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-																		{item.openInterest ?? "$0.00"}
-																	</td>
-																	<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-																		{item.volume ?? "N/A"}
-																	</td>
-																</tr>
-															))
-														) : (
-															<tr>
-																<td colSpan={9} className="p-12 text-center">
-																	<div className="flex flex-col items-center gap-2">
-																		<div className="text-muted-foreground">No items found</div>
-																		<div className="text-sm text-muted-foreground">
-																			No data available
+																		<div className="text-[#9AA0A0] text-xs truncate">
+																			{item.name}
 																		</div>
 																	</div>
-																</td>
-															</tr>
-														)}
-													</tbody>
-												</table>
-											</div>
-										</div>
-									</Card>
-									{/* Subtle green gradient accent on left side to match designs */}
-									<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 rounded-l-xl bg-linear-to-r from-[#083b28]/10 to-transparent" />
-								</div>
-							) : (
-								<div className="flex flex-col items-center justify-center py-12 gap-4">
-									<div className="text-muted-foreground">No data available</div>
-									<div className="text-sm text-muted-foreground">
-										Unable to fetch trending assets
+																</div>
+															</td>
+															<td className="px-4 py-4 text-center">
+																<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
+																	{item.xp ?? "5:23"}
+																</div>
+															</td>
+															<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
+																{item.price}
+															</td>
+															<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+																{item.marketCap || "N/A"}
+															</td>
+															<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+																{item.totalLiquidity ?? "$0.00"}
+															</td>
+															<td className="px-4 py-4 text-right">
+																<div className="inline-flex items-center gap-2 justify-end">
+																	<div
+																		className={`inline-flex items-center gap-1 px-2 py-1 ${item.trend === "up" ? "text-[#30E5A7]" : "text-[#FF6B6B]"}`}
+																	>
+																		{item.trend === "up" ? (
+																			<ArrowUpRight className="w-3 h-3" />
+																		) : (
+																			<ArrowDownRight className="w-3 h-3" />
+																		)}
+																		<span className="font-medium text-sm">{item.change24h}</span>
+																	</div>
+																</div>
+															</td>
+															<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+																{item.openInterest ?? "$0.00"}
+															</td>
+															<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+																{item.volume ?? "N/A"}
+															</td>
+														</tr>
+													))
+												) : (
+													<tr>
+														<td colSpan={9} className="p-12 text-center">
+															<div className="flex flex-col items-center gap-2">
+																<div className="text-muted-foreground">No items found</div>
+																<div className="text-sm text-muted-foreground">
+																	No data available
+																</div>
+															</div>
+														</td>
+													</tr>
+												)}
+											</tbody>
+										</table>
 									</div>
 								</div>
-							)}
-						</>
+							</div>
+							<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
+						</div>
+					) : (
+						<div className="flex flex-col items-center justify-center py-12 gap-4">
+							<div className="text-muted-foreground">No data available</div>
+							<div className="text-sm text-muted-foreground">Unable to fetch trending assets</div>
+						</div>
 					)}
 				</div>
 			)}
