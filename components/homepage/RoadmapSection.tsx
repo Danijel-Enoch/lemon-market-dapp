@@ -109,7 +109,7 @@ export const RoadmapSection: FC = () => {
 								key={phase.phase}
 								initial={{ opacity: 0, y: 30 }}
 								whileInView={{ opacity: 1, y: 0 }}
-								viewport={{ once: true, margin: "-80px" }}
+								viewport={{ once: false, margin: "-80px" }}
 								transition={{ delay: idx * 0.1 }}
 								className={`relative flex ${isLeft ? "md:justify-start" : "md:justify-end"}`}
 							>
@@ -155,7 +155,7 @@ export const RoadmapSection: FC = () => {
 												key={`${phase.phase}-thing-${i}-${thing.slice(0, 15).replace(/\s+/g, "-")}`}
 												initial={{ opacity: 0, x: -10 }}
 												whileInView={{ opacity: 1, x: 0 }}
-												viewport={{ once: true }}
+												viewport={{ once: false }}
 												transition={{ delay: idx * 0.1 + i * 0.05 }}
 												className={`flex gap-3 text-white/70 text-[15px] leading-relaxed ${isLeft ? "md:flex-row-reverse" : ""}`}
 											>
@@ -176,7 +176,7 @@ export const RoadmapSection: FC = () => {
 			<motion.div
 				initial={{ opacity: 0 }}
 				whileInView={{ opacity: 1 }}
-				viewport={{ once: true }}
+				viewport={{ once: false }}
 				className="mt-16 text-center"
 			>
 				<p className="text-white/40 text-sm">
