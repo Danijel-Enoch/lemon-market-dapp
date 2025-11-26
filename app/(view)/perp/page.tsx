@@ -144,7 +144,7 @@ function PerpContent() {
 	}, [decimalsFromChain]);
 
 	const [isLong, setIsLong] = useState(true);
-	const [marginValue, setMarginValue] = useState("0");
+	const [marginValue, setMarginValue] = useState("");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
 	const [chartType, setChartType] = useState<"dexscreener" | "beta">("dexscreener");
@@ -878,7 +878,7 @@ function PerpContent() {
 						</Tabs>
 					</div>
 					{tradingPair.pairAddress && marketData ? (
-						<div className="p-4">
+						<div className="flex flex-col gap-2 p-4">
 							{isConnected && needsApproval && autoSwapAndApprove && (
 								<div className="bg-muted p-4 rounded-lg">
 									<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
