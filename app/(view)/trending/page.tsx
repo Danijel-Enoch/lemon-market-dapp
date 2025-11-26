@@ -583,7 +583,7 @@ export default function Home() {
 															combinedAssets.map((item: Asset, idx: number) => (
 																<tr
 																	key={`${item.type}-${item.id}-${idx}`}
-																	className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border-l-4 hover:border-[#0BB37E]/40 cursor-pointer"
+																	className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
 																	onClick={() => handleTradeClick(item)}
 																>
 																	<td className="px-4 py-4 align-middle">
