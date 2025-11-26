@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAsyncFn } from "react-use";
-import { Search } from "lucide-react";
+import { Search, TrendingUp, TrendingDown } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useAccount,
@@ -862,14 +862,16 @@ function PerpContent() {
 							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
 								<TabsTrigger
 									value="long"
-									className={`font-medium text-sm transition-all rounded-none border-transparent bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-b-[#4DAD31] py-4`}
+									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-[#4DAD31] py-4`}
 								>
+									<TrendingUp className="w-4 h-4" />
 									Long
 								</TabsTrigger>
 								<TabsTrigger
 									value="short"
-									className={`font-medium text-sm transition-all rounded-none border-transparent bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-b-[#FF4C4C] py-4`}
+									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-[#FF4C4C] py-4`}
 								>
+									<TrendingDown className="w-4 h-4" />
 									Short
 								</TabsTrigger>
 							</TabsList>
