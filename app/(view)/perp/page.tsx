@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAsyncFn } from "react-use";
+import { Search } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useAccount,
@@ -20,6 +21,7 @@ import TradingViewWidget from "@/components/trading/TradingViewWidget";
 import { Button } from "@/components/ui/button";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 import { Input } from "@/components/ui/input";
+import { SearchModal } from "@/components/ui/SearchModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserPositions } from "@/hooks/useUserPositions";
@@ -44,6 +46,7 @@ function PerpContent() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] = useState(false);
+	const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "",
 		price: "",
@@ -581,9 +584,13 @@ function PerpContent() {
 									{extractTokenSymbol(tradingPair.symbol)}
 								</div> */}
 								<div className="flex items-center gap-2 mt-0.5">
-									<span className="text-white text-xs">
+									<button
+										type="button"
+										className="text-white text-xs cursor-pointer hover:text-gray-300"
+										onClick={() => setIsSearchModalOpen(true)}
+									>
 										{marketData.baseTokenSymbol}/{marketData.quoteTokenSymbol}
-									</span>
+									</button>
 									{marketData.priceChange && (
 										<span
 											className={`text-xs px-1.5 py-0.5 rounded ${
@@ -595,23 +602,10 @@ function PerpContent() {
 											{marketData.priceChange}
 										</span>
 									)}
-									{marketData.priceChange && (
-										<svg
-											width="17"
-											height="17"
-											viewBox="0 0 17 17"
-											fill="none"
-											className={marketData.priceChange.startsWith("+") ? "" : "rotate-180"}
-										>
-											<title>Price Direction</title>
-											<path
-												fillRule="evenodd"
-												clipRule="evenodd"
-												d="M9.001 6.6258C8.868 6.7586 8.688 6.8332 8.5 6.8332C8.312 6.8332 8.132 6.7586 7.999 6.6258L3.992 2.6187C3.924 2.5534 3.871 2.4752 3.833 2.3888C3.796 2.3024 3.777 2.2094 3.776 2.1154C3.775 2.0213 3.793 1.9281 3.829 1.841C3.864 1.754 3.917 1.6749 3.983 1.6084C4.05 1.5419 4.129 1.4893 4.216 1.4537C4.303 1.418 4.396 1.4001 4.49 1.4009C4.584 1.4018 4.677 1.4213 4.764 1.4584C4.85 1.4955 4.928 1.5495 4.994 1.6172L8.5 5.1234L12.006 1.6172C12.14 1.4881 12.319 1.4167 12.504 1.4183C12.69 1.42 12.868 1.4945 12.999 1.6258C13.13 1.7571 13.205 1.9348 13.207 2.1205C13.208 2.3062 13.137 2.4851 13.008 2.6187L9.001 6.6258Z"
-												fill="white"
-											/>
-										</svg>
-									)}
+									<Search
+										className="w-4 h-4 text-white cursor-pointer hover:text-gray-300"
+										onClick={() => setIsSearchModalOpen(true)}
+									/>
 								</div>
 							</div>
 						</div>
@@ -1281,6 +1275,8 @@ function PerpContent() {
 					/>
 				)}
 			</div>
+
+			<SearchModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
 		</>
 	);
 }
