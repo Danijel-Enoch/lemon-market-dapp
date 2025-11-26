@@ -41,8 +41,8 @@ export function Header() {
 					paddingTop: context.client.safeAreaInsets.top,
 				}
 			: {};
-	
-	const otherPages = pathname.split("/").length > 1;
+
+	const otherPages = pathname.length > 2;
 
 	return (
 		<>

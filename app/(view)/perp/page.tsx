@@ -12,7 +12,7 @@ import {
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
-	useWriteContract
+	useWriteContract,
 } from "wagmi";
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
@@ -29,7 +29,7 @@ import {
 	formatPriceChange,
 	getForexPrice,
 	getStockPrice,
-	getTokenPriceByPair
+	getTokenPriceByPair,
 } from "@/lib/oracle";
 import {
 	createPosition,
@@ -37,14 +37,13 @@ import {
 	formatTxHash,
 	getEtherscanUrl,
 	validateLeverage,
-	validateMargin
+	validateMargin,
 } from "@/lib/position-api";
 
 function PerpContent() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] =
-		useState(false);
+	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "",
 		price: "",
@@ -52,7 +51,7 @@ function PerpContent() {
 		pairAddress: "",
 		tokenAddress: "",
 		chain: "base", // Default to base chain
-		assetType: "crypto" as "crypto" | "stock" | "forex" // Track asset type
+		assetType: "crypto" as "crypto" | "stock" | "forex", // Track asset type
 	});
 
 	const [marketData, setMarketData] = useState<{
@@ -84,73 +83,55 @@ function PerpContent() {
 		refetch: fetchUserPositions,
 		openPositions,
 		totalPnl,
-		totalMargin
+		totalMargin,
 	} = useUserPositions();
 
 	const { address, isConnected } = useAccount();
-	const {
-		sendTransaction,
-		data: hash,
-		error,
-		isPending
-	} = useSendTransaction();
-	const { isLoading: isConfirming, isSuccess: isConfirmed } =
-		useWaitForTransactionReceipt({
-			hash
-		});
+	const { sendTransaction, data: hash, error, isPending } = useSendTransaction();
+	const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+		hash,
+	});
 
-	const {
-		writeContract,
-		data: approvalHash,
-		isPending: isApproving
-	} = useWriteContract();
+	const { writeContract, data: approvalHash, isPending: isApproving } = useWriteContract();
 	const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } =
 		useWaitForTransactionReceipt({
-			hash: approvalHash
+			hash: approvalHash,
 		});
 
 	const { data: ethBalance } = useBalance({
 		address: address,
-		query: { enabled: !!address }
+		query: { enabled: !!address },
 	});
 
 	// dynamic margin token support: use the pair quote token as the default margin token (fallback to USDC)
-	const [marginTokenAddress, setMarginTokenAddress] = useState(
-		usdc as `0x${string}`
-	);
+	const [marginTokenAddress, setMarginTokenAddress] = useState(usdc as `0x${string}`);
 	const [marginTokenSymbol, setMarginTokenSymbol] = useState("USDC");
 	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
-	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<
-		number | null
-	>(null);
+	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<number | null>(null);
 	const [marginTokenLogo, setMarginTokenLogo] = useState<string | null>(null);
 
-	const { data: marginBalance, refetch: refetchMarginBalance } =
-		useReadContract({
-			address: marginTokenAddress as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "balanceOf",
-			args: address ? [address] : undefined,
-			query: { enabled: !!address && !!marginTokenAddress }
-		});
+	const { data: marginBalance, refetch: refetchMarginBalance } = useReadContract({
+		address: marginTokenAddress as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address && !!marginTokenAddress },
+	});
 
-	const { data: marginAllowance, refetch: refetchAllowance } =
-		useReadContract({
-			address: marginTokenAddress as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "allowance",
-			args: address
-				? [address, SyntheticPerpetualContract as `0x${string}`]
-				: undefined,
-			query: { enabled: !!address && !!marginTokenAddress }
-		});
+	const { data: marginAllowance, refetch: refetchAllowance } = useReadContract({
+		address: marginTokenAddress as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "allowance",
+		args: address ? [address, SyntheticPerpetualContract as `0x${string}`] : undefined,
+		query: { enabled: !!address && !!marginTokenAddress },
+	});
 
 	const { data: decimalsFromChain } = useReadContract({
 		address: marginTokenAddress as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "decimals",
 		args: [],
-		query: { enabled: !!marginTokenAddress }
+		query: { enabled: !!marginTokenAddress },
 	});
 
 	useEffect(() => {
@@ -163,16 +144,12 @@ function PerpContent() {
 	const [marginValue, setMarginValue] = useState("0");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
-	const [_lastTransactionHash, setLastTransactionHash] = useState<
-		string | null
-	>(null);
+	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
 	// Compute available margin token amount from contract balance
 	const decimals =
-		decimalsFromChain !== undefined
-			? Number(decimalsFromChain)
-			: marginTokenDecimals;
+		decimalsFromChain !== undefined ? Number(decimalsFromChain) : marginTokenDecimals;
 	const availableMargin = marginBalance
 		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
 		: 0;
@@ -191,82 +168,70 @@ function PerpContent() {
 	// Ticker tokens are fetched via TopTicker in layout
 
 	// Fetch market data for the current pair
-	const [{ loading: _isLoadingMarketData }, fetchMarketData] =
-		useAsyncFn(async () => {
-			if (
-				!tradingPair.pairAddress ||
-				tradingPair.assetType !== "crypto"
-			) {
-				setMarketData(undefined);
-				return;
-			}
+	const [{ loading: _isLoadingMarketData }, fetchMarketData] = useAsyncFn(async () => {
+		if (!tradingPair.pairAddress || tradingPair.assetType !== "crypto") {
+			setMarketData(undefined);
+			return;
+		}
 
-			try {
-				// Fetch via our server-side market data API (proxies DexScreener and provides consistent behavior)
-				const response = await fetch(
-					`/api/market/pair?chain=${tradingPair.chain}&pairAddress=${tradingPair.pairAddress}`
-				);
-				if (response.ok) {
-					const data = await response.json();
-					if (data.success && data.pair) {
-						const pair = data.pair;
-						setMarketData({
-							priceUsd: pair.priceUsd,
-							priceChange: pair.priceChange?.h24
-								? `${
-										pair.priceChange.h24 >= 0 ? "+" : ""
-								  }${pair.priceChange.h24.toFixed(2)}%`
-								: undefined,
-							marketCap: pair.marketCap?.toString(),
-							fdv: pair.fdv?.toString(),
-							liquidity: pair.liquidity?.usd?.toString(),
-							volume24h: pair.volume?.h24?.toString(),
-							volume6h: pair.volume?.h6?.toString(),
-							volume1h: pair.volume?.h1?.toString(),
-							txns24h: pair.txns?.h24
-								? {
-										buys: pair.txns.h24.buys || 0,
-										sells: pair.txns.h24.sells || 0
-								  }
-								: undefined,
-							txns6h: pair.txns?.h6
-								? {
-										buys: pair.txns.h6.buys || 0,
-										sells: pair.txns.h6.sells || 0
-								  }
-								: undefined,
-							poolCreated: pair.pairCreatedAt
-								? new Date(
-										pair.pairCreatedAt
-								  ).toLocaleDateString()
-								: undefined,
-							tokenLogo: pair.info?.imageUrl,
-							baseTokenLogo: pair.baseToken?.logo,
-							quoteTokenLogo: pair.quoteToken?.logo,
-							baseTokenSymbol: pair.baseToken?.symbol,
-							quoteTokenSymbol: pair.quoteToken?.symbol,
-							baseTokenAddress: pair.baseToken?.address,
-							quoteTokenAddress: pair.quoteToken?.address
-						});
-					}
+		try {
+			// Fetch via our server-side market data API (proxies DexScreener and provides consistent behavior)
+			const response = await fetch(
+				`/api/market/pair?chain=${tradingPair.chain}&pairAddress=${tradingPair.pairAddress}`,
+			);
+			if (response.ok) {
+				const data = await response.json();
+				if (data.success && data.pair) {
+					const pair = data.pair;
+					setMarketData({
+						priceUsd: pair.priceUsd,
+						priceChange: pair.priceChange?.h24
+							? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
+							: undefined,
+						marketCap: pair.marketCap?.toString(),
+						fdv: pair.fdv?.toString(),
+						liquidity: pair.liquidity?.usd?.toString(),
+						volume24h: pair.volume?.h24?.toString(),
+						volume6h: pair.volume?.h6?.toString(),
+						volume1h: pair.volume?.h1?.toString(),
+						txns24h: pair.txns?.h24
+							? {
+									buys: pair.txns.h24.buys || 0,
+									sells: pair.txns.h24.sells || 0,
+								}
+							: undefined,
+						txns6h: pair.txns?.h6
+							? {
+									buys: pair.txns.h6.buys || 0,
+									sells: pair.txns.h6.sells || 0,
+								}
+							: undefined,
+						poolCreated: pair.pairCreatedAt
+							? new Date(pair.pairCreatedAt).toLocaleDateString()
+							: undefined,
+						tokenLogo: pair.info?.imageUrl,
+						baseTokenLogo: pair.baseToken?.logo,
+						quoteTokenLogo: pair.quoteToken?.logo,
+						baseTokenSymbol: pair.baseToken?.symbol,
+						quoteTokenSymbol: pair.quoteToken?.symbol,
+						baseTokenAddress: pair.baseToken?.address,
+						quoteTokenAddress: pair.quoteToken?.address,
+					});
 				}
-			} catch (error) {
-				console.error("Error fetching market data:", error);
 			}
-		}, [tradingPair.pairAddress, tradingPair.chain, tradingPair.assetType]);
+		} catch (error) {
+			console.error("Error fetching market data:", error);
+		}
+	}, [tradingPair.pairAddress, tradingPair.chain, tradingPair.assetType]);
 
 	// Update margin token address/symbol whenever marketData or tradingPair changes
 	useEffect(() => {
 		if (marketData?.quoteTokenAddress) {
-			setMarginTokenAddress(
-				marketData.quoteTokenAddress as `0x${string}`
-			);
+			setMarginTokenAddress(marketData.quoteTokenAddress as `0x${string}`);
 			setMarginTokenSymbol(marketData.quoteTokenSymbol || "USDC");
 		} else if (tradingPair.tokenAddress) {
 			setMarginTokenAddress(tradingPair.tokenAddress as `0x${string}`);
-			setMarginTokenSymbol(
-				extractTokenSymbol(tradingPair.symbol) || "USDC"
-			);
+			setMarginTokenSymbol(extractTokenSymbol(tradingPair.symbol) || "USDC");
 		} else {
 			setMarginTokenAddress(usdc as `0x${string}`);
 			setMarginTokenSymbol("USDC");
@@ -285,7 +250,7 @@ function PerpContent() {
 				const res = await fetch(
 					`/api/price/token?tokenAddress=${marginTokenAddress}&chain=${
 						tradingPair.chain || "base"
-					}`
+					}`,
 				);
 				if (res.ok) {
 					const data = await res.json();
@@ -318,17 +283,11 @@ function PerpContent() {
 			}
 
 			// Prefer logos already found in marketData
-			if (
-				marketData?.quoteTokenAddress &&
-				marketData.quoteTokenAddress === marginTokenAddress
-			) {
+			if (marketData?.quoteTokenAddress && marketData.quoteTokenAddress === marginTokenAddress) {
 				setMarginTokenLogo(marketData.quoteTokenLogo || null);
 				return;
 			}
-			if (
-				marketData?.baseTokenAddress &&
-				marketData.baseTokenAddress === marginTokenAddress
-			) {
+			if (marketData?.baseTokenAddress && marketData.baseTokenAddress === marginTokenAddress) {
 				setMarginTokenLogo(marketData.baseTokenLogo || null);
 				return;
 			}
@@ -336,7 +295,7 @@ function PerpContent() {
 			try {
 				const chainParam = tradingPair.chain || "base";
 				const resp = await fetch(
-					`https://api.dexscreener.com/latest/dex/tokens/${chainParam}/${marginTokenAddress}`
+					`https://api.dexscreener.com/latest/dex/tokens/${chainParam}/${marginTokenAddress}`,
 				);
 				if (!resp.ok) {
 					if (!cancelled) setMarginTokenLogo(null);
@@ -345,10 +304,7 @@ function PerpContent() {
 				const json = await resp.json();
 				const firstPair = json.pairs?.[0] || json.pair || null;
 				const tokenLogoFound =
-					firstPair?.baseToken?.logo ||
-					firstPair?.info?.imageUrl ||
-					json?.info?.imageUrl ||
-					null;
+					firstPair?.baseToken?.logo || firstPair?.info?.imageUrl || json?.info?.imageUrl || null;
 				if (!cancelled) setMarginTokenLogo(tokenLogoFound || null);
 			} catch (err) {
 				console.error("Failed to fetch margin token logo:", err);
@@ -361,58 +317,49 @@ function PerpContent() {
 		};
 	}, [marginTokenAddress, marketData, tradingPair.chain]);
 
-	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] =
-		useAsyncFn(async () => {
-			if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
+	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
+		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
 
-			const assetType = tradingPair.assetType;
-			const lastUpdate = new Date();
+		const assetType = tradingPair.assetType;
+		const lastUpdate = new Date();
 
-			if (assetType === "stock") {
-				// Fetch stock price using price API
-				const stockPrice = await getStockPrice(tradingPair.symbol);
-				if (stockPrice?.success) {
-					return {
-						price: formatPrice(stockPrice.price),
-						change: "N/A", // Stock API doesn't provide change data
-						lastUpdate
-					};
-				}
-			} else if (assetType === "forex") {
-				// Fetch forex price using price API
-				const forexPrice = await getForexPrice(tradingPair.symbol);
-				if (forexPrice?.success) {
-					return {
-						price: formatPrice(forexPrice.price),
-						change: "N/A", // Forex API doesn't provide change data
-						lastUpdate
-					};
-				}
-			} else {
-				// Fetch crypto price using pair address
-				if (!tradingPair.pairAddress) return null;
-				const chain = tradingPair.chain || "base";
-				const tokenPrice = await getTokenPriceByPair(
-					tradingPair.pairAddress,
-					chain
-				);
-				if (tokenPrice) {
-					return {
-						price: formatPrice(tokenPrice.priceUsd),
-						change: tokenPrice.priceChange24h
-							? formatPriceChange(tokenPrice.priceChange24h)
-							: tradingPair.change,
-						lastUpdate
-					};
-				}
+		if (assetType === "stock") {
+			// Fetch stock price using price API
+			const stockPrice = await getStockPrice(tradingPair.symbol);
+			if (stockPrice?.success) {
+				return {
+					price: formatPrice(stockPrice.price),
+					change: "N/A", // Stock API doesn't provide change data
+					lastUpdate,
+				};
 			}
-			return null;
-		}, [
-			tradingPair.symbol,
-			tradingPair.pairAddress,
-			tradingPair.assetType,
-			tradingPair.chain
-		]);
+		} else if (assetType === "forex") {
+			// Fetch forex price using price API
+			const forexPrice = await getForexPrice(tradingPair.symbol);
+			if (forexPrice?.success) {
+				return {
+					price: formatPrice(forexPrice.price),
+					change: "N/A", // Forex API doesn't provide change data
+					lastUpdate,
+				};
+			}
+		} else {
+			// Fetch crypto price using pair address
+			if (!tradingPair.pairAddress) return null;
+			const chain = tradingPair.chain || "base";
+			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, chain);
+			if (tokenPrice) {
+				return {
+					price: formatPrice(tokenPrice.priceUsd),
+					change: tokenPrice.priceChange24h
+						? formatPriceChange(tokenPrice.priceChange24h)
+						: tradingPair.change,
+					lastUpdate,
+				};
+			}
+		}
+		return null;
+	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
 
 	// Update tradingPair when priceData changes
 	useEffect(() => {
@@ -420,7 +367,7 @@ function PerpContent() {
 			setTradingPair((prev) => ({
 				...prev,
 				price: priceData.price,
-				change: priceData.change
+				change: priceData.change,
 			}));
 		}
 	}, [priceData]);
@@ -430,46 +377,31 @@ function PerpContent() {
 		const pairAddress = searchParams.get("pairAddress");
 		const tokenAddress = searchParams.get("tokenAddress");
 		const chain = searchParams.get("chain") || "base";
-		const assetType = (searchParams.get("assetType") || "crypto") as
-			| "crypto"
-			| "stock"
-			| "forex";
+		const assetType = (searchParams.get("assetType") || "crypto") as "crypto" | "stock" | "forex";
 
 		// If no symbol/pair/token was passed in the URL, redirect to the top performing trending token
-		if (
-			!symbol &&
-			!pairAddress &&
-			!tokenAddress &&
-			!didDefaultTrendingRedirect
-		) {
+		if (!symbol && !pairAddress && !tokenAddress && !didDefaultTrendingRedirect) {
 			setDidDefaultTrendingRedirect(true);
 			(async () => {
 				try {
 					const response = await fetch(
-						"/api/trending/tokens?chain=base&limit=5&page=1&sort=change"
+						"/api/trending/tokens?chain=base&limit=5&page=1&sort=change",
 					);
 					const data = await response.json();
 					// Support both array-shaped and single object responses for backwards compatibility
-					const top = Array.isArray(data?.data)
-						? data.data[0]
-						: data?.data;
+					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
 					if (top) {
 						const params = new URLSearchParams();
 						if (top.symbol) params.set("symbol", top.symbol);
-						if (top.pairAddress)
-							params.set("pairAddress", top.pairAddress);
-						if (top.tokenAddress)
-							params.set("tokenAddress", top.tokenAddress);
+						if (top.pairAddress) params.set("pairAddress", top.pairAddress);
+						if (top.tokenAddress) params.set("tokenAddress", top.tokenAddress);
 						params.set("chain", top.chain || "base");
 						params.set("assetType", "crypto");
 						router.replace(`/perp?${params.toString()}`);
 						return;
 					}
 				} catch (err) {
-					console.error(
-						"Failed to fetch top trending token for default redirect",
-						err
-					);
+					console.error("Failed to fetch top trending token for default redirect", err);
 				}
 			})();
 		}
@@ -479,11 +411,7 @@ function PerpContent() {
 			// For stocks and forex, use symbol as-is
 			// For crypto, add /USDT if not already present
 			const formattedSymbol =
-				assetType === "crypto"
-					? symbol.includes("/")
-						? symbol
-						: `${symbol}/USDT`
-					: symbol;
+				assetType === "crypto" ? (symbol.includes("/") ? symbol : `${symbol}/USDT`) : symbol;
 
 			setTradingPair((prev) => ({
 				...prev,
@@ -491,7 +419,7 @@ function PerpContent() {
 				pairAddress: pairAddress || prev.pairAddress,
 				tokenAddress: tokenAddress || prev.tokenAddress,
 				chain: chain,
-				assetType: assetType
+				assetType: assetType,
 			}));
 		}
 	}, [searchParams, router, didDefaultTrendingRedirect]);
@@ -514,20 +442,12 @@ function PerpContent() {
 
 	useEffect(() => {
 		// only check allowance and set approval if user has entered a value AND user opted-in auto swap & approve
-		if (
-			!autoSwapAndApprove ||
-			!marginValue ||
-			parseFloat(marginValue) <= 0
-		) {
+		if (!autoSwapAndApprove || !marginValue || parseFloat(marginValue) <= 0) {
 			setNeedsApproval(false);
 			return;
 		}
 
-		if (
-			marginAllowance !== undefined &&
-			marginValue &&
-			parseFloat(marginValue) > 0
-		) {
+		if (marginAllowance !== undefined && marginValue && parseFloat(marginValue) > 0) {
 			const marginInWei = parseUnits(marginValue, decimals);
 			const allowanceAmount = BigInt(marginAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
@@ -576,87 +496,73 @@ function PerpContent() {
 		setLeverage(newLeverage);
 	};
 
-	const [
-		{ loading: isApprovingToken, error: approvalError },
-		handleApproveToken
-	] = useAsyncFn(async () => {
-		if (!isConnected || !address) {
-			throw new Error("Please connect your wallet first");
-		}
+	const [{ loading: isApprovingToken, error: approvalError }, handleApproveToken] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		const approvalAmount = parseUnits("1000000", decimals);
+			const approvalAmount = parseUnits("1000000", decimals);
 
-		writeContract({
-			address: marginTokenAddress as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "approve",
-			args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount]
-		});
-	}, [isConnected, address, writeContract]);
+			writeContract({
+				address: marginTokenAddress as `0x${string}`,
+				abi: ERC20Abi,
+				functionName: "approve",
+				args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount],
+			});
+		}, [isConnected, address, writeContract]);
 
 	// Handle place transaction
-	const [
-		{ loading: isCreatingPosition, error: transactionError },
-		handlePlaceTransaction
-	] = useAsyncFn(async () => {
-		if (!isConnected || !address) {
-			throw new Error("Please connect your wallet first");
-		}
+	const [{ loading: isCreatingPosition, error: transactionError }, handlePlaceTransaction] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		// Convert margin token amount to USD for validation (if price available)
-		const marginUsdForValidation = marginTokenPriceUsd
-			? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
-			: marginValue;
-		const marginValidation = validateMargin(marginUsdForValidation);
-		if (!marginValidation.valid) {
-			throw new Error(marginValidation.error || "Invalid margin");
-		}
+			// Convert margin token amount to USD for validation (if price available)
+			const marginUsdForValidation = marginTokenPriceUsd
+				? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
+				: marginValue;
+			const marginValidation = validateMargin(marginUsdForValidation);
+			if (!marginValidation.valid) {
+				throw new Error(marginValidation.error || "Invalid margin");
+			}
 
-		const leverageValidation = validateLeverage(leverage);
-		if (!leverageValidation.valid) {
-			throw new Error(leverageValidation.error || "Invalid leverage");
-		}
+			const leverageValidation = validateLeverage(leverage);
+			if (!leverageValidation.valid) {
+				throw new Error(leverageValidation.error || "Invalid leverage");
+			}
 
-		const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
+			const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
 
-		const result = await createPosition({
-			tokenSymbol,
-			isLong,
-			margin: marginValue,
-			leverage,
-			tokenAddress: tradingPair.tokenAddress,
-			marginTokenAddress: marginTokenAddress,
-			userAddress: address,
-			pairAddress: tradingPair.pairAddress
-		});
-
-		if (!result.success) {
-			throw new Error(result.error || "Failed to create position");
-		}
-
-		if (result.data) {
-			sendTransaction({
-				to: result.data.to as `0x${string}`,
-				data: result.data.data as `0x${string}`,
-				value: BigInt(0),
-				gas: result.data.gasEstimate
-					? BigInt(String(result.data.gasEstimate))
-					: undefined
+			const result = await createPosition({
+				tokenSymbol,
+				isLong,
+				margin: marginValue,
+				leverage,
+				tokenAddress: tradingPair.tokenAddress,
+				marginTokenAddress: marginTokenAddress,
+				userAddress: address,
+				pairAddress: tradingPair.pairAddress,
 			});
-		}
-	}, [
-		isConnected,
-		address,
-		marginValue,
-		leverage,
-		tradingPair,
-		isLong,
-		sendTransaction
-	]);
+
+			if (!result.success) {
+				throw new Error(result.error || "Failed to create position");
+			}
+
+			if (result.data) {
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(0),
+					gas: result.data.gasEstimate ? BigInt(String(result.data.gasEstimate)) : undefined,
+				});
+			}
+		}, [isConnected, address, marginValue, leverage, tradingPair, isLong, sendTransaction]);
 
 	return (
 		<>
-			{marketData && tradingPair.pairAddress && (
+			{marketData && tradingPair.pairAddress ? (
 				<div className="border-b border-[#4D4D4D]/40 py-4">
 					<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
 						<div className="flex items-center gap-3 min-w-fit">
@@ -676,15 +582,12 @@ function PerpContent() {
 								</div> */}
 								<div className="flex items-center gap-2 mt-0.5">
 									<span className="text-white text-xs">
-										{marketData.baseTokenSymbol}/
-										{marketData.quoteTokenSymbol}
+										{marketData.baseTokenSymbol}/{marketData.quoteTokenSymbol}
 									</span>
 									{marketData.priceChange && (
 										<span
 											className={`text-xs px-1.5 py-0.5 rounded ${
-												marketData.priceChange.startsWith(
-													"+"
-												)
+												marketData.priceChange.startsWith("+")
 													? "bg-[#002400] text-[#4DAD31]"
 													: "bg-[#240000] text-[#FF4C4C]"
 											}`}
@@ -698,13 +601,7 @@ function PerpContent() {
 											height="17"
 											viewBox="0 0 17 17"
 											fill="none"
-											className={
-												marketData.priceChange.startsWith(
-													"+"
-												)
-													? ""
-													: "rotate-180"
-											}
+											className={marketData.priceChange.startsWith("+") ? "" : "rotate-180"}
 										>
 											<title>Price Direction</title>
 											<path
@@ -722,64 +619,36 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								24h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">24h Volume</div>
 							<div className="text-white text-sm font-medium">
-								$
-								{marketData.volume24h
-									? Number(
-											marketData.volume24h
-									  ).toLocaleString()
-									: "0"}
+								${marketData.volume24h ? Number(marketData.volume24h).toLocaleString() : "0"}
 							</div>
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								6h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">6h Volume</div>
 							<div className="text-white text-sm font-medium">
-								$
-								{marketData.volume6h
-									? Number(
-											marketData.volume6h
-									  ).toLocaleString()
-									: "0"}
+								${marketData.volume6h ? Number(marketData.volume6h).toLocaleString() : "0"}
 							</div>
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								1h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">1h Volume</div>
 							<div className="text-white text-sm font-medium">
-								$
-								{marketData.volume1h
-									? Number(
-											marketData.volume1h
-									  ).toLocaleString()
-									: "0"}
+								${marketData.volume1h ? Number(marketData.volume1h).toLocaleString() : "0"}
 							</div>
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								Liquidity
-							</div>
+							<div className="text-[#A6A6A6] text-xs">Liquidity</div>
 							<div className="text-white text-sm font-medium">
-								$
-								{marketData.liquidity
-									? Number(
-											marketData.liquidity
-									  ).toLocaleString()
-									: "0"}
+								${marketData.liquidity ? Number(marketData.liquidity).toLocaleString() : "0"}
 							</div>
 						</div>
 
@@ -788,14 +657,9 @@ function PerpContent() {
 						{marketData.marketCap && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										Market Cap
-									</div>
+									<div className="text-[#A6A6A6] text-xs">Market Cap</div>
 									<div className="text-white text-sm font-medium">
-										$
-										{Number(
-											marketData.marketCap
-										).toLocaleString()}
+										${Number(marketData.marketCap).toLocaleString()}
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -805,14 +669,9 @@ function PerpContent() {
 						{marketData.fdv && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										FDV
-									</div>
+									<div className="text-[#A6A6A6] text-xs">FDV</div>
 									<div className="text-white text-sm font-medium">
-										$
-										{Number(
-											marketData.fdv
-										).toLocaleString()}
+										${Number(marketData.fdv).toLocaleString()}
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -822,19 +681,11 @@ function PerpContent() {
 						{marketData.txns24h && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										24h Txns
-									</div>
+									<div className="text-[#A6A6A6] text-xs">24h Txns</div>
 									<div className="flex items-center gap-2 text-sm">
-										<span className="text-[#4DAD31]">
-											{marketData.txns24h.buys}
-										</span>
-										<span className="text-[#DEDEDE]">
-											/
-										</span>
-										<span className="text-[#FF4C4C]">
-											{marketData.txns24h.sells}
-										</span>
+										<span className="text-[#4DAD31]">{marketData.txns24h.buys}</span>
+										<span className="text-[#DEDEDE]">/</span>
+										<span className="text-[#FF4C4C]">{marketData.txns24h.sells}</span>
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -843,43 +694,126 @@ function PerpContent() {
 
 						{marketData.txns6h && (
 							<div className="flex flex-col gap-1 min-w-fit">
-								<div className="text-[#A6A6A6] text-xs">
-									6h Txns
-								</div>
+								<div className="text-[#A6A6A6] text-xs">6h Txns</div>
 								<div className="flex items-center gap-2 text-sm">
-									<span className="text-[#4DAD31]">
-										{marketData.txns6h.buys}
-									</span>
+									<span className="text-[#4DAD31]">{marketData.txns6h.buys}</span>
 									<span className="text-[#DEDEDE]">/</span>
-									<span className="text-[#FF4C4C]">
-										{marketData.txns6h.sells}
-									</span>
+									<span className="text-[#FF4C4C]">{marketData.txns6h.sells}</span>
 								</div>
 							</div>
 						)}
+					</div>
+				</div>
+			) : (
+				<div className="border-b border-[#4D4D4D]/40 py-4">
+					<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
+						<div className="flex items-center gap-3 min-w-fit">
+							<Skeleton className="w-7 h-7 rounded-full" />
+							<div>
+								<div className="flex items-center gap-2 mt-0.5">
+									<Skeleton className="h-4 w-20" />
+									<Skeleton className="h-4 w-12" />
+								</div>
+							</div>
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">24h Volume</div>
+							<Skeleton className="h-5 w-16" />
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">6h Volume</div>
+							<Skeleton className="h-5 w-16" />
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">1h Volume</div>
+							<Skeleton className="h-5 w-16" />
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">Liquidity</div>
+							<Skeleton className="h-5 w-16" />
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">Market Cap</div>
+							<Skeleton className="h-5 w-16" />
+						</div>
+
+						<div className="h-9 w-px bg-[#4F6347]" />
+
+						<div className="flex flex-col gap-1 min-w-fit">
+							<div className="text-[#A6A6A6] text-xs">24h Txns</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Skeleton className="h-4 w-6" />
+								<span className="text-[#DEDEDE]">/</span>
+								<Skeleton className="h-4 w-6" />
+							</div>
+						</div>
 					</div>
 				</div>
 			)}
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 border-b border-r border-l border-[#4D4D4D]/40">
 				<div className="lg:col-span-2">
-					{tradingPair.assetType === "crypto" ? (
-						<ChartSection
-							pairAddress={tradingPair.pairAddress}
-							chain={tradingPair.chain}
-							symbol={tradingPair.symbol}
-							priceData={priceData ?? undefined}
-							fetchLatestPrice={fetchLatestPrice}
-							isLoadingPrice={isLoadingPrice}
-							marketData={marketData}
-						/>
-					) : (
-						<div style={{ height: "500px" }}>
-							<TradingViewWidget
+					{tradingPair.pairAddress || tradingPair.symbol ? (
+						tradingPair.assetType === "crypto" ? (
+							<ChartSection
+								pairAddress={tradingPair.pairAddress}
+								chain={tradingPair.chain}
 								symbol={tradingPair.symbol}
-								theme="dark"
-								interval="D"
+								priceData={priceData ?? undefined}
+								fetchLatestPrice={fetchLatestPrice}
+								isLoadingPrice={isLoadingPrice}
+								marketData={marketData}
 							/>
+						) : (
+							<div style={{ height: "500px" }}>
+								<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />
+							</div>
+						)
+					) : (
+						<div className="relative w-full" style={{ height: "500px" }}>
+							<div className="flex flex-col gap-3 animate-pulse p-4">
+								<div className="flex items-center justify-between">
+									<div className="flex space-x-4">
+										<Skeleton className="h-6 w-16" />
+										<Skeleton className="h-6 w-16" />
+										<Skeleton className="h-6 w-16" />
+									</div>
+									<div className="flex items-center gap-6">
+										<Skeleton className="h-4 w-8" />
+										<Skeleton className="h-4 w-12" />
+										<Skeleton className="h-4 w-8" />
+										<Skeleton className="h-4 w-12" />
+										<Skeleton className="h-4 w-8" />
+										<Skeleton className="h-4 w-12" />
+										<Skeleton className="h-4 w-8" />
+										<Skeleton className="h-4 w-12" />
+									</div>
+								</div>
+								<div className="flex items-end justify-between h-full gap-1 px-2">
+									{Array.from({ length: 50 }, (_, i) => (
+										<div
+											key={`chart-skeleton-${i}`}
+											className="bg-gray-800 rounded-t flex-1"
+											style={{ height: `${Math.random() * 60 + 40}%` }}
+										/>
+									))}
+								</div>
+							</div>
 						</div>
 					)}
 				</div>
@@ -888,9 +822,7 @@ function PerpContent() {
 					<div className="flex items-center justify-between px-2">
 						<Tabs
 							value={isLong ? "long" : "short"}
-							onValueChange={(value) =>
-								setIsLong(value === "long")
-							}
+							onValueChange={(value) => setIsLong(value === "long")}
 							className="w-full"
 						>
 							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
@@ -909,349 +841,260 @@ function PerpContent() {
 							</TabsList>
 						</Tabs>
 					</div>
-					<div className="p-4">
-						{isConnected && needsApproval && autoSwapAndApprove && (
-							<div className="bg-muted p-4 rounded-lg">
-								<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
-									Wallet Balance
-								</h4>
-								<div className="space-y-2">
-									<div className="flex justify-between items-center">
-										<span className="text-muted-foreground">
-											ETH:
-										</span>
-										<span className="text-foreground font-medium">
-											{ethBalance
-												? `${parseFloat(
-														formatUnits(
-															ethBalance.value,
-															ethBalance.decimals
-														)
-												  ).toFixed(4)} ETH`
-												: "0.0000 ETH"}
-										</span>
-									</div>
-									<div className="flex justify-between items-center">
-										<span className="text-muted-foreground">
-											{marginTokenSymbol}:
-										</span>
-										<span className="text-foreground font-medium">
-											{marginBalance
-												? `${parseFloat(
-														formatUnits(
-															BigInt(
-																marginBalance as string
-															),
-															decimals
-														)
-												  ).toFixed(
-														Math.min(6, decimals)
-												  )} ${marginTokenSymbol} ${
-														marginTokenPriceUsd
-															? `(~$${marginTokenPriceUsd.toFixed(
-																	4
-															  )})`
-															: ""
-												  }`
-												: `0.00 ${marginTokenSymbol}`}
-										</span>
-									</div>
-								</div>
-							</div>
-						)}
-						{isConnected && needsApproval && (
-							<div className="bg-muted p-4 rounded-lg">
-								<div className="flex justify-between items-center mb-3">
-									<h4 className="text-sm text-muted-foreground uppercase font-medium">
-										{marginTokenSymbol} Approval
+					{tradingPair.pairAddress && marketData ? (
+						<div className="p-4">
+							{isConnected && needsApproval && autoSwapAndApprove && (
+								<div className="bg-muted p-4 rounded-lg">
+									<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
+										Wallet Balance
 									</h4>
-									<span
-										className={`text-xs px-2 py-1 rounded ${
-											needsApproval
-												? "bg-red-900/50 text-destructive"
-												: "bg-green-900/50 text-success"
-										}`}
-									>
-										{needsApproval
-											? "Required"
-											: "Approved"}
-									</span>
-								</div>
-
-								{needsApproval ? (
-									<div className="space-y-3">
-										<p className="text-sm text-muted-foreground">
-											Approve {marginTokenSymbol} spending
-											to create positions
-										</p>
-										<Button
-											onClick={handleApproveToken}
-											disabled={
-												isApprovingToken ||
-												isApproving ||
-												isApprovalConfirming ||
-												!marginValue ||
-												parseFloat(marginValue) <= 0
-											}
-											className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											{isApprovingToken || isApproving
-												? "Confirm in Wallet..."
-												: isApprovalConfirming
-												? "Confirming..."
-												: `Approve ${marginTokenSymbol}`}
-										</Button>
-									</div>
-								) : (
-									<div className="flex items-center space-x-2">
-										<div className="w-2 h-2 bg-green-400 rounded-full"></div>
-										<p className="text-sm text-success">
-											{marginTokenSymbol} spending
-											approved
-										</p>
-									</div>
-								)}
-							</div>
-						)}
-						{!needsApproval && (
-							<>
-								<div className="space-y-2">
-									<div className="flex justify-between items-center">
-										<label
-											htmlFor="margin-input"
-											className="text-sm text-primary uppercase font-medium"
-										>
-											Margin ({marginTokenSymbol})
-										</label>
-										<div className="flex items-center gap-3">
-											<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
-												formatUnits(
-													BigInt(
-														(marginBalance as string) ||
-															"0"
-													),
-													decimals
-												)
-											).toFixed(
-												Math.min(6, decimals)
-											)} ${marginTokenSymbol} ${
-												marginTokenPriceUsd
-													? `(~$${availableMarginUsd.toFixed(
-															2
-													  )})`
-													: ""
-											}`}</span>
+									<div className="space-y-2">
+										<div className="flex justify-between items-center">
+											<span className="text-muted-foreground">ETH:</span>
+											<span className="text-foreground font-medium">
+												{ethBalance
+													? `${parseFloat(
+															formatUnits(ethBalance.value, ethBalance.decimals),
+														).toFixed(4)} ETH`
+													: "0.0000 ETH"}
+											</span>
 										</div>
-									</div>
-									<div className="relative">
-										<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-											{marginTokenLogo ? (
-												<Image
-													src={marginTokenLogo}
-													alt={`${marginTokenSymbol} logo`}
-													width={24}
-													height={24}
-													className="w-6 h-6 rounded-full"
-													unoptimized
-												/>
-											) : (
-												<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-													<span className="text-foreground text-xs font-bold">
-														$
-													</span>
-												</div>
-											)}
-										</div>
-										<Input
-											placeholder="100"
-											id="margin-input"
-											value={marginValue}
-											onChange={(e) =>
-												setMarginValue(e.target.value)
-											}
-											className={`bg-muted border-gray-100/10 text-foreground text-right text-3xl font-bold h-14 pl-12 pr-30 ${
-												marginValue &&
-												!validateMargin(marginValue)
-													.valid
-													? "border-red-500 focus:border-red-500"
-													: "focus:border-cyan-500"
-											}`}
-										/>
-										<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-											<button
-												type="button"
-												onClick={handleSetMaxMargin}
-												className="text-xs px-2 py-1 bg-primary/10 border border-primary/30 rounded text-primary hover:bg-primary/20"
-											>
-												MAX
-											</button>
-											<span className="text-primary font-medium">
-												{marginTokenSymbol}
+										<div className="flex justify-between items-center">
+											<span className="text-muted-foreground">{marginTokenSymbol}:</span>
+											<span className="text-foreground font-medium">
+												{marginBalance
+													? `${parseFloat(
+															formatUnits(BigInt(marginBalance as string), decimals),
+														).toFixed(Math.min(6, decimals))} ${marginTokenSymbol} ${
+															marginTokenPriceUsd ? `(~$${marginTokenPriceUsd.toFixed(4)})` : ""
+														}`
+													: `0.00 ${marginTokenSymbol}`}
 											</span>
 										</div>
 									</div>
-
-									{marginValue &&
-										!validateMargin(marginValue).valid && (
-											<div className="text-xs mb-2 text-destructive">
-												{
-													validateMargin(marginValue)
-														.error
-												}
-											</div>
-										)}
 								</div>
-								<div className="space-y-3">
-									<div className="flex justify-between items-center">
-										<span className="text-sm text-primary uppercase font-medium">
-											Leverage
-										</span>
-										<span className="text-success text-lg font-bold">
-											{leverage}x
+							)}
+							{isConnected && needsApproval && (
+								<div className="bg-muted p-4 rounded-lg">
+									<div className="flex justify-between items-center mb-3">
+										<h4 className="text-sm text-muted-foreground uppercase font-medium">
+											{marginTokenSymbol} Approval
+										</h4>
+										<span
+											className={`text-xs px-2 py-1 rounded ${
+												needsApproval
+													? "bg-red-900/50 text-destructive"
+													: "bg-green-900/50 text-success"
+											}`}
+										>
+											{needsApproval ? "Required" : "Approved"}
 										</span>
 									</div>
-									<div className="relative">
-										<div className="flex items-center bg-muted rounded-lg p-4">
-											<div className="flex-1 relative w-full">
-												<div className="w-full">
-													<RadixSlider.Root
-														className="relative flex items-center select-none touch-none w-full h-6"
-														value={[leverage]}
-														min={1}
-														max={maxLeverage}
-														step={1}
-														onValueChange={(
-															v: number[]
-														) =>
-															setLeverageValue(
-																v[0]
-															)
-														}
-														aria-label="Leverage"
-													>
-														<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
-															<RadixSlider.Range className="absolute h-2 bg-green-600 rounded-full" />
-														</RadixSlider.Track>
-														<RadixSlider.Thumb className="block w-4 h-4 bg-white rounded-full shadow border border-gray-200" />
-													</RadixSlider.Root>
-												</div>
-												<div className="flex justify-between text-xs text-muted-foreground mt-2">
-													{[
-														1,
-														25,
-														50,
-														75,
-														maxLeverage
-													].map((lev) => (
-														<span
-															key={lev}
-															className={
-																leverage === lev
-																	? "text-primary font-bold"
-																	: ""
-															}
+
+									{needsApproval ? (
+										<div className="space-y-3">
+											<p className="text-sm text-muted-foreground">
+												Approve {marginTokenSymbol} spending to create positions
+											</p>
+											<Button
+												onClick={handleApproveToken}
+												disabled={
+													isApprovingToken ||
+													isApproving ||
+													isApprovalConfirming ||
+													!marginValue ||
+													parseFloat(marginValue) <= 0
+												}
+												className="w-full h-10 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+											>
+												{isApprovingToken || isApproving
+													? "Confirm in Wallet..."
+													: isApprovalConfirming
+														? "Confirming..."
+														: `Approve ${marginTokenSymbol}`}
+											</Button>
+										</div>
+									) : (
+										<div className="flex items-center space-x-2">
+											<div className="w-2 h-2 bg-green-400 rounded-full"></div>
+											<p className="text-sm text-success">{marginTokenSymbol} spending approved</p>
+										</div>
+									)}
+								</div>
+							)}
+							{!needsApproval && (
+								<>
+									<div className="space-y-2">
+										<div className="flex justify-between items-center">
+											<label
+												htmlFor="margin-input"
+												className="text-sm text-primary uppercase font-medium"
+											>
+												Margin ({marginTokenSymbol})
+											</label>
+											<div className="flex items-center gap-3">
+												<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
+													formatUnits(BigInt((marginBalance as string) || "0"), decimals),
+												).toFixed(Math.min(6, decimals))} ${marginTokenSymbol} ${
+													marginTokenPriceUsd ? `(~$${availableMarginUsd.toFixed(2)})` : ""
+												}`}</span>
+											</div>
+										</div>
+										<div className="relative">
+											<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
+												{marginTokenLogo ? (
+													<Image
+														src={marginTokenLogo}
+														alt={`${marginTokenSymbol} logo`}
+														width={24}
+														height={24}
+														className="w-6 h-6 rounded-full"
+														unoptimized
+													/>
+												) : (
+													<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+														<span className="text-foreground text-xs font-bold">$</span>
+													</div>
+												)}
+											</div>
+											<Input
+												placeholder="100"
+												id="margin-input"
+												value={marginValue}
+												onChange={(e) => setMarginValue(e.target.value)}
+												className={`bg-muted border-gray-100/10 text-foreground text-right text-3xl font-bold h-14 pl-12 pr-30 ${
+													marginValue && !validateMargin(marginValue).valid
+														? "border-red-500 focus:border-red-500"
+														: "focus:border-cyan-500"
+												}`}
+											/>
+											<div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+												<button
+													type="button"
+													onClick={handleSetMaxMargin}
+													className="text-xs px-2 py-1 bg-primary/10 border border-primary/30 rounded text-primary hover:bg-primary/20"
+												>
+													MAX
+												</button>
+												<span className="text-primary font-medium">{marginTokenSymbol}</span>
+											</div>
+										</div>
+
+										{marginValue && !validateMargin(marginValue).valid && (
+											<div className="text-xs mb-2 text-destructive">
+												{validateMargin(marginValue).error}
+											</div>
+										)}
+									</div>
+									<div className="space-y-3">
+										<div className="flex justify-between items-center">
+											<span className="text-sm text-primary uppercase font-medium">Leverage</span>
+											<span className="text-success text-lg font-bold">{leverage}x</span>
+										</div>
+										<div className="relative">
+											<div className="flex items-center bg-muted rounded-lg p-4">
+												<div className="flex-1 relative w-full">
+													<div className="w-full">
+														<RadixSlider.Root
+															className="relative flex items-center select-none touch-none w-full h-6"
+															value={[leverage]}
+															min={1}
+															max={maxLeverage}
+															step={1}
+															onValueChange={(v: number[]) => setLeverageValue(v[0])}
+															aria-label="Leverage"
 														>
-															{lev}x
-														</span>
-													))}
+															<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
+																<RadixSlider.Range className="absolute h-2 bg-green-600 rounded-full" />
+															</RadixSlider.Track>
+															<RadixSlider.Thumb className="block w-4 h-4 bg-white rounded-full shadow border border-gray-200" />
+														</RadixSlider.Root>
+													</div>
+													<div className="flex justify-between text-xs text-muted-foreground mt-2">
+														{[1, 25, 50, 75, maxLeverage].map((lev) => (
+															<span
+																key={lev}
+																className={leverage === lev ? "text-primary font-bold" : ""}
+															>
+																{lev}x
+															</span>
+														))}
+													</div>
 												</div>
 											</div>
 										</div>
 									</div>
-								</div>
-								<div className="space-y-3 text-sm">
-									<div className="flex justify-between">
-										<span
-											className="text-muted-foreground uppercase"
-											title="Estimated position size at current price"
-										>
-											Position Size (
-											{extractTokenSymbol(
-												tradingPair.symbol
-											)}
-											)
-										</span>
-										<span className="text-foreground">
-											{(
-												(parseFloat(
-													marginValue || "0"
-												) *
+									<div className="space-y-3 text-sm">
+										<div className="flex justify-between">
+											<span
+												className="text-muted-foreground uppercase"
+												title="Estimated position size at current price"
+											>
+												Position Size ({extractTokenSymbol(tradingPair.symbol)})
+											</span>
+											<span className="text-foreground">
+												{(
+													(parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1) * leverage) /
+													parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+												).toFixed(6)}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span
+												className="text-muted-foreground uppercase"
+												title="Total exposure equals margin times leverage"
+											>
+												Total Exposure
+											</span>
+											<span className="text-foreground">
+												$
+												{(
+													parseFloat(marginValue || "0") *
 													(marginTokenPriceUsd || 1) *
-													leverage) /
-												parseFloat(
-													tradingPair.price.replace(
-														/[$,]/g,
-														""
-													)
+													leverage
+												).toLocaleString()}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span
+												className="text-muted-foreground uppercase"
+												title="Fee charged when opening a position"
+											>
+												Open Fee
+											</span>
+											<span className="text-foreground">
+												0.1% (~$
+												{(
+													parseFloat(marginValue || "0") *
+													(marginTokenPriceUsd || 1) *
+													0.001
+												).toFixed(2)}
 												)
-											).toFixed(6)}
-										</span>
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span
+												className="text-muted-foreground uppercase"
+												title="Fee charged on closing, applied to profits only"
+											>
+												Close Fee (Applied only to profits)
+											</span>
+											<span className="text-foreground">2%</span>
+										</div>
 									</div>
-									<div className="flex justify-between">
-										<span
-											className="text-muted-foreground uppercase"
-											title="Total exposure equals margin times leverage"
-										>
-											Total Exposure
-										</span>
-										<span className="text-foreground">
-											$
-											{(
-												parseFloat(marginValue || "0") *
-												(marginTokenPriceUsd || 1) *
-												leverage
-											).toLocaleString()}
-										</span>
-									</div>
-									<div className="flex justify-between">
-										<span
-											className="text-muted-foreground uppercase"
-											title="Fee charged when opening a position"
-										>
-											Open Fee
-										</span>
-										<span className="text-foreground">
-											0.1% (~$
-											{(
-												parseFloat(marginValue || "0") *
-												(marginTokenPriceUsd || 1) *
-												0.001
-											).toFixed(2)}
-											)
-										</span>
-									</div>
-									<div className="flex justify-between">
-										<span
-											className="text-muted-foreground uppercase"
-											title="Fee charged on closing, applied to profits only"
-										>
-											Close Fee (Applied only to profits)
-										</span>
-										<span className="text-foreground">
-											2%
-										</span>
-									</div>
-								</div>
-								{(approvalError || transactionError) && (
-									<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
-										<p className="text-destructive text-sm">
-											{approvalError?.message ||
-												transactionError?.message}
-										</p>
-									</div>
-								)}
-								{isApprovalConfirmed &&
-									approvalHash &&
-									!needsApproval && (
+									{(approvalError || transactionError) && (
+										<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
+											<p className="text-destructive text-sm">
+												{approvalError?.message || transactionError?.message}
+											</p>
+										</div>
+									)}
+									{isApprovalConfirmed && approvalHash && !needsApproval && (
 										<div className="p-3 bg-green-900/50 border border-success rounded-lg">
 											<p className="text-success text-sm">
-												✅ {marginTokenSymbol} approval
-												confirmed! You can now create
-												positions.
+												✅ {marginTokenSymbol} approval confirmed! You can now create positions.
 												<a
-													href={getEtherscanUrl(
-														approvalHash
-													)}
+													href={getEtherscanUrl(approvalHash)}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="text-primary hover:text-cyan-300 underline ml-1"
@@ -1261,98 +1104,118 @@ function PerpContent() {
 											</p>
 										</div>
 									)}
-								{hash && (
-									<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
-										<p className="text-primary text-sm">
-											Transaction submitted:
-											<a
-												href={getEtherscanUrl(hash)}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="text-primary hover:text-cyan-300 underline ml-1"
-											>
-												{formatTxHash(hash)}
-											</a>
-										</p>
-										{isConfirming && (
-											<p className="text-warning text-sm mt-1">
-												⏳ Waiting for confirmation...
+									{hash && (
+										<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
+											<p className="text-primary text-sm">
+												Transaction submitted:
+												<a
+													href={getEtherscanUrl(hash)}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-primary hover:text-cyan-300 underline ml-1"
+												>
+													{formatTxHash(hash)}
+												</a>
 											</p>
-										)}
-										{isConfirmed && (
-											<p className="text-success text-sm mt-1">
-												✅ Position created
-												successfully!
-											</p>
-										)}
-										{error && (
-											<p className="text-destructive text-sm mt-1">
-												❌ Transaction failed:{" "}
-												{String(error)}
-											</p>
-										)}
-									</div>
-								)}
-								<div className="w-full mt-4">
-									<div className="flex items-center gap-3 mb-4">
-										<input
-											id="auto-swap-approve"
-											type="checkbox"
-											checked={autoSwapAndApprove}
-											onChange={(e) =>
-												setAutoSwapAndApprove(
-													e.target.checked
-												)
+											{isConfirming && (
+												<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
+											)}
+											{isConfirmed && (
+												<p className="text-success text-sm mt-1">
+													✅ Position created successfully!
+												</p>
+											)}
+											{error && (
+												<p className="text-destructive text-sm mt-1">
+													❌ Transaction failed: {String(error)}
+												</p>
+											)}
+										</div>
+									)}
+									<div className="w-full mt-4">
+										<div className="flex items-center gap-3 mb-4">
+											<input
+												id="auto-swap-approve"
+												type="checkbox"
+												checked={autoSwapAndApprove}
+												onChange={(e) => setAutoSwapAndApprove(e.target.checked)}
+												className="w-4 h-4 rounded border bg-muted"
+											/>
+											<label htmlFor="auto-swap-approve" className="text-xs text-muted-foreground">
+												Auto swap & approve
+											</label>
+										</div>
+										<ConnectWallet
+											disabled={
+												needsApproval ||
+												isCreatingPosition ||
+												isPending ||
+												isConfirming ||
+												isApprovingToken ||
+												isApproving ||
+												isApprovalConfirming
 											}
-											className="w-4 h-4 rounded border bg-muted"
+											onClick={handlePlaceTransaction}
+											className={
+												!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined
+											}
+											connectedNode={
+												needsApproval
+													? `Approve ${marginTokenSymbol} First`
+													: isCreatingPosition
+														? "Preparing Transaction..."
+														: isPending
+															? "Confirm in Wallet..."
+															: isConfirming
+																? "Confirming..."
+																: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
+											}
 										/>
-										<label
-											htmlFor="auto-swap-approve"
-											className="text-xs text-muted-foreground"
-										>
-											Auto swap & approve
-										</label>
 									</div>
-									<ConnectWallet
-										disabled={
-											needsApproval ||
-											isCreatingPosition ||
-											isPending ||
-											isConfirming ||
-											isApprovingToken ||
-											isApproving ||
-											isApprovalConfirming
-										}
-										onClick={handlePlaceTransaction}
-										className={
-											!isLong
-												? "bg-linear-to-r from-red-600 via-red-700 to-red-900"
-												: undefined
-										}
-										connectedNode={
-											needsApproval
-												? `Approve ${marginTokenSymbol} First`
-												: isCreatingPosition
-												? "Preparing Transaction..."
-												: isPending
-												? "Confirm in Wallet..."
-												: isConfirming
-												? "Confirming..."
-												: `${
-														isLong
-															? "Long"
-															: "Short"
-												  } ${
-														tradingPair.symbol.split(
-															"/"
-														)[0]
-												  }`
-										}
-									/>
+								</>
+							)}
+						</div>
+					) : (
+						<div className="p-4 space-y-4">
+							{/* Skeleton for margin input */}
+							<div className="space-y-2">
+								<div className="flex justify-between items-center">
+									<Skeleton className="h-4 w-24" />
+									<Skeleton className="h-4 w-32" />
 								</div>
-							</>
-						)}
-					</div>
+								<Skeleton className="h-14 w-full" />
+							</div>
+							{/* Skeleton for leverage */}
+							<div className="space-y-3">
+								<div className="flex justify-between items-center">
+									<Skeleton className="h-4 w-16" />
+									<Skeleton className="h-6 w-12" />
+								</div>
+								<Skeleton className="h-16 w-full rounded-lg" />
+							</div>
+							{/* Skeleton for position calculations */}
+							<div className="space-y-3">
+								<div className="flex justify-between">
+									<Skeleton className="h-4 w-32" />
+									<Skeleton className="h-4 w-20" />
+								</div>
+								<div className="flex justify-between">
+									<Skeleton className="h-4 w-28" />
+									<Skeleton className="h-4 w-16" />
+								</div>
+								<div className="flex justify-between">
+									<Skeleton className="h-4 w-16" />
+									<Skeleton className="h-4 w-12" />
+								</div>
+								<div className="flex justify-between">
+									<Skeleton className="h-4 w-40" />
+									<Skeleton className="h-4 w-8" />
+								</div>
+							</div>
+							{/* Skeleton for button */}
+							<Skeleton className="h-12 w-full" />
+						</div>
+					)}
 				</div>
 			</div>
 
@@ -1365,40 +1228,58 @@ function PerpContent() {
 					{positions.length > 0 && (
 						<div className="flex gap-4 text-sm">
 							<span className="text-muted-foreground">
-								Open:{" "}
-								<span className="text-foreground">
-									{openPositions.length}
-								</span>
+								Open: <span className="text-foreground">{openPositions.length}</span>
 							</span>
 							<span className="text-muted-foreground">
-								Total Margin:{" "}
-								<span className="text-foreground">
-									${totalMargin.toFixed(2)}
-								</span>
+								Total Margin: <span className="text-foreground">${totalMargin.toFixed(2)}</span>
 							</span>
 							<span className="text-muted-foreground">
 								Total PnL:{" "}
-								<span
-									className={
-										totalPnl >= 0
-											? "text-success"
-											: "text-destructive"
-									}
-								>
-									{totalPnl >= 0 ? "+" : ""}$
-									{totalPnl.toFixed(2)}
+								<span className={totalPnl >= 0 ? "text-success" : "text-destructive"}>
+									{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
 								</span>
 							</span>
 						</div>
 					)}
 				</div>
-				<PositionsTable
-					positions={positions}
-					isLoading={isLoadingPositions}
-					error={positionsError}
-					onRefetch={fetchUserPositions}
-					tradingPairAddress={tradingPair.pairAddress}
-				/>
+				{isLoadingPositions ? (
+					<div className="bg-card border border-gray-100/10 rounded-lg p-4">
+						<div className="space-y-4">
+							{/* Skeleton for table header */}
+							<div className="flex justify-between items-center border-b border-gray-100/10 pb-2">
+								<Skeleton className="h-6 w-32" />
+								<Skeleton className="h-6 w-24" />
+							</div>
+							{/* Skeleton for table rows */}
+							{Array.from({ length: 3 }, (_, i) => (
+								<div
+									key={i}
+									className="flex justify-between items-center py-3 border-b border-gray-100/10"
+								>
+									<div className="flex items-center gap-3">
+										<Skeleton className="h-6 w-20" />
+										<Skeleton className="h-5 w-12" />
+									</div>
+									<div className="flex gap-6">
+										<Skeleton className="h-4 w-16" />
+										<Skeleton className="h-4 w-12" />
+										<Skeleton className="h-4 w-14" />
+										<Skeleton className="h-4 w-16" />
+										<Skeleton className="h-8 w-16" />
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				) : (
+					<PositionsTable
+						positions={positions}
+						isLoading={isLoadingPositions}
+						error={positionsError}
+						onRefetch={fetchUserPositions}
+						tradingPairAddress={tradingPair.pairAddress}
+					/>
+				)}
 			</div>
 		</>
 	);
