@@ -5,7 +5,7 @@ import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFXTrending, fetchStocksTrending, fetchTokensTrending } from "@/hooks/useTrending";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, formatLargeNumber } from "@/lib/utils";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -129,12 +129,12 @@ export default function Home() {
 						? `${t.change24h.toFixed(2)}%`
 						: String(t.change24h ?? "0.00%"),
 				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
-				marketCap: t.marketCap ? `$${(Number(t.marketCap) / 1000000).toFixed(2)}M` : "N/A",
+				marketCap: t.marketCap ? `$${formatLargeNumber(Number(t.marketCap))}` : "N/A",
 				trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
 				logo: String(t.logo ?? ""),
 				tokenAddress: String(t.tokenAddress ?? ""),
 				pairAddress: String(t.pairAddress ?? ""),
-				totalLiquidity: t.liquidityUsd ? `$${Number(t.liquidityUsd).toLocaleString()}` : "$0.00",
+				totalLiquidity: t.liquidityUsd ? `$${formatLargeNumber(Number(t.liquidityUsd))}` : "$0.00",
 				realLiquidity: undefined,
 				openInterest: undefined,
 				hasMarket: undefined,

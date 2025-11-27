@@ -61,7 +61,9 @@ const fetchCoinGeckoMarketCap = async (symbol: string): Promise<number | null> =
 			return null;
 		}
 		const searchData = await searchResponse.json();
-		const coin = searchData.coins?.find((c: any) => c.symbol.toLowerCase() === symbol.toLowerCase());
+		const coin = searchData.coins?.find(
+			(c: any) => c.symbol.toLowerCase() === symbol.toLowerCase(),
+		);
 		if (!coin) {
 			marketCapCache.set(cacheKey, { data: null, expires: Date.now() + TOKEN_CACHE_TTL });
 			return null;
@@ -655,7 +657,11 @@ async function fetchTokensTrending(params: {
 					change24h: pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0,
 					volume24h: pair.volume?.h24 ?? pair.attributes?.volume_usd?.h24 ?? 0,
 					liquidityUsd: pair.liquidity?.usd ?? pair.attributes?.reserve_in_usd ?? 0,
-					marketCap: pair.marketCap || pair.attributes?.market_cap_usd || (await fetchCoinGeckoMarketCap(tokenSymbol)) || null,
+					marketCap:
+						pair.marketCap ||
+						pair.attributes?.market_cap_usd ||
+						(await fetchCoinGeckoMarketCap(tokenSymbol)) ||
+						null,
 					trend:
 						(pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0) >= 0
 							? "up"
