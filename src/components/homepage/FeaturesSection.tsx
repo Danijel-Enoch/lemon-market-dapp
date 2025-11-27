@@ -43,8 +43,8 @@ export const FeaturesSection: FC = () => {
 					<FeatureCard
 						iconSrc="/assets/homepage/feature-icon-liquidity.png"
 						alt="Liquidity icon"
-						title="Unified Liquidity Model"
-						description="All trades settle against a shared collateral reserve, unlocking liquidity across every asset."
+						title="Segregated Liquidity Model"
+						description="All trades settle against a separate collateral reserve, unlocking liquidity across every asset."
 					/>
 					<FeatureCard
 						iconSrc="/assets/homepage/feature-icon-synthetic.png"
