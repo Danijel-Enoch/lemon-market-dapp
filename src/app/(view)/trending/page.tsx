@@ -2,7 +2,6 @@ import { ArrowDownRight, ArrowUpRight, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "@/lib/types";
@@ -366,34 +365,80 @@ export default function Home() {
 			{/* Always show table; results are filtered locally based on searchQuery */}
 			<div className="space-y-8">
 				{isLoading ? (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{Array.from({ length: 9 }).map((_, i) => (
-							<Card key={`market-skeleton-${Date.now()}-${i}`} className="border-accent/20">
-								<CardHeader className="pb-3">
-									<div className="flex items-center justify-between">
-										<div className="flex items-center gap-3">
-											<Skeleton className="h-10 w-10 rounded-full" />
-											<div className="space-y-2">
-												<Skeleton className="h-4 w-16" />
-												<Skeleton className="h-3 w-24" />
-											</div>
-										</div>
-										<Skeleton className="h-6 w-16" />
-									</div>
-								</CardHeader>
-								<CardContent className="space-y-2">
-									<div className="flex justify-between">
-										<Skeleton className="h-4 w-12" />
-										<Skeleton className="h-4 w-20" />
-									</div>
-									<div className="flex justify-between">
-										<Skeleton className="h-4 w-16" />
-										<Skeleton className="h-4 w-16" />
-									</div>
-									<Skeleton className="h-9 w-full mt-4" />
-								</CardContent>
-							</Card>
-						))}
+					<div className="relative">
+						<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+							<div className="p-0">
+								<div className="overflow-x-auto">
+									<table className="w-full min-w-[900px] border-collapse">
+										<thead>
+											<tr className="border-b border-[#222022] bg-[#070707] p-0">
+												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
+													Market
+												</th>
+												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
+													XP
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
+													Price
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+													Market Cap
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+													Total Liquidity
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+													24h Change
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+													Open Interest
+												</th>
+												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+													24h Volume
+												</th>
+											</tr>
+										</thead>
+										<tbody>
+											{Array.from({ length: 10 }).map((_, i) => (
+												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">
+													<td className="px-4 py-4 align-middle">
+														<div className="flex items-center gap-4">
+															<Skeleton className="w-11 h-11 rounded-full" />
+															<div className="min-w-0">
+																<Skeleton className="h-4 w-16 mb-1" />
+																<Skeleton className="h-3 w-24" />
+															</div>
+														</div>
+													</td>
+													<td className="px-4 py-4 text-center">
+														<Skeleton className="h-5 w-12 mx-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-20 ml-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-16 ml-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-16 ml-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-16 ml-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-16 ml-auto" />
+													</td>
+													<td className="px-4 py-4 text-right">
+														<Skeleton className="h-4 w-16 ml-auto" />
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+						<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
 					</div>
 				) : combinedAssets.length > 0 ? (
 					<div className="relative">
