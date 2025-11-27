@@ -15,17 +15,17 @@ export const HeroSection: FC = () => {
 			</div>
 
 			<div className="relative z-10 max-w-7xl mx-auto px-6 mt-28 md:px-10 flex flex-col items-center text-center gap-6">
-				<h1 className="text-4xl md:text-6xl font-medium leading-tight bg-linear-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100 tracking-tight">
+				<h1 className="text-3xl md:text-6xl font-medium leading-tight bg-linear-to-b from-white to-gray-200 bg-clip-text text-transparent animate-fade-up animate-delay-100 tracking-tight">
 					Unlimited Markets.
 					<br />
 					Unlimited Opportunities.
 				</h1>
-				<p className="text-lg md:text-xl text-white/80 max-w-2xl animate-fade-up animate-delay-300">
+				<p className="text-md md:text-xl text-white/80 max-w-2xl animate-fade-up animate-delay-300">
 					Trade any asset class with up to 100x leverage on the most efficient decentralized
 					perpetual protocol
 				</p>
 				<ConnectWallet text="Start Trading" connectedNode="Start Trading" href="/perp" />
-				<div className="mt-[45vh] sm:mt-[30vh] overflow-hidden animate-fade-up animate-delay-700">
+				<div className="mt-[40vh] sm:mt-[30vh] overflow-hidden animate-fade-up animate-delay-700">
 					<div className="flex animate-scroll-ticker space-x-8">
 						{/* <img
 							src="/assets/homepage/partners-btc.svg"
