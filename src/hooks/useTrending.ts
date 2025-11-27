@@ -467,6 +467,8 @@ export interface FXItem {
 	timestamp: string;
 	source: string;
 	error?: string;
+	MarketCap?: number;
+	Liquidity?: number;
 }
 
 export interface StockItem {
@@ -476,6 +478,8 @@ export interface StockItem {
 	timestamp: string;
 	source: string;
 	error?: string;
+	MarketCap?: number;
+	Liquidity?: number;
 }
 
 export type TrendingItem = TokenItem | FXItem | StockItem;

@@ -161,23 +161,25 @@ export default function Home() {
 			const fxData = await fetchFXTrending({ limit: 50 });
 
 			// Transform stocks data
-			const transformedStocks: Token[] = stocksData.data.map((stock: any, index: number) => ({
-				id: index + 1,
-				symbol: stock.symbol,
-				name: stock.symbol,
-				price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
-				sortPrice: stock.price || 0,
-				change24h: "N/A",
-				volume: "N/A",
-				marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
-				trend: "up" as const,
-				logo: "📈",
-				tokenAddress: "",
-				totalLiquidity: stock.Liquidity
-					? `$${formatLargeNumber(Number(stock.Liquidity))}`
-					: "$0.00",
-				chain: "base",
-			}));
+			const transformedStocks: Token[] = (stocksData.data as StockItem[]).map(
+				(stock: StockItem, index: number) => ({
+					id: index + 1,
+					symbol: stock.symbol,
+					name: stock.symbol,
+					price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
+					sortPrice: stock.price || 0,
+					change24h: "N/A",
+					volume: "N/A",
+					marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
+					trend: "up" as const,
+					logo: "📈",
+					tokenAddress: "",
+					totalLiquidity: stock.Liquidity
+						? `$${formatLargeNumber(Number(stock.Liquidity))}`
+						: "$0.00",
+					chain: "base",
+				}),
+			);
 
 			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
 				const getDisplaySymbol = (ticker: string) => {
@@ -214,12 +216,8 @@ export default function Home() {
 					spread: "N/A",
 					trend: "up",
 					logo: getLogo(fxItem.ticker),
-					marketCap: (fx as any).MarketCap
-						? `$${formatLargeNumber(Number((fx as any).MarketCap))}`
-						: "N/A",
-					totalLiquidity: (fx as any).Liquidity
-						? `$${formatLargeNumber(Number((fx as any).Liquidity))}`
-						: "$0.00",
+					marketCap: fx.MarketCap ? `$${formatLargeNumber(Number(fx.MarketCap))}` : "N/A",
+					totalLiquidity: fx.Liquidity ? `$${formatLargeNumber(Number(fx.Liquidity))}` : "$0.00",
 				};
 			});
 
@@ -426,6 +424,7 @@ export default function Home() {
 									</thead>
 									<tbody>
 										{isLoading ? (
+											// eslint-disable-next-line react/no-array-index-key
 											Array.from({ length: 10 }).map((_, i) => (
 												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">
 													<td className="px-4 py-4 align-middle">

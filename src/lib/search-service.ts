@@ -338,7 +338,7 @@ export class SearchService {
 	private async searchDexScreener(query: string): Promise<SearchResult[]> {
 		try {
 			const response = await fetch(
-				`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`,
+				`/api/dexscreener/latest/dex/search?q=${encodeURIComponent(query)}`,
 				{
 					method: "GET",
 					headers: {
@@ -388,15 +388,12 @@ export class SearchService {
 		chainId: string = "base",
 	): Promise<SearchResult[]> {
 		try {
-			const response = await fetch(
-				`https://api.dexscreener.com/latest/dex/tokens/${chainId}/${address}`,
-				{
-					method: "GET",
-					headers: {
-						Accept: "*/*",
-					},
+			const response = await fetch(`/api/dexscreener/latest/dex/tokens/${chainId}/${address}`, {
+				method: "GET",
+				headers: {
+					Accept: "*/*",
 				},
-			);
+			});
 
 			if (!response.ok) {
 				return [];
