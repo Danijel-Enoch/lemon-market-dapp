@@ -3,6 +3,7 @@ import { Route, BrowserRouter as Router, Routes, useLocation } from "react-route
 import ViewLayout from "./app/(view)/layout";
 import Layout from "./app/layout";
 import HomePage, { metadata as homeMetadata } from "./app/page";
+import NotFound from "./app/not-found";
 import type { Metadata } from "./lib/types";
 
 // Type for page modules
@@ -141,6 +142,16 @@ function generateRoutes() {
 			),
 		});
 	}
+
+	// Add not-found route
+	routes.push({
+		path: "*",
+		element: (
+			<Layout>
+				<NotFound />
+			</Layout>
+		),
+	});
 
 	return { routes, metadataMap };
 }
