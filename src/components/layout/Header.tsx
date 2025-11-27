@@ -6,22 +6,17 @@ import { useMiniApp } from "@/components/providers/MiniAppProvider";
 import { Badge } from "@/components/ui/badge";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
-const tradeSubItems = [
-	{ href: "/perp", label: "Perpetuals" },
-	{ href: "/positions", label: "My Positions" },
-];
-
 const earnSubItems = [
-	{ href: "/dashboard", label: "Dashboard" },
-	{ href: "/leaderboard", label: "Leaderboard" },
-	{ href: "/staking", label: "Staking" },
+	{ href: "/liquidity", label: "Liquidity" },
+	{ href: "/points", label: "Points" },
+	{ href: "/referral", label: "Referral" },
 ];
 
 const navItems = [
-	{ label: "Trade", icon: TrendingUp, subItems: tradeSubItems },
+	{ href: "/trending", label: "Trade", icon: TrendingUp },
 	{ label: "Earn", icon: Trophy, subItems: earnSubItems },
-	{ href: "/positions", label: "Portfolio", icon: Wallet },
-	{ href: "/trending", label: "Spot", icon: BarChart3 },
+	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
+	{ href: "/spot", label: "Spot", icon: BarChart3 },
 	{ href: "/staking", label: "Stake", icon: Coins },
 ];
 
