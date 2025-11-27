@@ -23,7 +23,7 @@ export function ShareTradeButton({ tradeDetails }: ShareTradeButtonProps) {
 		const text = `Just opened a ${tradeDetails.leverage}x ${tradeDetails.type} on ${tradeDetails.pair} with ${tradeDetails.amount} USDC on @lemonmarkets 🍋`;
 		const embeds = [window.location.href];
 
-		await composeCast({ text, embeds });
+		await composeCast({ text, embeds: embeds as [string] });
 	}, [tradeDetails, composeCast]);
 
 	const [, handleAddApp] = useAsyncFn(async () => {

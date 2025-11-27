@@ -38,7 +38,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 
 	const [, handleChainSwitch] = useAsyncFn(
 		async (targetChainId: number) => {
-			switchChain({ chainId: targetChainId });
+			switchChain({ chainId: targetChainId as number });
 			setIsOpen(false);
 		},
 		[switchChain],
