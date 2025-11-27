@@ -364,42 +364,42 @@ export default function Home() {
 			</div>
 			{/* Always show table; results are filtered locally based on searchQuery */}
 			<div className="space-y-8">
-				{isLoading ? (
-					<div className="relative">
-						<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
-							<div className="p-0">
-								<div className="overflow-x-auto">
-									<table className="w-full min-w-[900px] border-collapse">
-										<thead>
-											<tr className="border-b border-[#222022] bg-[#070707] p-0">
-												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
-													Market
-												</th>
-												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
-													XP
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
-													Price
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-													Market Cap
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-													Total Liquidity
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													24h Change
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													Open Interest
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													24h Volume
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{Array.from({ length: 10 }).map((_, i) => (
+				<div className="relative">
+					<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
+						<div className="p-0">
+							<div className="overflow-x-auto">
+								<table className="w-full min-w-[900px] border-collapse">
+									<thead>
+										<tr className="border-b border-[#222022] bg-[#070707] p-0">
+											<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
+												Market
+											</th>
+											<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
+												XP
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
+												Price
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+												Market Cap
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
+												Total Liquidity
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+												24h Change
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+												Open Interest
+											</th>
+											<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
+												24h Volume
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										{isLoading ? (
+											Array.from({ length: 10 }).map((_, i) => (
 												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">
 													<td className="px-4 py-4 align-middle">
 														<div className="flex items-center gap-4">
@@ -432,145 +432,97 @@ export default function Home() {
 														<Skeleton className="h-4 w-16 ml-auto" />
 													</td>
 												</tr>
-											))}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-						<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
-					</div>
-				) : combinedAssets.length > 0 ? (
-					<div className="relative">
-						<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
-							<div className="p-0">
-								<div className="overflow-x-auto">
-									<table className="w-full min-w-[900px] border-collapse">
-										<thead>
-											<tr className="border-b border-[#222022] bg-[#070707] p-0">
-												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider">
-													Market
-												</th>
-												<th className="text-left px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[72px]">
-													XP
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[110px]">
-													Price
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-													Market Cap
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[140px]">
-													Total Liquidity
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													24h Change
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													Open Interest
-												</th>
-												<th className="text-right px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider w-[120px]">
-													24h Volume
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{combinedAssets.length > 0 ? (
-												combinedAssets.map((item: Asset, idx: number) => (
-													<tr
-														key={`${item.type}-${item.id}-${idx}`}
-														className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
-														onClick={() => handleTradeClick(item)}
-													>
-														<td className="px-4 py-4 align-middle">
-															<div className="flex items-center gap-4">
-																<div className="relative">
-																	<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
-																		{item.logo?.startsWith?.("http") ? (
-																			<img
-																				src={item.logo}
-																				alt={item.symbol}
-																				width={44}
-																				height={44}
-																				className="w-full h-full object-cover"
-																			/>
-																		) : (
-																			<span className="text-sm">{item.logo || "🪙"}</span>
-																		)}
-																	</div>
-																	{item.leverage && (
-																		<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
-																			{item.leverage}
-																		</div>
-																	)}
-																</div>
-																<div className="min-w-0">
-																	<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
-																		{item.symbol}
-																	</div>
-																	<div className="text-[#9AA0A0] text-xs truncate">{item.name}</div>
-																</div>
-															</div>
-														</td>
-														<td className="px-4 py-4 text-center">
-															<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
-																{item.xp ?? "5:23"}
-															</div>
-														</td>
-														<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
-															{item.price}
-														</td>
-														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-															{item.marketCap || "N/A"}
-														</td>
-														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-															{item.totalLiquidity ?? "$0.00"}
-														</td>
-														<td className="px-4 py-4 text-right">
-															<div className="inline-flex items-center gap-2 justify-end">
-																<div
-																	className={`inline-flex items-center gap-1 px-2 py-1 ${item.trend === "up" ? "text-[#30E5A7]" : "text-[#FF6B6B]"}`}
-																>
-																	{item.trend === "up" ? (
-																		<ArrowUpRight className="w-3 h-3" />
+											))
+										) : combinedAssets.length > 0 ? (
+											combinedAssets.map((item: Asset, idx: number) => (
+												<tr
+													key={`${item.type}-${item.id}-${idx}`}
+													className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
+													onClick={() => handleTradeClick(item)}
+												>
+													<td className="px-4 py-4 align-middle">
+														<div className="flex items-center gap-4">
+															<div className="relative">
+																<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
+																	{item.logo?.startsWith?.("http") ? (
+																		<img
+																			src={item.logo}
+																			alt={item.symbol}
+																			width={44}
+																			height={44}
+																			className="w-full h-full object-cover"
+																		/>
 																	) : (
-																		<ArrowDownRight className="w-3 h-3" />
+																		<span className="text-sm">{item.logo || "🪙"}</span>
 																	)}
-																	<span className="font-medium text-sm">{item.change24h}</span>
 																</div>
+																{item.leverage && (
+																	<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
+																		{item.leverage}
+																	</div>
+																)}
 															</div>
-														</td>
-														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-															{item.openInterest ?? "$0.00"}
-														</td>
-														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-															{item.volume ?? "N/A"}
-														</td>
-													</tr>
-												))
-											) : (
-												<tr>
-													<td colSpan={9} className="p-12 text-center">
-														<div className="flex flex-col items-center gap-2">
-															<div className="text-muted-foreground">No items found</div>
-															<div className="text-sm text-muted-foreground">No data available</div>
+															<div className="min-w-0">
+																<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
+																	{item.symbol}
+																</div>
+																<div className="text-[#9AA0A0] text-xs truncate">{item.name}</div>
+															</div>
 														</div>
 													</td>
+													<td className="px-4 py-4 text-center">
+														<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
+															{item.xp ?? "5:23"}
+														</div>
+													</td>
+													<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
+														{item.price}
+													</td>
+													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+														{item.marketCap || "N/A"}
+													</td>
+													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+														{item.totalLiquidity ?? "$0.00"}
+													</td>
+													<td className="px-4 py-4 text-right">
+														<div className="inline-flex items-center gap-2 justify-end">
+															<div
+																className={`inline-flex items-center gap-1 px-2 py-1 ${item.trend === "up" ? "text-[#30E5A7]" : "text-[#FF6B6B]"}`}
+															>
+																{item.trend === "up" ? (
+																	<ArrowUpRight className="w-3 h-3" />
+																) : (
+																	<ArrowDownRight className="w-3 h-3" />
+																)}
+																<span className="font-medium text-sm">{item.change24h}</span>
+															</div>
+														</div>
+													</td>
+													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+														{item.openInterest ?? "$0.00"}
+													</td>
+													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+														{item.volume ?? "N/A"}
+													</td>
 												</tr>
-											)}
-										</tbody>
-									</table>
-								</div>
+											))
+										) : (
+											<tr>
+												<td colSpan={8} className="p-12 text-center">
+													<div className="flex flex-col items-center gap-2">
+														<div className="text-muted-foreground">No items found</div>
+														<div className="text-sm text-muted-foreground">No data available</div>
+													</div>
+												</td>
+											</tr>
+										)}
+									</tbody>
+								</table>
 							</div>
 						</div>
-						<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
 					</div>
-				) : (
-					<div className="flex flex-col items-center justify-center py-12 gap-4">
-						<div className="text-muted-foreground">No data available</div>
-						<div className="text-sm text-muted-foreground">Unable to fetch trending assets</div>
-					</div>
-				)}
+					<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
+				</div>
 			</div>
 
 			<div className="border-t border-[#222222] bg-[#060606] p-3 flex items-center justify-between text-sm text-[#9AA0A0]">
