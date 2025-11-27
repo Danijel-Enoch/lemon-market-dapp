@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, ChevronDown, Coins, TrendingUp, Trophy, Wallet } from "lucide-react";
+import { ChevronDown, Coins, TrendingUp, Trophy, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
@@ -16,7 +16,7 @@ const navItems = [
 	{ href: "/trending", label: "Trade", icon: TrendingUp },
 	{ label: "Earn", icon: Trophy, subItems: earnSubItems },
 	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
-	{ href: "/spot", label: "Spot", icon: BarChart3 },
+	// { href: "/spot", label: "Spot", icon: BarChart3 },
 	{ href: "/staking", label: "Stake", icon: Coins },
 ];
 

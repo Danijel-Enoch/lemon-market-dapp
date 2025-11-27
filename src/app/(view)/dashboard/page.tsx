@@ -161,8 +161,10 @@ function DashboardContent() {
 	return (
 		<div className="space-y-8 pb-12">
 			<div className="space-y-2">
-				<h1 className="text-3xl font-bold">Dashboard</h1>
-				<p className="text-muted-foreground">Track your trading performance and referral rewards</p>
+				<h1 className="text-2xl font-medium text-muted-foreground">Dashboard</h1>
+				<p className="text-muted-foreground text-xs">
+					Track your trading performance and referral rewards
+				</p>
 			</div>
 
 			{error && (

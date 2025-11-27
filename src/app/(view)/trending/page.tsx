@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchFXTrending, fetchStocksTrending, fetchTokensTrending } from "@/hooks/useTrending";
 import type { Metadata } from "@/lib/types";
-import { fetchTokensTrending, fetchFXTrending, fetchStocksTrending } from "@/hooks/useTrending";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",
@@ -106,9 +106,16 @@ export default function Home() {
 
 	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
 		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
-			const tokensData = await fetchTokensTrending({ limit: 10, page, chain, hasMarket });
+			const tokensData = await fetchTokensTrending({
+				limit: 10,
+				page,
+				chain,
+				hasMarket: hasMarket ?? undefined,
+			});
 			// Normalize tokens to the local Token interface
-			const normalizedTokens = (tokensData.data || []).map((t, i) => ({
+			const normalizedTokens = (
+				(tokensData.data || []) as import("@/hooks/useTrending").TokenItem[]
+			).map((t, i) => ({
 				id: i + 1,
 				symbol: String(t.symbol ?? ""),
 				name: String(t.name ?? t.symbol ?? ""),
@@ -197,7 +204,7 @@ export default function Home() {
 					volume: "N/A",
 					spread: "N/A",
 					trend: "up",
-					logo: getLogo(fx.Ticker),
+					logo: getLogo(fx.ticker),
 				};
 			});
 

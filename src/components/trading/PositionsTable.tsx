@@ -70,7 +70,7 @@ export function PositionsTable({
 				const tokenSymbol = extractTokenSymbol(position.pair);
 
 				const result = await marketApi.positions.close({
-					positionId: parseInt(position.positionId),
+					positionId: parseInt(position.positionId, 10),
 					marketId: tokenSymbol,
 					userAddress: address,
 				});

@@ -6,8 +6,8 @@ import { useNavigate } from "react-router-dom";
 import useAsync from "react-use/lib/useAsync";
 import useTimeout from "react-use/lib/useTimeout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { fetchTokensTrending } from "@/hooks/useTrending";
+import { cn } from "@/lib/utils";
 
 type Pill = {
 	icon: string;
@@ -170,7 +170,7 @@ export const TrendingCoinsSection: FC = () => {
 	const [isReady] = useTimeout(15_000);
 	// Fetch trending tokens from API
 	const { value: trendingData, loading } = useAsync(async () => {
-		const data = await fetchTokensTrending({ limit: 50 });
+		const data = await fetchTokensTrending({ limit: 50, page: 1 });
 		return data.data as TrendingToken[];
 	}, [isReady]);
 

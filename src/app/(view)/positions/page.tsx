@@ -91,23 +91,18 @@ export default function PositionsPage() {
 					className="space-y-4"
 				>
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-primary/10 rounded-lg">
-								<Wallet className="w-6 h-6 text-primary" />
-							</div>
-							<div>
-								<h1 className="text-3xl font-bold text-foreground">My Positions</h1>
-								<div className="flex items-center gap-2">
-									<p className="text-muted-foreground text-sm">
-										Track your trading performance and manage your positions
-									</p>
-									{!isConnected && (
-										<Badge variant="outline" className="border-orange-500/20 text-orange-400">
-											<Wallet className="w-3 h-3 mr-1" />
-											Connect Wallet
-										</Badge>
-									)}
-								</div>
+						<div>
+							<h1 className="text-2xl font-medium text-muted-foreground">My Positions</h1>
+							<div className="flex items-center gap-2">
+								<p className="text-muted-foreground text-xs">
+									Track your trading performance and manage your positions
+								</p>
+								{!isConnected && (
+									<Badge variant="outline" className="border-orange-500/20 text-orange-400">
+										<Wallet className="w-3 h-3 mr-1" />
+										Connect Wallet
+									</Badge>
+								)}
 							</div>
 						</div>
 						<div className="flex items-center gap-3">

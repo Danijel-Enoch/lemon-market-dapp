@@ -7,7 +7,6 @@ import {
 	RefreshCw,
 	Target,
 	TrendingUp,
-	Trophy,
 	Users,
 	Volume2,
 } from "lucide-react";
@@ -142,16 +141,9 @@ export default function LeaderboardPage() {
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
 					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-primary/10 rounded-lg">
-								<Trophy className="w-6 h-6 text-primary" />
-							</div>
-							<div>
-								<h1 className="text-3xl font-bold text-foreground">Leaderboard</h1>
-								<p className="text-muted-foreground text-sm">
-									Top performing traders and strategies
-								</p>
-							</div>
+						<div>
+							<h1 className="text-2xl font-medium text-muted-foreground">Leaderboard</h1>
+							<p className="text-muted-foreground text-xs">Top performing traders and strategies</p>
 						</div>
 						<Button
 							onClick={fetchLeaderboard}

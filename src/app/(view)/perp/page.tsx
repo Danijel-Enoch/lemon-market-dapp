@@ -12,8 +12,6 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
-import { fetchTokensTrending } from "@/hooks/useTrending";
-import { useMarketData } from "@/hooks/useMarketData";
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
@@ -23,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { SearchModal } from "@/components/ui/SearchModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMarketData } from "@/hooks/useMarketData";
+import { fetchTokensTrending } from "@/hooks/useTrending";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import {
@@ -39,8 +39,8 @@ import {
 	validateLeverage,
 	validateMargin,
 } from "@/lib/position-api";
-import { useMarketApi } from "@/lib/useMarketApi";
 import type { Metadata } from "@/lib/types";
+import { useMarketApi } from "@/lib/useMarketApi";
 
 const miniAppEmbed = {
 	version: "1",
@@ -357,10 +357,11 @@ function PerpContent() {
 					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
 					if (top) {
 						const params = new URLSearchParams();
-						if (top.symbol) params.set("symbol", top.symbol);
-						if (top.pairAddress) params.set("pairAddress", top.pairAddress);
-						if (top.tokenAddress) params.set("tokenAddress", top.tokenAddress);
-						params.set("chain", top.chain || "base");
+						const token = top as import("@/hooks/useTrending").TokenItem;
+						if (token.symbol) params.set("symbol", token.symbol);
+						if (token.pairAddress) params.set("pairAddress", token.pairAddress);
+						if (token.tokenAddress) params.set("tokenAddress", token.tokenAddress);
+						params.set("chain", token.chain || "base");
 						params.set("assetType", "crypto");
 						navigate(`/perp?${params.toString()}`, { replace: true });
 						return;

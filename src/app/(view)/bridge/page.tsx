@@ -1,5 +1,5 @@
 import { LiFiWidget, useWidgetEvents, type WidgetConfig, WidgetEvent } from "@lifi/widget";
-import { Info, Repeat } from "lucide-react";
+import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Badge } from "@/components/ui/badge";
@@ -161,16 +161,11 @@ export default function BridgeSwapPage() {
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
-					<div className="flex items-center gap-3">
-						<div className="p-2 bg-primary/10 rounded-lg">
-							<Repeat className="w-6 h-6 text-primary" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold text-foreground">Bridge & Swap</h1>
-							<p className="text-muted-foreground text-sm">
-								Bridge tokens across chains and swap assets
-							</p>
-						</div>
+					<div>
+						<h1 className="text-2xl font-medium text-muted-foreground">Bridge & Swap</h1>
+						<p className="text-muted-foreground text-xs">
+							Bridge tokens across chains and swap assets
+						</p>
 					</div>
 				</div>
 

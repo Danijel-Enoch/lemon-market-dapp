@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import fetchWithTimeout from "@/lib/fetch-with-timeout";
 import { createMarketLookupMap } from "@/lib/virtual-markets-service";

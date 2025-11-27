@@ -1,4 +1,4 @@
-import { Lock, Shield, Sparkles, TrendingUp, Clock, DollarSign } from "lucide-react";
+import { Clock, DollarSign, Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Metadata } from "@/lib/types";
 
@@ -12,21 +12,16 @@ export default function StakingPage() {
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
-					<div className="flex items-center gap-3">
-						<div className="p-2 bg-primary/10 rounded-lg">
-							<Lock className="w-6 h-6 text-primary" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold text-foreground">Staking</h1>
-							<p className="text-muted-foreground text-sm">
-								Stake your tokens and earn passive income
-							</p>
-						</div>
+					<div>
+						<h1 className="text-2xl font-medium text-muted-foreground">Staking</h1>
+						<p className="text-muted-foreground text-xs">
+							Stake your tokens and earn passive income
+						</p>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-sm font-medium">Total Staked</CardTitle>
 							<Lock className="h-4 w-4 text-muted-foreground" />
@@ -37,7 +32,7 @@ export default function StakingPage() {
 						</CardContent>
 					</Card>
 
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-sm font-medium">Your Stake</CardTitle>
 							<DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -48,7 +43,7 @@ export default function StakingPage() {
 						</CardContent>
 					</Card>
 
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-sm font-medium">24h Rewards</CardTitle>
 							<TrendingUp className="h-4 w-4 text-green-500" />
@@ -59,7 +54,7 @@ export default function StakingPage() {
 						</CardContent>
 					</Card>
 
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 							<CardTitle className="text-sm font-medium">Total Rewards</CardTitle>
 							<Sparkles className="h-4 w-4 text-muted-foreground" />
@@ -72,7 +67,7 @@ export default function StakingPage() {
 				</div>
 
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader>
 							<CardTitle>Staking Pools</CardTitle>
 						</CardHeader>
@@ -85,7 +80,7 @@ export default function StakingPage() {
 								].map((pool) => (
 									<div
 										key={pool.token}
-										className="flex items-center justify-between p-4 border rounded-lg"
+										className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
 									>
 										<div>
 											<p className="font-medium">{pool.token} Pool</p>
@@ -108,13 +103,13 @@ export default function StakingPage() {
 						</CardContent>
 					</Card>
 
-					<Card>
+					<Card className="border-accent/20">
 						<CardHeader>
 							<CardTitle>Your Positions</CardTitle>
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
-								<div className="p-4 border rounded-lg">
+								<div className="p-4 bg-muted/50 rounded-lg">
 									<div className="flex items-center justify-between mb-2">
 										<p className="font-medium">LEMON Staking</p>
 										<span className="text-sm text-green-500">Active</span>
@@ -135,7 +130,7 @@ export default function StakingPage() {
 									</div>
 								</div>
 
-								<div className="p-4 border rounded-lg">
+								<div className="p-4 bg-muted/50 rounded-lg">
 									<div className="flex items-center justify-between mb-2">
 										<p className="font-medium">USDC Staking</p>
 										<span className="text-sm text-green-500">Active</span>
@@ -160,7 +155,7 @@ export default function StakingPage() {
 					</Card>
 				</div>
 
-				<Card>
+				<Card className="border-accent/20">
 					<CardHeader>
 						<CardTitle>Staking Benefits</CardTitle>
 					</CardHeader>

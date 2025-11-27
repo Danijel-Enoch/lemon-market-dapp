@@ -6,7 +6,8 @@
 		"dev": "vite",
 		"build": "vite build",
 		"build:ci": "NODE_OPTIONS='--max-old-space-size=4096' vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"lint": "biome check ."
 	},
 	"dependencies": {
 		"@better-fetch/fetch": "^1.1.18",

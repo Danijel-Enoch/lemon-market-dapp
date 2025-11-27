@@ -1,4 +1,3 @@
-import { Droplets } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Metadata } from "@/lib/types";
 
@@ -12,16 +11,11 @@ export default function LiquidityPage() {
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
-					<div className="flex items-center gap-3">
-						<div className="p-2 bg-primary/10 rounded-lg">
-							<Droplets className="w-6 h-6 text-primary" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold text-foreground">Liquidity</h1>
-							<p className="text-muted-foreground text-sm">
-								Provide liquidity to pools and earn trading fees
-							</p>
-						</div>
+					<div>
+						<h1 className="text-2xl font-medium text-muted-foreground">Liquidity</h1>
+						<p className="text-muted-foreground text-xs">
+							Provide liquidity to pools and earn trading fees
+						</p>
 					</div>
 				</div>
 

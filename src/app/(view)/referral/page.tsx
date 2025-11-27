@@ -1,16 +1,15 @@
 "use client";
 
-import { Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUserPositions } from "@/hooks/useUserPositions";
 import {
+	createReferralCode,
 	getUserReferralCode,
 	getUserReferralStats,
-	createReferralCode,
 } from "@/lib/dashboard-service";
-import { useUserPositions } from "@/hooks/useUserPositions";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -67,16 +66,11 @@ export default function ReferralPage() {
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
-					<div className="flex items-center gap-3">
-						<div className="p-2 bg-primary/10 rounded-lg">
-							<Users className="w-6 h-6 text-primary" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold text-foreground">Referral Program</h1>
-							<p className="text-muted-foreground text-sm">
-								Invite friends and earn rewards together
-							</p>
-						</div>
+					<div>
+						<h1 className="text-2xl font-medium text-muted-foreground">Referral Program</h1>
+						<p className="text-muted-foreground text-xs">
+							Invite friends and earn rewards together
+						</p>
 					</div>
 				</div>
 

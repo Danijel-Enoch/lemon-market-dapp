@@ -99,38 +99,27 @@ export const TopTicker: FC = () => {
 	const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
 	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
-		const result = await fetchTokensTrending({ limit: 15 });
-
+		const result = await fetchTokensTrending({ limit: 15, page: 1 });
 		if (result.data && Array.isArray(result.data)) {
-			const tokens: TickerToken[] = result.data
+			const tokens: TickerToken[] = (result.data as import("@/hooks/useTrending").TokenItem[])
 				.slice(0, 15)
-				.map(
-					(token: {
-						symbol: string;
-						change24h?: string | number;
-						logo?: string;
-						pairAddress?: string;
-						tokenAddress?: string;
-						chain?: string;
-						assetType?: string;
-					}) => {
-						const changeRaw = token.change24h ?? 0;
-						const priceChange24h =
-							typeof changeRaw === "number"
-								? changeRaw
-								: parseFloat(String(changeRaw).replace("%", ""));
-						return {
-							symbol: token.symbol,
-							priceChange24h,
-							isLong: priceChange24h > 0,
-							logo: token.logo,
-							pairAddress: token.pairAddress,
-							tokenAddress: token.tokenAddress,
-							chain: token.chain,
-							assetType: token.assetType,
-						};
-					},
-				);
+				.map((token) => {
+					const changeRaw = token.change24h ?? 0;
+					const priceChange24h =
+						typeof changeRaw === "number"
+							? changeRaw
+							: parseFloat(String(changeRaw).replace("%", ""));
+					return {
+						symbol: token.symbol,
+						priceChange24h,
+						isLong: priceChange24h > 0,
+						logo: token.logo,
+						pairAddress: token.pairAddress,
+						tokenAddress: token.tokenAddress,
+						chain: token.chain,
+						assetType: token.assetType,
+					};
+				});
 			return tokens;
 		}
 		return [] as TickerToken[];
