@@ -54,7 +54,7 @@ export function Header() {
 								height={40}
 								// className="animate-spin"
 							/>
-							<span className="hidden sm:inline-flex items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+							<span className="inline-flex items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
 								Lemon Markets
 								<Badge
 									variant="secondary"
@@ -141,7 +141,16 @@ export function Header() {
 								);
 							})}
 						</nav>
-						<ConnectWallet text="Connect Wallet" />
+						<ConnectWallet
+							text={
+								<>
+									<span className="hidden md:inline">Connect Wallet</span>
+									<span className="md:hidden">
+										<Wallet size={16} />
+									</span>
+								</>
+							}
+						/>
 					</motion.header>
 				</div>
 			</div>

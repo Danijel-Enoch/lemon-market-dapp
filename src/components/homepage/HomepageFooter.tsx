@@ -62,7 +62,6 @@ export const HomepageFooter = memo(function HomepageFooter({
 									height={40}
 									loading="lazy"
 									decoding="async"
-									style={{ width: "auto", height: "auto" }}
 								/>
 								<p className="text-xl md:text-2xl font-semibold bg-clip-text text-transparent bg-[linear-gradient(101.95deg,#ffffff_3.88%,#f8f8f8_60.64%)]">
 									{brand.name}

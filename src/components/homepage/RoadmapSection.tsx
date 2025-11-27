@@ -92,7 +92,7 @@ export const RoadmapSection: FC = () => {
 						className="opacity-80 rotate-180"
 					/>
 				</div>
-				<h2 className="text-4xl md:text-6xl font-bold text-white mb-4">Roadmap</h2>
+				<h2 className="text-4xl md:text-6xl font-medium text-white mb-4">Roadmap</h2>
 				<p className="text-white/60 text-lg max-w-2xl">
 					Each phase brings us closer to a fully decentralized trading ecosystem
 				</p>

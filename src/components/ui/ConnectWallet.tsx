@@ -14,7 +14,7 @@ export function ConnectWallet({
 	className,
 	...props
 }: {
-	text?: string;
+	text?: React.ReactNode;
 	connectedNode?: React.ReactNode;
 	href?: string;
 } & ComponentProps<"button">) {
@@ -24,7 +24,7 @@ export function ConnectWallet({
 
 	return (
 		<ConnectButton.Custom>
-			{({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+			{({ account, chain, openChainModal, openConnectModal, mounted }) => {
 				const ready = mounted;
 				const connected = ready && account && chain;
 
