@@ -325,17 +325,17 @@ export default function Home() {
 
 	return (
 		<>
-			<div className="py-6 border-l border-r border-[#202020]">
+			<div className="border-l border-r border-[#202020]">
 				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 					<div className="flex-1 min-w-0 flex items-center gap-4">
-						<div className="relative w-full max-w-lg">
+						<div className="relative w-80">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
 							<Input
 								type="text"
 								placeholder="Search Base tokens by symbol, address, or pair address..."
 								value={searchQuery}
 								onChange={handleSearchChange}
-								className="pl-10"
+								className="py-6 pl-10 h-full border-0 border-r rounded-none focus-visible:ring-0 focus-visible:border-0"
 							/>
 						</div>
 					</div>
@@ -359,10 +359,7 @@ export default function Home() {
 						</nav>
 					</div>
 				</div>
-
-				{/* Search box no longer triggers external searches; table is filtered locally */}
 			</div>
-			{/* Always show table; results are filtered locally based on searchQuery */}
 			<div className="space-y-8">
 				<div className="relative">
 					<div className="overflow-hidden border border-[#202020] bg-[#060606] shadow-[0_6px_24px_rgba(0,0,0,0.6)]">
