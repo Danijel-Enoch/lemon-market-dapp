@@ -68,7 +68,6 @@ scripts/
 
 # Optimization: Exclude large files not needed for build
 *.log
-*.lock
 .cache
 .turbo
 .swc
