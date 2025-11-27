@@ -162,7 +162,8 @@ export const RoadmapSection: FC = () => {
 												transition={{ delay: idx * 0.1 + i * 0.05 }}
 												className={`flex gap-3 text-white/70 text-[15px] leading-relaxed ${isLeft ? "md:flex-row-reverse" : ""}`}
 											>
-												<span className="text-[#9DEA29]/60 mt-1 select-none">
+												<span className="text-[#9DEA29]/60 mt-1 select-none md:hidden">→</span>
+												<span className="text-[#9DEA29]/60 mt-1 select-none hidden md:block">
 													{isLeft ? "←" : "→"}
 												</span>
 												<span>{thing}</span>

@@ -34,7 +34,7 @@ export const FAQSection: FC = () => {
 
 	return (
 		<section className="flex flex-col md:flex-row items-center gap-8 py-20 max-w-7xl mx-auto">
-			<div className="">
+			<div className="text-center md:text-left">
 				<div className="inline-flex items-center gap-8">
 					<img
 						src="/assets/homepage/section-features-divider.png"
