@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 
 const REFERRED_BY_KEY = "lemon_referred_by";

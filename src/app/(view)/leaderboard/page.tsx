@@ -1,5 +1,3 @@
-"use client";
-
 import {
 	Award as AwardIcon,
 	Crown,

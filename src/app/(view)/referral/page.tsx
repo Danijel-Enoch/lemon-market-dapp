@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";

@@ -1,5 +1,3 @@
-"use client";
-
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import type { ComponentProps } from "react";

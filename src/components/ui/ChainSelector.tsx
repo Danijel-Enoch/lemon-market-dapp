@@ -1,5 +1,3 @@
-"use client";
-
 import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";

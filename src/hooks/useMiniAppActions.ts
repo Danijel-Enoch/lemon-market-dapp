@@ -1,5 +1,3 @@
-"use client";
-
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useMiniApp } from "@/components/providers/MiniAppProvider";
 

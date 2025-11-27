@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useState } from "react";
 import toast from "react-hot-toast";
 import { parseTransactionError, type TransactionStatus } from "@/lib/transaction-utils";

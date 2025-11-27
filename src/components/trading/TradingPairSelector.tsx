@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 

@@ -1,4 +1,3 @@
-"use client";
 import { ChevronDown } from "lucide-react";
 import type { FC } from "react";
 import { useState } from "react";

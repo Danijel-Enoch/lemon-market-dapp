@@ -1,5 +1,3 @@
-"use client";
-
 import { CopyIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 import { useDisconnect } from "wagmi";

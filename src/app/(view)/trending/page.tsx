@@ -5,8 +5,8 @@ import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFXTrending, fetchStocksTrending, fetchTokensTrending } from "@/hooks/useTrending";
-import { formatPrice, formatLargeNumber } from "@/lib/utils";
 import type { Metadata } from "@/lib/types";
+import { formatLargeNumber, formatPrice } from "@/lib/utils";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",

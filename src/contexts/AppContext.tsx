@@ -1,5 +1,3 @@
-"use client";
-
 import type React from "react";
 import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
 import toast from "react-hot-toast";

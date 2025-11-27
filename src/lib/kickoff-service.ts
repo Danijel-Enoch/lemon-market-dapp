@@ -1,5 +1,3 @@
-"use server";
-
 export type KickoffVerifyTaskResponse = {
 	success: boolean;
 	message?: string;

@@ -1,5 +1,3 @@
-"use client";
-
 import { Share2, UserPlus } from "lucide-react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Button } from "@/components/ui/button";

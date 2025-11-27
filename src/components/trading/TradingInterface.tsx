@@ -1,5 +1,3 @@
-"use client";
-
 import { Header } from "../layout/Header";
 import { ChartSection } from "./ChartSection";
 import { PositionsTable } from "./PositionsTable";

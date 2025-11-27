@@ -1,5 +1,3 @@
-"use client";
-
 import { Copy, Link, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";

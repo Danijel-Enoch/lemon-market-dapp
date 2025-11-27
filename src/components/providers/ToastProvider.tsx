@@ -1,5 +1,3 @@
-"use client";
-
 import { type Toast, Toaster } from "react-hot-toast";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 

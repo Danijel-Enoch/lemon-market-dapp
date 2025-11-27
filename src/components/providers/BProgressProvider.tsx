@@ -1,5 +1,3 @@
-"use client";
-
 import { ProgressProvider } from "@bprogress/next/app";
 
 export function BProgressProvider({ children }: { children: React.ReactNode }) {

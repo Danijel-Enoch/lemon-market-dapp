@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import useAsync from "react-use/lib/useAsync";
 import {
