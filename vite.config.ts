@@ -15,16 +15,25 @@ export default defineConfig({
 			"/api/geckoterminal": {
 				target: "https://api.geckoterminal.com",
 				changeOrigin: true,
+				headers: {
+					Origin: "http://localhost:5173",
+				},
 				rewrite: (path) => path.replace(/^\/api\/geckoterminal/, ""),
 			},
 			"/api/dexscreener": {
 				target: "https://api.dexscreener.com",
 				changeOrigin: true,
+				headers: {
+					Origin: "http://localhost:5173",
+				},
 				rewrite: (path) => path.replace(/^\/api\/dexscreener/, ""),
 			},
 			"/api/coingecko": {
 				target: "https://api.coingecko.com",
 				changeOrigin: true,
+				headers: {
+					Origin: "http://localhost:5173",
+				},
 				rewrite: (path) => path.replace(/^\/api\/coingecko/, ""),
 			},
 		},
