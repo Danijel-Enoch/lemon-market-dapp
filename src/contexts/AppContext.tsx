@@ -80,6 +80,10 @@ const initialState: AppState = {
 		minROE: 0,
 		includeRewards: false,
 	},
+	isVerifying: false,
+	verifiedAddress: null,
+	verificationMessage: null,
+	verificationError: null,
 };
 
 function appReducer(state: AppState, action: AppActionExtended): AppState {

@@ -212,6 +212,7 @@ export class LemonSpotPriceClient {
 	private readonly headers: Record<string, string>;
 	private readonly throwOnError: boolean;
 	private readonly debug: boolean;
+	private readonly apiKey?: string;
 	private readonly maxRetries: number;
 	private readonly retryDelay: number;
 	private readonly enableCaching: boolean;

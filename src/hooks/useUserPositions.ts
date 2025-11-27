@@ -73,7 +73,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		useAsyncFn(async () => {
 			if (!address) return null;
 
-			const positions = await marketApi.positions.query({ trader: address });
+			const positions = (await marketApi.positions.query({ trader: address })) as Position[];
 			return { positions };
 		}, [address, marketApi]);
 
