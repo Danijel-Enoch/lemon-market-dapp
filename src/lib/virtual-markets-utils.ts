@@ -33,7 +33,7 @@ export function extractTokenAddress(item: Record<string, unknown>): string | nul
 
 	for (const field of possibleFields) {
 		const value = getNestedProperty(item, field);
-		if (value && isValidAddress(value)) {
+		if (value && typeof value === "string" && isValidAddress(value)) {
 			return normalizeAddress(value);
 		}
 	}
@@ -62,7 +62,7 @@ export function extractTokenSymbol(item: Record<string, unknown>): string | null
  * Get nested property from object using dot notation
  */
 function getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
-	return path.split(".").reduce((current, key) => {
+	return path.split(".").reduce((current: any, key: string) => {
 		return current?.[key];
 	}, obj);
 }
@@ -170,17 +170,19 @@ export function calculateMarketStats(markets: Record<string, unknown>[]): Market
 	const validMarkets = markets.filter(validateVirtualMarket);
 
 	const totalLiquidity = validMarkets.reduce(
-		(sum, market) => sum + parseLiquidityWith6Decimals(market.totalLiquidity || "0"),
+		(sum, market) =>
+			sum + parseLiquidityWith6Decimals((market.totalLiquidity as string | number) || "0"),
 		0,
 	);
 
 	const totalOpenInterest = validMarkets.reduce(
-		(sum, market) => sum + parseLiquidityWith6Decimals(market.realLiquidity || "0"),
+		(sum, market) =>
+			sum + parseLiquidityWith6Decimals((market.realLiquidity as string | number) || "0"),
 		0,
 	);
 
 	const marketsWithLiquidity = validMarkets.filter(
-		(market) => parseLiquidityWith6Decimals(market.totalLiquidity || "0") > 0,
+		(market) => parseLiquidityWith6Decimals((market.totalLiquidity as string | number) || "0") > 0,
 	).length;
 
 	return {

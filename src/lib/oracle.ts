@@ -340,7 +340,7 @@ export async function getStockPrice(symbol: string): Promise<StockPrice | null> 
 			return null;
 		}
 
-		return data;
+		return data as StockPrice;
 	} catch (_error) {
 		return null;
 	}
@@ -359,7 +359,7 @@ export async function getForexPrice(ticker: string): Promise<ForexPrice | null> 
 			return null;
 		}
 
-		return data;
+		return data as ForexPrice;
 	} catch (_error) {
 		return null;
 	}

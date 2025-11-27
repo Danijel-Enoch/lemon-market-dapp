@@ -719,10 +719,10 @@ async function fetchFXPrice(ticker: string) {
 			success: true,
 			ticker,
 			symbol: ticker,
-			price: data.Price,
+			price: parseFloat(data.Price) || 0,
 			timestamp: data.Timestamp,
 			source: data.Source,
-			priceUsd: data.Price, // For position API compatibility
+			priceUsd: parseFloat(data.Price) || 0, // For position API compatibility
 			lastUpdate: new Date(data.Timestamp).toISOString(),
 		};
 	} catch (error) {
@@ -822,10 +822,10 @@ async function fetchStockPrice(symbol: string) {
 		return {
 			success: true,
 			symbol,
-			price: data.Price,
+			price: parseFloat(data.Price) || 0,
 			timestamp: data.Timestamp,
 			source: data.Source,
-			priceUsd: data.Price, // For position API compatibility
+			priceUsd: parseFloat(data.Price) || 0, // For position API compatibility
 			lastUpdate: new Date(data.Timestamp).toISOString(),
 		};
 	} catch (error) {

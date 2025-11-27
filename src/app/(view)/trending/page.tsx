@@ -119,15 +119,13 @@ export default function Home() {
 				id: i + 1,
 				symbol: String(t.symbol ?? ""),
 				name: String(t.name ?? t.symbol ?? ""),
-				price: t.priceUsd ? `$${Number(t.priceUsd).toFixed(6)}` : String(t.price ?? "$0.00"),
+				price: t.priceUsd ? `$${Number(t.priceUsd).toFixed(6)}` : "$0.00",
 				change24h:
 					typeof t.change24h === "number"
 						? `${t.change24h.toFixed(2)}%`
 						: String(t.change24h ?? "0.00%"),
-				volume: t.volume24h
-					? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M`
-					: String(t.volume ?? "N/A"),
-				marketCap: String(t.marketCap ?? "N/A"),
+				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
+				marketCap: "N/A",
 				trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
 				logo: String(t.logo ?? ""),
 				tokenAddress: String(t.tokenAddress ?? ""),
@@ -195,16 +193,18 @@ export default function Home() {
 					return "💱";
 				};
 
+				const fxItem = fx as import("@/hooks/useTrending").FXItem;
+
 				return {
 					id: index + 1,
-					symbol: getDisplaySymbol(fx.ticker),
-					name: getDisplayName(fx.ticker),
-					price: fx.price.toFixed(4),
+					symbol: getDisplaySymbol(fxItem.ticker),
+					name: getDisplayName(fxItem.ticker),
+					price: fxItem.price.toFixed(4),
 					change24h: "N/A",
 					volume: "N/A",
 					spread: "N/A",
 					trend: "up",
-					logo: getLogo(fx.ticker),
+					logo: getLogo(fxItem.ticker),
 				};
 			});
 

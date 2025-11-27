@@ -113,11 +113,10 @@ export const TopTicker: FC = () => {
 						symbol: token.symbol,
 						priceChange24h,
 						isLong: priceChange24h > 0,
-						logo: token.logo,
-						pairAddress: token.pairAddress,
-						tokenAddress: token.tokenAddress,
-						chain: token.chain,
-						assetType: token.assetType,
+						logo: token.logo || undefined,
+						pairAddress: token.pairAddress || undefined,
+						tokenAddress: token.tokenAddress || undefined,
+						chain: token.chain || undefined,
 					};
 				});
 			return tokens;
