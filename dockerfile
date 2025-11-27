@@ -27,6 +27,9 @@ RUN bun run build
 # Stage 3: Runner (Production)
 FROM nginx:alpine AS runner
 
+# Disable IPv6 to force IPv4 connections
+RUN echo 'net.ipv6.conf.all.disable_ipv6 = 1' > /etc/sysctl.d/disable_ipv6.conf
+
 # Copy built app from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
