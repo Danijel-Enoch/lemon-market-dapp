@@ -5,7 +5,7 @@ FROM oven/bun:latest AS deps
 WORKDIR /app
 
 # Copy only dependency files for better caching
-COPY package.json bun.lock* ./
+COPY package.json bun.lockb* ./
 
 # Install all dependencies (devDependencies needed for build)
 RUN bun install --frozen-lockfile
