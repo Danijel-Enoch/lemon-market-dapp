@@ -12,6 +12,7 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
+import { fetchTokensTrending } from "@/hooks/useTrending";
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
@@ -417,10 +418,12 @@ function PerpContent() {
 			setDidDefaultTrendingRedirect(true);
 			(async () => {
 				try {
-					const response = await fetch(
-						"/api/trending/tokens?chain=base&limit=5&page=1&sort=change",
-					);
-					const data = await response.json();
+					const data = await fetchTokensTrending({
+						limit: 5,
+						page: 1,
+						chain: "base",
+						sort: "change",
+					});
 					// Support both array-shaped and single object responses for backwards compatibility
 					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
 					if (top) {

@@ -7,6 +7,7 @@ import useAsync from "react-use/lib/useAsync";
 import useTimeout from "react-use/lib/useTimeout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { fetchTokensTrending } from "@/hooks/useTrending";
 
 type Pill = {
 	icon: string;
@@ -169,8 +170,7 @@ export const TrendingCoinsSection: FC = () => {
 	const [isReady] = useTimeout(15_000);
 	// Fetch trending tokens from API
 	const { value: trendingData, loading } = useAsync(async () => {
-		const response = await fetch("/api/trending/tokens");
-		const data = await response.json();
+		const data = await fetchTokensTrending({ limit: 50 });
 		return data.data as TrendingToken[];
 	}, [isReady]);
 

@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import useEvent from "react-use/lib/useEvent";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchTokensTrending } from "@/hooks/useTrending";
 
 interface TickerToken {
 	symbol: string;
@@ -98,8 +99,7 @@ export const TopTicker: FC = () => {
 	const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
 	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
-		const response = await fetch("/api/trending/tokens");
-		const result = await response.json();
+		const result = await fetchTokensTrending({ limit: 15 });
 
 		if (result.data && Array.isArray(result.data)) {
 			const tokens: TickerToken[] = result.data

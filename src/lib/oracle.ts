@@ -1,3 +1,5 @@
+import { fetchFXPrice, fetchStockPrice } from "@/hooks/useTrending";
+
 export interface TokenPrice {
 	address: string;
 	symbol: string;
@@ -332,21 +334,7 @@ export function formatLargeNumber(num: number): string {
  */
 export async function getStockPrice(symbol: string): Promise<StockPrice | null> {
 	try {
-		const response = await fetch(
-			`/api/trending/stocks?symbol=${encodeURIComponent(symbol)}&action=price`,
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
-		);
-
-		if (!response.ok) {
-			return null;
-		}
-
-		const data: StockPrice = await response.json();
+		const data = await fetchStockPrice(symbol);
 
 		if (!data.success) {
 			return null;
@@ -365,21 +353,7 @@ export async function getStockPrice(symbol: string): Promise<StockPrice | null> 
  */
 export async function getForexPrice(ticker: string): Promise<ForexPrice | null> {
 	try {
-		const response = await fetch(
-			`/api/trending/fx?ticker=${encodeURIComponent(ticker)}&action=price`,
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
-		);
-
-		if (!response.ok) {
-			return null;
-		}
-
-		const data: ForexPrice = await response.json();
+		const data = await fetchFXPrice(ticker);
 
 		if (!data.success) {
 			return null;

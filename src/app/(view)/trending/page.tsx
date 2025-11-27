@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "@/lib/types";
+import { fetchTokensTrending, fetchFXTrending, fetchStocksTrending } from "@/hooks/useTrending";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",
@@ -53,48 +54,6 @@ interface ForexPair {
 	logo: string;
 	xp?: string;
 	leverage?: string;
-}
-
-// API Response Types
-interface APIStockData {
-	Ticker: string;
-	Price: number;
-	Timestamp: string;
-}
-
-interface APIResponse {
-	data: APIStockData[];
-}
-
-interface RawToken {
-	symbol?: string;
-	logo?: string;
-	priceUsd?: number;
-	price?: string;
-	change24h?: number | string;
-	volume24h?: number | string;
-	volume?: string | number;
-	marketCap?: string | number;
-	tokenAddress?: string;
-	pairAddress?: string;
-	name?: string;
-	chain?: string;
-	hasMarket?: boolean;
-	totalLiquidity?: string;
-	realLiquidity?: string;
-	openInterest?: string;
-	marketId?: string | null;
-	leverage?: string;
-}
-
-interface TokenAPIResponse {
-	data: RawToken[];
-	pagination?: {
-		page: number;
-		limit: number;
-		total: number;
-		hasMore: boolean;
-	};
 }
 
 interface Asset extends Token {
@@ -148,17 +107,7 @@ export default function Home() {
 
 	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
 		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
-			const params = new URLSearchParams();
-			params.set("page", String(page));
-			params.set("limit", "10");
-			if (chain && chain !== "all") params.set("chain", chain);
-			if (hasMarket !== undefined && hasMarket !== null) params.set("hasMarket", String(hasMarket));
-
-			const tokensResponse = await fetch(`/api/trending/tokens?${params.toString()}`);
-			if (!tokensResponse.ok) {
-				throw new Error(`Tokens API failed: ${tokensResponse.status}`);
-			}
-			const tokensData: TokenAPIResponse = await tokensResponse.json();
+			const tokensData = await fetchTokensTrending({ limit: 10, page, chain, hasMarket });
 			// Normalize tokens to the local Token interface
 			const normalizedTokens = (tokensData.data || []).map((t, i) => ({
 				id: i + 1,
@@ -200,34 +149,23 @@ export default function Home() {
 			// Fetch tokens with pagination
 			fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
 
-			const stocksResponse = await fetch("/api/trending/stocks");
-			if (!stocksResponse.ok) {
-				throw new Error(`Stocks API failed: ${stocksResponse.status}`);
-			}
-			const stocksData: APIResponse = await stocksResponse.json();
-
-			const fxResponse = await fetch("/api/trending/fx");
-			if (!fxResponse.ok) {
-				throw new Error(`FX API failed: ${fxResponse.status}`);
-			}
-			const fxData: APIResponse = await fxResponse.json();
+			const stocksData = await fetchStocksTrending({ limit: 50 });
+			const fxData = await fetchFXTrending({ limit: 50 });
 
 			// Transform stocks data
-			const transformedStocks: Token[] = stocksData.data.map(
-				(stock: APIStockData, index: number) => ({
-					id: index + 1,
-					symbol: stock.Ticker,
-					name: stock.Ticker,
-					price: typeof stock.Price === "number" ? stock.Price.toFixed(2) : "0.00",
-					change24h: "N/A",
-					volume: "N/A",
-					marketCap: "N/A",
-					trend: "up" as const,
-					logo: "📈",
-					tokenAddress: "",
-					chain: "base",
-				}),
-			);
+			const transformedStocks: Token[] = stocksData.data.map((stock: any, index: number) => ({
+				id: index + 1,
+				symbol: stock.symbol,
+				name: stock.symbol,
+				price: typeof stock.price === "number" ? stock.price.toFixed(2) : "0.00",
+				change24h: "N/A",
+				volume: "N/A",
+				marketCap: "N/A",
+				trend: "up" as const,
+				logo: "📈",
+				tokenAddress: "",
+				chain: "base",
+			}));
 
 			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
 				const getDisplaySymbol = (ticker: string) => {
@@ -253,9 +191,9 @@ export default function Home() {
 
 				return {
 					id: index + 1,
-					symbol: getDisplaySymbol(fx.Ticker),
-					name: getDisplayName(fx.Ticker),
-					price: fx.Price.toFixed(4),
+					symbol: getDisplaySymbol(fx.ticker),
+					name: getDisplayName(fx.ticker),
+					price: fx.price.toFixed(4),
 					change24h: "N/A",
 					volume: "N/A",
 					spread: "N/A",
