@@ -83,7 +83,7 @@ const fetchPoolsFromGecko = async (
 		// Use the network-specific pools endpoint instead of search for better included token data
 		const url = `/api/geckoterminal/api/v2/networks/${encodeURIComponent(
 			network,
-		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page}`;
+		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page ?? 1}`;
 
 		const response = await fetchWithTimeout(
 			url,
