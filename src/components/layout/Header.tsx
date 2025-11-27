@@ -13,7 +13,7 @@ const earnSubItems = [
 ];
 
 const navItems = [
-	{ href: "/trending", label: "Trade", icon: TrendingUp },
+	{ href: "/trending", label: "Trending", icon: TrendingUp },
 	{ label: "Earn", icon: Trophy, subItems: earnSubItems },
 	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
 	// { href: "/spot", label: "Spot", icon: BarChart3 },

@@ -169,10 +169,13 @@ export default function Home() {
 				sortPrice: stock.price || 0,
 				change24h: "N/A",
 				volume: "N/A",
-				marketCap: "N/A",
+				marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
 				trend: "up" as const,
 				logo: "📈",
 				tokenAddress: "",
+				totalLiquidity: stock.Liquidity
+					? `$${formatLargeNumber(Number(stock.Liquidity))}`
+					: "$0.00",
 				chain: "base",
 			}));
 
@@ -211,6 +214,12 @@ export default function Home() {
 					spread: "N/A",
 					trend: "up",
 					logo: getLogo(fxItem.ticker),
+					marketCap: (fx as any).MarketCap
+						? `$${formatLargeNumber(Number((fx as any).MarketCap))}`
+						: "N/A",
+					totalLiquidity: (fx as any).Liquidity
+						? `$${formatLargeNumber(Number((fx as any).Liquidity))}`
+						: "$0.00",
 				};
 			});
 
@@ -308,7 +317,8 @@ export default function Home() {
 					sortPrice: f.sortPrice ?? parseFloat(f.price ?? "0"),
 					change24h: f.change24h ?? "0.00%",
 					volume: f.volume ?? "N/A",
-					marketCap: "N/A",
+					marketCap: f.marketCap || "N/A",
+					totalLiquidity: f.totalLiquidity ?? "$0.00",
 					trend: f.trend,
 					logo: typeof f.logo === "string" ? f.logo : String(f.logo),
 					xp: f.xp ?? "5:23",
