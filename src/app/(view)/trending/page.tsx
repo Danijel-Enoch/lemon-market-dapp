@@ -5,6 +5,7 @@ import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFXTrending, fetchStocksTrending, fetchTokensTrending } from "@/hooks/useTrending";
+import { formatPrice } from "@/lib/utils";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ interface Token {
 	symbol: string;
 	name: string;
 	price: string;
+	sortPrice?: number;
 	change24h: string;
 	volume: string;
 	marketCap: string;
@@ -46,6 +48,7 @@ interface ForexPair {
 	symbol: string;
 	name: string;
 	price: string;
+	sortPrice?: number;
 	change24h: string;
 	volume: string;
 	spread: string;
@@ -119,7 +122,8 @@ export default function Home() {
 				id: i + 1,
 				symbol: String(t.symbol ?? ""),
 				name: String(t.name ?? t.symbol ?? ""),
-				price: t.priceUsd ? `$${Number(t.priceUsd).toFixed(6)}` : "$0.00",
+				price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
+				sortPrice: Number(t.priceUsd) || 0,
 				change24h:
 					typeof t.change24h === "number"
 						? `${t.change24h.toFixed(2)}%`
@@ -161,7 +165,8 @@ export default function Home() {
 				id: index + 1,
 				symbol: stock.symbol,
 				name: stock.symbol,
-				price: typeof stock.price === "number" ? stock.price.toFixed(2) : "0.00",
+				price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
+				sortPrice: stock.price || 0,
 				change24h: "N/A",
 				volume: "N/A",
 				marketCap: "N/A",
@@ -200,6 +205,7 @@ export default function Home() {
 					symbol: getDisplaySymbol(fxItem.ticker),
 					name: getDisplayName(fxItem.ticker),
 					price: fxItem.price.toFixed(4),
+					sortPrice: fxItem.price,
 					change24h: "N/A",
 					volume: "N/A",
 					spread: "N/A",
@@ -298,7 +304,8 @@ export default function Home() {
 						Number(`10000${f.symbol}`.split("").reduce((s, c) => s + c.charCodeAt(0), 0)) % 999999,
 					symbol: f.symbol,
 					name: f.name,
-					price: `$${f.price ?? "0.00"}`,
+					price: formatPrice(parseFloat(f.price ?? "0")),
+					sortPrice: f.sortPrice ?? parseFloat(f.price ?? "0"),
 					change24h: f.change24h ?? "0.00%",
 					volume: f.volume ?? "N/A",
 					marketCap: "N/A",
@@ -320,8 +327,8 @@ export default function Home() {
 			return false;
 		})
 		.sort((a, b) => {
-			const priceA = parseFloat(a.price.replace(/\$/g, "")) || 0;
-			const priceB = parseFloat(b.price.replace(/\$/g, "")) || 0;
+			const priceA = a.sortPrice ?? 0;
+			const priceB = b.sortPrice ?? 0;
 			return priceB - priceA; // High to low
 		});
 	// Filter tabs with typed keys to satisfy TypeScript and enable mapping
