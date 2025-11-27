@@ -26,7 +26,7 @@ const poolCache = new Map<string, CachedItem<{ pools: any[]; total?: number }>>(
 const fetchCoinGeckoLogo = async (coingeckoId: string): Promise<string | null> => {
 	try {
 		const response = await fetchWithTimeout(
-			`https://api.coingecko.com/api/v3/coins/${coingeckoId}`,
+			`/api/coingecko/api/v3/coins/${coingeckoId}`,
 			{ method: "GET", headers: { Accept: "application/json" } },
 			3000,
 		);
@@ -47,7 +47,7 @@ const fetchDexScreenerPairLogo = async (
 ): Promise<string | null> => {
 	try {
 		const response = await fetchWithTimeout(
-			`https://api.dexscreener.com/latest/dex/pairs/${chain}/${pairAddress}`,
+			`/api/dexscreener/latest/dex/pairs/${chain}/${pairAddress}`,
 			{ method: "GET", headers: { Accept: "application/json" } },
 			3000,
 		);
@@ -81,7 +81,7 @@ const fetchPoolsFromGecko = async (
 		}
 
 		// Use the network-specific pools endpoint instead of search for better included token data
-		const url = `https://api.geckoterminal.com/api/v2/networks/${encodeURIComponent(
+		const url = `/api/geckoterminal/api/v2/networks/${encodeURIComponent(
 			network,
 		)}/pools?include=base_token,quote_token,pool_name,dex&page=${page}`;
 
@@ -127,8 +127,8 @@ const fetchDexScreenerPair = async (chain: string, pair: string): Promise<PoolDa
 	try {
 		const url =
 			chain === "solana"
-				? `https://api.dexscreener.com/latest/dex/tokens/${pair}`
-				: `https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair}`;
+				? `/api/dexscreener/latest/dex/tokens/${pair}`
+				: `/api/dexscreener/latest/dex/pairs/${chain}/${pair}`;
 
 		const resp = await fetchWithTimeout(url, { method: "GET" }, 4000);
 		if (!resp.ok) return null;
@@ -170,7 +170,7 @@ const getBaseTokenInfo = async (
 				}
 
 				const tokenResp = await fetchWithTimeout(
-					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
+					`/api/geckoterminal/api/v2/networks/${chain}/tokens/${addr}`,
 					{ method: "GET", headers: { Accept: "application/json" } },
 					3500,
 				);
@@ -229,21 +229,22 @@ const getBaseTokenInfo = async (
 
 	// GeckoTerminal relationships format
 	if (pair.relationships?.base_token?.data?.id) {
-		const id = pair.relationships.quote_token.data.id;
+		const compoundId = pair.relationships.base_token.data.id;
+		const address = compoundId.includes("_") ? compoundId.split("_")[1] : compoundId;
 
 		try {
 			// Check persistent cache
-			const cacheKey = `${chain}:${String(id).toLowerCase()}`;
+			const cacheKey = `${chain}:${address.toLowerCase()}`;
 			const persistentCached = tokenInfoCache.get(cacheKey);
 			if (persistentCached && persistentCached.expires > Date.now()) {
 				return persistentCached.data;
 			}
 
-			const cached = tokenCache.get(pair.includedBaseToken?.attributes?.address?.toLowerCase?.());
+			const cached = tokenCache.get(address.toLowerCase());
 			if (cached) return cached;
 
 			const tokenResp = await fetchWithTimeout(
-				`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${id}`,
+				`/api/geckoterminal/api/v2/networks/${chain}/tokens/${address}`,
 				{ method: "GET", headers: { Accept: "application/json" } },
 				3500,
 			);
@@ -256,21 +257,21 @@ const getBaseTokenInfo = async (
 					if (!logo && tok.coingecko_coin_id) {
 						logo = await fetchCoinGeckoLogo(tok.coingecko_coin_id);
 					}
-					if (!logo && id) {
-						logo = await fetchDexScreenerLogo(chain, id);
+					if (!logo && address) {
+						logo = await fetchDexScreenerLogo(chain, address);
 					}
 					if (!logo && pair.attributes?.address) {
 						logo = await fetchDexScreenerPairLogo(chain, pair.attributes.address);
 					}
 					const result = {
-						address: tok.address || id || null,
+						address: tok.address || address || null,
 						symbol: tok.symbol || null,
 						name: tok.name || null,
 						logo,
 					};
-					const cacheKey = `${chain}:${String(id).toLowerCase()}`;
+					const cacheKey = `${chain}:${address.toLowerCase()}`;
 					tokenInfoCache.set(cacheKey, { data: result, expires: Date.now() + TOKEN_CACHE_TTL });
-					tokenCache.set(String(id).toLowerCase(), result);
+					tokenCache.set(address.toLowerCase(), result);
 					return result;
 				}
 			}
@@ -278,11 +279,11 @@ const getBaseTokenInfo = async (
 			// Fall back to minimal data
 		}
 
-		const res = { address: id || null, symbol: null, name: null, logo: null };
-		if (id) {
-			const cacheKey = `${chain}:${String(id).toLowerCase()}`;
+		const res = { address: address || null, symbol: null, name: null, logo: null };
+		if (address) {
+			const cacheKey = `${chain}:${address.toLowerCase()}`;
 			tokenInfoCache.set(cacheKey, { data: res, expires: Date.now() + TOKEN_CACHE_TTL });
-			tokenCache.set(String(id).toLowerCase(), res);
+			tokenCache.set(address.toLowerCase(), res);
 		}
 		return res;
 	}
@@ -306,7 +307,7 @@ const fetchGeckoPoolByAddress = async (
 	poolAddress: string,
 ): Promise<PoolData | null> => {
 	try {
-		const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${poolAddress}`;
+		const url = `/api/geckoterminal/api/v2/networks/${network}/pools/${poolAddress}`;
 		const resp = await fetchWithTimeout(
 			url,
 			{ method: "GET", headers: { Accept: "application/json" } },
@@ -512,7 +513,7 @@ async function fetchTokensTrending(params: {
 			// Fallback to DexScreener search
 			try {
 				const dsResp = await fetchWithTimeout(
-					`https://api.dexscreener.com/latest/dex/search?q=`,
+					`/api/dexscreener/latest/dex/search?q=`,
 					{
 						method: "GET",
 						headers: { Accept: "*/*" },
@@ -623,7 +624,7 @@ async function fetchTokensTrending(params: {
 					marketId: virtualMarket?.marketId || null,
 				};
 			},
-			8,
+			3,
 		)
 	).filter(Boolean) as TokenItem[];
 

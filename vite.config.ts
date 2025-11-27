@@ -10,6 +10,25 @@ export default defineConfig({
 			"@": path.resolve(__dirname, "./src"),
 		},
 	},
+	server: {
+		proxy: {
+			"/api/geckoterminal": {
+				target: "https://api.geckoterminal.com",
+				changeOrigin: true,
+				rewrite: (path) => path.replace(/^\/api\/geckoterminal/, ""),
+			},
+			"/api/dexscreener": {
+				target: "https://api.dexscreener.com",
+				changeOrigin: true,
+				rewrite: (path) => path.replace(/^\/api\/dexscreener/, ""),
+			},
+			"/api/coingecko": {
+				target: "https://api.coingecko.com",
+				changeOrigin: true,
+				rewrite: (path) => path.replace(/^\/api\/coingecko/, ""),
+			},
+		},
+	},
 	optimizeDeps: {
 		// exclude: ["react-use"],
 	},
