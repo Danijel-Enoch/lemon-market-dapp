@@ -303,14 +303,20 @@ export default function Home() {
 				}) as Asset,
 		),
 		...filteredStocks.map((s) => ({ ...s, type: "stocks" }) as Asset),
-	].filter((a) => {
-		if (filterType === "all") return true;
-		if (filterType === "crypto") return a.type === "crypto";
-		if (filterType === "forex") return a.type === "forex";
-		if (filterType === "stocks") return a.type === "stocks";
-		// The other categories (commodities, rwa, gdp, nft) currently map to none
-		return false;
-	});
+	]
+		.filter((a) => {
+			if (filterType === "all") return true;
+			if (filterType === "crypto") return a.type === "crypto";
+			if (filterType === "forex") return a.type === "forex";
+			if (filterType === "stocks") return a.type === "stocks";
+			// The other categories (commodities, rwa, gdp, nft) currently map to none
+			return false;
+		})
+		.sort((a, b) => {
+			const priceA = parseFloat(a.price.replace(/\$/g, "")) || 0;
+			const priceB = parseFloat(b.price.replace(/\$/g, "")) || 0;
+			return priceB - priceA; // High to low
+		});
 	// Filter tabs with typed keys to satisfy TypeScript and enable mapping
 	const filterTabs = [
 		["all", "All"],
