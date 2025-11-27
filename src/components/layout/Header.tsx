@@ -137,7 +137,7 @@ export function Header() {
 										to={item.href}
 										className={`transition-all text-sm leading-tight ${
 											isActive
-												? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent font-semibold"
+												? "bg-linear-to-r from-lime-600 via-green-600 to-green-500 bg-clip-text text-transparent font-semibold"
 												: "bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent hover:from-lime-400 hover:to-green-500"
 										}`}
 									>
@@ -245,7 +245,7 @@ export function Header() {
 									<span
 										className={`text-xs font-medium transition-all ${
 											isActive
-												? "bg-linear-to-r from-lime-300 via-green-600 to-green-950 bg-clip-text text-transparent"
+												? "bg-linear-to-r from-lime-300 via-green-600 to-green-650 bg-clip-text text-transparent"
 												: "text-gray-400"
 										}`}
 									>
