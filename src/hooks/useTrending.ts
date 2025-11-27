@@ -40,6 +40,53 @@ const fetchCoinGeckoLogo = async (coingeckoId: string): Promise<string | null> =
 	return null;
 };
 
+const marketCapCache = new Map<string, CachedItem<number | null>>();
+
+// Fetch market cap from CoinGecko by symbol
+const fetchCoinGeckoMarketCap = async (symbol: string): Promise<number | null> => {
+	const cacheKey = symbol.toLowerCase();
+	const cached = marketCapCache.get(cacheKey);
+	if (cached && cached.expires > Date.now()) {
+		return cached.data;
+	}
+	try {
+		// First, search for the coin
+		const searchResponse = await fetchWithTimeout(
+			`/api/coingecko/api/v3/search?query=${encodeURIComponent(symbol)}`,
+			{ method: "GET", headers: { Accept: "application/json" } },
+			3000,
+		);
+		if (!searchResponse.ok) {
+			marketCapCache.set(cacheKey, { data: null, expires: Date.now() + TOKEN_CACHE_TTL });
+			return null;
+		}
+		const searchData = await searchResponse.json();
+		const coin = searchData.coins?.find((c: any) => c.symbol.toLowerCase() === symbol.toLowerCase());
+		if (!coin) {
+			marketCapCache.set(cacheKey, { data: null, expires: Date.now() + TOKEN_CACHE_TTL });
+			return null;
+		}
+		const id = coin.id;
+		// Then fetch the market data
+		const response = await fetchWithTimeout(
+			`/api/coingecko/api/v3/coins/${id}`,
+			{ method: "GET", headers: { Accept: "application/json" } },
+			3000,
+		);
+		if (!response.ok) {
+			marketCapCache.set(cacheKey, { data: null, expires: Date.now() + TOKEN_CACHE_TTL });
+			return null;
+		}
+		const data = await response.json();
+		const marketCap = data.market_data?.market_cap?.usd || null;
+		marketCapCache.set(cacheKey, { data: marketCap, expires: Date.now() + TOKEN_CACHE_TTL });
+		return marketCap;
+	} catch {
+		marketCapCache.set(cacheKey, { data: null, expires: Date.now() + TOKEN_CACHE_TTL });
+		return null;
+	}
+};
+
 // Fetch logo from DexScreener pair API
 const fetchDexScreenerPairLogo = async (
 	chain: string,
@@ -400,6 +447,7 @@ export interface TokenItem {
 	change24h: number;
 	volume24h: number;
 	liquidityUsd: number;
+	marketCap: number | null;
 	trend: "up" | "down";
 	logo: string | null;
 	pairAddress: string | null;
@@ -607,6 +655,7 @@ async function fetchTokensTrending(params: {
 					change24h: pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0,
 					volume24h: pair.volume?.h24 ?? pair.attributes?.volume_usd?.h24 ?? 0,
 					liquidityUsd: pair.liquidity?.usd ?? pair.attributes?.reserve_in_usd ?? 0,
+					marketCap: pair.marketCap || pair.attributes?.market_cap_usd || (await fetchCoinGeckoMarketCap(tokenSymbol)) || null,
 					trend:
 						(pair.priceChange?.h24 ?? pair.attributes?.price_change_percentage?.h24 ?? 0) >= 0
 							? "up"
