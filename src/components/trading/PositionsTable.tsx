@@ -81,11 +81,12 @@ export function PositionsTable({
 				}
 
 				// Send the transaction
+				const txResult = result as { to: string; data: string; gasEstimate?: number };
 				sendTransaction({
-					to: result.to as `0x${string}`,
-					data: result.data as `0x${string}`,
+					to: txResult.to as `0x${string}`,
+					data: txResult.data as `0x${string}`,
 					value: BigInt(0),
-					gas: result.gasEstimate ? BigInt(result.gasEstimate) : undefined,
+					gas: txResult.gasEstimate ? BigInt(txResult.gasEstimate) : undefined,
 				});
 
 				// Dismiss loading toast and show success

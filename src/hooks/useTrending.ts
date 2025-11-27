@@ -257,9 +257,6 @@ const getBaseTokenInfo = async (
 					if (!logo && tok.coingecko_coin_id) {
 						logo = await fetchCoinGeckoLogo(tok.coingecko_coin_id);
 					}
-					if (!logo && address) {
-						logo = await fetchDexScreenerLogo(chain, address);
-					}
 					if (!logo && pair.attributes?.address) {
 						logo = await fetchDexScreenerPairLogo(chain, pair.attributes.address);
 					}

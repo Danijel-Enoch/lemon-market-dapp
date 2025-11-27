@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUserPositions } from "@/hooks/useUserPositions";
 import {
 	createReferralCode,
 	getUserReferralCode,
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default function ReferralPage() {
-	const { address } = useUserPositions();
+	const { address } = useAccount();
 	const [referralCode, setReferralCode] = useState<string | null>(null);
 	const [stats, setStats] = useState({ totalReferrals: 0, referralEarnings: 0, points: 0 });
 	const [isLoading, setIsLoading] = useState(true);
