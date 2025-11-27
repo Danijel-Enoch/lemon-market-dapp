@@ -1,5 +1,5 @@
-import { Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import ViewLayout from "./app/(view)/layout";
 import Layout from "./app/layout";
 import HomePage, { metadata as homeMetadata } from "./app/page";

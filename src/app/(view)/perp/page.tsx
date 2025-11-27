@@ -31,13 +31,13 @@ import {
 	getTokenPriceByPair,
 } from "@/lib/oracle";
 import {
-	createPosition,
 	extractTokenSymbol,
 	formatTxHash,
 	getEtherscanUrl,
 	validateLeverage,
 	validateMargin,
 } from "@/lib/position-api";
+import { useMarketApi } from "@/lib/useMarketApi";
 import type { Metadata } from "@/lib/types";
 
 const miniAppEmbed = {
@@ -115,6 +115,8 @@ function PerpContent() {
 		totalPnl,
 		totalMargin,
 	} = useUserPositions();
+
+	const marketApi = useMarketApi();
 
 	const { address, isConnected } = useAccount();
 	const { sendTransaction, data: hash, error, isPending } = useSendTransaction();
@@ -566,27 +568,24 @@ function PerpContent() {
 
 			const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
 
-			const result = await createPosition({
-				tokenSymbol,
+			const result = await marketApi.positions.open({
+				marketId: tokenSymbol,
 				isLong,
 				margin: marginValue,
 				leverage,
-				tokenAddress: tradingPair.tokenAddress,
-				marginTokenAddress: marginTokenAddress,
 				userAddress: address,
-				pairAddress: tradingPair.pairAddress,
 			});
 
-			if (!result.success) {
-				throw new Error(result.error || "Failed to create position");
+			if (!result) {
+				throw new Error("Failed to create position");
 			}
 
-			if (result.data) {
+			if (result) {
 				sendTransaction({
-					to: result.data.to as `0x${string}`,
-					data: result.data.data as `0x${string}`,
+					to: result.to as `0x${string}`,
+					data: result.data as `0x${string}`,
 					value: BigInt(0),
-					gas: result.data.gasEstimate ? BigInt(String(result.data.gasEstimate)) : undefined,
+					gas: result.gasEstimate ? BigInt(String(result.gasEstimate)) : undefined,
 				});
 			}
 		}, [isConnected, address, marginValue, leverage, tradingPair, isLong, sendTransaction]);

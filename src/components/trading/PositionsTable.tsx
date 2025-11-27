@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	calculatePnlPercentage,
-	closePosition,
 	extractTokenSymbol,
 	formatPositionSize,
 	isPositionProfitable,
@@ -20,6 +19,7 @@ import {
 	validateLeverage,
 	validateMargin,
 } from "@/lib/position-api";
+import { useMarketApi } from "@/lib/useMarketApi";
 
 interface PositionsTableProps {
 	positions: Position[];
@@ -39,6 +39,8 @@ export function PositionsTable({
 	const { address } = useAccount();
 	const { sendTransaction, data: hash, isPending } = useSendTransaction();
 	const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+	const marketApi = useMarketApi();
 
 	// State for position management
 	const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
@@ -67,30 +69,23 @@ export function PositionsTable({
 			try {
 				const tokenSymbol = extractTokenSymbol(position.pair);
 
-				const result = await closePosition({
-					positionId: position.positionId,
-					tokenSymbol,
+				const result = await marketApi.positions.close({
+					positionId: parseInt(position.positionId),
+					marketId: tokenSymbol,
 					userAddress: address,
-					tokenAddress: position.tokenaddress,
-					pairAddress: tradingPairAddress,
 				});
 
-				if (!result.success) {
+				if (!result) {
 					toast.dismiss(loadingToastId);
-					throw new Error(result.error || "Failed to close position");
-				}
-
-				if (!result.data) {
-					toast.dismiss(loadingToastId);
-					throw new Error("No transaction data returned from API");
+					throw new Error("Failed to close position");
 				}
 
 				// Send the transaction
 				sendTransaction({
-					to: result.data.to as `0x${string}`,
-					data: result.data.data as `0x${string}`,
+					to: result.to as `0x${string}`,
+					data: result.data as `0x${string}`,
 					value: BigInt(0),
-					gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
+					gas: result.gasEstimate ? BigInt(result.gasEstimate) : undefined,
 				});
 
 				// Dismiss loading toast and show success

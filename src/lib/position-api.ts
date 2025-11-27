@@ -2,7 +2,10 @@
  * Position API utilities for frontend integration
  */
 
+import { betterFetch } from "@better-fetch/fetch";
 import { getTokenPriceService } from "./token-price-service";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export interface CreatePositionRequest {
 	tokenSymbol: string;
@@ -32,34 +35,22 @@ export interface CreatePositionResponse {
 export async function createPosition(
 	params: CreatePositionRequest,
 ): Promise<CreatePositionResponse> {
-	const response = await fetch("/api/position/create", {
+	const { data } = await betterFetch(`${BASE_URL}/positions/open`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
 		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
 	});
-
-	if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	}
-
-	return response.json();
+	return data as CreatePositionResponse;
 }
 
 /**
  * Get API health check
  */
 export async function getApiHealth() {
-	const response = await fetch("/api/position/create", {
+	const { data } = await betterFetch(`${BASE_URL}/health`, {
 		method: "GET",
 	});
-
-	if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	}
-
-	return response.json();
+	return data;
 }
 
 /**
@@ -190,22 +181,16 @@ export interface GetEnhancedPositionsResponse {
  */
 export async function getUserPositions(traderAddress: string): Promise<GetPositionsResponse> {
 	try {
-		const response = await fetch(
-			`/api/positions?trader=${encodeURIComponent(traderAddress)}&enhanced=true`,
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
-		);
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-		}
-
-		return await response.json();
+		const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
+			method: "POST",
+			body: JSON.stringify({ trader: traderAddress }),
+			headers: { "Content-Type": "application/json" },
+		});
+		return {
+			success: true,
+			positions: data as Position[],
+			count: (data as Position[]).length,
+		};
 	} catch (error) {
 		return {
 			success: false,
@@ -401,19 +386,12 @@ export interface ModifyPositionResponse {
  * Call the position close API
  */
 export async function closePosition(params: ClosePositionRequest): Promise<ClosePositionResponse> {
-	const response = await fetch("/api/position/close", {
+	const { data } = await betterFetch(`${BASE_URL}/positions/close`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
 		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
 	});
-
-	if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	}
-
-	return response.json();
+	return data as ClosePositionResponse;
 }
 
 /**
@@ -503,30 +481,27 @@ export async function getEnhancedUserPositions(
 	traderAddress: string,
 ): Promise<GetEnhancedPositionsResponse> {
 	try {
-		const response = await fetch(
-			`/api/positions/enhanced?trader=${encodeURIComponent(traderAddress)}`,
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
+		const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
+			method: "POST",
+			body: JSON.stringify({ trader: traderAddress }),
+			headers: { "Content-Type": "application/json" },
+		});
+		const positions = data as Position[];
+		const enhancedPositions = await enrichPositionsWithPrices(positions);
+		const totalUnrealizedPnL = enhancedPositions.reduce(
+			(sum, pos) => sum + (pos.unrealizedPnL || 0),
+			0,
 		);
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => ({}));
-			throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-		}
-
-		const data = await response.json();
-
+		const totalPortfolioValue = enhancedPositions.reduce(
+			(sum, pos) => sum + (pos.currentValue || 0),
+			0,
+		);
 		return {
-			success: data.success,
-			positions: data.positions || [],
-			count: data.count || 0,
-			totalPortfolioValue: data.totalPortfolioValue,
-			totalUnrealizedPnL: data.totalUnrealizedPnL,
-			error: data.error,
+			success: true,
+			positions: enhancedPositions,
+			count: enhancedPositions.length,
+			totalPortfolioValue,
+			totalUnrealizedPnL,
 		};
 	} catch (error) {
 		return {

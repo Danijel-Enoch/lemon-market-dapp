@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
-import {
-	type EnhancedPosition,
-	getEnhancedUserPositions,
-	getUserPositions,
-	type Position,
-} from "@/lib/position-api";
+import { type EnhancedPosition, getEnhancedUserPositions, type Position } from "@/lib/position-api";
 import { getTokenPriceService } from "@/lib/token-price-service";
+import { useMarketApi } from "@/lib/useMarketApi";
 
 export interface UseUserPositionsResult {
 	positions: Position[];
@@ -71,17 +67,15 @@ async function calculatePositionRealTimePnL(position: Position): Promise<number>
 export function useUserPositions(): UseUserPositionsResult {
 	const { address, isConnected } = useAccount();
 	const [isEnhancedMode, setIsEnhancedMode] = useState(false);
+	const marketApi = useMarketApi();
 
 	const [{ loading: isLoading, error: fetchError, value: fetchResult }, fetchPositions] =
 		useAsyncFn(async () => {
 			if (!address) return null;
 
-			const response = await getUserPositions(address);
-			if (response.success) {
-				return { positions: response.positions };
-			}
-			throw new Error(response.error || "Failed to fetch positions");
-		}, [address]);
+			const positions = await marketApi.positions.query({ trader: address });
+			return { positions };
+		}, [address, marketApi]);
 
 	const [{ value: enhancedResult }, fetchEnhancedPositions] = useAsyncFn(async () => {
 		if (!address) return null;
