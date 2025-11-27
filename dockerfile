@@ -17,47 +17,22 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copy necessary files only (not entire directory)
-COPY package.json bun.lockb* next.config.ts tsconfig.json ./
-COPY public ./public
-COPY app ./app
-COPY components ./components
-COPY lib ./lib
-COPY hooks ./hooks
-COPY contexts ./contexts
-COPY components.json postcss.config.mjs ./
+# Copy source files
+COPY . .
 
-# Build Next.js with optimizations and increased memory
+# Build the Vite app
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN bun run build
 
 # Stage 3: Runner (Production)
-FROM oven/bun:latest AS runner
-WORKDIR /app
+FROM nginx:alpine AS runner
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Copy built app from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Copy custom nginx config for SPA routing
+COPY --from=builder /app/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy only necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+EXPOSE 80
 
-# Set correct permissions
-RUN chown -R nextjs:nodejs /app
-
-USER nextjs
-
-EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Use standalone server
-CMD ["bun", "run", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]
