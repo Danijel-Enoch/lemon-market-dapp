@@ -35,7 +35,7 @@ export async function verifyTask(
 		const json = await response.json();
 
 		if (!response.ok) {
-			console.error("Kickoff task verification failed:", { json, status: response.status });
+			// console.error("Kickoff task verification failed:", { json, status: response.status });
 			return { success: false, message: json?.message || json.error || "Verification failed" };
 		}
 
@@ -56,7 +56,7 @@ export async function verifyTask(
 				message = String(err);
 			}
 		}
-		console.error("Kickoff task verification failed:", { message });
+		// console.error("Kickoff task verification failed:", { message });
 		return { success: false, message };
 	}
 }

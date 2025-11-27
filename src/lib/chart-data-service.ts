@@ -47,8 +47,8 @@ async function fetchPoolInfo(pairAddress: string, chain: string = "base"): Promi
 		const marketCapUsd = result.data?.attributes?.market_cap_usd;
 
 		return marketCapUsd ? parseFloat(marketCapUsd) : null;
-	} catch (error) {
-		console.error("Error fetching pool info:", error);
+	} catch {
+		// console.error("Error fetching pool info:", error);
 		return null;
 	}
 }
@@ -121,14 +121,13 @@ async function fetchFromGeckoTerminal(
 		});
 
 		if (!response.ok) {
-			console.error(`GeckoTerminal API error: ${response.status}`);
+			// console.error(`GeckoTerminal API error: ${response.status}`);
 			return [];
 		}
 
 		const result = await response.json();
 
 		if (!result.data?.attributes?.ohlcv_list || result.data.attributes.ohlcv_list.length === 0) {
-			console.log("No OHLCV data available from GeckoTerminal");
 			return [];
 		}
 
@@ -145,8 +144,8 @@ async function fetchFromGeckoTerminal(
 			volume: candle[5],
 			marketCap: marketCap || undefined,
 		}));
-	} catch (error) {
-		console.error("Error fetching from GeckoTerminal:", error);
+	} catch {
+		// console.error("Error fetching from GeckoTerminal:", error);
 		return [];
 	}
 }
@@ -183,14 +182,14 @@ export async function fetchChartData(
 		}
 
 		// No data available
-		console.warn("No chart data available for this pair");
+		// console.warn("No chart data available for this pair");
 		return {
 			data: [],
 			symbol: "Token",
 			source: "none",
 		};
-	} catch (error) {
-		console.error("Error fetching chart data:", error);
+	} catch {
+		// console.error("Error fetching chart data:", error);
 
 		// Return empty data on error
 		return {

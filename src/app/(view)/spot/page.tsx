@@ -62,8 +62,7 @@ export default function SpotPage() {
 								});
 							}
 						}
-					} catch (error) {
-						console.error(`Failed to fetch data for ${pair}:`, error);
+					} catch {
 					}
 				}
 
@@ -77,8 +76,7 @@ export default function SpotPage() {
 				} else {
 					setPairs(fetchedPairs);
 				}
-			} catch (error) {
-				console.error("Failed to fetch spot data:", error);
+			} catch {
 				// Fallback data
 				setPairs([
 					{ pair: "BTC/USDT", price: "43,250.00", change: "+2.5%", volume: "$1.2B" },

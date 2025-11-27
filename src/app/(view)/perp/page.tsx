@@ -221,8 +221,7 @@ function PerpContent() {
 						setMarginTokenPriceUsd(Number(data.priceUsd || null));
 					}
 				}
-			} catch (err) {
-				console.error("Failed to fetch margin token price:", err);
+			} catch {
 				if (!cancelled) setMarginTokenPriceUsd(null);
 			}
 		}
@@ -269,8 +268,7 @@ function PerpContent() {
 				const tokenLogoFound =
 					firstPair?.baseToken?.logo || firstPair?.info?.imageUrl || json?.info?.imageUrl || null;
 				if (!cancelled) setMarginTokenLogo(tokenLogoFound || null);
-			} catch (err) {
-				console.error("Failed to fetch margin token logo:", err);
+			} catch {
 				if (!cancelled) setMarginTokenLogo(null);
 			}
 		}
@@ -366,8 +364,7 @@ function PerpContent() {
 						navigate(`/perp?${params.toString()}`, { replace: true });
 						return;
 					}
-				} catch (err) {
-					console.error("Failed to fetch top trending token for default redirect", err);
+				} catch {
 				}
 			})();
 		}

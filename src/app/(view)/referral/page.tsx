@@ -33,8 +33,7 @@ export default function ReferralPage() {
 				]);
 				setReferralCode(code);
 				setStats(statsData);
-			} catch (error) {
-				console.error("Failed to load referral data:", error);
+			} catch {
 			} finally {
 				setIsLoading(false);
 			}
@@ -52,8 +51,7 @@ export default function ReferralPage() {
 				setReferralCode(code);
 			}
 			return code;
-		} catch (error) {
-			console.error("Failed to generate referral code:", error);
+		} catch {
 			return null;
 		} finally {
 			setIsGenerating(false);

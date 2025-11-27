@@ -74,8 +74,7 @@ export async function fetchPairFromDexScreener(pairAddress: string, chain: strin
 		// }
 
 		return response;
-	} catch (error) {
-		console.error("market-data-service: failed to fetch pair", error);
+	} catch {
 		return null;
 	}
 }
