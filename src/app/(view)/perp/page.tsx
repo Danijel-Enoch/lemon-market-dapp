@@ -13,6 +13,7 @@ import {
 	useWriteContract,
 } from "wagmi";
 import { fetchTokensTrending } from "@/hooks/useTrending";
+import { useMarketData } from "@/hooks/useMarketData";
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import TradingViewWidget from "@/components/trading/TradingViewWidget";
@@ -84,28 +85,6 @@ function PerpContent() {
 		chain: "base", // Default to base chain
 		assetType: "crypto" as "crypto" | "stock" | "forex", // Track asset type
 	});
-
-	const [marketData, setMarketData] = useState<{
-		priceUsd?: string;
-		priceChange?: string;
-		marketCap?: string;
-		fdv?: string;
-		liquidity?: string;
-		volume24h?: string;
-		volume6h?: string;
-		volume1h?: string;
-		txns24h?: { buys: number; sells: number };
-		txns6h?: { buys: number; sells: number };
-		poolCreated?: string;
-		pairAddress?: string;
-		tokenLogo?: string;
-		baseTokenLogo?: string;
-		quoteTokenLogo?: string;
-		baseTokenSymbol?: string;
-		quoteTokenSymbol?: string;
-		baseTokenAddress?: string;
-		quoteTokenAddress?: string;
-	}>();
 
 	const {
 		positions,
@@ -201,62 +180,12 @@ function PerpContent() {
 
 	// Ticker tokens are fetched via TopTicker in layout
 
-	// Fetch market data for the current pair
-	const [{ loading: _isLoadingMarketData }, fetchMarketData] = useAsyncFn(async () => {
-		if (!tradingPair.pairAddress || tradingPair.assetType !== "crypto") {
-			setMarketData(undefined);
-			return;
-		}
-
-		try {
-			// Fetch via our server-side market data API (proxies DexScreener and provides consistent behavior)
-			const response = await fetch(
-				`/api/market/pair?chain=${tradingPair.chain}&pairAddress=${tradingPair.pairAddress}`,
-			);
-			if (response.ok) {
-				const data = await response.json();
-				if (data.success && data.pair) {
-					const pair = data.pair;
-					setMarketData({
-						priceUsd: pair.priceUsd,
-						priceChange: pair.priceChange?.h24
-							? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
-							: undefined,
-						marketCap: pair.marketCap?.toString(),
-						fdv: pair.fdv?.toString(),
-						liquidity: pair.liquidity?.usd?.toString(),
-						volume24h: pair.volume?.h24?.toString(),
-						volume6h: pair.volume?.h6?.toString(),
-						volume1h: pair.volume?.h1?.toString(),
-						txns24h: pair.txns?.h24
-							? {
-									buys: pair.txns.h24.buys || 0,
-									sells: pair.txns.h24.sells || 0,
-								}
-							: undefined,
-						txns6h: pair.txns?.h6
-							? {
-									buys: pair.txns.h6.buys || 0,
-									sells: pair.txns.h6.sells || 0,
-								}
-							: undefined,
-						poolCreated: pair.pairCreatedAt
-							? new Date(pair.pairCreatedAt).toLocaleDateString()
-							: undefined,
-						tokenLogo: pair.info?.imageUrl,
-						baseTokenLogo: pair.baseToken?.logo,
-						quoteTokenLogo: pair.quoteToken?.logo,
-						baseTokenSymbol: pair.baseToken?.symbol,
-						quoteTokenSymbol: pair.quoteToken?.symbol,
-						baseTokenAddress: pair.baseToken?.address,
-						quoteTokenAddress: pair.quoteToken?.address,
-					});
-				}
-			}
-		} catch (error) {
-			console.error("Error fetching market data:", error);
-		}
-	}, [tradingPair.pairAddress, tradingPair.chain, tradingPair.assetType]);
+	const { marketData, refetch: fetchMarketData } = useMarketData(
+		tradingPair.assetType === "crypto" ? tradingPair.chain : "base",
+		tradingPair.assetType === "crypto"
+			? tradingPair.pairAddress
+			: (searchParams.get("pairAddress") ?? ""),
+	);
 
 	// Update margin token address/symbol whenever marketData or tradingPair changes
 	useEffect(() => {
@@ -459,11 +388,6 @@ function PerpContent() {
 			}));
 		}
 	}, [searchParams, navigate, didDefaultTrendingRedirect]);
-
-	useEffect(() => {
-		fetchLatestPrice();
-		fetchMarketData();
-	}, [fetchLatestPrice, fetchMarketData]);
 
 	useEffect(() => {
 		const interval = setInterval(() => {

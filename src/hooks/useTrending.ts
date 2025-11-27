@@ -169,10 +169,6 @@ const getBaseTokenInfo = async (
 					return persistentCached.data;
 				}
 
-				// Check request cache
-				// const cached = tokenCache.get(addr.toLowerCase());
-				// // if (cached) return cached;
-
 				const tokenResp = await fetchWithTimeout(
 					`https://api.geckoterminal.com/api/v2/networks/${chain}/tokens/${addr}`,
 					{ method: "GET", headers: { Accept: "application/json" } },
@@ -181,7 +177,6 @@ const getBaseTokenInfo = async (
 				if (tokenResp.ok) {
 					const tokenJson = await tokenResp.json();
 					const tok = tokenJson.data?.attributes;
-					console.log("Fetched token from GeckoTerminal:", tok);
 					if (tok) {
 						const result = {
 							address: addr,
@@ -295,12 +290,6 @@ const getBaseTokenInfo = async (
 	// GeckoTerminal attributes fallback
 	if (pair.attributes) {
 		const attrs = pair.attributes;
-		console.log("GeckoTerminal attributes fallback:", {
-			base_token_address: attrs.base_token_address,
-			base_token_symbol: attrs.base_token_symbol,
-			base_token_image_url: attrs.base_token_image_url,
-			image_url: attrs.image_url,
-		});
 		return {
 			address: attrs.base_token_address || attrs.token_address || attrs.address || null,
 			symbol: attrs.base_token_symbol || attrs.symbol || null,
@@ -308,8 +297,6 @@ const getBaseTokenInfo = async (
 			logo: attrs.base_token_image_url || attrs.image_url || null,
 		};
 	}
-
-	console.log("No matching format found for pair:", Object.keys(pair));
 	return { address: null, symbol: null, name: null, logo: null };
 };
 
