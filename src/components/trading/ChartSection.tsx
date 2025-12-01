@@ -16,6 +16,7 @@ interface ChartSectionProps {
 	pairAddress?: string;
 	chain?: string;
 	symbol?: string;
+	assetType?: "crypto" | "stock" | "forex";
 	priceData?: {
 		price: string;
 		change: string;
@@ -41,16 +42,28 @@ const timeframes = [
 	{ label: "24 Hours", value: "15m" },
 ] as const;
 
-export function ChartSection({ pairAddress, priceData, chain = "base" }: ChartSectionProps) {
+export function ChartSection({
+	pairAddress,
+	priceData,
+	chain = "base",
+	assetType = "crypto",
+	symbol,
+}: ChartSectionProps) {
 	const [selectedTimeframe, setSelectedTimeframe] =
 		useState<(typeof timeframes)[number]["value"]>("1h");
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
 	const chartState = useAsync(async () => {
-		const result = await fetchChartData(pairAddress || "", chain, selectedTimeframe);
+		const result = await fetchChartData(
+			pairAddress || "",
+			chain,
+			selectedTimeframe,
+			assetType,
+			symbol,
+		);
 		return result.data;
-	}, [pairAddress, chain, selectedTimeframe, refreshTrigger]);
+	}, [pairAddress, chain, selectedTimeframe, refreshTrigger, assetType, symbol]);
 
 	const chartData = useMemo(() => chartState.value || [], [chartState.value]);
 	const loading = chartState.loading && isInitialLoad;

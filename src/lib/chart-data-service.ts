@@ -157,8 +157,20 @@ export async function fetchChartData(
 	pairAddress: string,
 	chain: string = "base",
 	timeframe: string = "1h",
+	assetType: "crypto" | "stock" | "forex" = "crypto",
+	symbol?: string,
 ): Promise<ChartDataResponse> {
 	try {
+		// For non-crypto assets, generate mock chart data
+		if (assetType !== "crypto" && symbol) {
+			const mockData = generateMockChartData(symbol, timeframe, assetType);
+			return {
+				data: mockData,
+				symbol: symbol,
+				source: "mock",
+			};
+		}
+
 		// Fetch from GeckoTerminal
 		if (pairAddress) {
 			const geckoData = await fetchFromGeckoTerminal(pairAddress, chain, timeframe);
@@ -236,4 +248,49 @@ function aggregateToTimeframe(data: OHLCVData[], targetTimeframe: string): OHLCV
 			marketCap: candles[0].marketCap,
 		}))
 		.sort((a, b) => a.time - b.time);
+}
+
+function generateMockChartData(
+	symbol: string,
+	timeframe: string,
+	assetType: "stock" | "forex",
+): OHLCVData[] {
+	// Generate mock historical data for the last 30 days
+	const now = Date.now();
+	const data: OHLCVData[] = [];
+	const days = 30;
+	const intervalMs = timeframe === "1h" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+	const points = timeframe === "1h" ? days * 24 : days;
+
+	// Base price - for demo, use a reasonable price
+	let basePrice = 100;
+	if (assetType === "forex") {
+		basePrice = symbol.includes("USD") ? 1 : 1.3; // USD pairs around 1, others vary
+	} else if (assetType === "stock") {
+		basePrice = 50 + Math.random() * 200; // Stocks between 50-250
+	}
+
+	for (let i = points; i >= 0; i--) {
+		const time = now - i * intervalMs;
+		const volatility = assetType === "stock" ? 0.02 : 0.005; // Stocks more volatile
+		const change = (Math.random() - 0.5) * volatility;
+		const open = basePrice * (1 + change);
+		const high = open * (1 + Math.random() * volatility);
+		const low = open * (1 - Math.random() * volatility);
+		const close = open + (high - low) * (Math.random() - 0.5);
+		const volume = Math.random() * 1000000 + 100000;
+
+		data.push({
+			time: Math.floor(time / 1000),
+			open,
+			high,
+			low,
+			close,
+			volume,
+		});
+
+		basePrice = close; // Next open is previous close
+	}
+
+	return data;
 }

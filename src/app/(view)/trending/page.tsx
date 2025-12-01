@@ -85,7 +85,7 @@ export default function Home() {
 	// New search functionality
 	// No external search; local filtering only
 
-	const handleTradeClick = (item: Token) => {
+	const handleTradeClick = (item: Asset) => {
 		const params = new URLSearchParams();
 		params.set("symbol", item.symbol);
 
@@ -94,6 +94,7 @@ export default function Home() {
 		}
 		params.set("tokenAddress", item.tokenAddress);
 		params.set("chain", item.chain || "base");
+		params.set("assetType", item.type === "stocks" ? "stock" : item.type);
 		navigate(`/perp?${params.toString()}`);
 	};
 

@@ -39,7 +39,7 @@ export default defineConfig({
 		},
 	},
 	optimizeDeps: {
-		// exclude: ["react-use"],
+		exclude: ["ox"],
 	},
 	build: {
 		reportCompressedSize: false,

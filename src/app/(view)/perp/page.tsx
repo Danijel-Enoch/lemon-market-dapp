@@ -160,6 +160,13 @@ function PerpContent() {
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 
+	// Set chart type based on asset type
+	useEffect(() => {
+		if (tradingPair.assetType !== "crypto") {
+			setChartType("beta");
+		}
+	}, [tradingPair.assetType]);
+
 	// Compute available margin token amount from contract balance
 	const decimals =
 		decimalsFromChain !== undefined ? Number(decimalsFromChain) : marginTokenDecimals;
@@ -364,8 +371,7 @@ function PerpContent() {
 						navigate(`/perp?${params.toString()}`, { replace: true });
 						return;
 					}
-				} catch {
-				}
+				} catch {}
 			})();
 		}
 
@@ -477,6 +483,10 @@ function PerpContent() {
 				throw new Error("Please connect your wallet first");
 			}
 
+			if (tradingPair.assetType !== "crypto") {
+				throw new Error("Trading is currently only available for crypto assets");
+			}
+
 			// Convert margin token amount to USD for validation (if price available)
 			const marginUsdForValidation = marginTokenPriceUsd
 				? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
@@ -565,7 +575,9 @@ function PerpContent() {
 						<div className="flex flex-col gap-1 min-w-fit">
 							<div className="text-[#A6A6A6] text-xs">24h Volume</div>
 							<div className="text-white text-sm font-medium">
-								${marketData.volume24h ? Number(marketData.volume24h).toLocaleString() : "0"}
+								{tradingPair.assetType === "crypto"
+									? `$${marketData?.volume24h ? Number(marketData.volume24h).toLocaleString() : "0"}`
+									: "N/A"}
 							</div>
 						</div>
 
@@ -574,7 +586,9 @@ function PerpContent() {
 						<div className="flex flex-col gap-1 min-w-fit">
 							<div className="text-[#A6A6A6] text-xs">6h Volume</div>
 							<div className="text-white text-sm font-medium">
-								${marketData.volume6h ? Number(marketData.volume6h).toLocaleString() : "0"}
+								{tradingPair.assetType === "crypto"
+									? `$${marketData?.volume6h ? Number(marketData.volume6h).toLocaleString() : "0"}`
+									: "N/A"}
 							</div>
 						</div>
 
@@ -583,7 +597,9 @@ function PerpContent() {
 						<div className="flex flex-col gap-1 min-w-fit">
 							<div className="text-[#A6A6A6] text-xs">1h Volume</div>
 							<div className="text-white text-sm font-medium">
-								${marketData.volume1h ? Number(marketData.volume1h).toLocaleString() : "0"}
+								{tradingPair.assetType === "crypto"
+									? `$${marketData?.volume1h ? Number(marketData.volume1h).toLocaleString() : "0"}`
+									: "N/A"}
 							</div>
 						</div>
 
@@ -592,7 +608,9 @@ function PerpContent() {
 						<div className="flex flex-col gap-1 min-w-fit">
 							<div className="text-[#A6A6A6] text-xs">Liquidity</div>
 							<div className="text-white text-sm font-medium">
-								${marketData.liquidity ? Number(marketData.liquidity).toLocaleString() : "0"}
+								{tradingPair.assetType === "crypto"
+									? `$${marketData?.liquidity ? Number(marketData.liquidity).toLocaleString() : "0"}`
+									: "N/A"}
 							</div>
 						</div>
 
@@ -755,6 +773,7 @@ function PerpContent() {
 										pairAddress={tradingPair.pairAddress}
 										chain={tradingPair.chain}
 										symbol={tradingPair.symbol}
+										assetType={tradingPair.assetType}
 										priceData={priceData ?? undefined}
 										fetchLatestPrice={fetchLatestPrice}
 										isLoadingPrice={isLoadingPrice}
@@ -1135,22 +1154,25 @@ function PerpContent() {
 												isConfirming ||
 												isApprovingToken ||
 												isApproving ||
-												isApprovalConfirming
+												isApprovalConfirming ||
+												tradingPair.assetType !== "crypto"
 											}
 											onClick={handlePlaceTransaction}
 											className={
 												!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined
 											}
 											connectedNode={
-												needsApproval
-													? `Approve ${marginTokenSymbol} First`
-													: isCreatingPosition
-														? "Preparing Transaction..."
-														: isPending
-															? "Confirm in Wallet..."
-															: isConfirming
-																? "Confirming..."
-																: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
+												tradingPair.assetType !== "crypto"
+													? "Trading not available for this asset"
+													: needsApproval
+														? `Approve ${marginTokenSymbol} First`
+														: isCreatingPosition
+															? "Preparing Transaction..."
+															: isPending
+																? "Confirm in Wallet..."
+																: isConfirming
+																	? "Confirming..."
+																	: `${isLong ? "Long" : "Short"} ${tradingPair.symbol.split("/")[0]}`
 											}
 										/>
 									</div>
