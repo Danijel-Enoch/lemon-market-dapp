@@ -17,7 +17,8 @@ export async function verifyTask(
 		const key = apiKey ?? import.meta.env.VITE_KICKOFF_API_KEY;
 
 		if (!key) {
-			throw new Error("Kickoff API key is missing. Set KICKOFF_API_KEY or pass apiKey param.");
+			// throw new Error("Kickoff API key is missing. Set KICKOFF_API_KEY or pass apiKey param.");
+			return { success: false, message: "" };
 		}
 
 		const url = `${KICKOFF_API_BASE}/${encodeURIComponent(slug)}/verify-task`;
