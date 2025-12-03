@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchFXTrending, fetchStocksTrending, fetchTokensTrending } from "@/hooks/useTrending";
+import { fetchTokensTrending } from "@/hooks/useTrending";
 import type { Metadata } from "@/lib/types";
 import { formatLargeNumber, formatPrice } from "@/lib/utils";
 
@@ -158,71 +158,71 @@ export default function Home() {
 			// Fetch tokens with pagination
 			fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
 
-			const stocksData = await fetchStocksTrending({ limit: 50 });
-			const fxData = await fetchFXTrending({ limit: 50 });
+			// const stocksData = await fetchStocksTrending({ limit: 50 });
+			// const fxData = await fetchFXTrending({ limit: 50 });
 
 			// Transform stocks data
-			const transformedStocks: Token[] = (stocksData.data as StockItem[]).map(
-				(stock: StockItem, index: number) => ({
-					id: index + 1,
-					symbol: stock.symbol,
-					name: stock.symbol,
-					price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
-					sortPrice: stock.price || 0,
-					change24h: "N/A",
-					volume: "N/A",
-					marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
-					trend: "up" as const,
-					logo: "📈",
-					tokenAddress: "",
-					totalLiquidity: stock.Liquidity
-						? `$${formatLargeNumber(Number(stock.Liquidity))}`
-						: "$0.00",
-					chain: "base",
-				}),
-			);
+			// const transformedStocks: Token[] = (stocksData.data as StockItem[]).map(
+			// 	(stock: StockItem, index: number) => ({
+			// 		id: index + 1,
+			// 		symbol: stock.symbol,
+			// 		name: stock.symbol,
+			// 		price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
+			// 		sortPrice: stock.price || 0,
+			// 		change24h: "N/A",
+			// 		volume: "N/A",
+			// 		marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
+			// 		trend: "up" as const,
+			// 		logo: "📈",
+			// 		tokenAddress: "",
+			// 		totalLiquidity: stock.Liquidity
+			// 			? `$${formatLargeNumber(Number(stock.Liquidity))}`
+			// 			: "$0.00",
+			// 		chain: "base",
+			// 	}),
+			// );
 
-			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
-				const getDisplaySymbol = (ticker: string) => {
-					if (ticker.includes("AUD-USD")) return "AUD/USD";
-					if (ticker.includes("CNY-USD")) return "CNY/USD";
-					if (ticker.includes("NGN-USD")) return "NGN/USD";
-					return ticker;
-				};
+			// const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
+			// 	const getDisplaySymbol = (ticker: string) => {
+			// 		if (ticker.includes("AUD-USD")) return "AUD/USD";
+			// 		if (ticker.includes("CNY-USD")) return "CNY/USD";
+			// 		if (ticker.includes("NGN-USD")) return "NGN/USD";
+			// 		return ticker;
+			// 	};
 
-				const getDisplayName = (ticker: string) => {
-					if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
-					if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
-					if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
-					return ticker;
-				};
+			// 	const getDisplayName = (ticker: string) => {
+			// 		if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
+			// 		if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
+			// 		if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
+			// 		return ticker;
+			// 	};
 
-				const getLogo = (ticker: string) => {
-					if (ticker.includes("AUD")) return "🇦🇺";
-					if (ticker.includes("CNY")) return "🇨🇳";
-					if (ticker.includes("NGN")) return "🇳🇬";
-					return "💱";
-				};
+			// 	const getLogo = (ticker: string) => {
+			// 		if (ticker.includes("AUD")) return "🇦🇺";
+			// 		if (ticker.includes("CNY")) return "🇨🇳";
+			// 		if (ticker.includes("NGN")) return "🇳🇬";
+			// 		return "💱";
+			// 	};
 
-				const fxItem = fx as import("@/hooks/useTrending").FXItem;
+			// 	const fxItem = fx as import("@/hooks/useTrending").FXItem;
 
-				return {
-					id: index + 1,
-					symbol: getDisplaySymbol(fxItem.ticker),
-					name: getDisplayName(fxItem.ticker),
-					price: fxItem.price.toFixed(4),
-					sortPrice: fxItem.price,
-					change24h: "N/A",
-					volume: "N/A",
-					spread: "N/A",
-					trend: "up",
-					logo: getLogo(fxItem.ticker),
-					marketCap: fx.MarketCap ? `$${formatLargeNumber(Number(fx.MarketCap))}` : "N/A",
-					totalLiquidity: fx.Liquidity ? `$${formatLargeNumber(Number(fx.Liquidity))}` : "$0.00",
-				};
-			});
+			// 	return {
+			// 		id: index + 1,
+			// 		symbol: getDisplaySymbol(fxItem.ticker),
+			// 		name: getDisplayName(fxItem.ticker),
+			// 		price: fxItem.price.toFixed(4),
+			// 		sortPrice: fxItem.price,
+			// 		change24h: "N/A",
+			// 		volume: "N/A",
+			// 		spread: "N/A",
+			// 		trend: "up",
+			// 		logo: getLogo(fxItem.ticker),
+			// 		marketCap: fx.MarketCap ? `$${formatLargeNumber(Number(fx.MarketCap))}` : "N/A",
+			// 		totalLiquidity: fx.Liquidity ? `$${formatLargeNumber(Number(fx.Liquidity))}` : "$0.00",
+			// 	};
+			// });
 
-			return { stocks: transformedStocks, fx: transformedFX, tokens: [] };
+			return { stocks: [], fx: [], tokens: [] };
 		}, [fetchTokens]);
 
 	// Update apiData when results change
@@ -292,40 +292,40 @@ export default function Home() {
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
-	const filteredFX = apiData.fx.filter(
-		(pair) =>
-			pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
-	const filteredStocks = apiData.stocks.filter(
-		(stock) =>
-			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
+	// const filteredFX = apiData.fx.filter(
+	// 	(pair) =>
+	// 		pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+	// 		pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	// );
+	// const filteredStocks = apiData.stocks.filter(
+	// 	(stock) =>
+	// 		stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+	// 		stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	// );
 
 	const combinedAssets: Asset[] = [
 		...filteredTokens.map((t) => ({ ...t, type: "crypto" }) as Asset),
-		...filteredFX.map(
-			(f) =>
-				({
-					id:
-						Number(`10000${f.symbol}`.split("").reduce((s, c) => s + c.charCodeAt(0), 0)) % 999999,
-					symbol: f.symbol,
-					name: f.name,
-					price: formatPrice(parseFloat(f.price ?? "0")),
-					sortPrice: f.sortPrice ?? parseFloat(f.price ?? "0"),
-					change24h: f.change24h ?? "0.00%",
-					volume: f.volume ?? "N/A",
-					marketCap: f.marketCap || "N/A",
-					totalLiquidity: f.totalLiquidity ?? "$0.00",
-					trend: f.trend,
-					logo: typeof f.logo === "string" ? f.logo : String(f.logo),
-					xp: f.xp ?? "5:23",
-					leverage: f.leverage ?? "50x",
-					type: "forex",
-				}) as Asset,
-		),
-		...filteredStocks.map((s) => ({ ...s, type: "stocks" }) as Asset),
+		// ...filteredFX.map(
+		// 	(f) =>
+		// 		({
+		// 			id:
+		// 				Number(`10000${f.symbol}`.split("").reduce((s, c) => s + c.charCodeAt(0), 0)) % 999999,
+		// 			symbol: f.symbol,
+		// 			name: f.name,
+		// 			price: formatPrice(parseFloat(f.price ?? "0")),
+		// 			sortPrice: f.sortPrice ?? parseFloat(f.price ?? "0"),
+		// 			change24h: f.change24h ?? "0.00%",
+		// 			volume: f.volume ?? "N/A",
+		// 			marketCap: f.marketCap || "N/A",
+		// 			totalLiquidity: f.totalLiquidity ?? "$0.00",
+		// 			trend: f.trend,
+		// 			logo: typeof f.logo === "string" ? f.logo : String(f.logo),
+		// 			xp: f.xp ?? "5:23",
+		// 			leverage: f.leverage ?? "50x",
+		// 			type: "forex",
+		// 		}) as Asset,
+		// ),
+		// ...filteredStocks.map((s) => ({ ...s, type: "stocks" }) as Asset),
 	]
 		.filter((a) => {
 			if (filterType === "all") return true;
