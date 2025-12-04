@@ -1,8 +1,8 @@
 import { Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useAccount } from "wagmi";
-import { Card, CardContent } from "@/components/ui/card";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface AuthGateProps {
 	children: ReactNode;
@@ -18,7 +18,7 @@ interface AuthGateProps {
 
 /**
  * AuthGate - A consistent wrapper for pages/sections requiring wallet connection.
- * 
+ *
  * Usage:
  * ```tsx
  * <AuthGate title="Connect to View Portfolio">
@@ -47,9 +47,7 @@ export function AuthGate({
 						<Icon className="w-6 h-6 text-primary" />
 					</div>
 					<h3 className="text-lg font-medium mb-2">{title}</h3>
-					<p className="text-muted-foreground text-sm max-w-md mb-4">
-						{description}
-					</p>
+					<p className="text-muted-foreground text-sm max-w-md mb-4">{description}</p>
 					<ConnectWallet />
 				</CardContent>
 			</Card>
@@ -64,9 +62,7 @@ export function AuthGate({
 						<Icon className="w-8 h-8 text-primary" />
 					</div>
 					<h2 className="text-2xl font-semibold mb-3">{title}</h2>
-					<p className="text-muted-foreground max-w-md mb-6">
-						{description}
-					</p>
+					<p className="text-muted-foreground max-w-md mb-6">{description}</p>
 					<ConnectWallet />
 				</div>
 			</main>

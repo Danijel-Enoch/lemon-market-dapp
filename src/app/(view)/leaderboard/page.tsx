@@ -1,12 +1,12 @@
 import {
-    Award as AwardIcon,
-    Crown,
-    Medal,
-    RefreshCw,
-    Target,
-    TrendingUp,
-    Users,
-    Volume2,
+	Award as AwardIcon,
+	Crown,
+	Medal,
+	RefreshCw,
+	Target,
+	TrendingUp,
+	Users,
+	Volume2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
@@ -99,7 +99,10 @@ export default function LeaderboardPage() {
 				totalPointsFormatted: (10000 - i * 100).toLocaleString(),
 				totalTrades: Math.floor(Math.random() * 500) + 10,
 				pointsPerTrade: ((10000 - i * 100) / (Math.floor(Math.random() * 500) + 10)).toFixed(2),
-				pointsPerTradeFormatted: ((10000 - i * 100) / (Math.floor(Math.random() * 500) + 10)).toFixed(2),
+				pointsPerTradeFormatted: (
+					(10000 - i * 100) /
+					(Math.floor(Math.random() * 500) + 10)
+				).toFixed(2),
 				currentTier: i < 3 ? "Gold" : i < 10 ? "Silver" : "Bronze",
 				firstTradeTimestamp: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
 				lastTradeTimestamp: new Date(Date.now() - Math.random() * 100000000).toISOString(),

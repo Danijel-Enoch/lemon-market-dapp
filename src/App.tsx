@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import ViewLayout from "./app/(view)/layout";
 import Layout from "./app/layout";
-import HomePage, { metadata as homeMetadata } from "./app/page";
 import NotFound from "./app/not-found";
+import HomePage, { metadata as homeMetadata } from "./app/page";
 import type { Metadata } from "./lib/types";
 
 // Type for page modules

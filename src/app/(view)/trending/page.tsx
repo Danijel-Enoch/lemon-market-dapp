@@ -160,7 +160,7 @@ export default function Home() {
 		useAsyncFn(async () => {
 			// Fetch tokens with pagination
 			await fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-			
+
 			// const stocksData = await fetchStocksTrending({ limit: 50 });
 			// const fxData = await fetchFXTrending({ limit: 50 });
 
@@ -262,7 +262,7 @@ export default function Home() {
 	useEffect(() => {
 		setCurrentPage(1);
 		fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-	}, [chainFilter, onlyPerpMarkets, fetchTokens, itemsPerPage]);
+	}, [chainFilter, onlyPerpMarkets, fetchTokens]);
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {
@@ -298,12 +298,12 @@ export default function Home() {
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
-	const filteredFX = apiData.fx.filter(
+	const _filteredFX = apiData.fx.filter(
 		(pair) =>
 			pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
-	const filteredStocks = apiData.stocks.filter(
+	const _filteredStocks = apiData.stocks.filter(
 		(stock) =>
 			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),

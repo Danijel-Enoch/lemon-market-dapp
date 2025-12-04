@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 function LiquidityPoolsList() {
 	const marketApi = useMarketApi();
 	const [markets, setMarkets] = useState<any[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+	const [_isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		const fetchMarkets = async () => {
@@ -35,11 +35,14 @@ function LiquidityPoolsList() {
 		fetchMarkets();
 	}, [marketApi]);
 
-	const displayMarkets = markets.length > 0 ? markets : [
-		{ pair: "BTC/USDT", tvl: "$500K", apr: "12.5%" },
-		{ pair: "ETH/USDT", tvl: "$300K", apr: "8.3%" },
-		{ pair: "SOL/USDT", tvl: "$150K", apr: "15.7%" },
-	];
+	const displayMarkets =
+		markets.length > 0
+			? markets
+			: [
+					{ pair: "BTC/USDT", tvl: "$500K", apr: "12.5%" },
+					{ pair: "ETH/USDT", tvl: "$300K", apr: "8.3%" },
+					{ pair: "SOL/USDT", tvl: "$150K", apr: "15.7%" },
+				];
 
 	return (
 		<>

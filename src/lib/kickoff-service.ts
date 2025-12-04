@@ -11,7 +11,7 @@ export async function verifyTask(
 	walletAddress: string,
 	taskType: string = "connect_wallet",
 	slug: string = DEFAULT_SLUG,
-	apiKey?: string,
+	_apiKey?: string,
 ): Promise<KickoffVerifyTaskResponse> {
 	try {
 		const key = "410d1d48-eb93-4f0e-8773-7da3b6a26c15";

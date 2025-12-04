@@ -255,15 +255,12 @@ export async function getTokenPriceByPair(
 	chainId: string = "bsc",
 ): Promise<TokenPrice | null> {
 	try {
-		const response = await fetch(
-			`/api/dexscreener/latest/dex/pairs/${chainId}/${pairAddress}`,
-			{
-				method: "GET",
-				headers: {
-					Accept: "application/json",
-				},
+		const response = await fetch(`/api/dexscreener/latest/dex/pairs/${chainId}/${pairAddress}`, {
+			method: "GET",
+			headers: {
+				Accept: "application/json",
 			},
-		);
+		});
 
 		if (!response.ok) {
 			throw new Error(`DexScreener API error: ${response.status}`);

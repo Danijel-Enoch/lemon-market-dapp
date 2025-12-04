@@ -25,17 +25,15 @@ export default function StakingPage() {
 					</h1>
 
 					<p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-12">
-						We&apos;re building something amazing. Stake your tokens and earn passive
-						income with our upcoming staking pools.
+						We&apos;re building something amazing. Stake your tokens and earn passive income with
+						our upcoming staking pools.
 					</p>
 
 					{/* Notification CTA */}
 					<div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
 						<div className="flex items-center gap-3 px-6 py-3 rounded-xl bg-muted/50 border border-accent/20">
 							<Bell className="w-5 h-5 text-muted-foreground" />
-							<span className="text-sm text-muted-foreground">
-								Stay tuned for updates
-							</span>
+							<span className="text-sm text-muted-foreground">Stay tuned for updates</span>
 						</div>
 					</div>
 
@@ -48,9 +46,7 @@ export default function StakingPage() {
 
 				{/* Upcoming Features */}
 				<div className="mb-16">
-					<h2 className="text-2xl font-semibold text-center mb-8">
-						What&apos;s Coming
-					</h2>
+					<h2 className="text-2xl font-semibold text-center mb-8">What&apos;s Coming</h2>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 						<Card className="border-accent/20 bg-gradient-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
 							<CardContent className="pt-6">
@@ -59,8 +55,8 @@ export default function StakingPage() {
 								</div>
 								<h3 className="font-semibold mb-2">High APY Rewards</h3>
 								<p className="text-sm text-muted-foreground">
-									Earn competitive yields on your staked tokens with our optimized
-									reward distribution.
+									Earn competitive yields on your staked tokens with our optimized reward
+									distribution.
 								</p>
 							</CardContent>
 						</Card>
@@ -72,8 +68,8 @@ export default function StakingPage() {
 								</div>
 								<h3 className="font-semibold mb-2">Flexible Lock Periods</h3>
 								<p className="text-sm text-muted-foreground">
-									Choose your staking duration - from flexible withdrawals to
-									boosted long-term rewards.
+									Choose your staking duration - from flexible withdrawals to boosted long-term
+									rewards.
 								</p>
 							</CardContent>
 						</Card>
@@ -85,8 +81,7 @@ export default function StakingPage() {
 								</div>
 								<h3 className="font-semibold mb-2">Secure & Audited</h3>
 								<p className="text-sm text-muted-foreground">
-									Smart contracts audited by leading security firms for your peace
-									of mind.
+									Smart contracts audited by leading security firms for your peace of mind.
 								</p>
 							</CardContent>
 						</Card>

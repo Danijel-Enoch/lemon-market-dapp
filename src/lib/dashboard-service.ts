@@ -22,8 +22,8 @@ export async function getUserReferralCode(address: string): Promise<string | nul
 		const { data } = await betterFetch(`${BASE_URL}/referrals/code/${address}`, {
 			method: "GET",
 		});
-		return (data as any)?.code || null;
-	} catch (_error) {
+		return (data as { code: string })?.code || null;
+	} catch {
 		return null;
 	}
 }

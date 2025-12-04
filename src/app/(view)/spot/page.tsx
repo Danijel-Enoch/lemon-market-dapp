@@ -16,18 +16,18 @@ interface TradingPair {
 }
 
 export default function SpotPage() {
-	// We'll use a custom hook or multiple useMarketData calls. 
+	// We'll use a custom hook or multiple useMarketData calls.
 	// Since useMarketData is for a single pair, we can create a small component or just map over the pairs.
 	// For simplicity and performance, let's just fetch these specific pairs using the existing oracle functions
-	// or create a new hook for multiple pairs if needed. 
-	// Actually, the plan said "Replace hardcoded fetch... with useMarketData hook". 
+	// or create a new hook for multiple pairs if needed.
+	// Actually, the plan said "Replace hardcoded fetch... with useMarketData hook".
 	// Let's use the `getTokenPrices` from oracle.ts which supports multiple addresses, or just fetch them here.
-	
-	// Better approach: Use the `useMarketData` hook logic but adapted for a list, 
+
+	// Better approach: Use the `useMarketData` hook logic but adapted for a list,
 	// or just use the `getTokenPriceByPair` from oracle.ts which is what useMarketData uses under the hood.
-	
+
 	const [pairs, setPairs] = useState<TradingPair[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+	const [_isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		const fetchSpotData = async () => {
@@ -51,26 +51,26 @@ export default function SpotPage() {
 					},
 				];
 
-				const fetchedPairs: TradingPair[] = [];
+				const _fetchedPairs: TradingPair[] = [];
 
 				// We can use the proxy endpoint directly as before, but ensure it matches the new proxy config
 				// The previous code used `/api/dexscreener/latest/dex/pairs/...` which is correct per vite.config.ts
 				// Let's just make sure we handle the response correctly and maybe add more pairs or error handling.
-				
+
 				const promises = popularPairs.map(async ({ pair, chain, address }) => {
 					try {
 						// Use the proxy defined in vite.config.ts
 						const response = await fetch(`/api/dexscreener/latest/dex/pairs/${chain}/${address}`);
 						if (!response.ok) return null;
-						
+
 						const data = await response.json();
 						const pairData = data.pair || data.pairs?.[0];
-						
+
 						if (pairData) {
 							const price = parseFloat(pairData.priceUsd || "0");
 							const change24h = pairData.priceChange?.h24 || 0;
 							const volumeNum = parseFloat(pairData.volume?.h24 || "0");
-							
+
 							let volumeStr = "$0";
 							if (volumeNum >= 1000000000) volumeStr = `$${(volumeNum / 1000000000).toFixed(2)}B`;
 							else if (volumeNum >= 1000000) volumeStr = `$${(volumeNum / 1000000).toFixed(2)}M`;

@@ -21,41 +21,36 @@ export const metadata: Metadata = {
 
 function DashboardContent() {
 	// Use user positions to calculate real stats where possible
-	const {
-		positions,
-		isLoading: isLoadingPositions,
-		totalMargin,
-		totalPnl,
-	} = useUserPositions();
+	const { positions, isLoading: isLoadingPositions, totalMargin, totalPnl } = useUserPositions();
 
 	// Calculate derived stats
 	const tradingVolume = positions.reduce((acc, pos) => {
 		// Estimate volume from margin * leverage
 		const margin = parseFloat(pos.margin.replace(/[$,]/g, "") || "0");
 		const leverage = parseFloat(pos.leverage.replace("x", "") || "1");
-		return acc + (margin * leverage);
+		return acc + margin * leverage;
 	}, 0);
-	
+
 	const feesEarned = positions.reduce((acc, pos) => {
 		// Estimate fees as 0.1% of volume (standard fee)
 		const margin = parseFloat(pos.margin.replace(/[$,]/g, "") || "0");
 		const leverage = parseFloat(pos.leverage.replace("x", "") || "1");
 		const volume = margin * leverage;
-		return acc + (volume * 0.001);
+		return acc + volume * 0.001;
 	}, 0);
-	
+
 	// Mock other stats for now as APIs don't exist
 	const pointsEarned = Math.floor(tradingVolume * 0.1); // Mock points based on volume
 	const referralCode = "LEMON-USER";
 	const totalReferrals = 0;
 	const referralEarnings = 0;
 	const leaderboardRank = 0;
-	
+
 	const isLoading = isLoadingPositions;
 	const error = null;
 	const refetch = () => {}; // No-op for now
 	const generateReferralCode = async () => "LEMON-NEW";
-	
+
 	const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
 
 	// Also get wallet connection directly from wagmi for comparison

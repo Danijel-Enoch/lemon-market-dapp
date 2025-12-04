@@ -1,6 +1,6 @@
+import { betterFetch } from "@better-fetch/fetch";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { betterFetch } from "@better-fetch/fetch";
 
 export type TrendingType = "tokens" | "fx" | "stocks";
 
@@ -97,15 +97,15 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 	});
 
 	const handleRefetch = useCallback(
-		(newOptions?: TrendingOptions) => {
-			// If new options are provided, we can't easily "refetch" with new options using the same hook instance 
-			// without changing the state that drives the hook. 
+		(_newOptions?: TrendingOptions) => {
+			// If new options are provided, we can't easily "refetch" with new options using the same hook instance
+			// without changing the state that drives the hook.
 			// However, for compatibility with the existing interface which accepted options in refetch,
 			// we might need to rely on the parent component updating the options prop.
 			// But the previous implementation allowed passing options to refetch.
 			// Given the usage pattern, it's better to just call refetch() and let the query key handle updates if props change.
 			// If the caller passes arguments to refetch, it implies they want to change the query.
-			// But useQuery is declarative. 
+			// But useQuery is declarative.
 			// For now, we'll just expose the standard refetch.
 			refetch();
 		},
@@ -144,9 +144,12 @@ async function fetchTokensTrending(params: {
 	}
 
 	try {
-		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/tokens?${queryParams.toString()}`, {
-			method: "GET",
-		});
+		const { data, error } = await betterFetch<TrendingResult>(
+			`${BASE_URL}/trending/tokens?${queryParams.toString()}`,
+			{
+				method: "GET",
+			},
+		);
 		if (error) {
 			throw new Error("Failed to fetch trending tokens");
 		}
@@ -161,9 +164,12 @@ async function fetchTokensTrending(params: {
 
 async function fetchFXTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
-		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/fx?limit=${limit}`, {
-			method: "GET",
-		});
+		const { data, error } = await betterFetch<TrendingResult>(
+			`${BASE_URL}/trending/fx?limit=${limit}`,
+			{
+				method: "GET",
+			},
+		);
 		if (error) {
 			throw new Error("Failed to fetch trending FX");
 		}
@@ -178,9 +184,12 @@ async function fetchFXTrending({ limit }: { limit: number }): Promise<TrendingRe
 
 async function fetchStocksTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
-		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/stocks?limit=${limit}`, {
-			method: "GET",
-		});
+		const { data, error } = await betterFetch<TrendingResult>(
+			`${BASE_URL}/trending/stocks?limit=${limit}`,
+			{
+				method: "GET",
+			},
+		);
 		if (error) {
 			throw new Error("Failed to fetch trending stocks");
 		}

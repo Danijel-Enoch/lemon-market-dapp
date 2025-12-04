@@ -5,8 +5,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { formatUnits, parseUnits } from "viem";
 import {
-	useAccount,
 	useBalance,
+	useConnection,
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
@@ -92,13 +92,13 @@ function PerpContent() {
 
 	const marketApi = useMarketApi();
 
-	const { address, isConnected } = useAccount();
-	const { sendTransaction, data: hash, error, isPending } = useSendTransaction();
+	const { address, isConnected } = useConnection();
+	const { mutate, data: hash, error, isPending } = useSendTransaction();
 	const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
 		hash,
 	});
 
-	const { writeContract, data: approvalHash, isPending: isApproving } = useWriteContract();
+	const { mutate: writeContract, data: approvalHash, isPending: isApproving } = useWriteContract();
 	const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } =
 		useWaitForTransactionReceipt({
 			hash: approvalHash,
@@ -140,12 +140,6 @@ function PerpContent() {
 		query: { enabled: !!marginTokenAddress },
 	});
 
-	useEffect(() => {
-		if (decimalsFromChain !== undefined) {
-			setMarginTokenDecimals(Number(decimalsFromChain));
-		}
-	}, [decimalsFromChain]);
-
 	const [isLong, setIsLong] = useState(true);
 	const [marginValue, setMarginValue] = useState("");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
@@ -153,13 +147,6 @@ function PerpContent() {
 	const [chartType, setChartType] = useState<"dexscreener" | "beta">("dexscreener");
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
-
-	// Set chart type based on asset type
-	useEffect(() => {
-		if (tradingPair.assetType !== "crypto") {
-			setChartType("beta");
-		}
-	}, [tradingPair.assetType]);
 
 	// Compute available margin token amount from contract balance
 	const decimals =
@@ -187,6 +174,19 @@ function PerpContent() {
 			? tradingPair.pairAddress
 			: (searchParams.get("pairAddress") ?? ""),
 	);
+
+	useEffect(() => {
+		if (decimalsFromChain !== undefined) {
+			setMarginTokenDecimals(Number(decimalsFromChain));
+		}
+	}, [decimalsFromChain]);
+
+	// Set chart type based on asset type
+	useEffect(() => {
+		if (tradingPair.assetType !== "crypto") {
+			setChartType("beta");
+		}
+	}, [tradingPair.assetType]);
 
 	// Update margin token address/symbol whenever marketData or tradingPair changes
 	useEffect(() => {
@@ -509,15 +509,38 @@ function PerpContent() {
 				throw new Error("Failed to create position");
 			}
 
-			if (result) {
-				const txResult = result as { to: string; data: string; gasEstimate?: number };
-				sendTransaction({
-					to: txResult.to as `0x${string}`,
-					data: txResult.data as `0x${string}`,
-					value: BigInt(0),
-					gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
-				});
+			// Check for API error response
+			if (typeof result === "object" && "error" in result && result.error) {
+				throw new Error(
+					typeof result.error === "string" ? result.error : "Failed to create position",
+				);
 			}
+
+			if (typeof result === "object" && "success" in result && result.success === false) {
+				throw new Error("Failed to create position");
+			}
+
+			let txResult = result as { to?: string; data?: string; gasEstimate?: number };
+
+			// Handle case where tx data is nested in 'data' property
+			if ("data" in txResult && typeof txResult.data === "object" && txResult.data !== null) {
+				const nestedData = txResult.data as { to?: string; data?: string; gasEstimate?: number };
+				if (nestedData.to && nestedData.data) {
+					txResult = nestedData;
+				}
+			}
+
+			if (!txResult.to || !txResult.data) {
+				console.error("Invalid transaction data received:", result);
+				throw new Error("Received invalid transaction data from API");
+			}
+
+			mutate({
+				to: txResult.to as `0x${string}`,
+				data: txResult.data as `0x${string}`,
+				value: BigInt(0),
+				gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
+			});
 		}, [
 			isConnected,
 			address,
@@ -525,7 +548,7 @@ function PerpContent() {
 			leverage,
 			tradingPair,
 			isLong,
-			sendTransaction,
+			mutate,
 			marginTokenPriceUsd,
 		]);
 

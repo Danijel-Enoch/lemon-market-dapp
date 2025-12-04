@@ -29,9 +29,7 @@ export const FeaturesSection: FC = () => {
 				<h2 className="mt-6 max-w-4xl text-4xl md:text-5xl font-semibold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 					Built for traders who desire freedom
 				</h2>
-				<p className="mt-3 text-white/70 max-w-2xl mx-auto">
-					Trade without limitations
-				</p>
+				<p className="mt-3 text-white/70 max-w-2xl mx-auto">Trade without limitations</p>
 			</div>
 
 			<div className="relative mb-8">

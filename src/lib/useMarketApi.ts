@@ -511,15 +511,21 @@ export function useMarketApi() {
 		trending: {
 			tokens: useAsyncFn(async (params: any) => {
 				const query = new URLSearchParams(params).toString();
-				const { data } = await betterFetch(`${BASE_URL}/trending/tokens?${query}`, { method: "GET" });
+				const { data } = await betterFetch(`${BASE_URL}/trending/tokens?${query}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			fx: useAsyncFn(async (limit: number = 50) => {
-				const { data } = await betterFetch(`${BASE_URL}/trending/fx?limit=${limit}`, { method: "GET" });
+				const { data } = await betterFetch(`${BASE_URL}/trending/fx?limit=${limit}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			stocks: useAsyncFn(async (limit: number = 50) => {
-				const { data } = await betterFetch(`${BASE_URL}/trending/stocks?limit=${limit}`, { method: "GET" });
+				const { data } = await betterFetch(`${BASE_URL}/trending/stocks?limit=${limit}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			chains: useAsyncFn(async () => {
@@ -536,6 +542,6 @@ export function useMarketApi() {
 				const { data } = await betterFetch(`${BASE_URL}/prices/fx/${pair}`, { method: "GET" });
 				return data;
 			}),
-		}
+		},
 	};
 }

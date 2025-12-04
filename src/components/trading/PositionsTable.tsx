@@ -78,13 +78,41 @@ export function PositionsTable({
 					throw new Error("Failed to close position");
 				}
 
+				// Check for API error response
+				if (typeof result === "object" && "error" in result && result.error) {
+					toast.dismiss(loadingToastId);
+					throw new Error(
+						typeof result.error === "string" ? result.error : "Failed to close position",
+					);
+				}
+
+				if (typeof result === "object" && "success" in result && result.success === false) {
+					toast.dismiss(loadingToastId);
+					throw new Error("Failed to close position");
+				}
+
+				let txResult = result as { to?: string; data?: string; gasEstimate?: number };
+
+				// Handle case where tx data is nested in 'data' property
+				if ("data" in result && typeof result.data === "object" && result.data !== null) {
+					const nestedData = result.data as any;
+					if (nestedData.to && nestedData.data) {
+						txResult = nestedData;
+					}
+				}
+
+				if (!txResult.to || !txResult.data) {
+					toast.dismiss(loadingToastId);
+					console.error("Invalid transaction data received:", result);
+					throw new Error("Received invalid transaction data from API");
+				}
+
 				// Send the transaction
-				const txResult = result as { to: string; data: string; gasEstimate?: number };
 				sendTransaction({
 					to: txResult.to as `0x${string}`,
 					data: txResult.data as `0x${string}`,
 					value: BigInt(0),
-					gas: txResult.gasEstimate ? BigInt(txResult.gasEstimate) : undefined,
+					gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
 				});
 
 				// Dismiss loading toast and show success

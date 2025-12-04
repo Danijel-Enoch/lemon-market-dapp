@@ -13,14 +13,9 @@ export const metadata: Metadata = {
 };
 
 function ReferralContent() {
-	const {
-		referralCode,
-		totalReferrals,
-		referralEarnings,
-		isLoading,
-		generateReferralCode,
-	} = useDashboard();
-	
+	const { referralCode, totalReferrals, referralEarnings, isLoading, generateReferralCode } =
+		useDashboard();
+
 	const [isGenerating, setIsGenerating] = useState(false);
 
 	const handleGenerateCode = async () => {

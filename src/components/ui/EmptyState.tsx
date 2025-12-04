@@ -16,10 +16,10 @@ interface EmptyStateProps {
 
 /**
  * EmptyState - A consistent component for displaying empty data states.
- * 
+ *
  * Usage:
  * ```tsx
- * <EmptyState 
+ * <EmptyState
  *   icon={Wallet}
  *   title="No positions yet"
  *   description="Open your first position to get started."
@@ -40,11 +40,7 @@ export function EmptyState({
 				<Icon className="w-6 h-6 text-muted-foreground opacity-60" />
 			</div>
 			<h3 className="text-lg font-medium text-foreground mb-1">{title}</h3>
-			{description && (
-				<p className="text-muted-foreground text-sm max-w-md mb-4">
-					{description}
-				</p>
-			)}
+			{description && <p className="text-muted-foreground text-sm max-w-md mb-4">{description}</p>}
 			{action && <div className="mt-2">{action}</div>}
 		</div>
 	);
