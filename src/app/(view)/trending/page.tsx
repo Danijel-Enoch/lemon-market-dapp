@@ -68,6 +68,7 @@ export default function Home() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [_currentPage, setCurrentPage] = useState(1);
+	const [itemsPerPage, setItemsPerPage] = useState(20);
 	const [hasMore, setHasMore] = useState(true);
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [apiData, setApiData] = useState({
@@ -113,7 +114,7 @@ export default function Home() {
 	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
 		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
 			const tokensData = await fetchTokensTrending({
-				limit: 10,
+				limit: itemsPerPage,
 				page,
 				chain,
 				hasMarket: hasMarket ?? undefined,
@@ -152,7 +153,7 @@ export default function Home() {
 				hasMore: tokensData.pagination?.hasMore ?? false,
 			};
 		},
-		[],
+		[itemsPerPage],
 	);
 
 	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
@@ -261,7 +262,7 @@ export default function Home() {
 	useEffect(() => {
 		setCurrentPage(1);
 		fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-	}, [chainFilter, onlyPerpMarkets, fetchTokens]);
+	}, [chainFilter, onlyPerpMarkets, fetchTokens, itemsPerPage]);
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {
@@ -561,7 +562,8 @@ export default function Home() {
 				<div className="flex items-center gap-2">
 					<span>Rows Per Page:</span>
 					<select
-						defaultValue="20"
+						value={itemsPerPage}
+						onChange={(e) => setItemsPerPage(Number(e.target.value))}
 						className="bg-[#050505] border border-[#1f1f1f] px-2 py-1 text-sm rounded text-[#E8F0EF]"
 					>
 						<option value="10">10</option>
