@@ -24,7 +24,7 @@ export interface MarketData {
 
 async function fetchPairFromDexScreener(pairAddress: string, chain: string = "base") {
 	try {
-		const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${pairAddress}`);
+		const res = await fetch(`/api/dexscreener/latest/dex/pairs/${chain}/${pairAddress}`);
 		if (!res.ok) return null;
 
 		const json = await res.json();

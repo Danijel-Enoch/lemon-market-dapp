@@ -158,7 +158,7 @@ export default function Home() {
 	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
 		useAsyncFn(async () => {
 			// Fetch tokens with pagination
-			fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
+			await fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
 			
 			// const stocksData = await fetchStocksTrending({ limit: 50 });
 			// const fxData = await fetchFXTrending({ limit: 50 });
@@ -429,7 +429,7 @@ export default function Home() {
 										</tr>
 									</thead>
 									<tbody>
-										{isLoading ? (
+										{isLoading || (isLoadingMore && _currentPage === 1) ? (
 											// eslint-disable-next-line react/no-array-index-key
 											Array.from({ length: 10 }).map((_, i) => (
 												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">

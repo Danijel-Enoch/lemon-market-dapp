@@ -99,7 +99,7 @@ async function fetchFromDexScreener(
 	_chainId: string = "bsc",
 ): Promise<TokenPrice | null> {
 	try {
-		const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
+		const response = await fetch(`/api/dexscreener/latest/dex/tokens/${tokenAddress}`, {
 			method: "GET",
 			headers: {
 				Accept: "application/json",
@@ -256,7 +256,7 @@ export async function getTokenPriceByPair(
 ): Promise<TokenPrice | null> {
 	try {
 		const response = await fetch(
-			`https://api.dexscreener.com/latest/dex/pairs/${chainId}/${pairAddress}`,
+			`/api/dexscreener/latest/dex/pairs/${chainId}/${pairAddress}`,
 			{
 				method: "GET",
 				headers: {
