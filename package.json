@@ -13,6 +13,7 @@
 		"@base-org/account": "^2.5.0",
 		"@better-fetch/fetch": "^1.1.18",
 		"@bigmi/react": "^0.5.4",
+		"@coinbase/wallet-sdk": "^4.3.7",
 		"@farcaster/miniapp-sdk": "^0.2.1",
 		"@farcaster/miniapp-wagmi-connector": "^1.1.0",
 		"@lifi/widget": "^3.36.0",
