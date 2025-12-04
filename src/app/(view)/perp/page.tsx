@@ -26,11 +26,8 @@ import { fetchTokensTrending } from "@/hooks/useTrending";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
 import {
-	formatPrice,
-	formatPriceChange,
-	getForexPrice,
-	getStockPrice,
-	getTokenPriceByPair,
+	formatPrice, getForexPrice,
+	getStockPrice
 } from "@/lib/oracle";
 import {
 	extractTokenSymbol,
@@ -311,34 +308,27 @@ function PerpContent() {
 					lastUpdate,
 				};
 			}
-		} else {
-			// Fetch crypto price using pair address
-			if (!tradingPair.pairAddress) return null;
-			const chain = tradingPair.chain || "base";
-			const tokenPrice = await getTokenPriceByPair(tradingPair.pairAddress, chain);
-			if (tokenPrice) {
-				return {
-					price: formatPrice(tokenPrice.priceUsd),
-					change: tokenPrice.priceChange24h
-						? formatPriceChange(tokenPrice.priceChange24h)
-						: tradingPair.change,
-					lastUpdate,
-				};
-			}
-		}
+		} 
+		// For crypto, we now rely on useMarketData to avoid double fetching
 		return null;
 	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
 
-	// Update tradingPair when priceData changes
+	// Update tradingPair when priceData changes (for stocks/forex) or marketData changes (for crypto)
 	useEffect(() => {
-		if (priceData) {
+		if (tradingPair.assetType === "crypto" && marketData) {
+			setTradingPair((prev) => ({
+				...prev,
+				price: marketData.priceUsd ? formatPrice(parseFloat(marketData.priceUsd)) : prev.price,
+				change: marketData.priceChange || prev.change,
+			}));
+		} else if (priceData) {
 			setTradingPair((prev) => ({
 				...prev,
 				price: priceData.price,
 				change: priceData.change,
 			}));
 		}
-	}, [priceData]);
+	}, [priceData, marketData, tradingPair.assetType]);
 
 	useEffect(() => {
 		const symbol = searchParams.get("symbol");

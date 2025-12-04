@@ -1,7 +1,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
 
 // Type definitions based on API schemas
 export interface PositionsQueryRequest {
@@ -508,5 +508,34 @@ export function useMarketApi() {
 		openapiState,
 		apiDocs: getApiDocs,
 		apiDocsState,
+		trending: {
+			tokens: useAsyncFn(async (params: any) => {
+				const query = new URLSearchParams(params).toString();
+				const { data } = await betterFetch(`${BASE_URL}/trending/tokens?${query}`, { method: "GET" });
+				return data;
+			}),
+			fx: useAsyncFn(async (limit: number = 50) => {
+				const { data } = await betterFetch(`${BASE_URL}/trending/fx?limit=${limit}`, { method: "GET" });
+				return data;
+			}),
+			stocks: useAsyncFn(async (limit: number = 50) => {
+				const { data } = await betterFetch(`${BASE_URL}/trending/stocks?limit=${limit}`, { method: "GET" });
+				return data;
+			}),
+			chains: useAsyncFn(async () => {
+				const { data } = await betterFetch(`${BASE_URL}/trending/chains`, { method: "GET" });
+				return data;
+			}),
+		},
+		prices: {
+			stock: useAsyncFn(async (symbol: string) => {
+				const { data } = await betterFetch(`${BASE_URL}/prices/stock/${symbol}`, { method: "GET" });
+				return data;
+			}),
+			fx: useAsyncFn(async (pair: string) => {
+				const { data } = await betterFetch(`${BASE_URL}/prices/fx/${pair}`, { method: "GET" });
+				return data;
+			}),
+		}
 	};
 }

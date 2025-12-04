@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
+import { betterFetch } from "@better-fetch/fetch";
 
 export type TrendingType = "tokens" | "fx" | "stocks";
 
@@ -40,6 +41,8 @@ export interface FXItem {
 	error?: string;
 	MarketCap?: number;
 	Liquidity?: number;
+	change24h?: number;
+	volume24h?: number;
 }
 
 export interface StockItem {
@@ -51,6 +54,8 @@ export interface StockItem {
 	error?: string;
 	MarketCap?: number;
 	Liquidity?: number;
+	change24h?: number;
+	volume24h?: number;
 }
 
 export type TrendingItem = TokenItem | FXItem | StockItem;
@@ -106,7 +111,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 	};
 }
 
-const BASE_URL = "https://api.lemonmarkets.xyz";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
 
 async function fetchTokensTrending(params: {
 	limit: number;
@@ -129,14 +134,15 @@ async function fetchTokensTrending(params: {
 	}
 
 	try {
-		const response = await fetch(`${BASE_URL}/trending/tokens?${queryParams.toString()}`);
-		if (!response.ok) {
+		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/tokens?${queryParams.toString()}`, {
+			method: "GET",
+		});
+		if (error) {
 			throw new Error("Failed to fetch trending tokens");
 		}
-		const data = await response.json();
 		return {
-			data: data.data,
-			pagination: data.pagination,
+			data: data?.data || [],
+			pagination: data?.pagination,
 		};
 	} catch {
 		return { data: [] };
@@ -145,34 +151,34 @@ async function fetchTokensTrending(params: {
 
 async function fetchFXTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
-		const response = await fetch(`${BASE_URL}/trending/fx?limit=${limit}`);
-		if (!response.ok) {
+		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/fx?limit=${limit}`, {
+			method: "GET",
+		});
+		if (error) {
 			throw new Error("Failed to fetch trending FX");
 		}
-		const data = await response.json();
 		return {
-			data: data.data,
-			pagination: data.pagination,
+			data: data?.data || [],
+			pagination: data?.pagination,
 		};
 	} catch {
-		// console.error("Error fetching trending FX:", error);
 		return { data: [] };
 	}
 }
 
 async function fetchStocksTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
-		const response = await fetch(`${BASE_URL}/trending/stocks?limit=${limit}`);
-		if (!response.ok) {
+		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/stocks?limit=${limit}`, {
+			method: "GET",
+		});
+		if (error) {
 			throw new Error("Failed to fetch trending stocks");
 		}
-		const data = await response.json();
 		return {
-			data: data.data,
-			pagination: data.pagination,
+			data: data?.data || [],
+			pagination: data?.pagination,
 		};
 	} catch {
-		// console.error("Error fetching trending stocks:", error);
 		return { data: [] };
 	}
 }
@@ -185,23 +191,29 @@ async function fetchStocksTrending({ limit }: { limit: number }): Promise<Trendi
  */
 async function fetchFXPrice(ticker: string) {
 	try {
-		const response = await fetch(`${BASE_URL}/trending/fx/${ticker}`);
+		const { data, error } = await betterFetch<{
+			price: number;
+			timestamp: string;
+			source: string;
+			priceUsd?: number;
+			lastUpdate?: string;
+		}>(`${BASE_URL}/trending/fx/${ticker}`, {
+			method: "GET",
+		});
 
-		if (!response.ok) {
+		if (error) {
 			throw new Error(`Failed to fetch price for ${ticker}`);
 		}
-
-		const data = await response.json();
 
 		return {
 			success: true,
 			ticker,
 			symbol: ticker,
-			price: data.price || 0,
-			timestamp: data.timestamp,
-			source: data.source,
-			priceUsd: data.priceUsd || 0,
-			lastUpdate: data.lastUpdate,
+			price: data?.price || 0,
+			timestamp: data?.timestamp,
+			source: data?.source,
+			priceUsd: data?.priceUsd || 0,
+			lastUpdate: data?.lastUpdate,
 		};
 	} catch (error) {
 		return {
@@ -221,22 +233,28 @@ async function fetchFXPrice(ticker: string) {
  */
 async function fetchStockPrice(symbol: string) {
 	try {
-		const response = await fetch(`${BASE_URL}/trending/stocks/${symbol}`);
+		const { data, error } = await betterFetch<{
+			price: number;
+			timestamp: string;
+			source: string;
+			priceUsd?: number;
+			lastUpdate?: string;
+		}>(`${BASE_URL}/trending/stocks/${symbol}`, {
+			method: "GET",
+		});
 
-		if (!response.ok) {
+		if (error) {
 			throw new Error(`Failed to fetch price for ${symbol}`);
 		}
-
-		const data = await response.json();
 
 		return {
 			success: true,
 			symbol,
-			price: data.price || 0,
-			timestamp: data.timestamp,
-			source: data.source,
-			priceUsd: data.priceUsd || 0,
-			lastUpdate: data.lastUpdate,
+			price: data?.price || 0,
+			timestamp: data?.timestamp,
+			source: data?.source,
+			priceUsd: data?.priceUsd || 0,
+			lastUpdate: data?.lastUpdate,
 		};
 	} catch (error) {
 		return {

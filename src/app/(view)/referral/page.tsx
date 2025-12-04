@@ -1,13 +1,9 @@
-import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
+import { Users } from "lucide-react";
+import { useState } from "react";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-	createReferralCode,
-	getUserReferralCode,
-	getUserReferralStats,
-} from "@/lib/dashboard-service";
+import { useDashboard } from "@/hooks/useDashboard";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -16,40 +12,21 @@ export const metadata: Metadata = {
 };
 
 export default function ReferralPage() {
-	const { address } = useAccount();
-	const [referralCode, setReferralCode] = useState<string | null>(null);
-	const [stats, setStats] = useState({ totalReferrals: 0, referralEarnings: 0, points: 0 });
-	const [isLoading, setIsLoading] = useState(true);
+	const {
+		referralCode,
+		totalReferrals,
+		referralEarnings,
+		isLoading,
+		generateReferralCode,
+		isWalletConnected,
+	} = useDashboard();
+	
 	const [isGenerating, setIsGenerating] = useState(false);
 
-	useEffect(() => {
-		if (!address) return;
-
-		const loadReferralData = async () => {
-			try {
-				const [code, statsData] = await Promise.all([
-					getUserReferralCode(address),
-					getUserReferralStats(address),
-				]);
-				setReferralCode(code);
-				setStats(statsData);
-			} catch {
-			} finally {
-				setIsLoading(false);
-			}
-		};
-
-		loadReferralData();
-	}, [address]);
-
 	const handleGenerateCode = async () => {
-		if (!address) return null;
 		setIsGenerating(true);
 		try {
-			const code = await createReferralCode(address);
-			if (code) {
-				setReferralCode(code);
-			}
+			const code = await generateReferralCode();
 			return code;
 		} catch {
 			return null;
@@ -57,6 +34,39 @@ export default function ReferralPage() {
 			setIsGenerating(false);
 		}
 	};
+
+	if (!isWalletConnected) {
+		return (
+			<div className="min-h-screen">
+				<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+					<div className="mb-8">
+						<div>
+							<h1 className="text-2xl font-medium text-muted-foreground">Referral Program</h1>
+							<p className="text-muted-foreground text-xs">
+								Invite friends and earn rewards together
+							</p>
+						</div>
+					</div>
+
+					<Card className="border-accent/20">
+						<CardContent className="flex flex-col items-center justify-center py-12">
+							<div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+								<Users className="w-6 h-6 text-primary" />
+							</div>
+							<h2 className="text-xl font-semibold mb-2">Connect Wallet to View Referrals</h2>
+							<p className="text-muted-foreground text-center max-w-md mb-6">
+								Connect your wallet to access your referral code, track your earnings, and invite friends.
+							</p>
+							<div className="flex gap-4">
+								{/* The connect button is usually in the header, but we can add a hint or just let them use the header */}
+								<p className="text-sm text-primary">Please connect your wallet using the button in the top right.</p>
+							</div>
+						</CardContent>
+					</Card>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-screen">
@@ -72,8 +82,8 @@ export default function ReferralPage() {
 
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 					<ReferralStats
-						totalReferrals={stats.totalReferrals}
-						referralEarnings={stats.referralEarnings}
+						totalReferrals={totalReferrals}
+						referralEarnings={referralEarnings}
 						isLoading={isLoading}
 					/>
 

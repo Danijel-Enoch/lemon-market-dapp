@@ -1,5 +1,7 @@
 import { Gift, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDashboard } from "@/hooks/useDashboard";
+import { formatNumber } from "@/lib/dashboard-service";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -8,6 +10,40 @@ export const metadata: Metadata = {
 };
 
 export default function PointsPage() {
+	const { pointsEarned, isWalletConnected } = useDashboard();
+
+	if (!isWalletConnected) {
+		return (
+			<div className="min-h-screen">
+				<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+					<div className="mb-8">
+						<div>
+							<h1 className="text-2xl font-medium text-muted-foreground">Points</h1>
+							<p className="text-muted-foreground text-xs">
+								Earn points through trading and redeem for rewards
+							</p>
+						</div>
+					</div>
+
+					<Card className="border-accent/20">
+						<CardContent className="flex flex-col items-center justify-center py-12">
+							<div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+								<Star className="w-6 h-6 text-primary" />
+							</div>
+							<h2 className="text-xl font-semibold mb-2">Connect Wallet to View Points</h2>
+							<p className="text-muted-foreground text-center max-w-md mb-6">
+								Connect your wallet to track your points, view your history, and redeem rewards.
+							</p>
+							<div className="flex gap-4">
+								<p className="text-sm text-primary">Please connect your wallet using the button in the top right.</p>
+							</div>
+						</CardContent>
+					</Card>
+				</main>
+			</div>
+		);
+	}
+
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
@@ -25,7 +61,7 @@ export default function PointsPage() {
 							<CardTitle>Total Points</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">12,345</div>
+							<div className="text-3xl font-bold">{formatNumber(pointsEarned)}</div>
 							<p className="text-sm text-muted-foreground">Lifetime points earned</p>
 						</CardContent>
 					</Card>
@@ -35,7 +71,7 @@ export default function PointsPage() {
 							<CardTitle>Available Points</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">8,900</div>
+							<div className="text-3xl font-bold">{formatNumber(pointsEarned)}</div>
 							<p className="text-sm text-muted-foreground">Ready to redeem</p>
 						</CardContent>
 					</Card>
@@ -45,7 +81,7 @@ export default function PointsPage() {
 							<CardTitle>Points This Month</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">1,234</div>
+							<div className="text-3xl font-bold">{formatNumber(pointsEarned * 0.1)}</div>
 							<p className="text-sm text-muted-foreground">+15% from last month</p>
 						</CardContent>
 					</Card>

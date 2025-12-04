@@ -56,6 +56,8 @@ interface ForexPair {
 	logo: string;
 	xp?: string;
 	leverage?: string;
+	marketCap?: string;
+	totalLiquidity?: string;
 }
 
 interface Asset extends Token {
@@ -157,72 +159,75 @@ export default function Home() {
 		useAsyncFn(async () => {
 			// Fetch tokens with pagination
 			fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-
+			
 			// const stocksData = await fetchStocksTrending({ limit: 50 });
 			// const fxData = await fetchFXTrending({ limit: 50 });
 
-			// Transform stocks data
-			// const transformedStocks: Token[] = (stocksData.data as StockItem[]).map(
-			// 	(stock: StockItem, index: number) => ({
-			// 		id: index + 1,
-			// 		symbol: stock.symbol,
-			// 		name: stock.symbol,
-			// 		price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
-			// 		sortPrice: stock.price || 0,
-			// 		change24h: "N/A",
-			// 		volume: "N/A",
-			// 		marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
-			// 		trend: "up" as const,
-			// 		logo: "📈",
-			// 		tokenAddress: "",
-			// 		totalLiquidity: stock.Liquidity
-			// 			? `$${formatLargeNumber(Number(stock.Liquidity))}`
-			// 			: "$0.00",
-			// 		chain: "base",
-			// 	}),
-			// );
-
-			// const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
-			// 	const getDisplaySymbol = (ticker: string) => {
-			// 		if (ticker.includes("AUD-USD")) return "AUD/USD";
-			// 		if (ticker.includes("CNY-USD")) return "CNY/USD";
-			// 		if (ticker.includes("NGN-USD")) return "NGN/USD";
-			// 		return ticker;
-			// 	};
-
-			// 	const getDisplayName = (ticker: string) => {
-			// 		if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
-			// 		if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
-			// 		if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
-			// 		return ticker;
-			// 	};
-
-			// 	const getLogo = (ticker: string) => {
-			// 		if (ticker.includes("AUD")) return "🇦🇺";
-			// 		if (ticker.includes("CNY")) return "🇨🇳";
-			// 		if (ticker.includes("NGN")) return "🇳🇬";
-			// 		return "💱";
-			// 	};
-
-			// 	const fxItem = fx as import("@/hooks/useTrending").FXItem;
-
-			// 	return {
-			// 		id: index + 1,
-			// 		symbol: getDisplaySymbol(fxItem.ticker),
-			// 		name: getDisplayName(fxItem.ticker),
-			// 		price: fxItem.price.toFixed(4),
-			// 		sortPrice: fxItem.price,
-			// 		change24h: "N/A",
-			// 		volume: "N/A",
-			// 		spread: "N/A",
-			// 		trend: "up",
-			// 		logo: getLogo(fxItem.ticker),
-			// 		marketCap: fx.MarketCap ? `$${formatLargeNumber(Number(fx.MarketCap))}` : "N/A",
-			// 		totalLiquidity: fx.Liquidity ? `$${formatLargeNumber(Number(fx.Liquidity))}` : "$0.00",
-			// 	};
-			// });
-
 			return { stocks: [], fx: [], tokens: [] };
+			/*
+			// Transform stocks data
+			const transformedStocks: Token[] = (stocksData.data as import("@/hooks/useTrending").StockItem[]).map(
+				(stock, index) => ({
+					id: index + 1,
+					symbol: stock.symbol,
+					name: stock.symbol,
+					price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
+					sortPrice: stock.price || 0,
+					change24h: stock.change24h ? `${stock.change24h.toFixed(2)}%` : "0.00%",
+					volume: stock.volume24h ? `$${formatLargeNumber(stock.volume24h)}` : "N/A",
+					marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
+					trend: (stock.change24h || 0) >= 0 ? "up" : "down",
+					logo: "📈",
+					tokenAddress: "",
+					totalLiquidity: stock.Liquidity
+						? `$${formatLargeNumber(Number(stock.Liquidity))}`
+						: "$0.00",
+					chain: "base",
+				}),
+			);
+
+			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
+				const getDisplaySymbol = (ticker: string) => {
+					if (ticker.includes("AUD-USD")) return "AUD/USD";
+					if (ticker.includes("CNY-USD")) return "CNY/USD";
+					if (ticker.includes("NGN-USD")) return "NGN/USD";
+					return ticker;
+				};
+
+				const getDisplayName = (ticker: string) => {
+					if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
+					if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
+					if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
+					return ticker;
+				};
+
+				const getLogo = (ticker: string) => {
+					if (ticker.includes("AUD")) return "🇦🇺";
+					if (ticker.includes("CNY")) return "🇨🇳";
+					if (ticker.includes("NGN")) return "🇳🇬";
+					return "💱";
+				};
+
+				const fxItem = fx as import("@/hooks/useTrending").FXItem;
+
+				return {
+					id: index + 1,
+					symbol: getDisplaySymbol(fxItem.ticker),
+					name: getDisplayName(fxItem.ticker),
+					price: fxItem.price.toFixed(4),
+					sortPrice: fxItem.price,
+					change24h: fxItem.change24h ? `${fxItem.change24h.toFixed(2)}%` : "0.00%",
+					volume: fxItem.volume24h ? `$${formatLargeNumber(fxItem.volume24h)}` : "N/A",
+					spread: "N/A",
+					trend: (fxItem.change24h || 0) >= 0 ? "up" : "down",
+					logo: getLogo(fxItem.ticker),
+					marketCap: fxItem.MarketCap ? `$${formatLargeNumber(Number(fxItem.MarketCap))}` : "N/A",
+					totalLiquidity: fxItem.Liquidity ? `$${formatLargeNumber(Number(fxItem.Liquidity))}` : "$0.00",
+				};
+			});
+
+			return { stocks: transformedStocks, fx: transformedFX, tokens: [] };
+			*/
 		}, [fetchTokens]);
 
 	// Update apiData when results change
@@ -292,16 +297,16 @@ export default function Home() {
 			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 	);
-	// const filteredFX = apiData.fx.filter(
-	// 	(pair) =>
-	// 		pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-	// 		pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	// );
-	// const filteredStocks = apiData.stocks.filter(
-	// 	(stock) =>
-	// 		stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-	// 		stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	// );
+	const filteredFX = apiData.fx.filter(
+		(pair) =>
+			pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
+	const filteredStocks = apiData.stocks.filter(
+		(stock) =>
+			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
 
 	const combinedAssets: Asset[] = [
 		...filteredTokens.map((t) => ({ ...t, type: "crypto" }) as Asset),
@@ -344,12 +349,12 @@ export default function Home() {
 	const filterTabs = [
 		["all", "All"],
 		["crypto", "Crypto"],
-		["forex", "Forex"],
-		["commodities", "Commodities"],
-		["rwa", "RWA's"],
-		["stocks", "Stocks"],
-		["gdp", "GDP"],
-		["nft", "NFT"],
+		// ["forex", "Forex"],
+		// ["commodities", "Commodities"],
+		// ["rwa", "RWA's"],
+		// ["stocks", "Stocks"],
+		// ["gdp", "GDP"],
+		// ["nft", "NFT"],
 	] as const;
 
 	return (
