@@ -5,7 +5,7 @@ import { useState } from "react";
 const items = [
 	{
 		q: "How does Lemon Markets enable synthetic asset trading?",
-		a: "Lemon Markets uses oracle-powered price feeds to create synthetic perpetual markets for crypto, forex, and commodities. All trades settle against a unified collateral pool, eliminating the need for fragmented DEX liquidity.",
+		a: "We use oracle-powered price feeds to create synthetic perpetual markets for crypto, forex, and commodities. All trades settle against a unified collateral pool, eliminating the need for fragmented DEX liquidity.",
 	},
 	{
 		q: "Which assets can I trade on Lemon Markets?",
