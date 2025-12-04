@@ -9,7 +9,7 @@ import {
 import { createConfig, http } from "wagmi";
 import { base } from "wagmi/chains";
 
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "your-project-id";
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "eea6d53be219bc80965a59a7d6f235b0";
 
 // Define chains based on environment
 const _isDevelopment = import.meta.env.MODE === "development";
