@@ -66,6 +66,11 @@ export function useReferral() {
 				}),
 			});
 
+			if (redeemResponse.status === 405) {
+				// Endpoint might not be allowed or implemented yet, ignore
+				return;
+			}
+
 			if (!redeemResponse.ok) {
 				const errorData = await redeemResponse.json();
 				throw new Error(errorData.error || "Failed to initialize referral");

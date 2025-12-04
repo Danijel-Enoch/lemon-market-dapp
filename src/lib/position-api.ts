@@ -486,7 +486,8 @@ export async function getEnhancedUserPositions(
 			body: JSON.stringify({ trader: traderAddress }),
 			headers: { "Content-Type": "application/json" },
 		});
-		const positions = data as Position[];
+		// Handle both array response and object response with positions property
+		const positions = (Array.isArray(data) ? data : (data as any)?.positions || []) as Position[];
 		const enhancedPositions = await enrichPositionsWithPrices(positions);
 		const totalUnrealizedPnL = enhancedPositions.reduce(
 			(sum, pos) => sum + (pos.unrealizedPnL || 0),

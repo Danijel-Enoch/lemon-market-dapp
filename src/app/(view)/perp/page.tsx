@@ -527,6 +527,9 @@ function PerpContent() {
 									src={marketData.tokenLogo}
 									alt={`${marketData.baseTokenSymbol} logo`}
 									className="w-7 h-7 rounded-full"
+									onError={(e) => {
+										e.currentTarget.style.display = "none";
+									}}
 								/>
 							)}
 							<div>

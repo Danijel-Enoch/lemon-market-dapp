@@ -78,7 +78,9 @@ export function useUserPositions(): UseUserPositionsResult {
 		queryKey: ["positions", "basic", address],
 		queryFn: async () => {
 			if (!address) return null;
-			const positions = (await marketApi.positions.query({ trader: address })) as Position[];
+			const result = await marketApi.positions.query({ trader: address });
+			// Handle both array response and object response with positions property
+			const positions = (Array.isArray(result) ? result : result?.positions || []) as Position[];
 			return { positions };
 		},
 		enabled: !!address && isConnected && !isEnhancedMode,
