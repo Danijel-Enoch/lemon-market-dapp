@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useQuery } from "@tanstack/react-query";
 
 interface LeaderboardEntry {
 	id: string;
@@ -49,8 +48,14 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 		refreshInterval = 30000, // 30 seconds
 	} = options;
 
-	const [{ loading, error: fetchError, value: leaderboardData }, fetchLeaderboard] =
-		useAsyncFn(async () => {
+	const {
+		data: leaderboardData,
+		isLoading: loading,
+		error: fetchError,
+		refetch,
+	} = useQuery({
+		queryKey: ["leaderboard", sortBy, order, limit],
+		queryFn: async () => {
 			const params = new URLSearchParams({
 				sortBy,
 				order,
@@ -69,24 +74,15 @@ export function useLeaderboard(options: UseLeaderboardOptions = {}) {
 				return result.data;
 			}
 			throw new Error("Failed to fetch leaderboard data");
-		}, [sortBy, order, limit]);
+		},
+		refetchInterval: autoRefresh ? refreshInterval : false,
+	});
 
 	const error = fetchError ? fetchError.message : null;
 	const data = leaderboardData || [];
 
-	useEffect(() => {
-		fetchLeaderboard();
-	}, [fetchLeaderboard]);
-
-	useEffect(() => {
-		if (autoRefresh) {
-			const interval = setInterval(fetchLeaderboard, refreshInterval);
-			return () => clearInterval(interval);
-		}
-	}, [autoRefresh, refreshInterval, fetchLeaderboard]);
-
 	const refresh = () => {
-		fetchLeaderboard();
+		refetch();
 	};
 
 	const totalTraders = data.length;

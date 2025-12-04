@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { type EnhancedPosition, getEnhancedUserPositions, type Position } from "@/lib/position-api";
 import { getTokenPriceService } from "@/lib/token-price-service";
@@ -69,28 +69,45 @@ export function useUserPositions(): UseUserPositionsResult {
 	const [isEnhancedMode, setIsEnhancedMode] = useState(false);
 	const marketApi = useMarketApi();
 
-	const [{ loading: isLoading, error: fetchError, value: fetchResult }, fetchPositions] =
-		useAsyncFn(async () => {
+	const {
+		data: fetchResult,
+		isLoading: isBasicLoading,
+		error: fetchError,
+		refetch: refetchBasic,
+	} = useQuery({
+		queryKey: ["positions", "basic", address],
+		queryFn: async () => {
 			if (!address) return null;
-
 			const positions = (await marketApi.positions.query({ trader: address })) as Position[];
 			return { positions };
-		}, [address, marketApi]);
+		},
+		enabled: !!address && isConnected && !isEnhancedMode,
+		refetchInterval: 10000,
+	});
 
-	const [{ value: enhancedResult }, fetchEnhancedPositions] = useAsyncFn(async () => {
-		if (!address) return null;
-
-		const response = await getEnhancedUserPositions(address);
-		if (response.success) {
-			return {
-				positions: response.positions as Position[],
-				enhancedPositions: response.positions,
-				totalUnrealizedPnL: response.totalUnrealizedPnL || 0,
-				totalPortfolioValue: response.totalPortfolioValue || 0,
-			};
-		}
-		throw new Error(response.error || "Failed to fetch enhanced positions");
-	}, [address]);
+	const {
+		data: enhancedResult,
+		isLoading: isEnhancedLoading,
+		error: enhancedError,
+		refetch: refetchEnhanced,
+	} = useQuery({
+		queryKey: ["positions", "enhanced", address],
+		queryFn: async () => {
+			if (!address) return null;
+			const response = await getEnhancedUserPositions(address);
+			if (response.success) {
+				return {
+					positions: response.positions as Position[],
+					enhancedPositions: response.positions,
+					totalUnrealizedPnL: response.totalUnrealizedPnL || 0,
+					totalPortfolioValue: response.totalPortfolioValue || 0,
+				};
+			}
+			throw new Error(response.error || "Failed to fetch enhanced positions");
+		},
+		enabled: !!address && isConnected && isEnhancedMode,
+		refetchInterval: 10000,
+	});
 
 	// Derive positions and enhanced data from fetch results using useMemo
 	const positions = useMemo(() => {
@@ -116,48 +133,36 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [enhancedResult]);
 
 	// Convert error to string for compatibility
-	const error = fetchError ? fetchError.message : null;
+	const error = fetchError ? fetchError.message : enhancedError ? enhancedError.message : null;
+	const isLoading = isEnhancedMode ? isEnhancedLoading : isBasicLoading;
 
-	const [{ value: pnlMapResult }, calculateRealTimePnL] = useAsyncFn(async () => {
-		if (positions.length === 0) {
-			return new Map<string, number>();
-		}
+	const { data: pnlMapResult } = useQuery({
+		queryKey: ["positions", "pnl", positions],
+		queryFn: async () => {
+			if (positions.length === 0) {
+				return new Map<string, number>();
+			}
 
-		const pnlMap = new Map<string, number>();
+			const pnlMap = new Map<string, number>();
 
-		// Calculate PnL for each position
-		await Promise.all(
-			positions.map(async (position) => {
-				const pnl = await calculatePositionRealTimePnL(position);
-				pnlMap.set(position.id, pnl);
-			}),
-		);
+			// Calculate PnL for each position
+			await Promise.all(
+				positions.map(async (position) => {
+					const pnl = await calculatePositionRealTimePnL(position);
+					pnlMap.set(position.id, pnl);
+				}),
+			);
 
-		return pnlMap;
-	}, [positions]);
+			return pnlMap;
+		},
+		enabled: !isEnhancedMode && positions.length > 0,
+		refetchInterval: 10000,
+	});
 
 	// Derive calculatedPnLMap from the async result using useMemo
 	const calculatedPnLMap = useMemo(() => {
 		return pnlMapResult || new Map<string, number>();
 	}, [pnlMapResult]);
-
-	// Fetch positions when wallet connects/disconnects
-	useEffect(() => {
-		if (isConnected && address) {
-			if (isEnhancedMode) {
-				fetchEnhancedPositions();
-			} else {
-				fetchPositions();
-			}
-		}
-	}, [isConnected, address, isEnhancedMode, fetchPositions, fetchEnhancedPositions]);
-
-	// Calculate real-time PnL for basic mode positions
-	useEffect(() => {
-		if (!isEnhancedMode && positions.length > 0) {
-			calculateRealTimePnL();
-		}
-	}, [isEnhancedMode, positions, calculateRealTimePnL]);
 
 	const toggleEnhancedMode = useCallback(() => {
 		setIsEnhancedMode((prev) => !prev);
@@ -259,46 +264,16 @@ export function useUserPositions(): UseUserPositionsResult {
 		}
 	});
 
-	// Auto-refresh positions for real-time PnL updates
-	useEffect(() => {
-		let intervalId: NodeJS.Timeout;
-
-		if (isConnected && address && openPositions.length > 0) {
-			// Refresh every 10 seconds for micro price change detection
-			intervalId = setInterval(() => {
-				if (isEnhancedMode) {
-					fetchEnhancedPositions();
-				} else {
-					// In basic mode, just recalculate PnL with current prices
-					calculateRealTimePnL();
-				}
-			}, 10000);
-		}
-
-		return () => {
-			if (intervalId) {
-				clearInterval(intervalId);
-			}
-		};
-	}, [
-		isConnected,
-		address,
-		isEnhancedMode,
-		openPositions.length,
-		fetchEnhancedPositions,
-		calculateRealTimePnL,
-	]);
-
 	return {
 		positions: enrichedBasicPositions,
 		enhancedPositions: isEnhancedMode ? enhancedPositions : undefined,
 		isLoading,
 		error,
 		refetch: async () => {
-			await fetchPositions();
+			await refetchBasic();
 		},
 		refetchEnhanced: async () => {
-			await fetchEnhancedPositions();
+			await refetchEnhanced();
 		},
 		isEmpty,
 		openPositions,

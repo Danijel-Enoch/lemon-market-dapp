@@ -1,80 +1,74 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
 import {
-	createReferralCode,
-	getUserFeesEarned,
-	getUserLeaderboardRank,
-	getUserPoints,
-	getUserReferralCode,
-	getUserReferralStats,
-	getUserTradingVolume,
+    createReferralCode,
+    getUserFeesEarned,
+    getUserLeaderboardRank,
+    getUserPoints,
+    getUserReferralCode,
+    getUserReferralStats,
+    getUserTradingVolume,
 } from "@/lib/dashboard-service";
 
 export function useDashboard() {
 	const { address, isConnected } = useAccount();
-	const lastFetchTimeRef = useRef<number>(0);
 
-	// Cache data for 30 seconds to prevent unnecessary refetches
-	const CACHE_DURATION = 30000;
+	const {
+		data: dashboardData,
+		isLoading,
+		error: fetchError,
+		refetch,
+	} = useQuery({
+		queryKey: ["dashboard", address],
+		queryFn: async () => {
+			if (!isConnected || !address) {
+				return null;
+			}
 
-	const [{ loading: isLoading, error: fetchError, value: dashboardData }, fetchDashboardData] =
-		useAsyncFn(
-			async (force = false) => {
-				if (!isConnected || !address) {
-					return null;
-				}
+			// Use Promise.allSettled to handle partial failures gracefully
+			const results = await Promise.allSettled([
+				getUserReferralCode(address),
+				getUserPoints(address),
+				getUserFeesEarned(address),
+				getUserTradingVolume(address),
+				getUserReferralStats(address),
+				getUserLeaderboardRank(address),
+			]);
 
-				// Check if we need to fetch (respect cache unless forced)
-				const now = Date.now();
-				if (!force && now - lastFetchTimeRef.current < CACHE_DURATION) {
-					return null;
-				}
+			// Extract successful results with fallback values
+			const [
+				referralCodeResult,
+				_pointsResult,
+				feesEarnedResult,
+				volumeResult,
+				referralStatsResult,
+				rankResult,
+			] = results;
+			const referralCode =
+				referralCodeResult.status === "fulfilled" ? referralCodeResult.value : null;
+			const feesEarned = feesEarnedResult.status === "fulfilled" ? feesEarnedResult.value : 0;
+			const volume = volumeResult.status === "fulfilled" ? volumeResult.value : 0;
+			const referralStats =
+				referralStatsResult.status === "fulfilled"
+					? referralStatsResult.value
+					: { totalReferrals: 0, referralEarnings: 0, points: 0 };
+			const rank = rankResult.status === "fulfilled" ? rankResult.value : 0;
 
-				// Use Promise.allSettled to handle partial failures gracefully
-				const results = await Promise.allSettled([
-					getUserReferralCode(address),
-					getUserPoints(address),
-					getUserFeesEarned(address),
-					getUserTradingVolume(address),
-					getUserReferralStats(address),
-					getUserLeaderboardRank(address),
-				]);
-
-				// Extract successful results with fallback values
-				const [
-					referralCodeResult,
-					_pointsResult,
-					feesEarnedResult,
-					volumeResult,
-					referralStatsResult,
-					rankResult,
-				] = results;
-				const referralCode =
-					referralCodeResult.status === "fulfilled" ? referralCodeResult.value : null;
-				const feesEarned = feesEarnedResult.status === "fulfilled" ? feesEarnedResult.value : 0;
-				const volume = volumeResult.status === "fulfilled" ? volumeResult.value : 0;
-				const referralStats =
-					referralStatsResult.status === "fulfilled"
-						? referralStatsResult.value
-						: { totalReferrals: 0, referralEarnings: 0, points: 0 };
-				const rank = rankResult.status === "fulfilled" ? rankResult.value : 0;
-
-				// Update last fetch time
-				lastFetchTimeRef.current = now;
-
-				return {
-					pointsEarned: referralStats.points,
-					feesEarned,
-					tradingVolume: volume,
-					referralCode,
-					totalReferrals: referralStats.totalReferrals,
-					referralEarnings: referralStats.referralEarnings,
-					leaderboardRank: rank,
-				};
-			},
-			[address, isConnected],
-		);
+			return {
+				pointsEarned: referralStats.points,
+				feesEarned,
+				tradingVolume: volume,
+				referralCode,
+				totalReferrals: referralStats.totalReferrals,
+				referralEarnings: referralStats.referralEarnings,
+				leaderboardRank: rank,
+			};
+		},
+		enabled: !!isConnected && !!address,
+		refetchInterval: 60000, // Refresh data every 60 seconds
+	});
 
 	const [{ value: generatedCode, error: generateError }, generateReferralCode] =
 		useAsyncFn(async () => {
@@ -112,18 +106,11 @@ export function useDashboard() {
 
 	const error = fetchError?.message || generateError?.message || null;
 
-	useEffect(() => {
-		fetchDashboardData();
-		// Refresh data every 60 seconds (increased from 30 to reduce load)
-		const interval = setInterval(() => fetchDashboardData(), 60000);
-		return () => clearInterval(interval);
-	}, [fetchDashboardData]);
-
 	return {
 		...stats,
 		isLoading,
 		error,
-		refetch: () => fetchDashboardData(true), // Force refresh when manually triggered
+		refetch,
 		generateReferralCode: async () => {
 			const result = await generateReferralCode();
 			return result || null;
