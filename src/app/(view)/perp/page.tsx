@@ -522,16 +522,18 @@ function PerpContent() {
 				<div className="border-b border-[#4D4D4D]/40 py-4">
 					<div className="flex items-center justify-start gap-8 px-6 overflow-x-auto">
 						<div className="flex items-center gap-3 min-w-fit">
-							{marketData.tokenLogo && (
-								<img
-									src={marketData.tokenLogo}
-									alt={`${marketData.baseTokenSymbol} logo`}
-									className="w-7 h-7 rounded-full"
-									onError={(e) => {
-										e.currentTarget.style.display = "none";
-									}}
-								/>
-							)}
+							{marketData.tokenLogo &&
+								(marketData.tokenLogo.startsWith("http") ||
+									marketData.tokenLogo.startsWith("/")) && (
+									<img
+										src={marketData.tokenLogo}
+										alt={`${marketData.baseTokenSymbol} logo`}
+										className="w-7 h-7 rounded-full"
+										onError={(e) => {
+											e.currentTarget.style.display = "none";
+										}}
+									/>
+								)}
 							<div>
 								{/* <div className="text-white font-medium text-sm">
 									{extractTokenSymbol(tradingPair.symbol)}
@@ -759,6 +761,7 @@ function PerpContent() {
 											height="100%"
 											style={{ border: "none" }}
 											title="DexScreener Chart"
+											allow="clipboard-write; allow-popups; allow-popups-to-escape-sandbox; allow-forms; allow-scripts; allow-same-origin; fullscreen"
 										/>
 									</div>
 								) : (
