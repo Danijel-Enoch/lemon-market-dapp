@@ -138,8 +138,7 @@ async function fetchTokensTrending(params: {
 			data: data.data,
 			pagination: data.pagination,
 		};
-	} catch (error) {
-		console.error("Error fetching trending tokens:", error);
+	} catch {
 		return { data: [] };
 	}
 }
@@ -155,8 +154,8 @@ async function fetchFXTrending({ limit }: { limit: number }): Promise<TrendingRe
 			data: data.data,
 			pagination: data.pagination,
 		};
-	} catch (error) {
-		console.error("Error fetching trending FX:", error);
+	} catch {
+		// console.error("Error fetching trending FX:", error);
 		return { data: [] };
 	}
 }
@@ -172,8 +171,8 @@ async function fetchStocksTrending({ limit }: { limit: number }): Promise<Trendi
 			data: data.data,
 			pagination: data.pagination,
 		};
-	} catch (error) {
-		console.error("Error fetching trending stocks:", error);
+	} catch {
+		// console.error("Error fetching trending stocks:", error);
 		return { data: [] };
 	}
 }

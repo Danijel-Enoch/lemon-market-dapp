@@ -39,7 +39,7 @@ export default defineConfig({
 		},
 	},
 	optimizeDeps: {
-		exclude: ["ox"],
+		// exclude: ["ox"],
 	},
 	build: {
 		reportCompressedSize: false,
