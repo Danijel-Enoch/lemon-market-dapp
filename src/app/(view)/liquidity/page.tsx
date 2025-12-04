@@ -1,9 +1,10 @@
 import { Wallet } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useEffect, useState } from "react";
+import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "@/lib/types";
 import { useMarketApi } from "@/lib/useMarketApi";
-import { useEffect, useState } from "react";
 
 export const metadata: Metadata = {
 	title: "Liquidity - Lemon Markets",
@@ -61,9 +62,7 @@ function LiquidityPoolsList() {
 	);
 }
 
-export default function LiquidityPage() {
-	const { isConnected } = useAccount();
-
+function LiquidityContent() {
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
@@ -92,16 +91,8 @@ export default function LiquidityPage() {
 							<CardTitle>Your Positions</CardTitle>
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<>
-									<div className="text-2xl font-bold">0</div>
-									<p className="text-sm text-muted-foreground">Active liquidity positions</p>
-								</>
-							) : (
-								<div className="flex flex-col gap-2">
-									<p className="text-sm text-muted-foreground">Connect wallet to view positions</p>
-								</div>
-							)}
+							<div className="text-2xl font-bold">0</div>
+							<p className="text-sm text-muted-foreground">Active liquidity positions</p>
 						</CardContent>
 					</Card>
 
@@ -110,16 +101,8 @@ export default function LiquidityPage() {
 							<CardTitle>24h Fees Earned</CardTitle>
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<>
-									<div className="text-2xl font-bold text-green-500">$0.00</div>
-									<p className="text-sm text-muted-foreground">+0.0% from yesterday</p>
-								</>
-							) : (
-								<div className="flex flex-col gap-2">
-									<p className="text-sm text-muted-foreground">Connect wallet to view earnings</p>
-								</div>
-							)}
+							<div className="text-2xl font-bold text-green-500">$0.00</div>
+							<p className="text-sm text-muted-foreground">+0.0% from yesterday</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -131,9 +114,6 @@ export default function LiquidityPage() {
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-4">
-								{/* We would normally map over markets here, but for now we'll use a static list 
-								    populated from the API if available, or fallback to these mocks which look good. 
-								    Let's try to fetch markets and display them if possible. */}
 								<LiquidityPoolsList />
 							</div>
 						</CardContent>
@@ -144,20 +124,27 @@ export default function LiquidityPage() {
 							<CardTitle>Your Liquidity Positions</CardTitle>
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<p className="text-muted-foreground">
-									Your active liquidity positions will be displayed here.
-								</p>
-							) : (
-								<div className="flex flex-col items-center justify-center py-8 text-center">
-									<Wallet className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
-									<p className="text-muted-foreground mb-2">Connect wallet to view your positions</p>
-								</div>
-							)}
+							<EmptyState
+								icon={Wallet}
+								title="No positions yet"
+								description="Your active liquidity positions will be displayed here."
+							/>
 						</CardContent>
 					</Card>
 				</div>
 			</main>
 		</div>
+	);
+}
+
+export default function LiquidityPage() {
+	return (
+		<AuthGate
+			icon={Wallet}
+			title="Connect Wallet to View Liquidity"
+			description="Connect your wallet to provide liquidity and earn trading fees."
+		>
+			<LiquidityContent />
+		</AuthGate>
 	);
 }

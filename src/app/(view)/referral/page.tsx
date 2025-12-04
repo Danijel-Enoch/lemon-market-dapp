@@ -2,6 +2,7 @@ import { Users } from "lucide-react";
 import { useState } from "react";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
+import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/useDashboard";
 import type { Metadata } from "@/lib/types";
@@ -11,14 +12,13 @@ export const metadata: Metadata = {
 	description: "Invite friends and earn rewards",
 };
 
-export default function ReferralPage() {
+function ReferralContent() {
 	const {
 		referralCode,
 		totalReferrals,
 		referralEarnings,
 		isLoading,
 		generateReferralCode,
-		isWalletConnected,
 	} = useDashboard();
 	
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -34,39 +34,6 @@ export default function ReferralPage() {
 			setIsGenerating(false);
 		}
 	};
-
-	if (!isWalletConnected) {
-		return (
-			<div className="min-h-screen">
-				<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
-					<div className="mb-8">
-						<div>
-							<h1 className="text-2xl font-medium text-muted-foreground">Referral Program</h1>
-							<p className="text-muted-foreground text-xs">
-								Invite friends and earn rewards together
-							</p>
-						</div>
-					</div>
-
-					<Card className="border-accent/20">
-						<CardContent className="flex flex-col items-center justify-center py-12">
-							<div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-								<Users className="w-6 h-6 text-primary" />
-							</div>
-							<h2 className="text-xl font-semibold mb-2">Connect Wallet to View Referrals</h2>
-							<p className="text-muted-foreground text-center max-w-md mb-6">
-								Connect your wallet to access your referral code, track your earnings, and invite friends.
-							</p>
-							<div className="flex gap-4">
-								{/* The connect button is usually in the header, but we can add a hint or just let them use the header */}
-								<p className="text-sm text-primary">Please connect your wallet using the button in the top right.</p>
-							</div>
-						</CardContent>
-					</Card>
-				</main>
-			</div>
-		);
-	}
 
 	return (
 		<div className="min-h-screen">
@@ -145,5 +112,17 @@ export default function ReferralPage() {
 				</Card>
 			</main>
 		</div>
+	);
+}
+
+export default function ReferralPage() {
+	return (
+		<AuthGate
+			icon={Users}
+			title="Connect Wallet to View Referrals"
+			description="Connect your wallet to access your referral code, track your earnings, and invite friends."
+		>
+			<ReferralContent />
+		</AuthGate>
 	);
 }

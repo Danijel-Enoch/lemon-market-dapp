@@ -1,5 +1,5 @@
 import { Clock, DollarSign, Lock, Shield, Sparkles, TrendingUp, Wallet } from "lucide-react";
-import { useAccount } from "wagmi";
+import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Metadata } from "@/lib/types";
 
@@ -8,9 +8,7 @@ export const metadata: Metadata = {
 	description: "Stake your tokens and earn rewards",
 };
 
-export default function StakingPage() {
-	const { isConnected } = useAccount();
-
+function StakingContent() {
 	return (
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
@@ -41,14 +39,8 @@ export default function StakingPage() {
 							<DollarSign className="h-4 w-4 text-muted-foreground" />
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<>
-									<div className="text-2xl font-bold">$5,240</div>
-									<p className="text-xs text-muted-foreground">2 active positions</p>
-								</>
-							) : (
-								<div className="text-sm text-muted-foreground mt-2">Connect wallet</div>
-							)}
+							<div className="text-2xl font-bold">$5,240</div>
+							<p className="text-xs text-muted-foreground">2 active positions</p>
 						</CardContent>
 					</Card>
 
@@ -58,14 +50,8 @@ export default function StakingPage() {
 							<TrendingUp className="h-4 w-4 text-green-500" />
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<>
-									<div className="text-2xl font-bold text-green-500">$12.45</div>
-									<p className="text-xs text-muted-foreground">+5.2% APY</p>
-								</>
-							) : (
-								<div className="text-sm text-muted-foreground mt-2">Connect wallet</div>
-							)}
+							<div className="text-2xl font-bold text-green-500">$12.45</div>
+							<p className="text-xs text-muted-foreground">+5.2% APY</p>
 						</CardContent>
 					</Card>
 
@@ -75,14 +61,8 @@ export default function StakingPage() {
 							<Sparkles className="h-4 w-4 text-muted-foreground" />
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<>
-									<div className="text-2xl font-bold">$1,234</div>
-									<p className="text-xs text-muted-foreground">Lifetime earnings</p>
-								</>
-							) : (
-								<div className="text-sm text-muted-foreground mt-2">Connect wallet</div>
-							)}
+							<div className="text-2xl font-bold">$1,234</div>
+							<p className="text-xs text-muted-foreground">Lifetime earnings</p>
 						</CardContent>
 					</Card>
 				</div>
@@ -129,56 +109,49 @@ export default function StakingPage() {
 							<CardTitle>Your Positions</CardTitle>
 						</CardHeader>
 						<CardContent>
-							{isConnected ? (
-								<div className="space-y-4">
-									<div className="p-4 bg-muted/50 rounded-lg">
-										<div className="flex items-center justify-between mb-2">
-											<p className="font-medium">LEMON Staking</p>
-											<span className="text-sm text-green-500">Active</span>
+							<div className="space-y-4">
+								<div className="p-4 bg-muted/50 rounded-lg">
+									<div className="flex items-center justify-between mb-2">
+										<p className="font-medium">LEMON Staking</p>
+										<span className="text-sm text-green-500">Active</span>
+									</div>
+									<div className="grid grid-cols-2 gap-4 text-sm">
+										<div>
+											<p className="text-muted-foreground">Staked</p>
+											<p className="font-medium">2,500 LEMON</p>
 										</div>
-										<div className="grid grid-cols-2 gap-4 text-sm">
-											<div>
-												<p className="text-muted-foreground">Staked</p>
-												<p className="font-medium">2,500 LEMON</p>
-											</div>
-											<div>
-												<p className="text-muted-foreground">Rewards</p>
-												<p className="font-medium text-green-500">$45.67</p>
-											</div>
-										</div>
-										<div className="flex items-center gap-2 mt-3">
-											<Clock className="w-4 h-4 text-muted-foreground" />
-											<span className="text-sm text-muted-foreground">25 days remaining</span>
+										<div>
+											<p className="text-muted-foreground">Rewards</p>
+											<p className="font-medium text-green-500">$45.67</p>
 										</div>
 									</div>
+									<div className="flex items-center gap-2 mt-3">
+										<Clock className="w-4 h-4 text-muted-foreground" />
+										<span className="text-sm text-muted-foreground">25 days remaining</span>
+									</div>
+								</div>
 
-									<div className="p-4 bg-muted/50 rounded-lg">
-										<div className="flex items-center justify-between mb-2">
-											<p className="font-medium">USDC Staking</p>
-											<span className="text-sm text-green-500">Active</span>
+								<div className="p-4 bg-muted/50 rounded-lg">
+									<div className="flex items-center justify-between mb-2">
+										<p className="font-medium">USDC Staking</p>
+										<span className="text-sm text-green-500">Active</span>
+									</div>
+									<div className="grid grid-cols-2 gap-4 text-sm">
+										<div>
+											<p className="text-muted-foreground">Staked</p>
+											<p className="font-medium">2,740 USDC</p>
 										</div>
-										<div className="grid grid-cols-2 gap-4 text-sm">
-											<div>
-												<p className="text-muted-foreground">Staked</p>
-												<p className="font-medium">2,740 USDC</p>
-											</div>
-											<div>
-												<p className="text-muted-foreground">Rewards</p>
-												<p className="font-medium text-green-500">$23.45</p>
-											</div>
-										</div>
-										<div className="flex items-center gap-2 mt-3">
-											<Clock className="w-4 h-4 text-muted-foreground" />
-											<span className="text-sm text-muted-foreground">Flexible</span>
+										<div>
+											<p className="text-muted-foreground">Rewards</p>
+											<p className="font-medium text-green-500">$23.45</p>
 										</div>
 									</div>
+									<div className="flex items-center gap-2 mt-3">
+										<Clock className="w-4 h-4 text-muted-foreground" />
+										<span className="text-sm text-muted-foreground">Flexible</span>
+									</div>
 								</div>
-							) : (
-								<div className="flex flex-col items-center justify-center py-8 text-center">
-									<Wallet className="w-8 h-8 text-muted-foreground mb-3 opacity-50" />
-									<p className="text-muted-foreground mb-2">Connect wallet to view your positions</p>
-								</div>
-							)}
+							</div>
 						</CardContent>
 					</Card>
 				</div>
@@ -223,5 +196,17 @@ export default function StakingPage() {
 				</Card>
 			</main>
 		</div>
+	);
+}
+
+export default function StakingPage() {
+	return (
+		<AuthGate
+			icon={Wallet}
+			title="Connect Wallet to View Staking"
+			description="Connect your wallet to stake your tokens and earn rewards."
+		>
+			<StakingContent />
+		</AuthGate>
 	);
 }

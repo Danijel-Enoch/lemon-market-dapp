@@ -1,4 +1,5 @@
 import { Gift, Star } from "lucide-react";
+import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatNumber } from "@/lib/dashboard-service";
@@ -9,40 +10,8 @@ export const metadata: Metadata = {
 	description: "Earn and redeem points for rewards",
 };
 
-export default function PointsPage() {
-	const { pointsEarned, isWalletConnected } = useDashboard();
-
-	if (!isWalletConnected) {
-		return (
-			<div className="min-h-screen">
-				<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
-					<div className="mb-8">
-						<div>
-							<h1 className="text-2xl font-medium text-muted-foreground">Points</h1>
-							<p className="text-muted-foreground text-xs">
-								Earn points through trading and redeem for rewards
-							</p>
-						</div>
-					</div>
-
-					<Card className="border-accent/20">
-						<CardContent className="flex flex-col items-center justify-center py-12">
-							<div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-								<Star className="w-6 h-6 text-primary" />
-							</div>
-							<h2 className="text-xl font-semibold mb-2">Connect Wallet to View Points</h2>
-							<p className="text-muted-foreground text-center max-w-md mb-6">
-								Connect your wallet to track your points, view your history, and redeem rewards.
-							</p>
-							<div className="flex gap-4">
-								<p className="text-sm text-primary">Please connect your wallet using the button in the top right.</p>
-							</div>
-						</CardContent>
-					</Card>
-				</main>
-			</div>
-		);
-	}
+function PointsContent() {
+	const { pointsEarned } = useDashboard();
 
 	return (
 		<div className="min-h-screen">
@@ -162,5 +131,17 @@ export default function PointsPage() {
 				</div>
 			</main>
 		</div>
+	);
+}
+
+export default function PointsPage() {
+	return (
+		<AuthGate
+			icon={Star}
+			title="Connect Wallet to View Points"
+			description="Connect your wallet to track your points, view your history, and redeem rewards."
+		>
+			<PointsContent />
+		</AuthGate>
 	);
 }
