@@ -1,20 +1,6 @@
-// Utility function for making fetch requests with timeout
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 5000) {
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeout);
+import { betterFetch } from "@better-fetch/fetch";
 
-	try {
-		const response = await fetch(url, {
-			...options,
-			signal: controller.signal,
-		});
-		clearTimeout(timeoutId);
-		return response;
-	} catch (error) {
-		clearTimeout(timeoutId);
-		throw error;
-	}
-}
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
 
 export interface DashboardStats {
 	pointsEarned: number;
@@ -33,10 +19,10 @@ export interface DashboardStats {
  */
 export async function getUserReferralCode(address: string): Promise<string | null> {
 	try {
-		const response = await fetchWithTimeout(`/api/referral/code?address=${address}`);
-		if (!response.ok) return null;
-		const data = await response.json();
-		return data.code || null;
+		const { data } = await betterFetch(`${BASE_URL}/referrals/code/${address}`, {
+			method: "GET",
+		});
+		return (data as any)?.code || null;
 	} catch (_error) {
 		return null;
 	}
@@ -47,14 +33,12 @@ export async function getUserReferralCode(address: string): Promise<string | nul
  */
 export async function createReferralCode(address: string): Promise<string | null> {
 	try {
-		const response = await fetch("/api/referral/create", {
+		const { data } = await betterFetch(`${BASE_URL}/referrals/create`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ address }),
+			headers: { "Content-Type": "application/json" },
 		});
-		if (!response.ok) return null;
-		const data = await response.json();
-		return data.code || null;
+		return (data as any)?.code || null;
 	} catch (_error) {
 		return null;
 	}
@@ -65,10 +49,10 @@ export async function createReferralCode(address: string): Promise<string | null
  */
 export async function getUserPoints(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(`/api/dashboard/points?address=${address}`);
-		if (!response.ok) return 0;
-		const data = await response.json();
-		return data.points || 0;
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/points`, {
+			method: "GET",
+		});
+		return (data as any)?.points || 0;
 	} catch (_error) {
 		return 0;
 	}
@@ -79,10 +63,10 @@ export async function getUserPoints(address: string): Promise<number> {
  */
 export async function getUserFeesEarned(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(`/api/dashboard/fees?address=${address}`);
-		if (!response.ok) return 0;
-		const data = await response.json();
-		return data.feesEarned || 0;
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/fees-earned`, {
+			method: "GET",
+		});
+		return (data as any)?.feesEarned || 0;
 	} catch (_error) {
 		return 0;
 	}
@@ -93,10 +77,10 @@ export async function getUserFeesEarned(address: string): Promise<number> {
  */
 export async function getUserTradingVolume(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(`/api/dashboard/volume?address=${address}`);
-		if (!response.ok) return 0;
-		const data = await response.json();
-		return data.volume || 0;
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/volume`, {
+			method: "GET",
+		});
+		return (data as any)?.volume || 0;
 	} catch (_error) {
 		return 0;
 	}
@@ -111,13 +95,14 @@ export async function getUserReferralStats(address: string): Promise<{
 	points: number;
 }> {
 	try {
-		const response = await fetchWithTimeout(`/api/referral/stats?address=${address}`);
-		if (!response.ok) return { totalReferrals: 0, referralEarnings: 0, points: 0 };
-		const data = await response.json();
+		const { data } = await betterFetch(`${BASE_URL}/referrals/stats/${address}`, {
+			method: "GET",
+		});
+		const stats = data as any;
 		return {
-			totalReferrals: data.totalReferrals || 0,
-			referralEarnings: data.referralEarnings || 0,
-			points: data.points || 0,
+			totalReferrals: stats?.totalReferrals || 0,
+			referralEarnings: stats?.referralEarnings || 0,
+			points: stats?.points || 0,
 		};
 	} catch (_error) {
 		return { totalReferrals: 0, referralEarnings: 0, points: 0 };
@@ -129,10 +114,10 @@ export async function getUserReferralStats(address: string): Promise<{
  */
 export async function getUserLeaderboardRank(address: string): Promise<number> {
 	try {
-		const response = await fetchWithTimeout(`/api/leaderboard/rank?address=${address}`);
-		if (!response.ok) return 0;
-		const data = await response.json();
-		return data.rank || 0;
+		const { data } = await betterFetch(`${BASE_URL}/leaderboard/rank/${address}`, {
+			method: "GET",
+		});
+		return (data as any)?.rank || 0;
 	} catch (_error) {
 		return 0;
 	}

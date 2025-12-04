@@ -7,7 +7,7 @@ import {
 	walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
-import { base } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "eea6d53be219bc80965a59a7d6f235b0";
 
@@ -36,10 +36,10 @@ const connectors = connectorsForWallets(
 
 export const config = createConfig({
 	connectors,
-	chains: [base],
+	chains: [baseSepolia],
 	ssr: true,
 	transports: {
-		[base.id]: http(),
+		[baseSepolia.id]: http(),
 	},
 });
 

@@ -3,13 +3,13 @@ import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
 import {
-    createReferralCode,
-    getUserFeesEarned,
-    getUserLeaderboardRank,
-    getUserPoints,
-    getUserReferralCode,
-    getUserReferralStats,
-    getUserTradingVolume,
+	createReferralCode,
+	getUserFeesEarned,
+	getUserLeaderboardRank,
+	getUserPoints,
+	getUserReferralCode,
+	getUserReferralStats,
+	getUserTradingVolume,
 } from "@/lib/dashboard-service";
 
 export function useDashboard() {

@@ -25,10 +25,7 @@ import { useMarketData } from "@/hooks/useMarketData";
 import { fetchTokensTrending } from "@/hooks/useTrending";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@/lib/contracts";
-import {
-	formatPrice, getForexPrice,
-	getStockPrice
-} from "@/lib/oracle";
+import { formatPrice, getForexPrice, getStockPrice } from "@/lib/oracle";
 import {
 	extractTokenSymbol,
 	formatTxHash,
@@ -308,7 +305,7 @@ function PerpContent() {
 					lastUpdate,
 				};
 			}
-		} 
+		}
 		// For crypto, we now rely on useMarketData to avoid double fetching
 		return null;
 	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
@@ -491,14 +488,21 @@ function PerpContent() {
 				throw new Error(leverageValidation.error || "Invalid leverage");
 			}
 
-			const tokenSymbol = extractTokenSymbol(tradingPair.symbol);
+			const tokenSymbol = extractTokenSymbol(tradingPair.symbol).toUpperCase();
+			const tokenAddress = tradingPair.tokenAddress;
+			const chainName = tradingPair.chain || "base";
 
-			const result = await marketApi.positions.open({
-				marketId: tokenSymbol,
+			// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
+			const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
+
+			const result = await marketApi.positions.openWithDevFee({
+				marketId,
 				isLong,
 				margin: marginValue,
 				leverage,
 				userAddress: address,
+				devFeeRecipient: "0x9999999999999999999999999999999999999999", // Placeholder, should be replaced with actual recipient if known, or keep as is if this is the intended one
+				devFeeRate: 0.01, // Example fee rate, adjust as needed
 			});
 
 			if (!result) {
@@ -514,7 +518,16 @@ function PerpContent() {
 					gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
 				});
 			}
-		}, [isConnected, address, marginValue, leverage, tradingPair, isLong, sendTransaction]);
+		}, [
+			isConnected,
+			address,
+			marginValue,
+			leverage,
+			tradingPair,
+			isLong,
+			sendTransaction,
+			marginTokenPriceUsd,
+		]);
 
 	return (
 		<>

@@ -78,10 +78,29 @@ export function useUserPositions(): UseUserPositionsResult {
 		queryKey: ["positions", "basic", address],
 		queryFn: async () => {
 			if (!address) return null;
-			const result = await marketApi.positions.query({ trader: address });
-			// Handle both array response and object response with positions property
-			const positions = (Array.isArray(result) ? result : result?.positions || []) as Position[];
-			return { positions };
+
+			// Fetch both open and closed positions to ensure we have the complete history
+			const [openPositionsResult, closedPositionsResult] = await Promise.all([
+				marketApi.positions.query({ trader: address, status: "OPEN" }),
+				marketApi.positions.query({ trader: address, status: "CLOSED" }),
+			]);
+
+			const openPositions = (
+				Array.isArray(openPositionsResult)
+					? openPositionsResult
+					: (openPositionsResult as any)?.positions || []
+			) as Position[];
+			const closedPositions = (
+				Array.isArray(closedPositionsResult)
+					? closedPositionsResult
+					: (closedPositionsResult as any)?.positions || []
+			) as Position[];
+
+			// Merge and deduplicate by ID just in case
+			const allPositions = [...openPositions, ...closedPositions];
+			const uniquePositions = Array.from(new Map(allPositions.map((p) => [p.id, p])).values());
+
+			return { positions: uniquePositions };
 		},
 		enabled: !!address && isConnected && !isEnhancedMode,
 		refetchInterval: 10000,
