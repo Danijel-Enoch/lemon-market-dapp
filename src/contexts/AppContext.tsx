@@ -177,7 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		if (balance) {
 			dispatch({
 				type: "SET_BALANCE",
-				payload: Number(balance.formatted),
+				payload: Number(balance.decimals),
 			});
 		}
 	}, [balance]);
@@ -193,7 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		(async () => {
 			try {
 				dispatch({ type: "START_VERIFICATION" });
-				toast.loading("Verifying wallet connection...");
+				// toast.loading("Verifying wallet connection...");
 				const { success, message } = await verifyTask(address, "connect_wallet");
 				if (success) {
 					dispatch({ type: "SET_VERIFIED", payload: { address, message } });
