@@ -308,7 +308,7 @@ export function formatPositionSize(
 		}
 
 		// Fallback to just token amount if no current price
-		return `${tokenAmount.toFixed(6)} ${tokenSymbol.split("_")[0]}`;
+		return `${tokenAmount.toFixed(6)} ${tokenSymbol.split("-")[0]}`;
 	} catch {
 		return `0 ${tokenSymbol}`;
 	}

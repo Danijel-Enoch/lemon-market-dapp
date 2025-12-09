@@ -98,7 +98,6 @@ export function useUserPositions(): UseUserPositionsResult {
 					})
 				]);
 
-			console.log("openPositionsResult", openPositionsResult.data);
 			console.log("closedPositionsResult", closedPositionsResult.data);
 
 			const openPositions = (
@@ -109,7 +108,7 @@ export function useUserPositions(): UseUserPositionsResult {
 			const closedPositions = (
 				Array.isArray(closedPositionsResult.data)
 					? closedPositionsResult.data
-					: (closedPositionsResult as any)?.positions || []
+					: (closedPositionsResult.data as any)?.positions || []
 			) as Position[];
 
 			// Merge and deduplicate by ID just in case

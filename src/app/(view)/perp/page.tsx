@@ -622,7 +622,7 @@ function PerpContent() {
 		}
 
 		if (!txResult.to || !txResult.data) {
-			console.error("Invalid transaction data received:", result);
+			//console.error("Invalid transaction data received:", result);
 			throw new Error("Received invalid transaction data from API");
 		}
 

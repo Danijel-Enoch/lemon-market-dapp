@@ -69,10 +69,6 @@ export function PositionsTable({
 		(pos) => pos.status.toLowerCase() !== "opened"
 	);
 
-	console.log("Rendering PositionsTable with positions:", positions);
-	console.log("Open positions:", openPositions);
-	console.log("Closed positions:", closedPositions);
-
 	// Handle close position
 	const [
 		{ loading: isClosingPosition, error: closeError },
@@ -89,11 +85,9 @@ export function PositionsTable({
 			);
 
 			try {
-				const tokenSymbol = extractTokenSymbol(position.pair);
-
 				const result = await marketApi.positions.close({
-					positionId: parseInt(position.positionId, 10),
-					marketId: tokenSymbol,
+					positionId: parseInt(position.id, 10),
+					marketId: position.tokenSymbol,
 					userAddress: address
 				});
 
@@ -606,30 +600,24 @@ export function PositionsTable({
 													<span
 														className={`font-medium ${
 															isPositionProfitable(
-																position
-																	.realtimeData
-																	.pnlRaw
+																"00"
 															)
 																? "text-green-400"
 																: "text-red-400"
 														}`}
 													>
-														{position.pnl}
+														{"00"}
 													</span>
 													<span
 														className={`text-sm ${
 															isPositionProfitable(
-																position
-																	.realtimeData
-																	.realtimePnl
+																"00"
 															)
 																? "text-green-400"
 																: "text-red-400"
 														}`}
 													>
-														{position.realtimeData
-															.pnlPercentage ||
-															"0.00%"}
+														{"00"}
 													</span>
 												</div>
 											</td>
@@ -672,8 +660,14 @@ export function PositionsTable({
 											Position:
 										</span>
 										<div className="font-medium">
-											{selectedPosition.pair}{" "}
-											{selectedPosition.side}
+											{
+												selectedPosition.tokenSymbol.split(
+													"-"
+												)[0]
+											}{" "}
+											{selectedPosition.isLong
+												? "Long"
+												: "Short"}
 										</div>
 									</div>
 									<div>
@@ -683,13 +677,18 @@ export function PositionsTable({
 										<div
 											className={`font-medium ${
 												isPositionProfitable(
-													selectedPosition.pnlRaw
+													selectedPosition
+														.realtimeData
+														.realtimePnl
 												)
 													? "text-green-400"
 													: "text-red-400"
 											}`}
 										>
-											{selectedPosition.pnl}
+											{
+												selectedPosition.realtimeData
+													.realtimePnl
+											}
 										</div>
 									</div>
 								</div>
