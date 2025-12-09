@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { type EnhancedPosition, getEnhancedUserPositions, type Position } from "@/lib/position-api";
+import {
+	type EnhancedPosition,
+	getEnhancedUserPositions,
+	type Position
+} from "@/lib/position-api";
 import { getTokenPriceService } from "@/lib/token-price-service";
 import { useMarketApi } from "@/lib/useMarketApi";
 
@@ -28,7 +32,9 @@ export interface UseUserPositionsResult {
 /**
  * Helper function to calculate real-time PnL for a position
  */
-async function calculatePositionRealTimePnL(position: Position): Promise<number> {
+async function calculatePositionRealTimePnL(
+	position: Position
+): Promise<number> {
 	if (position.status === "CLOSED") {
 		// For closed positions, use the finalPnl from subgraph
 		if (position.pnlRaw) {
@@ -50,7 +56,7 @@ async function calculatePositionRealTimePnL(position: Position): Promise<number>
 			position.margin,
 			position.leverage,
 			position.isLong,
-			position.liquidationPrice,
+			position.liquidationPrice
 		);
 
 		return pnlCalculation?.unrealizedPnL || 0;
@@ -73,44 +79,56 @@ export function useUserPositions(): UseUserPositionsResult {
 		data: fetchResult,
 		isLoading: isBasicLoading,
 		error: fetchError,
-		refetch: refetchBasic,
+		refetch: refetchBasic
 	} = useQuery({
 		queryKey: ["positions", "basic", address],
 		queryFn: async () => {
 			if (!address) return null;
 
 			// Fetch both open and closed positions to ensure we have the complete history
-			const [openPositionsResult, closedPositionsResult] = await Promise.all([
-				marketApi.positions.query({ trader: address, status: "OPEN" }),
-				marketApi.positions.query({ trader: address, status: "CLOSED" }),
-			]);
+			const [openPositionsResult, closedPositionsResult] =
+				await Promise.all([
+					marketApi.positions.query({
+						trader: address,
+						status: "OPEN"
+					}),
+					marketApi.positions.query({
+						trader: address,
+						status: "CLOSED"
+					})
+				]);
+
+			console.log("openPositionsResult", openPositionsResult.data);
+			console.log("closedPositionsResult", closedPositionsResult.data);
 
 			const openPositions = (
-				Array.isArray(openPositionsResult)
-					? openPositionsResult
-					: (openPositionsResult as any)?.positions || []
+				Array.isArray(openPositionsResult.data)
+					? openPositionsResult.data
+					: (openPositionsResult.data as any)?.positions || []
 			) as Position[];
 			const closedPositions = (
-				Array.isArray(closedPositionsResult)
-					? closedPositionsResult
+				Array.isArray(closedPositionsResult.data)
+					? closedPositionsResult.data
 					: (closedPositionsResult as any)?.positions || []
 			) as Position[];
 
 			// Merge and deduplicate by ID just in case
 			const allPositions = [...openPositions, ...closedPositions];
-			const uniquePositions = Array.from(new Map(allPositions.map((p) => [p.id, p])).values());
+			const uniquePositions = Array.from(
+				new Map(allPositions.map((p) => [p.id, p])).values()
+			);
 
 			return { positions: uniquePositions };
 		},
 		enabled: !!address && isConnected && !isEnhancedMode,
-		refetchInterval: 10000,
+		refetchInterval: 10000
 	});
 
 	const {
 		data: enhancedResult,
 		isLoading: isEnhancedLoading,
 		error: enhancedError,
-		refetch: refetchEnhanced,
+		refetch: refetchEnhanced
 	} = useQuery({
 		queryKey: ["positions", "enhanced", address],
 		queryFn: async () => {
@@ -121,13 +139,15 @@ export function useUserPositions(): UseUserPositionsResult {
 					positions: response.positions as Position[],
 					enhancedPositions: response.positions,
 					totalUnrealizedPnL: response.totalUnrealizedPnL || 0,
-					totalPortfolioValue: response.totalPortfolioValue || 0,
+					totalPortfolioValue: response.totalPortfolioValue || 0
 				};
 			}
-			throw new Error(response.error || "Failed to fetch enhanced positions");
+			throw new Error(
+				response.error || "Failed to fetch enhanced positions"
+			);
 		},
 		enabled: !!address && isConnected && isEnhancedMode,
-		refetchInterval: 10000,
+		refetchInterval: 10000
 	});
 
 	// Derive positions and enhanced data from fetch results using useMemo
@@ -142,7 +162,9 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [isEnhancedMode, enhancedResult, fetchResult]);
 
 	const enhancedPositions = useMemo(() => {
-		return isEnhancedMode && enhancedResult ? enhancedResult.enhancedPositions : undefined;
+		return isEnhancedMode && enhancedResult
+			? enhancedResult.enhancedPositions
+			: undefined;
 	}, [isEnhancedMode, enhancedResult]);
 
 	const totalUnrealizedPnL = useMemo(() => {
@@ -154,7 +176,11 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [enhancedResult]);
 
 	// Convert error to string for compatibility
-	const error = fetchError ? fetchError.message : enhancedError ? enhancedError.message : null;
+	const error = fetchError
+		? fetchError.message
+		: enhancedError
+		? enhancedError.message
+		: null;
 	const isLoading = isEnhancedMode ? isEnhancedLoading : isBasicLoading;
 
 	const { data: pnlMapResult } = useQuery({
@@ -171,13 +197,13 @@ export function useUserPositions(): UseUserPositionsResult {
 				positions.map(async (position) => {
 					const pnl = await calculatePositionRealTimePnL(position);
 					pnlMap.set(position.id, pnl);
-				}),
+				})
 			);
 
 			return pnlMap;
 		},
 		enabled: !isEnhancedMode && positions.length > 0,
-		refetchInterval: 10000,
+		refetchInterval: 10000
 	});
 
 	// Derive calculatedPnLMap from the async result using useMemo
@@ -195,29 +221,36 @@ export function useUserPositions(): UseUserPositionsResult {
 			return positionsToEnrich.map((position) => {
 				// In enhanced mode, the PnL is already calculated in the enhanced data
 				if (isEnhancedMode && enhancedPositions) {
-					const enhancedPosition = enhancedPositions.find((ep) => ep.id === position.id);
+					const enhancedPosition = enhancedPositions.find(
+						(ep) => ep.id === position.id
+					);
 					if (enhancedPosition?.unrealizedPnL !== undefined) {
 						// Convert unrealizedPnL back to USDC wei format for consistency
-						const pnlInWei = (enhancedPosition.unrealizedPnL * 1e6).toString();
+						const pnlInWei = (
+							enhancedPosition.unrealizedPnL * 1e6
+						).toString();
 						return {
 							...position,
 							pnlRaw: pnlInWei,
 							pnl: `$${
 								enhancedPosition.unrealizedPnL >= 0 ? "+" : ""
-							}${enhancedPosition.unrealizedPnL.toFixed(2)}`,
+							}${enhancedPosition.unrealizedPnL.toFixed(2)}`
 						};
 					}
 				}
 
 				// In basic mode, use calculated PnL map
 				if (!isEnhancedMode && calculatedPnLMap.has(position.id)) {
-					const calculatedPnL = calculatedPnLMap.get(position.id) || 0;
+					const calculatedPnL =
+						calculatedPnLMap.get(position.id) || 0;
 					// Convert back to USDC wei format for consistency with existing code
 					const pnlInWei = (calculatedPnL * 1e6).toString();
 					return {
 						...position,
 						pnlRaw: pnlInWei,
-						pnl: `$${calculatedPnL >= 0 ? "+" : ""}${calculatedPnL.toFixed(2)}`,
+						pnl: `$${
+							calculatedPnL >= 0 ? "+" : ""
+						}${calculatedPnL.toFixed(2)}`
 					};
 				}
 
@@ -230,18 +263,22 @@ export function useUserPositions(): UseUserPositionsResult {
 				return {
 					...position,
 					pnlRaw: "0",
-					pnl: "$0.00",
+					pnl: "$0.00"
 				};
 			});
 		},
-		[isEnhancedMode, enhancedPositions, calculatedPnLMap],
+		[isEnhancedMode, enhancedPositions, calculatedPnLMap]
 	);
 
 	// Derived state with enriched positions
 	const enrichedBasicPositions = enrichPositionsWithCalculatedPnL(positions);
 	const isEmpty = enrichedBasicPositions.length === 0;
-	const openPositions = enrichedBasicPositions.filter((p) => p.status === "OPEN");
-	const closedPositions = enrichedBasicPositions.filter((p) => p.status === "CLOSED");
+	const openPositions = enrichedBasicPositions.filter(
+		(p) => p.status === "OPEN"
+	);
+	const closedPositions = enrichedBasicPositions.filter(
+		(p) => p.status === "CLOSED"
+	);
 
 	// Calculate total PnL using enriched positions with real-time calculations
 	const totalPnl = enrichedBasicPositions.reduce((sum, position) => {
@@ -306,6 +343,6 @@ export function useUserPositions(): UseUserPositionsResult {
 		profitablePositions,
 		unprofitablePositions,
 		isEnhancedMode,
-		toggleEnhancedMode,
+		toggleEnhancedMode
 	};
 }
