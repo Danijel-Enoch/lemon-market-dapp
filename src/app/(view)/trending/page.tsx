@@ -4,13 +4,17 @@ import { useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchTokensTrending } from "@/hooks/useTrending";
+import {
+	fetchTokensTrending,
+	searchTokens,
+	type TokenItem
+} from "@/hooks/useTrending";
 import type { Metadata } from "@/lib/types";
 import { formatLargeNumber, formatPrice } from "@/lib/utils";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",
-	description: "Discover trending tokens and market opportunities",
+	description: "Discover trending tokens and market opportunities"
 };
 
 // Removed useSearch & external search results integration
@@ -74,19 +78,69 @@ export default function Home() {
 	const [apiData, setApiData] = useState({
 		stocks: [] as Token[],
 		fx: [] as ForexPair[],
-		tokens: [] as Token[],
+		tokens: [] as Token[]
 	});
 	// UI filter state: all | tokens | fx | stocks
 	const [filterType, setFilterType] = useState<
-		"all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft"
+		| "all"
+		| "crypto"
+		| "forex"
+		| "commodities"
+		| "rwa"
+		| "stocks"
+		| "gdp"
+		| "nft"
 	>("all");
 
-	type FilterKey = "all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft";
+	type FilterKey =
+		| "all"
+		| "crypto"
+		| "forex"
+		| "commodities"
+		| "rwa"
+		| "stocks"
+		| "gdp"
+		| "nft";
 	const [chainFilter] = useState<"all" | string>("all");
 	const [onlyPerpMarkets] = useState(false);
 
-	// New search functionality
-	// No external search; local filtering only
+	// Search state
+	const [searchResults, setSearchResults] = useState<Token[]>([]);
+	const [isSearching, setIsSearching] = useState(false);
+	const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+	// Helper function to normalize TokenItem to Token
+	const normalizeToken = (t: TokenItem, index: number): Token => ({
+		id: index + 1,
+		symbol: String(t.symbol ?? ""),
+		name: String(t.name ?? t.symbol ?? ""),
+		price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
+		sortPrice: Number(t.priceUsd) || 0,
+		change24h:
+			typeof t.change24h === "number"
+				? `${t.change24h.toFixed(2)}%`
+				: String(t.change24h ?? "0.00%"),
+		volume: t.volume24h
+			? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M`
+			: "N/A",
+		marketCap: t.marketCap
+			? `$${formatLargeNumber(Number(t.marketCap))}`
+			: "N/A",
+		trend:
+			Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+		logo: String(t.logo ?? ""),
+		tokenAddress: String(t.tokenAddress ?? ""),
+		pairAddress: String(t.pairAddress ?? ""),
+		totalLiquidity: t.liquidityUsd
+			? `$${formatLargeNumber(Number(t.liquidityUsd))}`
+			: "$0.00",
+		realLiquidity: undefined,
+		openInterest: undefined,
+		hasMarket: t.hasMarket,
+		marketId: t.marketId,
+		virtualLiquidity: undefined,
+		chain: t.chain || undefined
+	});
 
 	const handleTradeClick = (item: Asset) => {
 		const params = new URLSearchParams();
@@ -105,61 +159,130 @@ export default function Home() {
 
 	// specialized stock/forex trade handlers removed — unified handler `handleTradeClick` manages navigation
 
-	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleSearchChange = async (
+		e: React.ChangeEvent<HTMLInputElement>
+	) => {
 		const value = e.target.value;
 		setSearchQuery(value);
-		// Local filtering only; don't call external search services
+
+		// Clear previous timeout
+		if (searchTimeoutRef.current) {
+			clearTimeout(searchTimeoutRef.current);
+		}
+
+		// If query is too short, clear search results and use local filtering
+		if (value.trim().length < 3 && !value.startsWith("0x")) {
+			setSearchResults([]);
+			setIsSearching(false);
+			return;
+		}
+
+		// For addresses, search immediately; for text, debounce
+		const isAddress = value.startsWith("0x") && value.length >= 40;
+		const delay = isAddress ? 0 : 300;
+
+		searchTimeoutRef.current = setTimeout(async () => {
+			setIsSearching(true);
+			try {
+				const response = await searchTokens(value.trim());
+				if (response.success && response.data) {
+					const normalizedResults = response.data.map((t, i) =>
+						normalizeToken(t, i)
+					);
+					setSearchResults(normalizedResults);
+				} else {
+					setSearchResults([]);
+				}
+			} catch (error) {
+				console.error("Search error:", error);
+				setSearchResults([]);
+			} finally {
+				setIsSearching(false);
+			}
+		}, delay);
 	};
 
-	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
-		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
-			const tokensData = await fetchTokensTrending({
-				limit: itemsPerPage,
-				page,
-				chain,
-				hasMarket: hasMarket ?? undefined,
-			});
-			// Normalize tokens to the local Token interface
-			const normalizedTokens = (
-				(tokensData.data || []) as import("@/hooks/useTrending").TokenItem[]
-			).map((t, i) => ({
-				id: i + 1,
-				symbol: String(t.symbol ?? ""),
-				name: String(t.name ?? t.symbol ?? ""),
-				price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
-				sortPrice: Number(t.priceUsd) || 0,
-				change24h:
-					typeof t.change24h === "number"
-						? `${t.change24h.toFixed(2)}%`
-						: String(t.change24h ?? "0.00%"),
-				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
-				marketCap: t.marketCap ? `$${formatLargeNumber(Number(t.marketCap))}` : "N/A",
-				trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
-				logo: String(t.logo ?? ""),
-				tokenAddress: String(t.tokenAddress ?? ""),
-				pairAddress: String(t.pairAddress ?? ""),
-				totalLiquidity: t.liquidityUsd ? `$${formatLargeNumber(Number(t.liquidityUsd))}` : "$0.00",
-				realLiquidity: undefined,
-				openInterest: undefined,
-				hasMarket: undefined,
-				marketId: undefined,
-				virtualLiquidity: undefined,
-				chain: t.chain || undefined,
-			}));
+	// Cleanup search timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (searchTimeoutRef.current) {
+				clearTimeout(searchTimeoutRef.current);
+			}
+		};
+	}, []);
 
-			return {
-				tokens: normalizedTokens,
-				append,
-				hasMore: tokensData.pagination?.hasMore ?? false,
-			};
-		},
-		[itemsPerPage],
-	);
+	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] =
+		useAsyncFn(
+			async (
+				page: number,
+				append: boolean = false,
+				chain?: string,
+				hasMarket?: boolean | null
+			) => {
+				const tokensData = await fetchTokensTrending({
+					limit: itemsPerPage,
+					page,
+					chain,
+					hasMarket: hasMarket ?? undefined
+				});
+				// Normalize tokens to the local Token interface
+				const normalizedTokens = (
+					(tokensData.data ||
+						[]) as import("@/hooks/useTrending").TokenItem[]
+				).map((t, i) => ({
+					id: i + 1,
+					symbol: String(t.symbol ?? ""),
+					name: String(t.name ?? t.symbol ?? ""),
+					price: t.priceUsd
+						? formatPrice(Number(t.priceUsd))
+						: "$0.00",
+					sortPrice: Number(t.priceUsd) || 0,
+					change24h:
+						typeof t.change24h === "number"
+							? `${t.change24h.toFixed(2)}%`
+							: String(t.change24h ?? "0.00%"),
+					volume: t.volume24h
+						? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M`
+						: "N/A",
+					marketCap: t.marketCap
+						? `$${formatLargeNumber(Number(t.marketCap))}`
+						: "N/A",
+					trend:
+						Number(t.change24h ?? 0) >= 0
+							? ("up" as const)
+							: ("down" as const),
+					logo: String(t.logo ?? ""),
+					tokenAddress: String(t.tokenAddress ?? ""),
+					pairAddress: String(t.pairAddress ?? ""),
+					totalLiquidity: t.liquidityUsd
+						? `$${formatLargeNumber(Number(t.liquidityUsd))}`
+						: "$0.00",
+					realLiquidity: undefined,
+					openInterest: undefined,
+					hasMarket: undefined,
+					marketId: undefined,
+					virtualLiquidity: undefined,
+					chain: t.chain || undefined
+				}));
+
+				return {
+					tokens: normalizedTokens,
+					append,
+					hasMore: tokensData.pagination?.hasMore ?? false
+				};
+			},
+			[itemsPerPage]
+		);
 
 	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
 		useAsyncFn(async () => {
 			// Fetch tokens with pagination
-			await fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
+			await fetchTokens(
+				1,
+				false,
+				chainFilter === "all" ? undefined : chainFilter,
+				onlyPerpMarkets
+			);
 
 			// const stocksData = await fetchStocksTrending({ limit: 50 });
 			// const fxData = await fetchFXTrending({ limit: 50 });
@@ -238,7 +361,7 @@ export default function Home() {
 				...prev,
 				tokens: tokensResult.append
 					? [...prev.tokens, ...tokensResult.tokens]
-					: tokensResult.tokens,
+					: tokensResult.tokens
 			}));
 			setHasMore(tokensResult.hasMore);
 		}
@@ -249,7 +372,7 @@ export default function Home() {
 			setApiData((prev) => ({
 				...prev,
 				stocks: trendingResult.stocks,
-				fx: trendingResult.fx,
+				fx: trendingResult.fx
 			}));
 		}
 	}, [trendingResult]);
@@ -261,25 +384,35 @@ export default function Home() {
 	// Refetch tokens when chain or perp filter changes
 	useEffect(() => {
 		setCurrentPage(1);
-		fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
+		fetchTokens(
+			1,
+			false,
+			chainFilter === "all" ? undefined : chainFilter,
+			onlyPerpMarkets
+		);
 	}, [chainFilter, onlyPerpMarkets, fetchTokens]);
 	useEffect(() => {
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+				if (
+					entries[0].isIntersecting &&
+					hasMore &&
+					!isLoadingMore &&
+					!isLoading
+				) {
 					setCurrentPage((prev) => {
 						const nextPage = prev + 1;
 						fetchTokens(
 							nextPage,
 							true,
 							chainFilter === "all" ? undefined : chainFilter,
-							onlyPerpMarkets,
+							onlyPerpMarkets
 						);
 						return nextPage;
 					});
 				}
 			},
-			{ threshold: 0.1 },
+			{ threshold: 0.1 }
 		);
 
 		if (observerTarget.current) {
@@ -291,26 +424,49 @@ export default function Home() {
 				observer.unobserve(observerTarget.current);
 			}
 		};
-	}, [hasMore, isLoadingMore, isLoading, fetchTokens, chainFilter, onlyPerpMarkets]);
+	}, [
+		hasMore,
+		isLoadingMore,
+		isLoading,
+		fetchTokens,
+		chainFilter,
+		onlyPerpMarkets
+	]);
 
-	const filteredTokens = apiData.tokens.filter(
-		(token) =>
-			token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
+	// Determine which tokens to display:
+	// - If we have search results from API (query >= 3 chars or is an address), use those
+	// - Otherwise, fall back to local filtering of trending data
+	const isApiSearchActive =
+		searchQuery.trim().length >= 3 ||
+		(searchQuery.startsWith("0x") && searchQuery.length >= 40);
+
+	const filteredTokens =
+		isApiSearchActive && searchResults.length > 0
+			? searchResults
+			: isApiSearchActive && searchResults.length === 0 && !isSearching
+			? [] // API search returned no results
+			: apiData.tokens.filter(
+					(token) =>
+						token.name
+							.toLowerCase()
+							.includes(searchQuery.toLowerCase()) ||
+						token.symbol
+							.toLowerCase()
+							.includes(searchQuery.toLowerCase())
+			  );
 	const _filteredFX = apiData.fx.filter(
 		(pair) =>
 			pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase())
 	);
 	const _filteredStocks = apiData.stocks.filter(
 		(stock) =>
 			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
+			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase())
 	);
 
 	const combinedAssets: Asset[] = [
-		...filteredTokens.map((t) => ({ ...t, type: "crypto" }) as Asset),
+		...filteredTokens.map((t) => ({ ...t, type: "crypto" } as Asset))
 		// ...filteredFX.map(
 		// 	(f) =>
 		// 		({
@@ -349,7 +505,7 @@ export default function Home() {
 	// Filter tabs with typed keys to satisfy TypeScript and enable mapping
 	const filterTabs = [
 		["all", "All"],
-		["crypto", "Crypto"],
+		["crypto", "Crypto"]
 		// ["forex", "Forex"],
 		// ["commodities", "Commodities"],
 		// ["rwa", "RWA's"],
@@ -381,7 +537,9 @@ export default function Home() {
 								<button
 									type="button"
 									key={String(key)}
-									onClick={() => setFilterType(key as FilterKey)}
+									onClick={() =>
+										setFilterType(key as FilterKey)
+									}
 									className={`text-sm font-medium px-3 py-2 -mb-px whitespace-nowrap uppercase ${
 										filterType === key
 											? "text-[#0BB37E] border-b-2 border-[#0BB37E]"
@@ -430,121 +588,182 @@ export default function Home() {
 										</tr>
 									</thead>
 									<tbody>
-										{isLoading || (isLoadingMore && _currentPage === 1) ? (
+										{isLoading ||
+										isSearching ||
+										(isLoadingMore &&
+											_currentPage === 1) ? (
 											// eslint-disable-next-line react/no-array-index-key
-											Array.from({ length: 10 }).map((_, i) => (
-												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">
-													<td className="px-4 py-4 align-middle">
-														<div className="flex items-center gap-4">
-															<Skeleton className="w-11 h-11 rounded-full" />
-															<div className="min-w-0">
-																<Skeleton className="h-4 w-16 mb-1" />
-																<Skeleton className="h-3 w-24" />
+											Array.from({ length: 10 }).map(
+												(_, i) => (
+													<tr
+														key={`skeleton-${i}`}
+														className="border-b border-[#1e1e1e]"
+													>
+														<td className="px-4 py-4 align-middle">
+															<div className="flex items-center gap-4">
+																<Skeleton className="w-11 h-11 rounded-full" />
+																<div className="min-w-0">
+																	<Skeleton className="h-4 w-16 mb-1" />
+																	<Skeleton className="h-3 w-24" />
+																</div>
 															</div>
-														</div>
-													</td>
-													<td className="px-4 py-4 text-center">
-														<Skeleton className="h-5 w-12 mx-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-20 ml-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-16 ml-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-16 ml-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-16 ml-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-16 ml-auto" />
-													</td>
-													<td className="px-4 py-4 text-right">
-														<Skeleton className="h-4 w-16 ml-auto" />
-													</td>
-												</tr>
-											))
+														</td>
+														<td className="px-4 py-4 text-center">
+															<Skeleton className="h-5 w-12 mx-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-20 ml-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-16 ml-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-16 ml-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-16 ml-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-16 ml-auto" />
+														</td>
+														<td className="px-4 py-4 text-right">
+															<Skeleton className="h-4 w-16 ml-auto" />
+														</td>
+													</tr>
+												)
+											)
 										) : combinedAssets.length > 0 ? (
-											combinedAssets.map((item: Asset, idx: number) => (
-												<tr
-													key={`${item.type}-${item.id}-${idx}`}
-													className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
-													onClick={() => handleTradeClick(item)}
-												>
-													<td className="px-4 py-4 align-middle">
-														<div className="flex items-center gap-4">
-															<div className="relative">
-																<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
-																	{item.logo?.startsWith?.("http") ? (
-																		<img
-																			src={item.logo}
-																			alt={item.symbol}
-																			width={44}
-																			height={44}
-																			className="w-full h-full object-cover"
-																		/>
-																	) : (
-																		<span className="text-sm">{item.logo || "🪙"}</span>
+											combinedAssets.map(
+												(item: Asset, idx: number) => (
+													<tr
+														key={`${item.type}-${item.id}-${idx}`}
+														className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
+														onClick={() =>
+															handleTradeClick(
+																item
+															)
+														}
+													>
+														<td className="px-4 py-4 align-middle">
+															<div className="flex items-center gap-4">
+																<div className="relative">
+																	<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
+																		{item.logo?.startsWith?.(
+																			"http"
+																		) ? (
+																			<img
+																				src={
+																					item.logo
+																				}
+																				alt={
+																					item.symbol
+																				}
+																				width={
+																					44
+																				}
+																				height={
+																					44
+																				}
+																				className="w-full h-full object-cover"
+																			/>
+																		) : (
+																			<span className="text-sm">
+																				{item.logo ||
+																					"🪙"}
+																			</span>
+																		)}
+																	</div>
+																	{item.leverage && (
+																		<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
+																			{
+																				item.leverage
+																			}
+																		</div>
 																	)}
 																</div>
-																{item.leverage && (
-																	<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
-																		{item.leverage}
+																<div className="min-w-0">
+																	<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
+																		{
+																			item.symbol
+																		}
 																	</div>
-																)}
-															</div>
-															<div className="min-w-0">
-																<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
-																	{item.symbol}
+																	<div className="text-[#9AA0A0] text-xs truncate">
+																		{
+																			item.name
+																		}
+																	</div>
 																</div>
-																<div className="text-[#9AA0A0] text-xs truncate">{item.name}</div>
 															</div>
-														</div>
-													</td>
-													<td className="px-4 py-4 text-center">
-														<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
-															{item.xp ?? "5:23"}
-														</div>
-													</td>
-													<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
-														{item.price}
-													</td>
-													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-														{item.marketCap || "N/A"}
-													</td>
-													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-														{item.totalLiquidity ?? "$0.00"}
-													</td>
-													<td className="px-4 py-4 text-right">
-														<div className="inline-flex items-center gap-2 justify-end">
-															<div
-																className={`inline-flex items-center gap-1 px-2 py-1 ${item.trend === "up" ? "text-[#30E5A7]" : "text-[#FF6B6B]"}`}
-															>
-																{item.trend === "up" ? (
-																	<ArrowUpRight className="w-3 h-3" />
-																) : (
-																	<ArrowDownRight className="w-3 h-3" />
-																)}
-																<span className="font-medium text-sm">{item.change24h}</span>
+														</td>
+														<td className="px-4 py-4 text-center">
+															<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
+																{item.xp ??
+																	"5:23"}
 															</div>
-														</div>
-													</td>
-													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-														{item.openInterest ?? "$0.00"}
-													</td>
-													<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
-														{item.volume ?? "N/A"}
-													</td>
-												</tr>
-											))
+														</td>
+														<td className="px-4 py-4 text-right text-[#E9F0EF] font-semibold text-sm">
+															{item.price}
+														</td>
+														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+															{item.marketCap ||
+																"N/A"}
+														</td>
+														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+															{item.totalLiquidity ??
+																"$0.00"}
+														</td>
+														<td className="px-4 py-4 text-right">
+															<div className="inline-flex items-center gap-2 justify-end">
+																<div
+																	className={`inline-flex items-center gap-1 px-2 py-1 ${
+																		item.trend ===
+																		"up"
+																			? "text-[#30E5A7]"
+																			: "text-[#FF6B6B]"
+																	}`}
+																>
+																	{item.trend ===
+																	"up" ? (
+																		<ArrowUpRight className="w-3 h-3" />
+																	) : (
+																		<ArrowDownRight className="w-3 h-3" />
+																	)}
+																	<span className="font-medium text-sm">
+																		{
+																			item.change24h
+																		}
+																	</span>
+																</div>
+															</div>
+														</td>
+														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+															{item.openInterest ??
+																"$0.00"}
+														</td>
+														<td className="px-4 py-4 text-right text-[#9AA0A0] text-sm">
+															{item.volume ??
+																"N/A"}
+														</td>
+													</tr>
+												)
+											)
 										) : (
 											<tr>
-												<td colSpan={8} className="p-12 text-center">
+												<td
+													colSpan={8}
+													className="p-12 text-center"
+												>
 													<div className="flex flex-col items-center gap-2">
-														<div className="text-muted-foreground">No items found</div>
-														<div className="text-sm text-muted-foreground">No data available</div>
+														<div className="text-muted-foreground">
+															{isApiSearchActive
+																? `No results found for "${searchQuery}"`
+																: "No items found"}
+														</div>
+														<div className="text-sm text-muted-foreground">
+															{isApiSearchActive
+																? "Try searching by token symbol, name, or contract address"
+																: "No data available"}
+														</div>
 													</div>
 												</td>
 											</tr>
@@ -563,7 +782,9 @@ export default function Home() {
 					<span>Rows Per Page:</span>
 					<select
 						value={itemsPerPage}
-						onChange={(e) => setItemsPerPage(Number(e.target.value))}
+						onChange={(e) =>
+							setItemsPerPage(Number(e.target.value))
+						}
 						className="bg-[#050505] border border-[#1f1f1f] px-2 py-1 text-sm rounded text-[#E8F0EF]"
 					>
 						<option value="10">10</option>

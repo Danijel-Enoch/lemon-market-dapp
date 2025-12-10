@@ -1,11 +1,15 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SearchResults } from "@/components/ui/SearchResults";
-import { useSearch } from "@/hooks/useSearch";
-import type { SearchResult } from "@/lib/search-service";
+import { useSearch, type SearchResult } from "@/hooks/useSearch";
 
 interface SearchModalProps {
 	open: boolean;
@@ -16,7 +20,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const { results, isLoading, error, search, clearResults } = useSearch({
-		minQueryLength: 3,
+		minQueryLength: 3
 	});
 
 	const handleSearch = (value: string) => {
@@ -31,9 +35,15 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 	const handleTradeClick = (result: SearchResult) => {
 		// Navigate to perp page with the selected pair
 		const params = new URLSearchParams();
-		params.set("pairAddress", result.pairAddress);
-		// params.set("tokenAddress", result.baseToken.address);
-		// params.set("chain", result.chainId.toString());
+		params.set("symbol", result.symbol);
+		if (result.pairAddress) {
+			params.set("pairAddress", result.pairAddress);
+		}
+		if (result.tokenAddress) {
+			params.set("tokenAddress", result.tokenAddress);
+		}
+		params.set("chain", result.chain || "base");
+		params.set("assetType", "crypto");
 		navigate(`/perp?${params.toString()}`);
 		onOpenChange(false);
 		setQuery("");
