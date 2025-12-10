@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import {
@@ -298,23 +298,25 @@ export function PositionsTable({
 		setIsModifyDialogOpen(true);
 	};
 
-	// Handle transaction confirmation
-	if (isConfirmed && hash) {
-		// Show confirmation toast
-		toast.success(
-			<div>
-				Transaction confirmed!
-				<div className="text-xs text-muted-foreground">
-					Your transaction has been confirmed on the blockchain
-				</div>
-			</div>
-		);
+	// Track if we've already shown the confirmation toast for this hash
+	const confirmedHashRef = useRef<string | null>(null);
 
-		// Refresh positions after confirmation
-		setTimeout(() => {
-			onRefetch();
-		}, 2000);
-	}
+	// Handle transaction confirmation
+	useEffect(() => {
+		if (isConfirmed && hash && confirmedHashRef.current !== hash) {
+			confirmedHashRef.current = hash;
+
+			// Show confirmation toast
+			toast.success(
+				"Transaction confirmed! Your transaction has been confirmed on the blockchain."
+			);
+
+			// Refresh positions after confirmation
+			setTimeout(() => {
+				onRefetch();
+			}, 2000);
+		}
+	}, [isConfirmed, hash, onRefetch]);
 
 	return (
 		<div className="bg-card border border-gray-100/10 rounded-lg">
