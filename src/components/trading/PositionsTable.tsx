@@ -60,13 +60,17 @@ export function PositionsTable({
 	const [newMargin, setNewMargin] = useState("");
 	const [newLeverage, setNewLeverage] = useState(2);
 
-	// Open positions (status === "open")
+	// Open positions (status === "OPEN" or "OPENED")
 	const openPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() === "opened"
+		(pos) =>
+			pos.status.toLowerCase() === "opened" ||
+			pos.status.toLowerCase() === "open"
 	);
-	// Closed positions (status !== "open")
+	// Closed positions (status !== "OPEN" and "OPENED")
 	const closedPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() !== "opened"
+		(pos) =>
+			pos.status.toLowerCase() !== "opened" &&
+			pos.status.toLowerCase() !== "open"
 	);
 
 	// Handle close position

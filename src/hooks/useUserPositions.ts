@@ -6,8 +6,11 @@ import {
 	getEnhancedUserPositions,
 	type Position
 } from "@/lib/position-api";
-import { getTokenPriceService } from "@/lib/token-price-service";
-import { useMarketApi } from "@/lib/useMarketApi";
+import {
+	useMarketApi,
+	type TraderPosition,
+	type TraderPositionsResponse
+} from "@/lib/useMarketApi";
 
 export interface UseUserPositionsResult {
 	positions: Position[];
@@ -23,52 +26,82 @@ export interface UseUserPositionsResult {
 	totalMargin: number;
 	totalUnrealizedPnL?: number;
 	totalPortfolioValue?: number;
+	totalVolume?: number;
+	activePositionWorth?: number;
 	profitablePositions: Position[];
 	unprofitablePositions: Position[];
 	isEnhancedMode: boolean;
 	toggleEnhancedMode: () => void;
+	summary?: {
+		totalPositions: number;
+		activePositions: number;
+		closedPositions: number;
+		liquidatedPositions: number;
+		totalPnlFormatted: string;
+		totalVolumeFormatted: string;
+		activePositionWorthFormatted: string;
+	};
 }
 
 /**
- * Helper function to calculate real-time PnL for a position
+ * Transform TraderPosition from API to Position for UI compatibility
  */
-async function calculatePositionRealTimePnL(
-	position: Position
-): Promise<number> {
-	if (position.status === "CLOSED") {
-		// For closed positions, use the finalPnl from subgraph
-		if (position.pnlRaw) {
-			try {
-				return parseFloat(position.pnlRaw) / 1e6; // Convert from USDC wei
-			} catch {
-				return 0;
+function transformTraderPosition(traderPos: TraderPosition): Position {
+	const tokenSymbolParts = traderPos.tokenSymbol.split("-");
+	const displaySymbol = tokenSymbolParts[0] || traderPos.tokenSymbol;
+
+	// Use realtime PnL for open positions, currentPnl for closed
+	const pnlValue =
+		traderPos.status === "OPENED" && traderPos.realtimeData
+			? traderPos.realtimeData.realtimePnl
+			: traderPos.currentPnl;
+
+	const pnlNumber = parseFloat(pnlValue) || 0;
+	const pnlFormatted =
+		traderPos.status === "OPENED" && traderPos.realtimeData
+			? traderPos.realtimeData.formatted.realtimePnl
+			: traderPos.formatted.currentPnl;
+
+	return {
+		id: traderPos.id,
+		positionId: traderPos.positionId,
+		pair: `${displaySymbol}/USDC`,
+		side: traderPos.isLong ? "Long" : "Short",
+		tokenSymbol: traderPos.tokenSymbol,
+		isLong: traderPos.isLong,
+		entryPrice: traderPos.formatted.entryPrice,
+		exitPrice: traderPos.exitPrice ? traderPos.formatted.exitPrice : null,
+		margin: traderPos.formatted.margin,
+		leverage: traderPos.formatted.leverage,
+		leverageValue: parseInt(traderPos.leverage, 10) || 1,
+		liquidationPrice: traderPos.formatted.liquidationPrice,
+		status: traderPos.status === "OPENED" ? "OPEN" : traderPos.status,
+		pnl: pnlFormatted,
+		pnlRaw: (pnlNumber * 1e6).toString(), // Convert to USDC wei for compatibility
+		openedAt: traderPos.formatted.openedAt,
+		lastUpdatedAt: traderPos.lastModifiedAt,
+		lastTransactionHash: traderPos.lastUpdateTransactionHash,
+		trader: traderPos.trader,
+		tokenaddress: tokenSymbolParts[1] || "",
+		realtimeData: traderPos.realtimeData || {
+			realtimePnl: traderPos.currentPnl,
+			currentPrice: traderPos.entryPrice,
+			pnlPercentage: "0%",
+			priceChange: "0",
+			priceChangePercentage: "0%",
+			formatted: {
+				realtimePnl: traderPos.formatted.currentPnl,
+				currentPrice: traderPos.formatted.entryPrice,
+				priceChange: "$0.00"
 			}
 		}
-		return 0;
-	}
-
-	// For open positions, calculate real-time PnL using token price service
-	try {
-		const tokenPriceService = getTokenPriceService();
-		const pnlCalculation = await tokenPriceService.calculatePositionPnL(
-			position.tokenaddress,
-			position.entryPrice,
-			position.margin,
-			position.leverage,
-			position.isLong,
-			position.liquidationPrice
-		);
-
-		return pnlCalculation?.unrealizedPnL || 0;
-	} catch (_error) {
-		return 0;
-	}
+	};
 }
 
 /**
  * Custom hook for managing user positions
- * Automatically fetches positions when wallet is connected and provides utility methods
- * Supports both basic and enhanced mode with real-time PnL calculations
+ * Uses the /positions/trader/{traderAddress} endpoint for complete position data
+ * with real-time PnL calculations
  */
 export function useUserPositions(): UseUserPositionsResult {
 	const { address, isConnected } = useAccount();
@@ -81,43 +114,38 @@ export function useUserPositions(): UseUserPositionsResult {
 		error: fetchError,
 		refetch: refetchBasic
 	} = useQuery({
-		queryKey: ["positions", "basic", address],
+		queryKey: ["positions", "trader", address],
 		queryFn: async () => {
 			if (!address) return null;
 
-			// Fetch both open and closed positions to ensure we have the complete history
-			const [openPositionsResult, closedPositionsResult] =
-				await Promise.all([
-					marketApi.positions.query({
-						trader: address,
-						status: "OPEN"
-					}),
-					marketApi.positions.query({
-						trader: address,
-						status: "CLOSED"
-					})
-				]);
+			// Use the trader endpoint which includes all positions and summary data
+			const result = await marketApi.positions.trader(address);
 
-			//console.log("closedPositionsResult", closedPositionsResult.data);
+			if (!result || !(result as any).success) {
+				throw new Error("Failed to fetch positions");
+			}
 
-			const openPositions = (
-				Array.isArray(openPositionsResult.data)
-					? openPositionsResult.data
-					: (openPositionsResult.data as any)?.positions || []
-			) as Position[];
-			const closedPositions = (
-				Array.isArray(closedPositionsResult.data)
-					? closedPositionsResult.data
-					: (closedPositionsResult.data as any)?.positions || []
-			) as Position[];
+			const response = result as TraderPositionsResponse;
+			const data = response.data;
 
-			// Merge and deduplicate by ID just in case
-			const allPositions = [...openPositions, ...closedPositions];
-			const uniquePositions = Array.from(
-				new Map(allPositions.map((p) => [p.id, p])).values()
+			// Transform positions to UI format
+			const transformedPositions = data.positions.map(
+				transformTraderPosition
 			);
 
-			return { positions: uniquePositions };
+			return {
+				positions: transformedPositions,
+				activePositions: data.activePositions.map(
+					transformTraderPosition
+				),
+				inactivePositions: data.inactivePositions.map(
+					transformTraderPosition
+				),
+				totalPnl: parseFloat(data.totalPnl) || 0,
+				totalVolume: parseFloat(data.totalVolume) || 0,
+				activePositionWorth: parseFloat(data.activePositionWorth) || 0,
+				summary: data.summary
+			};
 		},
 		enabled: !!address && isConnected && !isEnhancedMode,
 		refetchInterval: 10000
@@ -182,147 +210,81 @@ export function useUserPositions(): UseUserPositionsResult {
 		: null;
 	const isLoading = isEnhancedMode ? isEnhancedLoading : isBasicLoading;
 
-	const { data: pnlMapResult } = useQuery({
-		queryKey: ["positions", "pnl", positions],
-		queryFn: async () => {
-			if (positions.length === 0) {
-				return new Map<string, number>();
-			}
-
-			const pnlMap = new Map<string, number>();
-
-			// Calculate PnL for each position
-			await Promise.all(
-				positions.map(async (position) => {
-					const pnl = await calculatePositionRealTimePnL(position);
-					pnlMap.set(position.id, pnl);
-				})
-			);
-
-			return pnlMap;
-		},
-		enabled: !isEnhancedMode && positions.length > 0,
-		refetchInterval: 10000
-	});
-
-	// Derive calculatedPnLMap from the async result using useMemo
-	const calculatedPnLMap = useMemo(() => {
-		return pnlMapResult || new Map<string, number>();
-	}, [pnlMapResult]);
-
 	const toggleEnhancedMode = useCallback(() => {
 		setIsEnhancedMode((prev) => !prev);
 	}, []);
 
-	// Function to enrich positions with calculated PnL values
-	const enrichPositionsWithCalculatedPnL = useCallback(
-		(positionsToEnrich: Position[]): Position[] => {
-			return positionsToEnrich.map((position) => {
-				// In enhanced mode, the PnL is already calculated in the enhanced data
-				if (isEnhancedMode && enhancedPositions) {
-					const enhancedPosition = enhancedPositions.find(
-						(ep) => ep.id === position.id
-					);
-					if (enhancedPosition?.unrealizedPnL !== undefined) {
-						// Convert unrealizedPnL back to USDC wei format for consistency
-						const pnlInWei = (
-							enhancedPosition.unrealizedPnL * 1e6
-						).toString();
-						return {
-							...position,
-							pnlRaw: pnlInWei,
-							pnl: `$${
-								enhancedPosition.unrealizedPnL >= 0 ? "+" : ""
-							}${enhancedPosition.unrealizedPnL.toFixed(2)}`
-						};
-					}
-				}
-
-				// In basic mode, use calculated PnL map
-				if (!isEnhancedMode && calculatedPnLMap.has(position.id)) {
-					const calculatedPnL =
-						calculatedPnLMap.get(position.id) || 0;
-					// Convert back to USDC wei format for consistency with existing code
-					const pnlInWei = (calculatedPnL * 1e6).toString();
-					return {
-						...position,
-						pnlRaw: pnlInWei,
-						pnl: `$${
-							calculatedPnL >= 0 ? "+" : ""
-						}${calculatedPnL.toFixed(2)}`
-					};
-				}
-
-				// For closed positions, keep the original subgraph PnL
-				if (position.status === "CLOSED") {
-					return position;
-				}
-
-				// For open positions without calculated data, set to 0
-				return {
-					...position,
-					pnlRaw: "0",
-					pnl: "$0.00"
-				};
-			});
-		},
-		[isEnhancedMode, enhancedPositions, calculatedPnLMap]
-	);
-
-	// Derived state with enriched positions
-	const enrichedBasicPositions = enrichPositionsWithCalculatedPnL(positions);
-	const isEmpty = enrichedBasicPositions.length === 0;
-	const openPositions = enrichedBasicPositions.filter(
-		(p) => p.status === "OPEN"
-	);
-	const closedPositions = enrichedBasicPositions.filter(
-		(p) => p.status === "CLOSED"
-	);
-
-	// Calculate total PnL using enriched positions with real-time calculations
-	const totalPnl = enrichedBasicPositions.reduce((sum, position) => {
-		if (!position.pnlRaw) return sum;
-		try {
-			const pnl = parseFloat(position.pnlRaw) / 1e6; // Convert from USDC wei
-			return sum + (Number.isNaN(pnl) ? 0 : pnl);
-		} catch {
-			return sum;
+	// Derived state
+	const isEmpty = positions.length === 0;
+	const openPositions = useMemo(() => {
+		if (!isEnhancedMode && fetchResult) {
+			return fetchResult.activePositions;
 		}
-	}, 0);
+		return positions.filter((p) => p.status === "OPEN");
+	}, [isEnhancedMode, fetchResult, positions]);
+
+	const closedPositions = useMemo(() => {
+		if (!isEnhancedMode && fetchResult) {
+			return fetchResult.inactivePositions;
+		}
+		return positions.filter((p) => p.status !== "OPEN");
+	}, [isEnhancedMode, fetchResult, positions]);
+
+	// Use totals from API response directly
+	const totalPnl = useMemo(() => {
+		if (!isEnhancedMode && fetchResult) {
+			return fetchResult.totalPnl;
+		}
+		return positions.reduce((sum, position) => {
+			if (!position.pnlRaw) return sum;
+			try {
+				const pnl = parseFloat(position.pnlRaw) / 1e6;
+				return sum + (Number.isNaN(pnl) ? 0 : pnl);
+			} catch {
+				return sum;
+			}
+		}, 0);
+	}, [isEnhancedMode, fetchResult, positions]);
 
 	// Calculate total margin
-	const totalMargin = enrichedBasicPositions.reduce((sum, position) => {
-		try {
-			const margin = parseFloat(position.margin.replace(/[$,]/g, ""));
-			return sum + (Number.isNaN(margin) ? 0 : margin);
-		} catch {
-			return sum;
-		}
-	}, 0);
+	const totalMargin = useMemo(() => {
+		return positions.reduce((sum, position) => {
+			try {
+				const margin = parseFloat(position.margin.replace(/[$,]/g, ""));
+				return sum + (Number.isNaN(margin) ? 0 : margin);
+			} catch {
+				return sum;
+			}
+		}, 0);
+	}, [positions]);
 
-	// Filter profitable and unprofitable positions using enriched data
-	const profitablePositions = enrichedBasicPositions.filter((position) => {
-		if (!position.pnlRaw) return false;
-		try {
-			const pnl = parseFloat(position.pnlRaw);
-			return !Number.isNaN(pnl) && pnl > 0;
-		} catch {
-			return false;
-		}
-	});
+	// Filter profitable and unprofitable positions
+	const profitablePositions = useMemo(() => {
+		return positions.filter((position) => {
+			if (!position.pnlRaw) return false;
+			try {
+				const pnl = parseFloat(position.pnlRaw);
+				return !Number.isNaN(pnl) && pnl > 0;
+			} catch {
+				return false;
+			}
+		});
+	}, [positions]);
 
-	const unprofitablePositions = enrichedBasicPositions.filter((position) => {
-		if (!position.pnlRaw) return false;
-		try {
-			const pnl = parseFloat(position.pnlRaw);
-			return !Number.isNaN(pnl) && pnl < 0;
-		} catch {
-			return false;
-		}
-	});
+	const unprofitablePositions = useMemo(() => {
+		return positions.filter((position) => {
+			if (!position.pnlRaw) return false;
+			try {
+				const pnl = parseFloat(position.pnlRaw);
+				return !Number.isNaN(pnl) && pnl < 0;
+			} catch {
+				return false;
+			}
+		});
+	}, [positions]);
 
 	return {
-		positions: enrichedBasicPositions,
+		positions,
 		enhancedPositions: isEnhancedMode ? enhancedPositions : undefined,
 		isLoading,
 		error,
@@ -339,9 +301,12 @@ export function useUserPositions(): UseUserPositionsResult {
 		totalMargin,
 		totalUnrealizedPnL,
 		totalPortfolioValue,
+		totalVolume: fetchResult?.totalVolume,
+		activePositionWorth: fetchResult?.activePositionWorth,
 		profitablePositions,
 		unprofitablePositions,
 		isEnhancedMode,
-		toggleEnhancedMode
+		toggleEnhancedMode,
+		summary: fetchResult?.summary
 	};
 }

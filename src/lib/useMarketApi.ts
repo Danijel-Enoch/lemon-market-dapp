@@ -68,6 +68,96 @@ export interface HealthResponse {
 	status: string;
 }
 
+// New interface for trader positions response
+export interface TraderPositionsResponse {
+	success: boolean;
+	data: {
+		positions: TraderPosition[];
+		activePositions: TraderPosition[];
+		inactivePositions: TraderPosition[];
+		count: number;
+		activeCount: number;
+		inactiveCount: number;
+		totalPnl: string;
+		totalVolume: string;
+		activePositionWorth: string;
+		trader: string;
+		summary: {
+			totalPositions: number;
+			activePositions: number;
+			closedPositions: number;
+			liquidatedPositions: number;
+			totalPnl: string;
+			totalPnlFormatted: string;
+			totalVolume: string;
+			totalVolumeFormatted: string;
+			activePositionWorth: string;
+			activePositionWorthFormatted: string;
+		};
+		metadata: {
+			fetchedAt: string;
+			source: string;
+			limit: number;
+			offset: number;
+			includesRealtimePnl: boolean;
+		};
+	};
+}
+
+export interface TraderPosition {
+	id: string;
+	trader: string;
+	totalFeesCollected: string;
+	tokenSymbol: string;
+	status: "OPENED" | "CLOSED" | "LIQUIDATED";
+	referralFeesCollected: string;
+	positionId: string;
+	openedAt: string;
+	modificationCount: string;
+	marketId: string | null;
+	margin: string;
+	liquidationPrice: string;
+	leverage: string;
+	lastUpdateTransactionHash: string;
+	lastUpdateBlockTimestamp: string;
+	lastUpdateBlockNumber: string;
+	lastModifiedAt: string;
+	isLong: boolean;
+	entryPrice: string;
+	exitPrice?: string;
+	devFeesCollected: string;
+	currentPnl: string;
+	closedAt: string | null;
+	closedAtIso?: string;
+	realtimeData?: {
+		realtimePnl: string;
+		currentPrice: string;
+		pnlPercentage: string;
+		priceChange: string;
+		priceChangePercentage: string;
+		formatted: {
+			realtimePnl: string;
+			currentPrice: string;
+			priceChange: string;
+		};
+	};
+	formatted: {
+		entryPrice: string;
+		exitPrice?: string;
+		liquidationPrice: string;
+		currentPnl: string;
+		margin: string;
+		leverage: string;
+		totalFeesCollected: string;
+		referralFeesCollected: string;
+		devFeesCollected: string;
+		openedAt: string;
+		closedAt?: string;
+		exitPricePnl?: string;
+		exitPricePnlPercentage?: string;
+	};
+}
+
 export interface Position {
 	id: number;
 	trader: string;
