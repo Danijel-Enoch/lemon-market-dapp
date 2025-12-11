@@ -3,7 +3,6 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 interface ReferralCodeSectionProps {
@@ -15,7 +14,7 @@ interface ReferralCodeSectionProps {
 export function ReferralCodeSection({
 	referralCode,
 	isGenerating,
-	onGenerate,
+	onGenerate
 }: ReferralCodeSectionProps) {
 	const [copied, setCopied] = useState(false);
 	const [linkCopied, setLinkCopied] = useState(false);
@@ -58,81 +57,94 @@ export function ReferralCodeSection({
 		}
 	}, [onGenerate]);
 
+	if (referralCode) {
+		return (
+			<div className="space-y-4">
+				<div className="flex items-center gap-2">
+					<Input
+						value={referralCode}
+						readOnly
+						className="bg-input/50 font-mono text-sm"
+					/>
+					<Button
+						size="icon"
+						variant="outline"
+						onClick={handleCopyCode}
+						className="shrink-0"
+						title="Copy referral code"
+					>
+						{copied ? (
+							<span className="text-xs">✓</span>
+						) : (
+							<Copy className="size-4" />
+						)}
+					</Button>
+				</div>
+				<div className="space-y-2">
+					<Button
+						onClick={handleCopyReferralLink}
+						variant="default"
+						className="w-full gap-2"
+					>
+						{linkCopied ? (
+							<>
+								<span className="text-xs">✓</span>
+								Link Copied!
+							</>
+						) : (
+							<>
+								<Link className="size-4" />
+								Copy Referral Link
+							</>
+						)}
+					</Button>
+					<Button
+						onClick={handleGenerateCode}
+						disabled={isGenerating}
+						variant="outline"
+						className="w-full"
+					>
+						{isGenerating ? (
+							<>
+								<RefreshCw className="size-4 animate-spin" />
+								Generating...
+							</>
+						) : (
+							<>
+								<RefreshCw className="size-4" />
+								Regenerate Code
+							</>
+						)}
+					</Button>
+				</div>
+				<p className="text-xs text-muted-foreground">
+					Share your referral link with friends to earn 10 points when
+					they sign up!
+				</p>
+			</div>
+		);
+	}
+
 	return (
-		<Card className="border-accent/20">
-			<CardHeader className="border-b border-accent/10 pb-4">
-				<CardTitle className="text-base font-semibold">Referral Code</CardTitle>
-			</CardHeader>
-			<CardContent className="pt-6">
-				{referralCode ? (
-					<div className="space-y-4">
-						<div className="flex items-center gap-2">
-							<Input value={referralCode} readOnly className="bg-input/50 font-mono text-sm" />
-							<Button
-								size="icon"
-								variant="outline"
-								onClick={handleCopyCode}
-								className="shrink-0"
-								title="Copy referral code"
-							>
-								{copied ? <span className="text-xs">✓</span> : <Copy className="size-4" />}
-							</Button>
-						</div>
-						<div className="space-y-2">
-							<Button onClick={handleCopyReferralLink} variant="default" className="w-full gap-2">
-								{linkCopied ? (
-									<>
-										<span className="text-xs">✓</span>
-										Link Copied!
-									</>
-								) : (
-									<>
-										<Link className="size-4" />
-										Copy Referral Link
-									</>
-								)}
-							</Button>
-							<Button
-								onClick={handleGenerateCode}
-								disabled={isGenerating}
-								variant="outline"
-								className="w-full"
-							>
-								{isGenerating ? (
-									<>
-										<RefreshCw className="size-4 animate-spin" />
-										Generating...
-									</>
-								) : (
-									<>
-										<RefreshCw className="size-4" />
-										Generate New Code
-									</>
-								)}
-							</Button>
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Share your referral link with friends to earn rewards when they sign up and trade!
-						</p>
-					</div>
+		<div className="space-y-4">
+			<p className="text-sm text-muted-foreground">
+				Create your unique referral code to start earning rewards when
+				your friends join!
+			</p>
+			<Button
+				onClick={handleGenerateCode}
+				disabled={isGenerating}
+				className="w-full"
+			>
+				{isGenerating ? (
+					<>
+						<RefreshCw className="size-4 animate-spin mr-2" />
+						Creating Code...
+					</>
 				) : (
-					<div className="space-y-4">
-						<p className="text-sm text-muted-foreground">
-							Create your unique referral code to start earning rewards when your friends trade!
-						</p>
-						<Button onClick={handleGenerateCode} disabled={isGenerating} className="w-full">
-							{isGenerating ? (
-								<>
-									<RefreshCw className="size-4 animate-spin" />
-									Creating Code...
-								</>
-							) : (
-								"Create Referral Code"
-							)}
-						</Button>
-					</div>
+					"Create Referral Code"
 				)}
-			</CardContent>
-		</Card>
+			</Button>
+		</div>
 	);
 }

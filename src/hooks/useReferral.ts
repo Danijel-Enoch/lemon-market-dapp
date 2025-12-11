@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
+import {
+	applyReferralCode,
+	createReferralCode,
+	getUserReferralStats
+} from "@/lib/dashboard-service";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
 const REFERRED_BY_KEY = "lemon_referred_by";
@@ -56,38 +61,37 @@ export function useReferral() {
 
 			const referredBy = getReferredByFromStorage();
 
-			// Redeem referral code if user was referred
-			const redeemResponse = await fetch("/api/referral/redeem", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					address: userAddress,
-					referralCode: referredBy || undefined,
-				}),
-			});
+			// First, try to get existing referral stats
+			const stats = await getUserReferralStats(userAddress);
 
-			if (redeemResponse.status === 405) {
-				// Endpoint might not be allowed or implemented yet, ignore
-				return;
+			// If user already has a referral code, save it and return
+			if (stats?.referralCode) {
+				saveReferralCode(stats.referralCode);
+				return { code: stats.referralCode, message: "Existing user" };
 			}
 
-			if (!redeemResponse.ok) {
-				const errorData = await redeemResponse.json();
-				throw new Error(errorData.error || "Failed to initialize referral");
+			// If user was referred by someone, apply the referral code first
+			if (referredBy) {
+				const applyResult = await applyReferralCode(
+					userAddress,
+					referredBy
+				);
+				if (applyResult.success) {
+					// Clear the referred_by code so it's not used again
+					localStorage.removeItem(REFERRED_BY_KEY);
+				}
 			}
 
-			const data = await redeemResponse.json();
-			saveReferralCode(data.code);
-
-			// If this is a new user (just created), clear the referred_by code
-			// so it's not used again
-			if (referredBy && data.message === "User created successfully") {
-				// Keep the referral code in storage for future reference
+			// Generate a new referral code for this user
+			const code = await createReferralCode(userAddress);
+			if (code) {
+				saveReferralCode(code);
+				return { code, message: "User created successfully" };
 			}
 
-			return data;
+			return null;
 		},
-		[getReferredByFromStorage, saveReferralCode],
+		[getReferredByFromStorage, saveReferralCode]
 	);
 
 	// Load referral code from storage on mount
@@ -97,6 +101,20 @@ export function useReferral() {
 			setReferralCode(storedCode);
 		}
 	}, [getReferralCodeFromStorage]);
+
+	// Check URL for referral code on mount
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			const urlParams = new URLSearchParams(window.location.search);
+			const refCode = urlParams.get("ref");
+			if (refCode) {
+				saveReferredBy(refCode);
+				// Clean up URL without refreshing the page
+				const newUrl = window.location.pathname + window.location.hash;
+				window.history.replaceState({}, "", newUrl);
+			}
+		}
+	}, [saveReferredBy]);
 
 	// Initialize referral when address changes
 	useEffect(() => {
@@ -114,6 +132,6 @@ export function useReferral() {
 		clearReferralData,
 		initializeUserReferral,
 		isLoading,
-		error: error?.message || null,
+		error: error?.message || null
 	};
 }

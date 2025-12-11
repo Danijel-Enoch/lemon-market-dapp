@@ -3,17 +3,19 @@
  * Handles all API calls related to the referral system
  */
 
-export interface CreateReferralResponse {
-	code: string;
+const BASE_URL =
+	import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
+
+export interface LinkReferralResponse {
+	referralCode: string;
 	address: string;
-	message: string;
+	message?: string;
 }
 
-export interface RedeemReferralResponse {
-	code: string;
-	address: string;
-	points: number;
-	message: string;
+export interface ApplyReferralResponse {
+	success: boolean;
+	message?: string;
+	points?: number;
 }
 
 export interface ReferralStatsResponse {
@@ -21,6 +23,7 @@ export interface ReferralStatsResponse {
 	referralCode: string;
 	points: number;
 	totalReferrals: number;
+	referralEarnings: number;
 	referrals: Array<{
 		referredAddress: string;
 		createdAt: string;
@@ -32,20 +35,20 @@ export interface ReferralStatsResponse {
 export class ReferralService {
 	private baseUrl: string;
 
-	constructor(baseUrl: string = "") {
+	constructor(baseUrl: string = BASE_URL) {
 		this.baseUrl = baseUrl;
 	}
 
 	/**
-	 * Create or get a referral code for a user
+	 * Link an Ethereum address and generate a referral code
 	 */
-	async createReferralCode(address: string): Promise<CreateReferralResponse> {
-		const response = await fetch(`${this.baseUrl}/api/referral/create`, {
+	async createReferralCode(address: string): Promise<LinkReferralResponse> {
+		const response = await fetch(`${this.baseUrl}/referrals/link`, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": "application/json"
 			},
-			body: JSON.stringify({ address }),
+			body: JSON.stringify({ address })
 		});
 
 		if (!response.ok) {
@@ -57,26 +60,26 @@ export class ReferralService {
 	}
 
 	/**
-	 * Redeem a referral code for a new user
+	 * Apply a referral code when linking a new address (referrer gets 10 points)
 	 */
-	async redeemReferralCode(
+	async applyReferralCode(
 		address: string,
-		referralCode?: string,
-	): Promise<RedeemReferralResponse> {
-		const response = await fetch(`${this.baseUrl}/api/referral/redeem`, {
+		referralCode: string
+	): Promise<ApplyReferralResponse> {
+		const response = await fetch(`${this.baseUrl}/referrals/apply`, {
 			method: "POST",
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": "application/json"
 			},
 			body: JSON.stringify({
 				address,
-				referralCode: referralCode || undefined,
-			}),
+				referralCode
+			})
 		});
 
 		if (!response.ok) {
 			const error = await response.json();
-			throw new Error(error.error || "Failed to redeem referral code");
+			throw new Error(error.error || "Failed to apply referral code");
 		}
 
 		return response.json();
@@ -86,7 +89,9 @@ export class ReferralService {
 	 * Get referral statistics for a user
 	 */
 	async getReferralStats(address: string): Promise<ReferralStatsResponse> {
-		const response = await fetch(`${this.baseUrl}/api/referral/stats?address=${address}`);
+		const response = await fetch(
+			`${this.baseUrl}/referrals/stats/${address}`
+		);
 
 		if (!response.ok) {
 			const error = await response.json();
@@ -124,4 +129,4 @@ export class ReferralService {
 }
 
 // Export singleton instance
-export const referralService = new ReferralService(import.meta.env.VITE_APP_URL || "");
+export const referralService = new ReferralService();

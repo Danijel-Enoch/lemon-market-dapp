@@ -7,9 +7,8 @@ import {
 	getUserFeesEarned,
 	getUserLeaderboardRank,
 	getUserPoints,
-	getUserReferralCode,
 	getUserReferralStats,
-	getUserTradingVolume,
+	getUserTradingVolume
 } from "@/lib/dashboard-service";
 
 export function useDashboard() {
@@ -19,7 +18,7 @@ export function useDashboard() {
 		data: dashboardData,
 		isLoading,
 		error: fetchError,
-		refetch,
+		refetch
 	} = useQuery({
 		queryKey: ["dashboard", address],
 		queryFn: async () => {
@@ -29,60 +28,54 @@ export function useDashboard() {
 
 			// Use Promise.allSettled to handle partial failures gracefully
 			const results = await Promise.allSettled([
-				getUserReferralCode(address),
-				getUserPoints(address),
-				getUserFeesEarned(address),
-				getUserTradingVolume(address),
-				getUserReferralStats(address),
-				getUserLeaderboardRank(address),
+				getUserReferralStats(address)
 			]);
 
 			// Extract successful results with fallback values
-			const [
-				referralCodeResult,
-				_pointsResult,
-				feesEarnedResult,
-				volumeResult,
-				referralStatsResult,
-				rankResult,
-			] = results;
-			const referralCode =
-				referralCodeResult.status === "fulfilled" ? referralCodeResult.value : null;
-			const feesEarned = feesEarnedResult.status === "fulfilled" ? feesEarnedResult.value : 0;
-			const volume = volumeResult.status === "fulfilled" ? volumeResult.value : 0;
+			const [referralStatsResult] = results;
+
 			const referralStats =
 				referralStatsResult.status === "fulfilled"
 					? referralStatsResult.value
-					: { totalReferrals: 0, referralEarnings: 0, points: 0 };
-			const rank = rankResult.status === "fulfilled" ? rankResult.value : 0;
+					: {
+							totalReferrals: 0,
+							referralEarnings: 0,
+							points: 0,
+							referralCode: null
+					  };
+
+			// Get referral code from stats response
+			const referralCode = referralStats?.referralCode || null;
 
 			return {
 				pointsEarned: referralStats.points,
-				feesEarned,
-				tradingVolume: volume,
+				feesEarned: 0,
+				tradingVolume: 0,
 				referralCode,
 				totalReferrals: referralStats.totalReferrals,
 				referralEarnings: referralStats.referralEarnings,
-				leaderboardRank: rank,
+				leaderboardRank: 0
 			};
 		},
 		enabled: !!isConnected && !!address,
-		refetchInterval: 60000, // Refresh data every 60 seconds
+		refetchInterval: 60000 // Refresh data every 60 seconds
 	});
 
-	const [{ value: generatedCode, error: generateError }, generateReferralCode] =
-		useAsyncFn(async () => {
-			if (!isConnected || !address) {
-				throw new Error("Wallet not connected");
-			}
+	const [
+		{ value: generatedCode, error: generateError },
+		generateReferralCode
+	] = useAsyncFn(async () => {
+		if (!isConnected || !address) {
+			throw new Error("Wallet not connected");
+		}
 
-			const code = await createReferralCode(address);
-			if (!code) {
-				throw new Error("Failed to generate referral code");
-			}
+		const code = await createReferralCode(address);
+		if (!code) {
+			throw new Error("Failed to generate referral code");
+		}
 
-			return code;
-		}, [address, isConnected]);
+		return code;
+	}, [address, isConnected]);
 
 	// Compute stats from fetched data with memoization
 	const stats = useMemo(() => {
@@ -93,7 +86,7 @@ export function useDashboard() {
 			referralCode: generatedCode || null,
 			totalReferrals: 0,
 			referralEarnings: 0,
-			leaderboardRank: 0,
+			leaderboardRank: 0
 		};
 
 		// Update referral code if one was generated
@@ -113,9 +106,13 @@ export function useDashboard() {
 		refetch,
 		generateReferralCode: async () => {
 			const result = await generateReferralCode();
+			if (result) {
+				// Refetch to update all stats after generating a new code
+				refetch();
+			}
 			return result || null;
 		},
 		isWalletConnected: isConnected,
-		walletAddress: address,
+		walletAddress: address
 	};
 }
