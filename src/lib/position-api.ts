@@ -151,7 +151,9 @@ export interface Position {
 	status: string;
 	pnl: string;
 	pnlRaw: string | null;
+	pnlPercentage?: string;
 	openedAt: string;
+	closedAt?: string | null;
 	lastUpdatedAt: string;
 	lastTransactionHash: string;
 	trader: string;

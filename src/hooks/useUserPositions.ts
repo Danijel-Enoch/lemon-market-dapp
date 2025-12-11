@@ -50,17 +50,29 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 	const tokenSymbolParts = traderPos.tokenSymbol.split("-");
 	const displaySymbol = tokenSymbolParts[0] || traderPos.tokenSymbol;
 
-	// Use realtime PnL for open positions, currentPnl for closed
+	// Determine if position is open or closed
+	const isOpen = traderPos.status === "OPENED";
+
+	// Use realtime PnL for open positions, exitPricePnl for closed
 	const pnlValue =
-		traderPos.status === "OPENED" && traderPos.realtimeData
+		isOpen && traderPos.realtimeData
 			? traderPos.realtimeData.realtimePnl
 			: traderPos.currentPnl;
 
 	const pnlNumber = parseFloat(pnlValue) || 0;
+
+	// Use formatted PnL - for closed positions use exitPricePnl if available
 	const pnlFormatted =
-		traderPos.status === "OPENED" && traderPos.realtimeData
+		isOpen && traderPos.realtimeData
 			? traderPos.realtimeData.formatted.realtimePnl
-			: traderPos.formatted.currentPnl;
+			: traderPos.formatted.exitPricePnl ||
+			  traderPos.formatted.currentPnl;
+
+	// Get PnL percentage
+	const pnlPercentage =
+		isOpen && traderPos.realtimeData
+			? traderPos.realtimeData.pnlPercentage
+			: traderPos.formatted.exitPricePnlPercentage || "0%";
 
 	return {
 		id: traderPos.id,
@@ -75,10 +87,12 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 		leverage: traderPos.formatted.leverage,
 		leverageValue: parseInt(traderPos.leverage, 10) || 1,
 		liquidationPrice: traderPos.formatted.liquidationPrice,
-		status: traderPos.status === "OPENED" ? "OPEN" : traderPos.status,
+		status: isOpen ? "OPEN" : traderPos.status,
 		pnl: pnlFormatted,
 		pnlRaw: (pnlNumber * 1e6).toString(), // Convert to USDC wei for compatibility
+		pnlPercentage,
 		openedAt: traderPos.formatted.openedAt,
+		closedAt: traderPos.formatted.closedAt || null,
 		lastUpdatedAt: traderPos.lastModifiedAt,
 		lastTransactionHash: traderPos.lastUpdateTransactionHash,
 		trader: traderPos.trader,
@@ -86,11 +100,11 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 		realtimeData: traderPos.realtimeData || {
 			realtimePnl: traderPos.currentPnl,
 			currentPrice: traderPos.entryPrice,
-			pnlPercentage: "0%",
+			pnlPercentage: pnlPercentage,
 			priceChange: "0",
 			priceChangePercentage: "0%",
 			formatted: {
-				realtimePnl: traderPos.formatted.currentPnl,
+				realtimePnl: pnlFormatted,
 				currentPrice: traderPos.formatted.entryPrice,
 				priceChange: "$0.00"
 			}

@@ -606,39 +606,43 @@ export function PositionsTable({
 													<span
 														className={`font-medium ${
 															isPositionProfitable(
-																"00"
+																position.pnl
 															)
 																? "text-green-400"
 																: "text-red-400"
 														}`}
 													>
-														{"00"}
+														{position.pnlPercentage ||
+															"0%"}
 													</span>
 													<span
 														className={`text-sm ${
 															isPositionProfitable(
-																"00"
+																position.pnl
 															)
 																? "text-green-400"
 																: "text-red-400"
 														}`}
 													>
-														{"00"}
+														{position.pnl}
 													</span>
 												</div>
 											</td>
 											<td className="p-4">
 												<Badge
 													variant="secondary"
-													className="bg-gray-500/20 text-gray-400"
+													className={
+														position.status ===
+														"LIQUIDATED"
+															? "bg-red-500/20 text-red-400"
+															: "bg-gray-500/20 text-gray-400"
+													}
 												>
 													{position.status}
 												</Badge>
 											</td>
 											<td className="p-4 text-gray-400 text-sm">
-												{new Date(
-													position.lastUpdatedAt
-												).toLocaleDateString()}
+												{position.closedAt || "N/A"}
 											</td>
 										</tr>
 									))}
