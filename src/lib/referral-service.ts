@@ -3,6 +3,8 @@
  * Handles all API calls related to the referral system
  */
 
+import { betterFetch } from "@better-fetch/fetch";
+
 const BASE_URL =
 	import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
 
@@ -43,20 +45,22 @@ export class ReferralService {
 	 * Link an Ethereum address and generate a referral code
 	 */
 	async createReferralCode(address: string): Promise<LinkReferralResponse> {
-		const response = await fetch(`${this.baseUrl}/referrals/link`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify({ address })
-		});
+		const { data, error } = await betterFetch<LinkReferralResponse>(
+			`${this.baseUrl}/referrals/link`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({ address })
+			}
+		);
 
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || "Failed to create referral code");
+		if (error || !data) {
+			throw new Error("Failed to create referral code");
 		}
 
-		return response.json();
+		return data;
 	}
 
 	/**
@@ -66,39 +70,78 @@ export class ReferralService {
 		address: string,
 		referralCode: string
 	): Promise<ApplyReferralResponse> {
-		const response = await fetch(`${this.baseUrl}/referrals/apply`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify({
-				address,
-				referralCode
-			})
-		});
+		const { data, error } = await betterFetch<ApplyReferralResponse>(
+			`${this.baseUrl}/referrals/apply`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					address,
+					referralCode
+				})
+			}
+		);
 
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || "Failed to apply referral code");
+		if (error || !data) {
+			throw new Error("Failed to apply referral code");
 		}
 
-		return response.json();
+		return data;
 	}
 
 	/**
 	 * Get referral statistics for a user
 	 */
 	async getReferralStats(address: string): Promise<ReferralStatsResponse> {
-		const response = await fetch(
+		const { data, error } = await betterFetch<ReferralStatsResponse>(
 			`${this.baseUrl}/referrals/stats/${address}`
 		);
 
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || "Failed to fetch referral stats");
+		if (error || !data) {
+			throw new Error("Failed to fetch referral stats");
 		}
 
-		return response.json();
+		return data;
+	}
+
+	/**
+	 * Get the referrer for a user (who referred them)
+	 */
+	async getReferrer(address: string): Promise<{
+		success: boolean;
+		referrer: { address: string; referralCode: string } | null;
+		message?: string;
+		error?: string;
+	}> {
+		console.log("Getting referrer for address:", address);
+		try {
+			const { data, error } = await betterFetch<{
+				success: boolean;
+				referrer: { address: string; referralCode: string } | null;
+				message?: string;
+			}>(`${this.baseUrl}/referrals/referrer/${address}`);
+
+			console.log("Referrer API response:", data);
+
+			if (error || !data) {
+				return {
+					success: false,
+					referrer: null,
+					error: "Failed to fetch referrer"
+				};
+			}
+
+			return data;
+		} catch (err) {
+			console.error("Error fetching referrer:", err);
+			return {
+				success: false,
+				referrer: null,
+				error: err instanceof Error ? err.message : "Unknown error"
+			};
+		}
 	}
 
 	/**

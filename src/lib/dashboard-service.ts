@@ -193,7 +193,7 @@ export async function getUserReferralStats(
 				method: "GET"
 			}
 		);
-		console.log("Referral stats API response:", data);
+		//console.log("Referral stats API response:", data);
 
 		// The API returns { success, stats: { address, referralCode, points, totalReferrals, ... } }
 		const stats = data?.stats;
@@ -211,7 +211,7 @@ export async function getUserReferralStats(
 				})) || []
 		};
 	} catch (_error) {
-		console.error("Failed to fetch referral stats:", _error);
+		//console.error("Failed to fetch referral stats:", _error);
 		return { totalReferrals: 0, referralEarnings: 0, points: 0 };
 	}
 }

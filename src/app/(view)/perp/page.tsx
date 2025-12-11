@@ -35,6 +35,7 @@ import {
 } from "@/lib/position-api";
 import type { Metadata } from "@/lib/types";
 import { useMarketApi } from "@/lib/useMarketApi";
+import { referralService } from "@/lib/referral-service";
 
 const miniAppEmbed = {
 	version: "1",
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
 	}
 };
 
-const DEFAULT_REFERRER_ADDRESS = "0x0fe3925802639b6a6f82ee2ae879a473a80cbe2d";
+const DEFAULT_REFERRER_ADDRESS = null;
 
 function PerpContent() {
 	const [searchParams] = useSearchParams();
@@ -211,54 +212,19 @@ function PerpContent() {
 		let cancelled = false;
 		async function fetchReferrer() {
 			if (!address) {
-				setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
-				return;
-			}
-
-			// Check local storage first
-			const storageKey = `referrer_${address}`;
-			const cachedReferrer = localStorage.getItem(storageKey);
-			if (cachedReferrer) {
-				setReferrerAddress(cachedReferrer);
 				return;
 			}
 
 			try {
-				const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-				const res = await fetch(
-					`${baseUrl}/referrals/referrer/${address}`
-				);
-				if (res.ok) {
-					const data = await res.json();
-					if (!cancelled) {
-						if (data.success && data.referrer?.address) {
-							setReferrerAddress(data.referrer.address);
-							localStorage.setItem(
-								storageKey,
-								data.referrer.address
-							);
-						} else {
-							setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
-							localStorage.setItem(
-								storageKey,
-								DEFAULT_REFERRER_ADDRESS
-							);
-						}
-					}
-				} else {
-					if (!cancelled) {
-						setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
-						localStorage.setItem(
-							storageKey,
-							DEFAULT_REFERRER_ADDRESS
-						);
-					}
-				}
-			} catch {
+				const data = await referralService.getReferrer(address);
+
 				if (!cancelled) {
-					setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
-					localStorage.setItem(storageKey, DEFAULT_REFERRER_ADDRESS);
+					if (data.success && data.referrer?.address) {
+						setReferrerAddress(data.referrer.address);
+					}
 				}
+			} catch (err) {
+				console.error("Error fetching referrer:", err);
 			}
 		}
 		fetchReferrer();
@@ -634,7 +600,7 @@ function PerpContent() {
 
 		// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
 		const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
-
+		//console.log("referrerAddress:", referrerAddress);
 		const result = await marketApi.positions.open({
 			marketId,
 			isLong,
