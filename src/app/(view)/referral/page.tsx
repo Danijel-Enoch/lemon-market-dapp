@@ -80,9 +80,9 @@ function ReferralContent() {
 	// Check if user came with a referral code
 	const referredBy = getReferredByFromStorage();
 
-	// console.log("Referred by code:", referredBy);
-	// console.log("User address:", address);
-	// console.log("Referral code:", referralCode);
+	console.log("Referred by code:", referredBy);
+	console.log("User address:", address);
+	console.log("Referral code:", referralCode);
 
 	return (
 		<div className="min-h-screen">

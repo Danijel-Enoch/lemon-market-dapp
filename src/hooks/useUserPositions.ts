@@ -98,7 +98,7 @@ export function useUserPositions(): UseUserPositionsResult {
 					})
 				]);
 
-			console.log("closedPositionsResult", closedPositionsResult.data);
+			//console.log("closedPositionsResult", closedPositionsResult.data);
 
 			const openPositions = (
 				Array.isArray(openPositionsResult.data)

@@ -65,6 +65,8 @@ export const metadata: Metadata = {
 	}
 };
 
+const DEFAULT_REFERRER_ADDRESS = "0x0fe3925802639b6a6f82ee2ae879a473a80cbe2d";
+
 function PerpContent() {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
@@ -165,6 +167,9 @@ function PerpContent() {
 		string | null
 	>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
+	const [referrerAddress, setReferrerAddress] = useState<string>(
+		DEFAULT_REFERRER_ADDRESS
+	);
 
 	// Compute available margin token amount from contract balance
 	const decimals =
@@ -200,6 +205,67 @@ function PerpContent() {
 			setMarginTokenDecimals(Number(decimalsFromChain));
 		}
 	}, [decimalsFromChain]);
+
+	// Fetch user's referrer address, fallback to default if not found
+	useEffect(() => {
+		let cancelled = false;
+		async function fetchReferrer() {
+			if (!address) {
+				setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
+				return;
+			}
+
+			// Check local storage first
+			const storageKey = `referrer_${address}`;
+			const cachedReferrer = localStorage.getItem(storageKey);
+			if (cachedReferrer) {
+				setReferrerAddress(cachedReferrer);
+				return;
+			}
+
+			try {
+				const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+				const res = await fetch(
+					`${baseUrl}/referrals/referrer/${address}`
+				);
+				if (res.ok) {
+					const data = await res.json();
+					if (!cancelled) {
+						if (data.success && data.referrer?.address) {
+							setReferrerAddress(data.referrer.address);
+							localStorage.setItem(
+								storageKey,
+								data.referrer.address
+							);
+						} else {
+							setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
+							localStorage.setItem(
+								storageKey,
+								DEFAULT_REFERRER_ADDRESS
+							);
+						}
+					}
+				} else {
+					if (!cancelled) {
+						setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
+						localStorage.setItem(
+							storageKey,
+							DEFAULT_REFERRER_ADDRESS
+						);
+					}
+				}
+			} catch {
+				if (!cancelled) {
+					setReferrerAddress(DEFAULT_REFERRER_ADDRESS);
+					localStorage.setItem(storageKey, DEFAULT_REFERRER_ADDRESS);
+				}
+			}
+		}
+		fetchReferrer();
+		return () => {
+			cancelled = true;
+		};
+	}, [address]);
 
 	// Set chart type based on asset type
 	useEffect(() => {
@@ -575,7 +641,7 @@ function PerpContent() {
 			margin: marginValue,
 			leverage,
 			userAddress: address,
-			referrer: "0x0fe3925802639b6a6f82ee2ae879a473a80cbe2d" // Example fee rate, adjust as needed
+			referrer: referrerAddress
 		});
 
 		if (!result) {
@@ -642,7 +708,8 @@ function PerpContent() {
 		tradingPair,
 		isLong,
 		mutate,
-		marginTokenPriceUsd
+		marginTokenPriceUsd,
+		referrerAddress
 	]);
 
 	return (
