@@ -66,7 +66,7 @@ export const metadata: Metadata = {
 	}
 };
 
-const DEFAULT_REFERRER_ADDRESS = null;
+const DEFAULT_REFERRER_ADDRESS = "0x273d6779DDFa7e942F6b87c420e4072F4468f1cB";
 
 function PerpContent() {
 	const [searchParams] = useSearchParams();
