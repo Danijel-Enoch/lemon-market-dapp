@@ -89,7 +89,7 @@ export function PositionsTable({
 			);
 
 			try {
-				const result = await marketApi.positions.close({
+				const result: any = await marketApi.positions.close({
 					positionId: parseInt(position.id, 10),
 					marketId: position.tokenSymbol,
 					userAddress: address
@@ -468,7 +468,7 @@ export function PositionsTable({
 											</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
-													<Button
+													{/* <Button
 														size="sm"
 														variant="outline"
 														onClick={() => {}}
@@ -487,7 +487,7 @@ export function PositionsTable({
 															<path d="M12 2L13.09 8.26L19 7L17.91 13.26L22 14L16.96 20.74L11 19L5.04 20.74L0 14L4.09 13.26L3 7L8.91 8.26L12 2Z" />
 														</svg>
 														PnL
-													</Button>
+													</Button> */}
 													{/* <Button
 														size="sm"
 														variant="outline"
