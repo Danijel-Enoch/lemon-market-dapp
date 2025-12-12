@@ -95,7 +95,7 @@ export default function LeaderboardPage() {
 		{ loading, error: fetchError, value: leaderboardResult },
 		fetchLeaderboard
 	] = useAsyncFn(async () => {
-		const response = await fetch(`${BASE_URL}leaderboard`);
+		const response = await fetch(`${BASE_URL}/leaderboard`);
 		if (!response.ok) {
 			throw new Error(
 				`Failed to fetch leaderboard: ${response.statusText}`
