@@ -31,6 +31,12 @@ export interface TokenItem {
 	chain: string;
 	hasMarket: boolean;
 	marketId: string | null;
+	marketContractAddress: string | null;
+	exposure: {
+		totalExposure: number;
+		totalLong: number;
+		totalShort: number;
+	};
 }
 
 export interface FXItem {
@@ -150,9 +156,9 @@ async function fetchTokensTrending(params: {
 		sort
 	});
 
-	if (hasMarket !== undefined) {
-		queryParams.append("hasMarket", hasMarket.toString());
-	}
+	// if (hasMarket !== undefined) {
+	// 	queryParams.append("hasMarket", hasMarket.toString());
+	// }
 
 	try {
 		const { data, error } = await betterFetch<TrendingResult>(

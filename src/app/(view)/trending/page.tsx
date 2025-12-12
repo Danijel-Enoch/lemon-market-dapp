@@ -11,6 +11,7 @@ import {
 } from "@/hooks/useTrending";
 import type { Metadata } from "@/lib/types";
 import { formatLargeNumber, formatPrice } from "@/lib/utils";
+import { formatUnits } from "viem";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",
@@ -258,7 +259,18 @@ export default function Home() {
 						? `$${formatLargeNumber(Number(t.liquidityUsd))}`
 						: "$0.00",
 					realLiquidity: undefined,
-					openInterest: undefined,
+					openInterest: t.exposure.totalExposure
+						? `$${formatLargeNumber(
+								Number(
+									formatUnits(
+										BigInt(
+											t.exposure.totalExposure.toString()
+										),
+										6
+									)
+								)
+						  )}`
+						: "$0.00",
 					hasMarket: undefined,
 					marketId: undefined,
 					virtualLiquidity: undefined,
