@@ -162,7 +162,7 @@ async function fetchTokensTrending(params: {
 
 	try {
 		const { data, error } = await betterFetch<TrendingResult>(
-			`${BASE_URL}/trending/tokens/all?${queryParams.toString()}`,
+			`${BASE_URL}/trending/tokens/all`,
 			{
 				method: "GET"
 			}
