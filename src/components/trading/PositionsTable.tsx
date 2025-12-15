@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import {
@@ -46,6 +47,7 @@ export function PositionsTable({
 	const { address } = useAccount();
 	const { sendTransaction, data: hash, isPending } = useSendTransaction();
 	const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+	const navigate = useNavigate();
 
 	const marketApi = useMarketApi();
 
@@ -302,6 +304,12 @@ export function PositionsTable({
 		setIsModifyDialogOpen(true);
 	};
 
+	// Navigate to position's chart
+	const navigateToChart = (position: Position) => {
+		const tokenSymbol = extractTokenSymbol(position.pair);
+		navigate(`/perp?token=${tokenSymbol}`);
+	};
+
 	// Track if we've already shown the confirmation toast for this hash
 	const confirmedHashRef = useRef<string | null>(null);
 
@@ -385,7 +393,10 @@ export function PositionsTable({
 									{openPositions.map((position) => (
 										<tr
 											key={position.id}
-											className="border-b border-slate-800/50 hover:bg-slate-800/20"
+											onClick={() =>
+												navigateToChart(position)
+											}
+											className="border-b border-slate-800/50 hover:bg-slate-800/20 cursor-pointer transition-colors"
 										>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
@@ -503,11 +514,12 @@ export function PositionsTable({
 													<Button
 														size="sm"
 														variant="outline"
-														onClick={() =>
+														onClick={(e) => {
+															e.stopPropagation();
 															openCloseDialog(
 																position
-															)
-														}
+															);
+														}}
 														className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
 													>
 														Close
@@ -564,7 +576,10 @@ export function PositionsTable({
 									{closedPositions.map((position) => (
 										<tr
 											key={position.id}
-											className="border-b border-slate-800/50"
+											onClick={() =>
+												navigateToChart(position)
+											}
+											className="border-b border-slate-800/50 cursor-pointer hover:bg-slate-800/20 transition-colors"
 										>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
