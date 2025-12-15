@@ -1450,7 +1450,8 @@ function PerpContent() {
 													now create positions.
 													<a
 														href={getEtherscanUrl(
-															approvalHash
+															approvalHash,
+															"sepolia"
 														)}
 														target="_blank"
 														rel="noopener noreferrer"
@@ -1466,7 +1467,10 @@ function PerpContent() {
 											<p className="text-primary text-sm">
 												Transaction submitted:
 												<a
-													href={getEtherscanUrl(hash)}
+													href={getEtherscanUrl(
+														hash,
+														"sepolia"
+													)}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="text-primary hover:text-cyan-300 underline ml-1"

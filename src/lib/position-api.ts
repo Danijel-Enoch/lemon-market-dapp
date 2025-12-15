@@ -84,8 +84,8 @@ export function getEtherscanUrl(
 ): string {
 	const baseUrl =
 		network === "mainnet"
-			? "https://etherscan.io"
-			: "https://sepolia.etherscan.io";
+			? "https://basescan.org"
+			: "https://sepolia.basescan.org";
 	return `${baseUrl}/tx/${hash}`;
 }
 
