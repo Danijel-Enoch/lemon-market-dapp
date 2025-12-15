@@ -242,18 +242,7 @@ function PerpContent() {
 
 	// Update margin token address/symbol whenever marketData or tradingPair changes
 	useEffect(() => {
-		if (marketData?.quoteTokenAddress) {
-			//setMarginTokenAddress(marketData.quoteTokenAddress as `0x${string}`);
-			setMarginTokenSymbol(marketData.quoteTokenSymbol || "USDC");
-		} else if (tradingPair.tokenAddress) {
-			//setMarginTokenAddress(tradingPair.tokenAddress as `0x${string}`);
-			setMarginTokenSymbol(
-				extractTokenSymbol(tradingPair.symbol) || "USDC"
-			);
-		} else {
-			//setMarginTokenAddress(usdc as `0x${string}`);
-			setMarginTokenSymbol("USDC");
-		}
+		setMarginTokenSymbol("USDC");
 	}, [marketData, tradingPair]);
 
 	// Fetch margin token USD price whenever marginTokenAddress changes
@@ -1407,14 +1396,14 @@ function PerpContent() {
 												Open Fee
 											</span>
 											<span className="text-foreground">
-												0.1% (~$
+												0.2% (~$
 												{(
 													parseFloat(
 														marginValue || "0"
 													) *
 													leverage *
 													(marginTokenPriceUsd || 1) *
-													0.001
+													0.002
 												).toFixed(2)}
 												)
 											</span>
