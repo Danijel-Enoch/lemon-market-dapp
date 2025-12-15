@@ -1412,6 +1412,7 @@ function PerpContent() {
 													parseFloat(
 														marginValue || "0"
 													) *
+													leverage *
 													(marginTokenPriceUsd || 1) *
 													0.001
 												).toFixed(2)}
