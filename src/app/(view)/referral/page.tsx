@@ -195,29 +195,6 @@ function ReferralContent() {
 										</p>
 									</div>
 								)}
-								<div className="flex items-center gap-2">
-									<Input
-										placeholder="Enter referral code"
-										value={applyCode}
-										onChange={(e) =>
-											setApplyCode(e.target.value)
-										}
-										className="bg-input/50 font-mono text-sm"
-									/>
-									<Button
-										onClick={handleApplyReferralCode}
-										disabled={
-											isApplying || !applyCode.trim()
-										}
-										className="shrink-0"
-									>
-										{isApplying ? "Applying..." : "Apply"}
-									</Button>
-								</div>
-								<p className="text-xs text-muted-foreground">
-									Note: You can only apply one referral code
-									per wallet address.
-								</p>
 							</div>
 						</CardContent>
 					</Card>
