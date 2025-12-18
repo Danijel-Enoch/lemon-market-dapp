@@ -238,7 +238,7 @@ export default function LeaderboardPage() {
 							</div>
 						</div>
 					</CardHeader>
-					<CardContent className="p-0">
+					<CardContent className="p-0 mb-12 lg:mb-10">
 						<div className="overflow-x-auto">
 							<table className="w-full">
 								<thead>

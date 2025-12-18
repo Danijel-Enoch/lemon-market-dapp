@@ -789,7 +789,7 @@ export default function Home() {
 				</div>
 			</div>
 
-			<div className="border-t border-[#222222] bg-[#060606] p-3 flex items-center justify-between text-sm text-[#9AA0A0]">
+			<div className="border-t border-[#222222] bg-[#060606] p-3 flex items-center justify-between text-sm text-[#9AA0A0] mb-16 lg:mb-10">
 				<div className="flex items-center gap-2">
 					<span>Rows Per Page:</span>
 					<select

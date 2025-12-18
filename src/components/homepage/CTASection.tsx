@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export const CTASection: FC = () => {
 	return (
-		<section className="py-20 px-6 md:px-10 flex flex-col items-center text-center">
+		<section className="py-16 md:py-20 px-6 md:px-10 flex flex-col items-center text-center">
 			<h2 className="max-w-3xl text-4xl md:text-5xl font-medium bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 				Make more profits from Unlimited Opportunities
 			</h2>

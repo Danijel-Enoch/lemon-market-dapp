@@ -68,7 +68,7 @@ const phases: Phase[] = [
 
 export const RoadmapSection: FC = () => {
 	return (
-		<section className="py-24 max-w-7xl mx-auto relative">
+		<section className="py-10 xl::py-24 max-w-7xl mx-auto px-5 md:px-0 relative">
 			<div className="absolute inset-0 -z-10 overflow-hidden">
 				<div className="absolute top-20 -left-20 w-96 h-96 bg-[#9DEA29]/5 rounded-full blur-3xl" />
 				<div className="absolute bottom-20 -right-20 w-96 h-96 bg-[#9DEA29]/5 rounded-full blur-3xl" />
@@ -133,7 +133,7 @@ export const RoadmapSection: FC = () => {
 								</div>
 
 								<div
-									className={`pl-20 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? "md:pl-16 md:flex md:flex-col md:items-end" : "md:pr-16"}`}
+									className={`pl-16 md:pl-0 md:w-[calc(50%-3rem)] ${isLeft ? "md:pl-16 md:flex md:flex-col md:items-end" : "md:pr-16"}`}
 								>
 									<div className="inline-block mb-6 py-2 px-4 border border-white/20 bg-neutral-900/60 backdrop-blur-sm hover:border-[#9DEA29]/40 transition-colors rounded-lg">
 										<div className="flex items-baseline gap-3 mb-1">

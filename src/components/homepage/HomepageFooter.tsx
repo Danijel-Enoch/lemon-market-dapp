@@ -67,7 +67,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 		<footer>
 			<div className="p-6 md:px-12 md:pb-24 bg-[linear-gradient(172.34deg,#0a1a0300_-34.4%,#0a1a031c_51.7%,#1c6200_161.09%)]">
 				<div className="w-full max-w-7xl mx-auto">
-					<div className="my-28 h-px w-full bg-[#4dad31]/60" />
+					<div className="my-20 md:my-28 h-px w-full bg-[#4dad31]/60" />
 					<div className="py-12 grid gap-8 md:grid-cols-6">
 						<div className="flex flex-col gap-4 md:col-span-3">
 							<div className="flex items-center gap-3">
