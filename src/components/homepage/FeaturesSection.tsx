@@ -5,7 +5,7 @@ export const FeaturesSection: FC = () => {
 	return (
 		<section className="py-20 max-w-7xl mx-auto">
 			<div className="text-center mb-12">
-				<div className="inline-flex items-center gap-8">
+				<div className="inline-flex items-center text-center gap-8">
 					<img
 						src="/assets/homepage/section-features-divider.png"
 						alt="Divider"
@@ -26,7 +26,7 @@ export const FeaturesSection: FC = () => {
 						className="opacity-90 rotate-180"
 					/>
 				</div>
-				<h2 className="mt-6 max-w-4xl text-4xl md:text-5xl font-semibold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
+				<h2 className="mt-6 max-w-4xl mx-auto text-4xl md:text-5xl font-semibold bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent">
 					Built for traders who desire freedom
 				</h2>
 				<p className="mt-3 text-white/70 max-w-2xl mx-auto">Trade without limitations</p>
@@ -37,7 +37,7 @@ export const FeaturesSection: FC = () => {
 					<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-96 bg-[#9DEA29]/70 rounded-full blur-[80px]" />
 				</div>
 
-				<div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				<div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-6 xl:px-0">
 					<FeatureCard
 						iconSrc="/assets/homepage/feature-icon-liquidity.png"
 						alt="Liquidity icon"

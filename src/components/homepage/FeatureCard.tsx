@@ -46,7 +46,7 @@ export const FeatureCard: FC<FeatureCardProps> = ({ title, description, iconSrc,
 	}, []);
 
 	return (
-		<div className="bg-linear-to-br from-[#0A1A03BA] via-green-[#0A1A03E0] to-[#1C6200]/50 p-6 border border-[#1C6200]/10">
+		<div className="bg-linear-to-br from-[#0A1A03BA] via-green-[#0A1A03E0] to-[#1C6200]/50 p-6 border border-[#1C6200]/10 rounded-lg">
 			<div className="flex flex-col items-center text-center">
 				<div
 					ref={iconRef}

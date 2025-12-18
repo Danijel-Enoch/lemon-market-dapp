@@ -33,8 +33,8 @@ export const FAQSection: FC = () => {
 	const [open, setOpen] = useState<number>(0);
 
 	return (
-		<section className="flex flex-col md:flex-row items-center gap-8 py-20 max-w-7xl mx-auto">
-			<div className="text-center md:text-left">
+		<section className="flex flex-col lg:flex-row items-center gap-8 py-16 lg:py-20 px-5 max-w-7xl mx-auto">
+			<div className="text-center lg:text-left">
 				<div className="inline-flex items-center gap-8">
 					<img
 						src="/assets/homepage/section-features-divider.png"
@@ -63,13 +63,13 @@ export const FAQSection: FC = () => {
 				</div>
 				<a
 					href="https://docs.lemonmarkets.xyz"
-					className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
+					className="mt-6 md:mb-6 lg:mb-0 inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
 				>
 					Read Full Documentation
 				</a>
 			</div>
 
-			<div className="sm:w-2/3 flex flex-col gap-4">
+			<div className="lg:w-2/3 flex flex-col gap-4">
 				{items.map((it, i) => (
 					<div
 						key={`faq-${it.q.slice(0, 20).replace(/\s+/g, "-")}-${i}`}

@@ -47,7 +47,7 @@ export function Header() {
 	return (
 		<>
 			<div
-				className="fixed top-0 left-0 right-0 w-full md:p-8 z-50"
+				className="fixed top-0 left-0 right-0 w-full md:p-4 lg:p-8 z-50"
 				style={safeAreaStyle}
 			>
 				<div
@@ -61,7 +61,7 @@ export function Header() {
 						initial={{ opacity: 0.5 }}
 						animate={{ opacity: 1 }}
 						transition={{ duration: 0.6 }}
-						className="px-4 md:px-6 sm:mx-auto flex items-center justify-between sm:rounded-xl backdrop-blur-md py-4 bg-[#13151b99] border border-gray-100/10"
+						className="px-4 lg:px-6 sm:mx-auto flex items-center justify-between sm:rounded-xl backdrop-blur-md py-4 bg-[#13151b99] border border-gray-100/10"
 					>
 						<Link
 							to="/"
@@ -74,7 +74,7 @@ export function Header() {
 								height={40}
 								// className="animate-spin"
 							/>
-							<span className="inline-flex items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl">
+							<span className="inline-flex flex-col md:items-start xl:items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl md:text-lg lg:text-xl">
 								Lemon Markets
 								<Badge
 									variant="secondary"
@@ -84,7 +84,7 @@ export function Header() {
 								</Badge>
 							</span>
 						</Link>{" "}
-						<nav className="hidden md:inline-flex items-center gap-9">
+						<nav className="hidden md:inline-flex items-center gap-9 md:gap-6 xl:gap-9">
 							{navItems.map((item) => {
 								if (item.subItems) {
 									const isActive = item.subItems.some(

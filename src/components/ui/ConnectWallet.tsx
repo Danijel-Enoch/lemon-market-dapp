@@ -145,7 +145,7 @@ export function ConnectWallet({
 										whileHover={{ scale: 1.05 }}
 										whileTap={{ scale: 0.95 }}
 										className={cn(
-											"inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
+											"inline-flex items-center justify-center rounded-xl border border-white/60 gap-2.5 px-4 lg:px-6 py-2 lg:py-3 text-white font-bold text-xs md:text-sm",
 											"bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
 										)}
 										// {...props}
