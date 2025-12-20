@@ -132,7 +132,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 }
 
 const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
+	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 async function fetchTokensTrending(params: {
 	limit: number;

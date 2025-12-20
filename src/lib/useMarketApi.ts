@@ -2,7 +2,7 @@ import { betterFetch } from "@better-fetch/fetch";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 
 const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
+	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 // Type definitions based on API schemas
 export interface PositionsQueryRequest {

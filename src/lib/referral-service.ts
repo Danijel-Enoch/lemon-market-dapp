@@ -6,7 +6,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 
 const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.lemonmarkets.xyz";
+	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface LinkReferralResponse {
 	referralCode: string;
