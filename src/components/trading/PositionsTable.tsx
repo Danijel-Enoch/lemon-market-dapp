@@ -336,13 +336,13 @@ export function PositionsTable({
 				<TabsList className="bg-transparent border-b border-gray-100/10 p-0 h-auto w-full justify-start">
 					<TabsTrigger
 						value="open"
-						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 rounded-none px-6 py-3"
+						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-green-500 data-[state=active]:text-green-400 rounded-none px-6 py-3"
 					>
 						Open Positions ({openPositions.length})
 					</TabsTrigger>
 					<TabsTrigger
 						value="history"
-						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 rounded-none px-6 py-3"
+						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-green-500 data-[state=active]:text-green-400 rounded-none px-6 py-3"
 					>
 						Position History ({closedPositions.length})
 					</TabsTrigger>

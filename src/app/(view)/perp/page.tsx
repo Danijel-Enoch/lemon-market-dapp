@@ -1223,7 +1223,7 @@ function PerpContent() {
 												}`}</span>
 											</div>
 										</div>
-										<div className="relative">
+										<div className="relative bg-[#071405]">
 											<div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
 												{marginTokenLogo ? (
 													<img

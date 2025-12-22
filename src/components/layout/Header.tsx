@@ -74,7 +74,7 @@ export function Header() {
 								height={40}
 								// className="animate-spin"
 							/>
-							<span className="inline-flex flex-col md:items-start xl:items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl md:text-lg lg:text-xl">
+							<span className="inline-flex flex-col lg:flex-row md:items-start xl:items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl md:text-lg lg:text-xl">
 								Lemon Markets
 								<Badge
 									variant="secondary"
