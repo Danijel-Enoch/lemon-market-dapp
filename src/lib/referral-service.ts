@@ -115,7 +115,7 @@ export class ReferralService {
 		message?: string;
 		error?: string;
 	}> {
-		console.log("Getting referrer for address:", address);
+		//console.log("Getting referrer for address:", address);
 		try {
 			const { data, error } = await betterFetch<{
 				success: boolean;
@@ -123,7 +123,7 @@ export class ReferralService {
 				message?: string;
 			}>(`${this.baseUrl}/referrals/referrer/${address}`);
 
-			console.log("Referrer API response:", data);
+			//	console.log("Referrer API response:", data);
 
 			if (error || !data) {
 				return {

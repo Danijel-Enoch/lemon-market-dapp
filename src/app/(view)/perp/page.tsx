@@ -62,7 +62,7 @@ export const metadata: Metadata = {
 	openGraph: {
 		title: "Perpetuals Trading - Lemon Markets",
 		description: "Trade perpetual futures with leverage",
-		images: ["https://demo.lemonmarkets.xyz/image/trading-icon.svg"]
+		images: ["https://lemonmarkets.xyz/image/trading-icon.svg"]
 	}
 };
 
@@ -118,11 +118,6 @@ function PerpContent() {
 		query: { enabled: !!address }
 	});
 
-	// dynamic margin token support: use the pair quote token as the default margin token (fallback to USDC)
-	const [marginTokenAddress, setMarginTokenAddress] = useState(
-		usdc as `0x${string}`
-	);
-	const [marginTokenSymbol, setMarginTokenSymbol] = useState("USDC");
 	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
 	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<
 		number | null
@@ -131,30 +126,30 @@ function PerpContent() {
 
 	const { data: marginBalance, refetch: refetchMarginBalance } =
 		useReadContract({
-			address: marginTokenAddress as `0x${string}`,
+			address: usdc as `0x${string}`,
 			abi: ERC20Abi,
 			functionName: "balanceOf",
 			args: address ? [address] : undefined,
-			query: { enabled: !!address && !!marginTokenAddress }
+			query: { enabled: !!address && !!usdc }
 		});
 
 	const { data: marginAllowance, refetch: refetchAllowance } =
 		useReadContract({
-			address: marginTokenAddress as `0x${string}`,
+			address: usdc as `0x${string}`,
 			abi: ERC20Abi,
 			functionName: "allowance",
 			args: address
 				? [address, SyntheticPerpetualContract as `0x${string}`]
 				: undefined,
-			query: { enabled: !!address && !!marginTokenAddress }
+			query: { enabled: !!address && !!usdc }
 		});
 
 	const { data: decimalsFromChain } = useReadContract({
-		address: marginTokenAddress as `0x${string}`,
+		address: usdc as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "decimals",
 		args: [],
-		query: { enabled: !!marginTokenAddress }
+		query: { enabled: !!usdc }
 	});
 
 	const [isLong, setIsLong] = useState(true);
@@ -197,8 +192,8 @@ function PerpContent() {
 	const { marketData, refetch: fetchMarketData } = useMarketData(
 		tradingPair.assetType === "crypto" ? tradingPair.chain : "base",
 		tradingPair.assetType === "crypto"
-			? tradingPair.pairAddress
-			: searchParams.get("pairAddress") ?? ""
+			? tradingPair.tokenAddress
+			: searchParams.get("tokenAddress") ?? ""
 	);
 
 	useEffect(() => {
@@ -241,95 +236,9 @@ function PerpContent() {
 	}, [tradingPair.assetType]);
 
 	// Update margin token address/symbol whenever marketData or tradingPair changes
-	useEffect(() => {
-		setMarginTokenSymbol("USDC");
-	}, [marketData, tradingPair]);
-
-	// Fetch margin token USD price whenever marginTokenAddress changes
-	useEffect(() => {
-		let cancelled = false;
-		async function fetchMarginTokenPrice() {
-			if (!marginTokenAddress) {
-				setMarginTokenPriceUsd(null);
-				return;
-			}
-			try {
-				const res = await fetch(
-					`/api/price/token?tokenAddress=${marginTokenAddress}&chain=${
-						tradingPair.chain || "base"
-					}`
-				);
-				if (res.ok) {
-					const data = await res.json();
-					if (!cancelled) {
-						setMarginTokenPriceUsd(Number(data.priceUsd || null));
-					}
-				}
-			} catch {
-				if (!cancelled) setMarginTokenPriceUsd(null);
-			}
-		}
-		fetchMarginTokenPrice();
-
-		const interval = setInterval(fetchMarginTokenPrice, 30000);
-		return () => {
-			cancelled = true;
-			clearInterval(interval);
-		};
-	}, [marginTokenAddress, tradingPair.chain]);
 
 	// Fetch margin token logo. Prefer logos from the marketData (quote/base) when possible,
 	// otherwise query DexScreener tokens endpoint for metadata
-	useEffect(() => {
-		let cancelled = false;
-		async function fetchMarginTokenLogo() {
-			if (!marginTokenAddress) {
-				setMarginTokenLogo(null);
-				return;
-			}
-
-			// Prefer logos already found in marketData
-			if (
-				marketData?.quoteTokenAddress &&
-				marketData.quoteTokenAddress === marginTokenAddress
-			) {
-				setMarginTokenLogo(marketData.quoteTokenLogo || null);
-				return;
-			}
-			if (
-				marketData?.baseTokenAddress &&
-				marketData.baseTokenAddress === marginTokenAddress
-			) {
-				setMarginTokenLogo(marketData.baseTokenLogo || null);
-				return;
-			}
-
-			try {
-				const chainParam = tradingPair.chain || "base";
-				const resp = await fetch(
-					`https://api.dexscreener.com/latest/dex/tokens/${chainParam}/${marginTokenAddress}`
-				);
-				if (!resp.ok) {
-					if (!cancelled) setMarginTokenLogo(null);
-					return;
-				}
-				const json = await resp.json();
-				const firstPair = json.pairs?.[0] || json.pair || null;
-				const tokenLogoFound =
-					firstPair?.baseToken?.logo ||
-					firstPair?.info?.imageUrl ||
-					json?.info?.imageUrl ||
-					null;
-				if (!cancelled) setMarginTokenLogo(tokenLogoFound || null);
-			} catch {
-				if (!cancelled) setMarginTokenLogo(null);
-			}
-		}
-		fetchMarginTokenLogo();
-		return () => {
-			cancelled = true;
-		};
-	}, [marginTokenAddress, marketData, tradingPair.chain]);
 
 	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] =
 		useAsyncFn(async () => {
@@ -545,7 +454,7 @@ function PerpContent() {
 		const approvalAmount = parseUnits("1000000", decimals);
 
 		writeContract({
-			address: marginTokenAddress as `0x${string}`,
+			address: usdc as `0x${string}`,
 			abi: ERC20Abi,
 			functionName: "approve",
 			args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount]
@@ -1110,7 +1019,7 @@ function PerpContent() {
 											</div>
 											<div className="flex justify-between items-center">
 												<span className="text-muted-foreground">
-													{marginTokenSymbol}:
+													{"USDC"}:
 												</span>
 												<span className="text-foreground font-medium">
 													{marginBalance
@@ -1126,14 +1035,14 @@ function PerpContent() {
 																	6,
 																	decimals
 																)
-														  )} ${marginTokenSymbol} ${
+														  )} ${"USDC"} ${
 																marginTokenPriceUsd
 																	? `(~$${marginTokenPriceUsd.toFixed(
 																			4
 																	  )})`
 																	: ""
 														  }`
-														: `0.00 ${marginTokenSymbol}`}
+														: `0.00 ${"USDC"}`}
 												</span>
 											</div>
 										</div>
@@ -1143,7 +1052,7 @@ function PerpContent() {
 								<div className="bg-muted p-4 rounded-lg">
 									<div className="flex justify-between items-center mb-3">
 										<h4 className="text-sm text-muted-foreground uppercase font-medium">
-											{marginTokenSymbol} Approval
+											{"USDC"} Approval
 										</h4>
 										<span
 											className={`text-xs px-2 py-1 rounded ${
@@ -1161,8 +1070,8 @@ function PerpContent() {
 									{needsApproval ? (
 										<div className="space-y-3">
 											<p className="text-sm text-muted-foreground">
-												Approve {marginTokenSymbol}{" "}
-												spending to create positions
+												Approve {"USDC"} spending to
+												create positions
 											</p>
 											<Button
 												onClick={handleApproveToken}
@@ -1179,15 +1088,14 @@ function PerpContent() {
 													? "Confirm in Wallet..."
 													: isApprovalConfirming
 													? "Confirming..."
-													: `Approve ${marginTokenSymbol}`}
+													: `Approve ${"USDC"}`}
 											</Button>
 										</div>
 									) : (
 										<div className="flex items-center space-x-2">
 											<div className="w-2 h-2 bg-green-400 rounded-full"></div>
 											<p className="text-sm text-success">
-												{marginTokenSymbol} spending
-												approved
+												{"USDC"} spending approved
 											</p>
 										</div>
 									)}
@@ -1201,7 +1109,7 @@ function PerpContent() {
 												htmlFor="margin-input"
 												className="text-sm text-primary uppercase font-medium"
 											>
-												Margin ({marginTokenSymbol})
+												Margin ({"USDC"})
 											</label>
 											<div className="flex items-center gap-3">
 												<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
@@ -1214,7 +1122,7 @@ function PerpContent() {
 													)
 												).toFixed(
 													Math.min(6, decimals)
-												)} ${marginTokenSymbol} ${
+												)} ${"USDC"} ${
 													marginTokenPriceUsd
 														? `(~$${availableMarginUsd.toFixed(
 																2
@@ -1228,7 +1136,7 @@ function PerpContent() {
 												{marginTokenLogo ? (
 													<img
 														src={marginTokenLogo}
-														alt={`${marginTokenSymbol} logo`}
+														alt={`${"USDC"} logo`}
 														className="w-6 h-6 rounded-full"
 													/>
 												) : (
@@ -1265,7 +1173,7 @@ function PerpContent() {
 													MAX
 												</button>
 												<span className="text-primary font-medium">
-													{marginTokenSymbol}
+													{"USDC"}
 												</span>
 											</div>
 										</div>
@@ -1434,9 +1342,9 @@ function PerpContent() {
 										!needsApproval && (
 											<div className="p-3 bg-green-900/50 border border-success rounded-lg">
 												<p className="text-success text-sm">
-													✅ {marginTokenSymbol}{" "}
-													approval confirmed! You can
-													now create positions.
+													✅ {"USDC"} approval
+													confirmed! You can now
+													create positions.
 													<a
 														href={getEtherscanUrl(
 															approvalHash,
@@ -1530,7 +1438,7 @@ function PerpContent() {
 												"crypto"
 													? "Trading not available for this asset"
 													: needsApproval
-													? `Approve ${marginTokenSymbol} First`
+													? `Approve ${"USDC"} First`
 													: isCreatingPosition
 													? "Preparing Transaction..."
 													: isPending

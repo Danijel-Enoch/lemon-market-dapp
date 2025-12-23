@@ -22,13 +22,19 @@ export interface MarketData {
 	quoteTokenAddress?: string;
 }
 
-async function fetchPairFromDexScreener(pairAddress: string, chain: string = "base") {
+async function fetchTokenFromDexScreener(
+	tokenAddress: string,
+	chain: string = "base"
+) {
 	try {
-		const res = await fetch(`/api/dexscreener/latest/dex/pairs/${chain}/${pairAddress}`);
+		const res = await fetch(
+			`https://api.dexscreener.com/tokens/v1/${chain}/${tokenAddress}`
+		);
 		if (!res.ok) return null;
 
-		const json = await res.json();
-		const pair = json.pair || json.pairs?.[0];
+		const pairs = await res.json();
+		// The endpoint returns an array of pairs for this token
+		const pair = Array.isArray(pairs) ? pairs[0] : null;
 		if (!pair) return null;
 
 		// Normalize returned object
@@ -43,7 +49,8 @@ async function fetchPairFromDexScreener(pairAddress: string, chain: string = "ba
 			volume: pair.volume,
 			txns: pair.txns,
 			pairCreatedAt: pair.pairCreatedAt,
-			info: pair.info,
+			pairAddress: pair.pairAddress,
+			info: pair.info
 		};
 
 		return response;
@@ -52,27 +59,29 @@ async function fetchPairFromDexScreener(pairAddress: string, chain: string = "ba
 	}
 }
 
-export function useMarketData(chain: string, pairAddress: string) {
+export function useMarketData(chain: string, tokenAddress: string) {
 	const {
 		data: marketData,
 		isLoading: loading,
 		error,
-		refetch,
+		refetch
 	} = useQuery({
-		queryKey: ["marketData", chain, pairAddress],
+		queryKey: ["marketData", chain, tokenAddress],
 		queryFn: async () => {
-			if (!pairAddress) {
-				return undefined;
+			if (!tokenAddress) {
+				return null;
 			}
-			const pair = await fetchPairFromDexScreener(pairAddress, chain);
+			const pair = await fetchTokenFromDexScreener(tokenAddress, chain);
 			if (!pair) {
-				return undefined;
+				return null;
 			}
 
 			return {
 				priceUsd: pair.priceUsd,
 				priceChange: pair.priceChange?.h24
-					? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
+					? `${
+							pair.priceChange.h24 >= 0 ? "+" : ""
+					  }${pair.priceChange.h24.toFixed(2)}%`
 					: undefined,
 				marketCap: pair.marketCap?.toString(),
 				fdv: pair.fdv?.toString(),
@@ -83,30 +92,31 @@ export function useMarketData(chain: string, pairAddress: string) {
 				txns24h: pair.txns?.h24
 					? {
 							buys: pair.txns.h24.buys || 0,
-							sells: pair.txns.h24.sells || 0,
-						}
+							sells: pair.txns.h24.sells || 0
+					  }
 					: undefined,
 				txns6h: pair.txns?.h6
 					? {
 							buys: pair.txns.h6.buys || 0,
-							sells: pair.txns.h6.sells || 0,
-						}
+							sells: pair.txns.h6.sells || 0
+					  }
 					: undefined,
 				poolCreated: pair.pairCreatedAt
 					? new Date(pair.pairCreatedAt).toLocaleDateString()
 					: undefined,
+				pairAddress: pair.pairAddress,
 				tokenLogo: pair.info?.imageUrl,
 				baseTokenLogo: pair.baseToken?.logo,
 				quoteTokenLogo: pair.quoteToken?.logo,
 				baseTokenSymbol: pair.baseToken?.symbol,
 				quoteTokenSymbol: pair.quoteToken?.symbol,
 				baseTokenAddress: pair.baseToken?.address,
-				quoteTokenAddress: pair.quoteToken?.address,
+				quoteTokenAddress: pair.quoteToken?.address
 			} as MarketData;
 		},
-		enabled: !!pairAddress,
+		enabled: !!tokenAddress,
 		staleTime: 30000, // 30 seconds
-		gcTime: 1000 * 60 * 5, // 5 minutes
+		gcTime: 1000 * 60 * 5 // 5 minutes
 	});
 
 	return { marketData, loading, error, refetch };
