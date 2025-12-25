@@ -1,6 +1,12 @@
 import { useEffect } from "react";
-import { Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
+import {
+	Route,
+	BrowserRouter as Router,
+	Routes,
+	useLocation
+} from "react-router-dom";
 import ViewLayout from "./app/(view)/layout";
+import { PostHogProvider } from "posthog-js/react";
 import Layout from "./app/layout";
 import NotFound from "./app/not-found";
 import HomePage, { metadata as homeMetadata } from "./app/page";
@@ -11,9 +17,16 @@ type PageModule = {
 	default: React.ComponentType;
 	metadata?: Metadata;
 };
-
+const options = {
+	api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+	defaults: "2025-11-30"
+} as const;
 // MetadataSetter component
-function MetadataSetter({ metadataMap }: { metadataMap: Record<string, Metadata> }) {
+function MetadataSetter({
+	metadataMap
+}: {
+	metadataMap: Record<string, Metadata>;
+}) {
 	const location = useLocation();
 
 	useEffect(() => {
@@ -23,7 +36,9 @@ function MetadataSetter({ metadataMap }: { metadataMap: Record<string, Metadata>
 				document.title = metadata.title;
 			}
 			if (metadata.description) {
-				const metaDesc = document.querySelector('meta[name="description"]');
+				const metaDesc = document.querySelector(
+					'meta[name="description"]'
+				);
 				if (metaDesc) {
 					metaDesc.setAttribute("content", metadata.description);
 				} else {
@@ -43,7 +58,9 @@ function MetadataSetter({ metadataMap }: { metadataMap: Record<string, Metadata>
 				}
 				if (og.images && og.images.length > 0) {
 					// Remove existing og:image tags
-					const existingImages = document.querySelectorAll('meta[property="og:image"]');
+					const existingImages = document.querySelectorAll(
+						'meta[property="og:image"]'
+					);
 					for (let i = 0; i < existingImages.length; i++) {
 						existingImages[i].remove();
 					}
@@ -82,10 +99,9 @@ function setMetaTag(attr: string, value: string, content: string) {
 }
 
 // Dynamically import all page components
-const pageModules = import.meta.glob("./app/**/page.tsx", { eager: true }) as Record<
-	string,
-	PageModule
->;
+const pageModules = import.meta.glob("./app/**/page.tsx", {
+	eager: true
+}) as Record<string, PageModule>;
 
 // Function to generate routes from file structure
 function generateRoutes() {
@@ -99,7 +115,7 @@ function generateRoutes() {
 			<Layout>
 				<HomePage />
 			</Layout>
-		),
+		)
 	});
 	metadataMap["/"] = homeMetadata;
 
@@ -139,7 +155,7 @@ function generateRoutes() {
 				<Layout>
 					<Component />
 				</Layout>
-			),
+			)
 		});
 	}
 
@@ -150,7 +166,7 @@ function generateRoutes() {
 			<Layout>
 				<NotFound />
 			</Layout>
-		),
+		)
 	});
 
 	return { routes, metadataMap };
@@ -160,14 +176,23 @@ function App() {
 	const { routes, metadataMap } = generateRoutes();
 
 	return (
-		<Router>
-			<MetadataSetter metadataMap={metadataMap} />
-			<Routes>
-				{routes.map((route) => (
-					<Route key={route.path} path={route.path} element={route.element} />
-				))}
-			</Routes>
-		</Router>
+		<PostHogProvider
+			apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY!}
+			options={options}
+		>
+			<Router>
+				<MetadataSetter metadataMap={metadataMap} />
+				<Routes>
+					{routes.map((route) => (
+						<Route
+							key={route.path}
+							path={route.path}
+							element={route.element}
+						/>
+					))}
+				</Routes>
+			</Router>
+		</PostHogProvider>
 	);
 }
 

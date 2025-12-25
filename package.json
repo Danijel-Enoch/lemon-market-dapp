@@ -36,6 +36,7 @@
 		"lightweight-charts": "^5.0.9",
 		"lucide-react": "^0.555.0",
 		"porto": "^0.2.37",
+		"posthog-js": "^1.310.1",
 		"react": "^19.2.1",
 		"react-dom": "^19.2.1",
 		"react-hot-toast": "^2.6.0",
