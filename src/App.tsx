@@ -18,7 +18,7 @@ type PageModule = {
 	metadata?: Metadata;
 };
 const options = {
-	api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+	api_host: "https://us.i.posthog.com",
 	defaults: "2025-11-30"
 } as const;
 // MetadataSetter component
@@ -177,7 +177,7 @@ function App() {
 
 	return (
 		<PostHogProvider
-			apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY!}
+			apiKey={"phc_3yzfWThidiuKV0AbmI2r7WOrtSx0PEAcGdDbQujHyl5"}
 			options={options}
 		>
 			<Router>
