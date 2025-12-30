@@ -122,7 +122,9 @@ function PerpContent() {
 	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<
 		number | null
 	>(null);
-	const [marginTokenLogo, setMarginTokenLogo] = useState<string | null>(null);
+	const [marginTokenLogo, setMarginTokenLogo] = useState<string | null>(
+		"https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+	);
 
 	const { data: marginBalance, refetch: refetchMarginBalance } =
 		useReadContract({
@@ -911,7 +913,7 @@ function PerpContent() {
 										priceData={priceData ?? undefined}
 										fetchLatestPrice={fetchLatestPrice}
 										isLoadingPrice={isLoadingPrice}
-										marketData={marketData}
+										marketData={marketData??undefined}
 									/>
 								)}
 							</div>
