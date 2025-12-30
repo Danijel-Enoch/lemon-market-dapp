@@ -1,15 +1,10 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SearchResults } from "@/components/ui/SearchResults";
-import { useSearch, type SearchResult } from "@/hooks/useSearch";
+import { type SearchResult, useSearch } from "@/hooks/useSearch";
 
 interface SearchModalProps {
 	open: boolean;
@@ -20,7 +15,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const { results, isLoading, error, search, clearResults } = useSearch({
-		minQueryLength: 3
+		minQueryLength: 3,
 	});
 
 	const handleSearch = (value: string) => {

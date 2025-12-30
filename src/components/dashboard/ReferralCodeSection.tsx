@@ -14,7 +14,7 @@ interface ReferralCodeSectionProps {
 export function ReferralCodeSection({
 	referralCode,
 	isGenerating,
-	onGenerate
+	onGenerate,
 }: ReferralCodeSectionProps) {
 	const [copied, setCopied] = useState(false);
 	const [linkCopied, setLinkCopied] = useState(false);
@@ -61,11 +61,7 @@ export function ReferralCodeSection({
 		return (
 			<div className="space-y-4">
 				<div className="flex items-center gap-2">
-					<Input
-						value={referralCode}
-						readOnly
-						className="bg-input/50 font-mono text-sm"
-					/>
+					<Input value={referralCode} readOnly className="bg-input/50 font-mono text-sm" />
 					<Button
 						size="icon"
 						variant="outline"
@@ -73,19 +69,11 @@ export function ReferralCodeSection({
 						className="shrink-0"
 						title="Copy referral code"
 					>
-						{copied ? (
-							<span className="text-xs">✓</span>
-						) : (
-							<Copy className="size-4" />
-						)}
+						{copied ? <span className="text-xs">✓</span> : <Copy className="size-4" />}
 					</Button>
 				</div>
 				<div className="space-y-2">
-					<Button
-						onClick={handleCopyReferralLink}
-						variant="default"
-						className="w-full gap-2"
-					>
+					<Button onClick={handleCopyReferralLink} variant="default" className="w-full gap-2">
 						{linkCopied ? (
 							<>
 								<span className="text-xs">✓</span>
@@ -118,8 +106,7 @@ export function ReferralCodeSection({
 					</Button>
 				</div>
 				<p className="text-xs text-muted-foreground">
-					Share your referral link with friends to earn 10 points when
-					they sign up!
+					Share your referral link with friends to earn 10 points when they sign up!
 				</p>
 			</div>
 		);
@@ -128,14 +115,9 @@ export function ReferralCodeSection({
 	return (
 		<div className="space-y-4">
 			<p className="text-sm text-muted-foreground">
-				Create your unique referral code to start earning rewards when
-				your friends join!
+				Create your unique referral code to start earning rewards when your friends join!
 			</p>
-			<Button
-				onClick={handleGenerateCode}
-				disabled={isGenerating}
-				className="w-full"
-			>
+			<Button onClick={handleGenerateCode} disabled={isGenerating} className="w-full">
 				{isGenerating ? (
 					<>
 						<RefreshCw className="size-4 animate-spin mr-2" />

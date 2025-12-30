@@ -2,14 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
-import {
-	createReferralCode,
-	getUserFeesEarned,
-	getUserLeaderboardRank,
-	getUserPoints,
-	getUserReferralStats,
-	getUserTradingVolume
-} from "@/lib/dashboard-service";
+import { createReferralCode, getUserReferralStats } from "@/lib/dashboard-service";
 
 export function useDashboard() {
 	const { address, isConnected } = useAccount();
@@ -18,7 +11,7 @@ export function useDashboard() {
 		data: dashboardData,
 		isLoading,
 		error: fetchError,
-		refetch
+		refetch,
 	} = useQuery({
 		queryKey: ["dashboard", address],
 		queryFn: async () => {
@@ -27,9 +20,7 @@ export function useDashboard() {
 			}
 
 			// Use Promise.allSettled to handle partial failures gracefully
-			const results = await Promise.allSettled([
-				getUserReferralStats(address)
-			]);
+			const results = await Promise.allSettled([getUserReferralStats(address)]);
 
 			// Extract successful results with fallback values
 			const [referralStatsResult] = results;
@@ -41,8 +32,8 @@ export function useDashboard() {
 							totalReferrals: 0,
 							referralEarnings: 0,
 							points: 0,
-							referralCode: null
-					  };
+							referralCode: null,
+						};
 
 			// Get referral code from stats response
 			const referralCode = referralStats?.referralCode || null;
@@ -54,28 +45,26 @@ export function useDashboard() {
 				referralCode,
 				totalReferrals: referralStats.totalReferrals,
 				referralEarnings: referralStats.referralEarnings,
-				leaderboardRank: 0
+				leaderboardRank: 0,
 			};
 		},
 		enabled: !!isConnected && !!address,
-		refetchInterval: 60000 // Refresh data every 60 seconds
+		refetchInterval: 60000, // Refresh data every 60 seconds
 	});
 
-	const [
-		{ value: generatedCode, error: generateError },
-		generateReferralCode
-	] = useAsyncFn(async () => {
-		if (!isConnected || !address) {
-			throw new Error("Wallet not connected");
-		}
+	const [{ value: generatedCode, error: generateError }, generateReferralCode] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Wallet not connected");
+			}
 
-		const code = await createReferralCode(address);
-		if (!code) {
-			throw new Error("Failed to generate referral code");
-		}
+			const code = await createReferralCode(address);
+			if (!code) {
+				throw new Error("Failed to generate referral code");
+			}
 
-		return code;
-	}, [address, isConnected]);
+			return code;
+		}, [address, isConnected]);
 
 	// Compute stats from fetched data with memoization
 	const stats = useMemo(() => {
@@ -86,7 +75,7 @@ export function useDashboard() {
 			referralCode: generatedCode || null,
 			totalReferrals: 0,
 			referralEarnings: 0,
-			leaderboardRank: 0
+			leaderboardRank: 0,
 		};
 
 		// Update referral code if one was generated
@@ -113,6 +102,6 @@ export function useDashboard() {
 			return result || null;
 		},
 		isWalletConnected: isConnected,
-		walletAddress: address
+		walletAddress: address,
 	};
 }

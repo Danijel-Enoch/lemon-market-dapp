@@ -11,9 +11,17 @@ export const metadata: Metadata = {
 	description: "Provide liquidity and earn rewards",
 };
 
+interface MarketPool {
+	id?: string;
+	pair?: string;
+	name?: string;
+	tvl?: string;
+	apr?: string;
+}
+
 function LiquidityPoolsList() {
 	const marketApi = useMarketApi();
-	const [markets, setMarkets] = useState<any[]>([]);
+	const [markets, setMarkets] = useState<MarketPool[]>([]);
 	const [_isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
@@ -46,7 +54,7 @@ function LiquidityPoolsList() {
 
 	return (
 		<>
-			{displayMarkets.map((pool: any) => (
+			{displayMarkets.map((pool: MarketPool) => (
 				<div
 					key={pool.pair || pool.id}
 					className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"

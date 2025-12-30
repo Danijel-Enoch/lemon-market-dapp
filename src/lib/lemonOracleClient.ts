@@ -21,7 +21,7 @@
 export interface DEXConfig {
 	name: string;
 	contractAddress: string;
-	abi: any[];
+	abi: unknown[];
 	type:
 		| "uniswap-v2"
 		| "uniswap-v2-bnb"
@@ -65,7 +65,7 @@ export interface HealthResponse {
 	timestamp: string;
 	multiChain: boolean;
 	dexes: string[];
-	cache: any;
+	cache: unknown;
 	supportedChains: number[];
 	features: {
 		usdPricing: boolean;
@@ -114,7 +114,7 @@ export interface ApiError {
 	timestamp?: string;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
 	success: boolean;
 	data?: T;
 	error?: ApiError;
@@ -208,6 +208,7 @@ export interface PriceComparison {
  */
 export class LemonSpotPriceClient {
 	private readonly baseUrl: string;
+	private readonly apiKey: string | undefined;
 	private readonly timeout: number;
 	private readonly headers: Record<string, string>;
 	private readonly throwOnError: boolean;
@@ -217,7 +218,7 @@ export class LemonSpotPriceClient {
 	private readonly enableCaching: boolean;
 	private readonly cacheTTL: number;
 	private readonly defaultChainId: number;
-	private readonly cache: Map<string, { data: any; timestamp: number }>;
+	private readonly cache: Map<string, { data: unknown; timestamp: number }>;
 	private activeStreams: Map<string, NodeJS.Timeout>;
 
 	constructor(options: ClientOptions) {
@@ -268,8 +269,14 @@ export class LemonSpotPriceClient {
 				const result = await this.makeRequest<T>(endpoint, options);
 
 				// Cache successful GET responses
-				if (this.enableCaching && cacheKey && method === "GET" && result.success) {
-					this.setCached(cacheKey, result.data!);
+				if (
+					this.enableCaching &&
+					cacheKey &&
+					method === "GET" &&
+					result.success &&
+					result.data !== undefined
+				) {
+					this.setCached(cacheKey, result.data);
 				}
 
 				return result;
@@ -322,7 +329,7 @@ export class LemonSpotPriceClient {
 
 			clearTimeout(timeoutId);
 
-			const data: any = await response.json();
+			const data: unknown = await response.json();
 
 			if (this.debug) {
 			}
@@ -337,7 +344,7 @@ export class LemonSpotPriceClient {
 			} else {
 				result.error = data as ApiError;
 				if (this.throwOnError) {
-					throw new Error(`API Error: ${data.message || data.error}`);
+					throw new Error(`API Error: ${result.error.message || result.error.error}`);
 				}
 			}
 
@@ -886,7 +893,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -897,7 +907,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -908,7 +921,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -919,7 +935,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -930,7 +949,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -941,7 +963,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -952,7 +977,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -963,7 +991,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -974,7 +1005,10 @@ export class LemonSpotPriceClient {
 		if (!response.success) {
 			throw new Error(response.error?.message || "Unknown error");
 		}
-		return response.data!;
+		if (!response.data) {
+			throw new Error("No data returned");
+		}
+		return response.data;
 	}
 
 	/**
@@ -1316,7 +1350,10 @@ export async function compareTokenPrices(
 	if (!response.success) {
 		throw new Error(response.error?.message || "Failed to get price comparison");
 	}
-	return response.data!;
+	if (!response.data) {
+		throw new Error("No data returned");
+	}
+	return response.data;
 }
 
 /**

@@ -10,7 +10,7 @@ import {
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
-	useWriteContract
+	useWriteContract,
 } from "wagmi";
 import { ChartSection } from "@/components/trading/ChartSection";
 import { PositionsTable } from "@/components/trading/PositionsTable";
@@ -31,11 +31,11 @@ import {
 	formatTxHash,
 	getEtherscanUrl,
 	validateLeverage,
-	validateMargin
+	validateMargin,
 } from "@/lib/position-api";
+import { referralService } from "@/lib/referral-service";
 import type { Metadata } from "@/lib/types";
 import { useMarketApi } from "@/lib/useMarketApi";
-import { referralService } from "@/lib/referral-service";
 
 const miniAppEmbed = {
 	version: "1",
@@ -47,9 +47,9 @@ const miniAppEmbed = {
 			name: "Lemon Markets - Perpetuals",
 			url: "https://demo.lemonmarkets.xyz/perp",
 			splashImageUrl: "https://demo.lemonmarkets.xyz/image/logo.png",
-			splashBackgroundColor: "#000000"
-		}
-	}
+			splashBackgroundColor: "#000000",
+		},
+	},
 };
 
 export const metadata: Metadata = {
@@ -57,13 +57,13 @@ export const metadata: Metadata = {
 	description: "Trade perpetual futures with leverage on Lemon Markets",
 	other: {
 		"fc:miniapp": JSON.stringify(miniAppEmbed),
-		"fc:frame": JSON.stringify(miniAppEmbed)
+		"fc:frame": JSON.stringify(miniAppEmbed),
 	},
 	openGraph: {
 		title: "Perpetuals Trading - Lemon Markets",
 		description: "Trade perpetual futures with leverage",
-		images: ["https://lemonmarkets.xyz/image/trading-icon.svg"]
-	}
+		images: ["https://lemonmarkets.xyz/image/trading-icon.svg"],
+	},
 };
 
 const DEFAULT_REFERRER_ADDRESS = "0x273d6779DDFa7e942F6b87c420e4072F4468f1cB";
@@ -71,8 +71,7 @@ const DEFAULT_REFERRER_ADDRESS = "0x273d6779DDFa7e942F6b87c420e4072F4468f1cB";
 function PerpContent() {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
-	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] =
-		useState(false);
+	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] = useState(false);
 	const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "",
@@ -81,7 +80,7 @@ function PerpContent() {
 		pairAddress: "",
 		tokenAddress: "",
 		chain: "base", // Default to base chain
-		assetType: "crypto" as "crypto" | "stock" | "forex" // Track asset type
+		assetType: "crypto" as "crypto" | "stock" | "forex", // Track asset type
 	});
 
 	const {
@@ -91,89 +90,70 @@ function PerpContent() {
 		refetch: fetchUserPositions,
 		openPositions,
 		totalPnl,
-		totalMargin
+		totalMargin,
 	} = useUserPositions();
 
 	const marketApi = useMarketApi();
 
 	const { address, isConnected } = useConnection();
 	const { mutate, data: hash, error, isPending } = useSendTransaction();
-	const { isLoading: isConfirming, isSuccess: isConfirmed } =
-		useWaitForTransactionReceipt({
-			hash
-		});
+	const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+		hash,
+	});
 
-	const {
-		mutate: writeContract,
-		data: approvalHash,
-		isPending: isApproving
-	} = useWriteContract();
+	const { mutate: writeContract, data: approvalHash, isPending: isApproving } = useWriteContract();
 	const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } =
 		useWaitForTransactionReceipt({
-			hash: approvalHash
+			hash: approvalHash,
 		});
 
 	const { data: ethBalance } = useBalance({
 		address: address,
-		query: { enabled: !!address }
+		query: { enabled: !!address },
 	});
 
 	const [marginTokenDecimals, setMarginTokenDecimals] = useState<number>(6);
-	const [marginTokenPriceUsd, setMarginTokenPriceUsd] = useState<
-		number | null
-	>(null);
-	const [marginTokenLogo, setMarginTokenLogo] = useState<string | null>(
-		"https://assets.coingecko.com/coins/images/6319/standard/usdc.png"
+	const [marginTokenPriceUsd, _setMarginTokenPriceUsd] = useState<number | null>(null);
+	const [marginTokenLogo, _setMarginTokenLogo] = useState<string | null>(
+		"https://assets.coingecko.com/coins/images/6319/standard/usdc.png",
 	);
 
-	const { data: marginBalance, refetch: refetchMarginBalance } =
-		useReadContract({
-			address: usdc as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "balanceOf",
-			args: address ? [address] : undefined,
-			query: { enabled: !!address && !!usdc }
-		});
+	const { data: marginBalance, refetch: refetchMarginBalance } = useReadContract({
+		address: usdc as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address && !!usdc },
+	});
 
-	const { data: marginAllowance, refetch: refetchAllowance } =
-		useReadContract({
-			address: usdc as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "allowance",
-			args: address
-				? [address, SyntheticPerpetualContract as `0x${string}`]
-				: undefined,
-			query: { enabled: !!address && !!usdc }
-		});
+	const { data: marginAllowance, refetch: refetchAllowance } = useReadContract({
+		address: usdc as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "allowance",
+		args: address ? [address, SyntheticPerpetualContract as `0x${string}`] : undefined,
+		query: { enabled: !!address && !!usdc },
+	});
 
 	const { data: decimalsFromChain } = useReadContract({
 		address: usdc as `0x${string}`,
 		abi: ERC20Abi,
 		functionName: "decimals",
 		args: [],
-		query: { enabled: !!usdc }
+		query: { enabled: !!usdc },
 	});
 
 	const [isLong, setIsLong] = useState(true);
 	const [marginValue, setMarginValue] = useState("");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
 	const [leverage, setLeverage] = useState(2);
-	const [chartType, setChartType] = useState<"dexscreener" | "beta">(
-		"dexscreener"
-	);
-	const [_lastTransactionHash, setLastTransactionHash] = useState<
-		string | null
-	>(null);
+	const [chartType, setChartType] = useState<"dexscreener" | "beta">("dexscreener");
+	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
-	const [referrerAddress, setReferrerAddress] = useState<string>(
-		DEFAULT_REFERRER_ADDRESS
-	);
+	const [referrerAddress, setReferrerAddress] = useState<string>(DEFAULT_REFERRER_ADDRESS);
 
 	// Compute available margin token amount from contract balance
 	const decimals =
-		decimalsFromChain !== undefined
-			? Number(decimalsFromChain)
-			: marginTokenDecimals;
+		decimalsFromChain !== undefined ? Number(decimalsFromChain) : marginTokenDecimals;
 	const availableMargin = marginBalance
 		? parseFloat(formatUnits(BigInt(marginBalance as string), decimals))
 		: 0;
@@ -195,7 +175,7 @@ function PerpContent() {
 		tradingPair.assetType === "crypto" ? tradingPair.chain : "base",
 		tradingPair.assetType === "crypto"
 			? tradingPair.tokenAddress
-			: searchParams.get("tokenAddress") ?? ""
+			: (searchParams.get("tokenAddress") ?? ""),
 	);
 
 	useEffect(() => {
@@ -242,58 +222,50 @@ function PerpContent() {
 	// Fetch margin token logo. Prefer logos from the marketData (quote/base) when possible,
 	// otherwise query DexScreener tokens endpoint for metadata
 
-	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] =
-		useAsyncFn(async () => {
-			if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
+	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
+		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
 
-			const assetType = tradingPair.assetType;
-			const lastUpdate = new Date();
+		const assetType = tradingPair.assetType;
+		const lastUpdate = new Date();
 
-			if (assetType === "stock") {
-				// Fetch stock price using price API
-				const stockPrice = await getStockPrice(tradingPair.symbol);
-				if (stockPrice?.success) {
-					return {
-						price: formatPrice(stockPrice.price),
-						change: "N/A", // Stock API doesn't provide change data
-						lastUpdate
-					};
-				}
-			} else if (assetType === "forex") {
-				// Fetch forex price using price API
-				const forexPrice = await getForexPrice(tradingPair.symbol);
-				if (forexPrice?.success) {
-					return {
-						price: formatPrice(forexPrice.price),
-						change: "N/A", // Forex API doesn't provide change data
-						lastUpdate
-					};
-				}
+		if (assetType === "stock") {
+			// Fetch stock price using price API
+			const stockPrice = await getStockPrice(tradingPair.symbol);
+			if (stockPrice?.success) {
+				return {
+					price: formatPrice(stockPrice.price),
+					change: "N/A", // Stock API doesn't provide change data
+					lastUpdate,
+				};
 			}
-			// For crypto, we now rely on useMarketData to avoid double fetching
-			return null;
-		}, [
-			tradingPair.symbol,
-			tradingPair.pairAddress,
-			tradingPair.assetType,
-			tradingPair.chain
-		]);
+		} else if (assetType === "forex") {
+			// Fetch forex price using price API
+			const forexPrice = await getForexPrice(tradingPair.symbol);
+			if (forexPrice?.success) {
+				return {
+					price: formatPrice(forexPrice.price),
+					change: "N/A", // Forex API doesn't provide change data
+					lastUpdate,
+				};
+			}
+		}
+		// For crypto, we now rely on useMarketData to avoid double fetching
+		return null;
+	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
 
 	// Update tradingPair when priceData changes (for stocks/forex) or marketData changes (for crypto)
 	useEffect(() => {
 		if (tradingPair.assetType === "crypto" && marketData) {
 			setTradingPair((prev) => ({
 				...prev,
-				price: marketData.priceUsd
-					? formatPrice(parseFloat(marketData.priceUsd))
-					: prev.price,
-				change: marketData.priceChange || prev.change
+				price: marketData.priceUsd ? formatPrice(parseFloat(marketData.priceUsd)) : prev.price,
+				change: marketData.priceChange || prev.change,
 			}));
 		} else if (priceData) {
 			setTradingPair((prev) => ({
 				...prev,
 				price: priceData.price,
-				change: priceData.change
+				change: priceData.change,
 			}));
 		}
 	}, [priceData, marketData, tradingPair.assetType]);
@@ -303,18 +275,10 @@ function PerpContent() {
 		const pairAddress = searchParams.get("pairAddress");
 		const tokenAddress = searchParams.get("tokenAddress");
 		const chain = searchParams.get("chain") || "base";
-		const assetType = (searchParams.get("assetType") || "crypto") as
-			| "crypto"
-			| "stock"
-			| "forex";
+		const assetType = (searchParams.get("assetType") || "crypto") as "crypto" | "stock" | "forex";
 
 		// If no symbol/pair/token was passed in the URL, redirect to the top performing trending token
-		if (
-			!symbol &&
-			!pairAddress &&
-			!tokenAddress &&
-			!didDefaultTrendingRedirect
-		) {
+		if (!symbol && !pairAddress && !tokenAddress && !didDefaultTrendingRedirect) {
 			setDidDefaultTrendingRedirect(true);
 			(async () => {
 				try {
@@ -322,25 +286,20 @@ function PerpContent() {
 						limit: 5,
 						page: 1,
 						chain: "base",
-						sort: "change"
+						sort: "change",
 					});
 					// Support both array-shaped and single object responses for backwards compatibility
-					const top = Array.isArray(data?.data)
-						? data.data[0]
-						: data?.data;
+					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
 					if (top) {
 						const params = new URLSearchParams();
-						const token =
-							top as import("@/hooks/useTrending").TokenItem;
+						const token = top as import("@/hooks/useTrending").TokenItem;
 						if (token.symbol) params.set("symbol", token.symbol);
-						if (token.pairAddress)
-							params.set("pairAddress", token.pairAddress);
-						if (token.tokenAddress)
-							params.set("tokenAddress", token.tokenAddress);
+						if (token.pairAddress) params.set("pairAddress", token.pairAddress);
+						if (token.tokenAddress) params.set("tokenAddress", token.tokenAddress);
 						params.set("chain", token.chain || "base");
 						params.set("assetType", "crypto");
 						navigate(`/perp?${params.toString()}`, {
-							replace: true
+							replace: true,
 						});
 						return;
 					}
@@ -353,11 +312,7 @@ function PerpContent() {
 			// For stocks and forex, use symbol as-is
 			// For crypto, add /USDT if not already present
 			const formattedSymbol =
-				assetType === "crypto"
-					? symbol.includes("/")
-						? symbol
-						: `${symbol}/USDT`
-					: symbol;
+				assetType === "crypto" ? (symbol.includes("/") ? symbol : `${symbol}/USDT`) : symbol;
 
 			setTradingPair((prev) => ({
 				...prev,
@@ -365,7 +320,7 @@ function PerpContent() {
 				pairAddress: pairAddress || prev.pairAddress,
 				tokenAddress: tokenAddress || prev.tokenAddress,
 				chain: chain,
-				assetType: assetType
+				assetType: assetType,
 			}));
 		}
 	}, [searchParams, navigate, didDefaultTrendingRedirect]);
@@ -383,20 +338,12 @@ function PerpContent() {
 
 	useEffect(() => {
 		// only check allowance and set approval if user has entered a value AND user opted-in auto swap & approve
-		if (
-			!autoSwapAndApprove ||
-			!marginValue ||
-			parseFloat(marginValue) <= 0
-		) {
+		if (!autoSwapAndApprove || !marginValue || parseFloat(marginValue) <= 0) {
 			setNeedsApproval(false);
 			return;
 		}
 
-		if (
-			marginAllowance !== undefined &&
-			marginValue &&
-			parseFloat(marginValue) > 0
-		) {
+		if (marginAllowance !== undefined && marginValue && parseFloat(marginValue) > 0) {
 			const marginInWei = parseUnits(marginValue, decimals);
 			const allowanceAmount = BigInt(marginAllowance as string);
 			setNeedsApproval(allowanceAmount < marginInWei);
@@ -445,138 +392,118 @@ function PerpContent() {
 		setLeverage(newLeverage);
 	};
 
-	const [
-		{ loading: isApprovingToken, error: approvalError },
-		handleApproveToken
-	] = useAsyncFn(async () => {
-		if (!isConnected || !address) {
-			throw new Error("Please connect your wallet first");
-		}
+	const [{ loading: isApprovingToken, error: approvalError }, handleApproveToken] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		const approvalAmount = parseUnits("1000000", decimals);
+			const approvalAmount = parseUnits("1000000", decimals);
 
-		writeContract({
-			address: usdc as `0x${string}`,
-			abi: ERC20Abi,
-			functionName: "approve",
-			args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount]
-		});
-	}, [isConnected, address, writeContract]);
+			writeContract({
+				address: usdc as `0x${string}`,
+				abi: ERC20Abi,
+				functionName: "approve",
+				args: [SyntheticPerpetualContract as `0x${string}`, approvalAmount],
+			});
+		}, [isConnected, address, writeContract]);
 
 	// Handle place transaction
-	const [
-		{ loading: isCreatingPosition, error: transactionError },
-		handlePlaceTransaction
-	] = useAsyncFn(async () => {
-		if (!isConnected || !address) {
-			throw new Error("Please connect your wallet first");
-		}
+	const [{ loading: isCreatingPosition, error: transactionError }, handlePlaceTransaction] =
+		useAsyncFn(async () => {
+			if (!isConnected || !address) {
+				throw new Error("Please connect your wallet first");
+			}
 
-		if (tradingPair.assetType !== "crypto") {
-			throw new Error(
-				"Trading is currently only available for crypto assets"
-			);
-		}
+			if (tradingPair.assetType !== "crypto") {
+				throw new Error("Trading is currently only available for crypto assets");
+			}
 
-		// Convert margin token amount to USD for validation (if price available)
-		const marginUsdForValidation = marginTokenPriceUsd
-			? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
-			: marginValue;
-		const marginValidation = validateMargin(marginUsdForValidation);
-		if (!marginValidation.valid) {
-			throw new Error(marginValidation.error || "Invalid margin");
-		}
+			// Convert margin token amount to USD for validation (if price available)
+			const marginUsdForValidation = marginTokenPriceUsd
+				? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
+				: marginValue;
+			const marginValidation = validateMargin(marginUsdForValidation);
+			if (!marginValidation.valid) {
+				throw new Error(marginValidation.error || "Invalid margin");
+			}
 
-		const leverageValidation = validateLeverage(leverage);
-		if (!leverageValidation.valid) {
-			throw new Error(leverageValidation.error || "Invalid leverage");
-		}
+			const leverageValidation = validateLeverage(leverage);
+			if (!leverageValidation.valid) {
+				throw new Error(leverageValidation.error || "Invalid leverage");
+			}
 
-		const tokenSymbol = extractTokenSymbol(tradingPair.symbol)
-			.toUpperCase()
-			.replace(" ", "");
-		const tokenAddress = tradingPair.tokenAddress;
-		const chainName = tradingPair.chain || "base";
+			const tokenSymbol = extractTokenSymbol(tradingPair.symbol).toUpperCase().replace(" ", "");
+			const tokenAddress = tradingPair.tokenAddress;
+			const chainName = tradingPair.chain || "base";
 
-		// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
-		const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
-		//console.log("referrerAddress:", referrerAddress);
-		const result = await marketApi.positions.open({
-			marketId,
-			isLong,
-			margin: marginValue,
-			leverage,
-			userAddress: address,
-			referrer: referrerAddress
-		});
+			// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
+			const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
+			//console.log("referrerAddress:", referrerAddress);
+			const result = await marketApi.positions.open({
+				marketId,
+				isLong,
+				margin: marginValue,
+				leverage,
+				userAddress: address,
+				referrer: referrerAddress,
+			});
 
-		if (!result) {
-			throw new Error("Failed to create position");
-		}
+			if (!result) {
+				throw new Error("Failed to create position");
+			}
 
-		// Check for API error response
-		if (typeof result === "object" && "error" in result && result.error) {
-			throw new Error(
-				typeof result.error === "string"
-					? result.error
-					: "Failed to create position"
-			);
-		}
+			// Check for API error response
+			if (typeof result === "object" && "error" in result && result.error) {
+				throw new Error(
+					typeof result.error === "string" ? result.error : "Failed to create position",
+				);
+			}
 
-		if (
-			typeof result === "object" &&
-			"success" in result &&
-			result.success === false
-		) {
-			throw new Error("Failed to create position");
-		}
+			if (typeof result === "object" && "success" in result && result.success === false) {
+				throw new Error("Failed to create position");
+			}
 
-		let txResult = result as {
-			to?: string;
-			data?: string;
-			gasEstimate?: number;
-		};
-
-		// Handle case where tx data is nested in 'data' property
-		if (
-			"data" in txResult &&
-			typeof txResult.data === "object" &&
-			txResult.data !== null
-		) {
-			const nestedData = txResult.data as {
+			let txResult = result as {
 				to?: string;
 				data?: string;
 				gasEstimate?: number;
 			};
-			if (nestedData.to && nestedData.data) {
-				txResult = nestedData;
+
+			// Handle case where tx data is nested in 'data' property
+			if ("data" in txResult && typeof txResult.data === "object" && txResult.data !== null) {
+				const nestedData = txResult.data as {
+					to?: string;
+					data?: string;
+					gasEstimate?: number;
+				};
+				if (nestedData.to && nestedData.data) {
+					txResult = nestedData;
+				}
 			}
-		}
 
-		if (!txResult.to || !txResult.data) {
-			//console.error("Invalid transaction data received:", result);
-			throw new Error("Received invalid transaction data from API");
-		}
+			if (!txResult.to || !txResult.data) {
+				//console.error("Invalid transaction data received:", result);
+				throw new Error("Received invalid transaction data from API");
+			}
 
-		mutate({
-			to: txResult.to as `0x${string}`,
-			data: txResult.data as `0x${string}`,
-			value: BigInt(0),
-			gas: txResult.gasEstimate
-				? BigInt(String(txResult.gasEstimate))
-				: undefined
-		});
-	}, [
-		isConnected,
-		address,
-		marginValue,
-		leverage,
-		tradingPair,
-		isLong,
-		mutate,
-		marginTokenPriceUsd,
-		referrerAddress
-	]);
+			mutate({
+				to: txResult.to as `0x${string}`,
+				data: txResult.data as `0x${string}`,
+				value: BigInt(0),
+				gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
+			});
+		}, [
+			isConnected,
+			address,
+			marginValue,
+			leverage,
+			tradingPair,
+			isLong,
+			mutate,
+			marginTokenPriceUsd,
+			referrerAddress,
+		]);
 
 	return (
 		<>
@@ -592,8 +519,7 @@ function PerpContent() {
 										alt={`${marketData.baseTokenSymbol} logo`}
 										className="w-7 h-7 rounded-full"
 										onError={(e) => {
-											e.currentTarget.style.display =
-												"none";
+											e.currentTarget.style.display = "none";
 										}}
 									/>
 								)}
@@ -605,19 +531,14 @@ function PerpContent() {
 									<button
 										type="button"
 										className="text-white text-xs cursor-pointer hover:text-gray-300"
-										onClick={() =>
-											setIsSearchModalOpen(true)
-										}
+										onClick={() => setIsSearchModalOpen(true)}
 									>
-										{marketData.baseTokenSymbol}/
-										{marketData.quoteTokenSymbol}
+										{marketData.baseTokenSymbol}/{marketData.quoteTokenSymbol}
 									</button>
 									{marketData.priceChange && (
 										<span
 											className={`text-xs px-1.5 py-0.5 rounded ${
-												marketData.priceChange.startsWith(
-													"+"
-												)
+												marketData.priceChange.startsWith("+")
 													? "bg-[#002400] text-[#4DAD31]"
 													: "bg-[#240000] text-[#FF4C4C]"
 											}`}
@@ -627,9 +548,7 @@ function PerpContent() {
 									)}
 									<Search
 										className="w-4 h-4 text-white cursor-pointer hover:text-gray-300"
-										onClick={() =>
-											setIsSearchModalOpen(true)
-										}
+										onClick={() => setIsSearchModalOpen(true)}
 									/>
 								</div>
 							</div>
@@ -638,18 +557,12 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								24h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">24h Volume</div>
 							<div className="text-white text-sm font-medium">
 								{tradingPair.assetType === "crypto"
 									? `$${
-											marketData?.volume24h
-												? Number(
-														marketData.volume24h
-												  ).toLocaleString()
-												: "0"
-									  }`
+											marketData?.volume24h ? Number(marketData.volume24h).toLocaleString() : "0"
+										}`
 									: "N/A"}
 							</div>
 						</div>
@@ -657,18 +570,10 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								6h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">6h Volume</div>
 							<div className="text-white text-sm font-medium">
 								{tradingPair.assetType === "crypto"
-									? `$${
-											marketData?.volume6h
-												? Number(
-														marketData.volume6h
-												  ).toLocaleString()
-												: "0"
-									  }`
+									? `$${marketData?.volume6h ? Number(marketData.volume6h).toLocaleString() : "0"}`
 									: "N/A"}
 							</div>
 						</div>
@@ -676,18 +581,10 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								1h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">1h Volume</div>
 							<div className="text-white text-sm font-medium">
 								{tradingPair.assetType === "crypto"
-									? `$${
-											marketData?.volume1h
-												? Number(
-														marketData.volume1h
-												  ).toLocaleString()
-												: "0"
-									  }`
+									? `$${marketData?.volume1h ? Number(marketData.volume1h).toLocaleString() : "0"}`
 									: "N/A"}
 							</div>
 						</div>
@@ -695,18 +592,12 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								Liquidity
-							</div>
+							<div className="text-[#A6A6A6] text-xs">Liquidity</div>
 							<div className="text-white text-sm font-medium">
 								{tradingPair.assetType === "crypto"
 									? `$${
-											marketData?.liquidity
-												? Number(
-														marketData.liquidity
-												  ).toLocaleString()
-												: "0"
-									  }`
+											marketData?.liquidity ? Number(marketData.liquidity).toLocaleString() : "0"
+										}`
 									: "N/A"}
 							</div>
 						</div>
@@ -716,14 +607,9 @@ function PerpContent() {
 						{marketData.marketCap && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										Market Cap
-									</div>
+									<div className="text-[#A6A6A6] text-xs">Market Cap</div>
 									<div className="text-white text-sm font-medium">
-										$
-										{Number(
-											marketData.marketCap
-										).toLocaleString()}
+										${Number(marketData.marketCap).toLocaleString()}
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -733,14 +619,9 @@ function PerpContent() {
 						{marketData.fdv && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										FDV
-									</div>
+									<div className="text-[#A6A6A6] text-xs">FDV</div>
 									<div className="text-white text-sm font-medium">
-										$
-										{Number(
-											marketData.fdv
-										).toLocaleString()}
+										${Number(marketData.fdv).toLocaleString()}
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -750,19 +631,11 @@ function PerpContent() {
 						{marketData.txns24h && (
 							<>
 								<div className="flex flex-col gap-1 min-w-fit">
-									<div className="text-[#A6A6A6] text-xs">
-										24h Txns
-									</div>
+									<div className="text-[#A6A6A6] text-xs">24h Txns</div>
 									<div className="flex items-center gap-2 text-sm">
-										<span className="text-[#4DAD31]">
-											{marketData.txns24h.buys}
-										</span>
-										<span className="text-[#DEDEDE]">
-											/
-										</span>
-										<span className="text-[#FF4C4C]">
-											{marketData.txns24h.sells}
-										</span>
+										<span className="text-[#4DAD31]">{marketData.txns24h.buys}</span>
+										<span className="text-[#DEDEDE]">/</span>
+										<span className="text-[#FF4C4C]">{marketData.txns24h.sells}</span>
 									</div>
 								</div>
 								<div className="h-9 w-px bg-[#4F6347]" />
@@ -771,17 +644,11 @@ function PerpContent() {
 
 						{marketData.txns6h && (
 							<div className="flex flex-col gap-1 min-w-fit">
-								<div className="text-[#A6A6A6] text-xs">
-									6h Txns
-								</div>
+								<div className="text-[#A6A6A6] text-xs">6h Txns</div>
 								<div className="flex items-center gap-2 text-sm">
-									<span className="text-[#4DAD31]">
-										{marketData.txns6h.buys}
-									</span>
+									<span className="text-[#4DAD31]">{marketData.txns6h.buys}</span>
 									<span className="text-[#DEDEDE]">/</span>
-									<span className="text-[#FF4C4C]">
-										{marketData.txns6h.sells}
-									</span>
+									<span className="text-[#FF4C4C]">{marketData.txns6h.sells}</span>
 								</div>
 							</div>
 						)}
@@ -803,54 +670,42 @@ function PerpContent() {
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								24h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">24h Volume</div>
 							<Skeleton className="h-5 w-16" />
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								6h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">6h Volume</div>
 							<Skeleton className="h-5 w-16" />
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								1h Volume
-							</div>
+							<div className="text-[#A6A6A6] text-xs">1h Volume</div>
 							<Skeleton className="h-5 w-16" />
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								Liquidity
-							</div>
+							<div className="text-[#A6A6A6] text-xs">Liquidity</div>
 							<Skeleton className="h-5 w-16" />
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								Market Cap
-							</div>
+							<div className="text-[#A6A6A6] text-xs">Market Cap</div>
 							<Skeleton className="h-5 w-16" />
 						</div>
 
 						<div className="h-9 w-px bg-[#4F6347]" />
 
 						<div className="flex flex-col gap-1 min-w-fit">
-							<div className="text-[#A6A6A6] text-xs">
-								24h Txns
-							</div>
+							<div className="text-[#A6A6A6] text-xs">24h Txns</div>
 							<div className="flex items-center gap-2 text-sm">
 								<Skeleton className="h-4 w-6" />
 								<span className="text-[#DEDEDE]">/</span>
@@ -870,9 +725,7 @@ function PerpContent() {
 								<div className="absolute bottom-2 left-2 z-10 flex items-center gap-2">
 									<button
 										type="button"
-										onClick={() =>
-											setChartType("dexscreener")
-										}
+										onClick={() => setChartType("dexscreener")}
 										className={`px-3 py-1 text-xs rounded transition-colors ${
 											chartType === "dexscreener"
 												? "bg-[#4DAD31] text-white"
@@ -913,24 +766,17 @@ function PerpContent() {
 										priceData={priceData ?? undefined}
 										fetchLatestPrice={fetchLatestPrice}
 										isLoadingPrice={isLoadingPrice}
-										marketData={marketData??undefined}
+										marketData={marketData ?? undefined}
 									/>
 								)}
 							</div>
 						) : (
 							<div style={{ height: "500px" }}>
-								<TradingViewWidget
-									symbol={tradingPair.symbol}
-									theme="dark"
-									interval="D"
-								/>
+								<TradingViewWidget symbol={tradingPair.symbol} theme="dark" interval="D" />
 							</div>
 						)
 					) : (
-						<div
-							className="relative w-full"
-							style={{ height: "500px" }}
-						>
+						<div className="relative w-full" style={{ height: "500px" }}>
 							<div className="flex flex-col gap-3 animate-pulse p-4">
 								<div className="flex items-center justify-between">
 									<div className="flex space-x-4">
@@ -952,12 +798,11 @@ function PerpContent() {
 								<div className="flex items-end justify-between h-full gap-1 px-2">
 									{Array.from({ length: 50 }, (_, i) => (
 										<div
+											// biome-ignore lint/suspicious/noArrayIndexKey: needed
 											key={`chart-skeleton-${i}`}
 											className="bg-gray-800 rounded-t flex-1"
 											style={{
-												height: `${
-													Math.random() * 60 + 40
-												}%`
+												height: `${Math.random() * 60 + 40}%`,
 											}}
 										/>
 									))}
@@ -971,9 +816,7 @@ function PerpContent() {
 					<div className="flex items-center justify-between px-2">
 						<Tabs
 							value={isLong ? "long" : "short"}
-							onValueChange={(value) =>
-								setIsLong(value === "long")
-							}
+							onValueChange={(value) => setIsLong(value === "long")}
 							className="w-full"
 						>
 							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
@@ -996,60 +839,37 @@ function PerpContent() {
 					</div>
 					{tradingPair.pairAddress && marketData ? (
 						<div className="flex flex-col gap-2 p-4">
-							{isConnected &&
-								needsApproval &&
-								autoSwapAndApprove && (
-									<div className="bg-muted p-4 rounded-lg">
-										<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
-											Wallet Balance
-										</h4>
-										<div className="space-y-2">
-											<div className="flex justify-between items-center">
-												<span className="text-muted-foreground">
-													ETH:
-												</span>
-												<span className="text-foreground font-medium">
-													{ethBalance
-														? `${parseFloat(
-																formatUnits(
-																	ethBalance.value,
-																	ethBalance.decimals
-																)
-														  ).toFixed(4)} ETH`
-														: "0.0000 ETH"}
-												</span>
-											</div>
-											<div className="flex justify-between items-center">
-												<span className="text-muted-foreground">
-													{"USDC"}:
-												</span>
-												<span className="text-foreground font-medium">
-													{marginBalance
-														? `${parseFloat(
-																formatUnits(
-																	BigInt(
-																		marginBalance as string
-																	),
-																	decimals
-																)
-														  ).toFixed(
-																Math.min(
-																	6,
-																	decimals
-																)
-														  )} ${"USDC"} ${
-																marginTokenPriceUsd
-																	? `(~$${marginTokenPriceUsd.toFixed(
-																			4
-																	  )})`
-																	: ""
-														  }`
-														: `0.00 ${"USDC"}`}
-												</span>
-											</div>
+							{isConnected && needsApproval && autoSwapAndApprove && (
+								<div className="bg-muted p-4 rounded-lg">
+									<h4 className="text-sm text-muted-foreground uppercase font-medium mb-3">
+										Wallet Balance
+									</h4>
+									<div className="space-y-2">
+										<div className="flex justify-between items-center">
+											<span className="text-muted-foreground">ETH:</span>
+											<span className="text-foreground font-medium">
+												{ethBalance
+													? `${parseFloat(
+															formatUnits(ethBalance.value, ethBalance.decimals),
+														).toFixed(4)} ETH`
+													: "0.0000 ETH"}
+											</span>
+										</div>
+										<div className="flex justify-between items-center">
+											<span className="text-muted-foreground">{"USDC"}:</span>
+											<span className="text-foreground font-medium">
+												{marginBalance
+													? `${parseFloat(
+															formatUnits(BigInt(marginBalance as string), decimals),
+														).toFixed(Math.min(6, decimals))} ${"USDC"} ${
+															marginTokenPriceUsd ? `(~$${marginTokenPriceUsd.toFixed(4)})` : ""
+														}`
+													: `0.00 ${"USDC"}`}
+											</span>
 										</div>
 									</div>
-								)}
+								</div>
+							)}
 							{isConnected && needsApproval && (
 								<div className="bg-muted p-4 rounded-lg">
 									<div className="flex justify-between items-center mb-3">
@@ -1063,17 +883,14 @@ function PerpContent() {
 													: "bg-green-900/50 text-success"
 											}`}
 										>
-											{needsApproval
-												? "Required"
-												: "Approved"}
+											{needsApproval ? "Required" : "Approved"}
 										</span>
 									</div>
 
 									{needsApproval ? (
 										<div className="space-y-3">
 											<p className="text-sm text-muted-foreground">
-												Approve {"USDC"} spending to
-												create positions
+												Approve {"USDC"} spending to create positions
 											</p>
 											<Button
 												onClick={handleApproveToken}
@@ -1089,16 +906,14 @@ function PerpContent() {
 												{isApprovingToken || isApproving
 													? "Confirm in Wallet..."
 													: isApprovalConfirming
-													? "Confirming..."
-													: `Approve ${"USDC"}`}
+														? "Confirming..."
+														: `Approve ${"USDC"}`}
 											</Button>
 										</div>
 									) : (
 										<div className="flex items-center space-x-2">
 											<div className="w-2 h-2 bg-green-400 rounded-full"></div>
-											<p className="text-sm text-success">
-												{"USDC"} spending approved
-											</p>
+											<p className="text-sm text-success">{"USDC"} spending approved</p>
 										</div>
 									)}
 								</div>
@@ -1115,21 +930,9 @@ function PerpContent() {
 											</label>
 											<div className="flex items-center gap-3">
 												<span className="text-xs text-muted-foreground">{`Available: ${parseFloat(
-													formatUnits(
-														BigInt(
-															(marginBalance as string) ||
-																"0"
-														),
-														decimals
-													)
-												).toFixed(
-													Math.min(6, decimals)
-												)} ${"USDC"} ${
-													marginTokenPriceUsd
-														? `(~$${availableMarginUsd.toFixed(
-																2
-														  )})`
-														: ""
+													formatUnits(BigInt((marginBalance as string) || "0"), decimals),
+												).toFixed(Math.min(6, decimals))} ${"USDC"} ${
+													marginTokenPriceUsd ? `(~$${availableMarginUsd.toFixed(2)})` : ""
 												}`}</span>
 											</div>
 										</div>
@@ -1143,9 +946,7 @@ function PerpContent() {
 													/>
 												) : (
 													<div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-														<span className="text-foreground text-xs font-bold">
-															$
-														</span>
+														<span className="text-foreground text-xs font-bold">$</span>
 													</div>
 												)}
 											</div>
@@ -1153,15 +954,9 @@ function PerpContent() {
 												placeholder="100"
 												id="margin-input"
 												value={marginValue}
-												onChange={(e) =>
-													setMarginValue(
-														e.target.value
-													)
-												}
+												onChange={(e) => setMarginValue(e.target.value)}
 												className={`bg-muted border-gray-100/10 text-foreground text-right text-3xl font-bold h-14 pl-12 pr-30 ${
-													marginValue &&
-													!validateMargin(marginValue)
-														.valid
+													marginValue && !validateMargin(marginValue).valid
 														? "border-red-500 focus:border-red-500"
 														: "focus:border-cyan-500"
 												}`}
@@ -1174,32 +969,20 @@ function PerpContent() {
 												>
 													MAX
 												</button>
-												<span className="text-primary font-medium">
-													{"USDC"}
-												</span>
+												<span className="text-primary font-medium">{"USDC"}</span>
 											</div>
 										</div>
 
-										{marginValue &&
-											!validateMargin(marginValue)
-												.valid && (
-												<div className="text-xs mb-2 text-destructive">
-													{
-														validateMargin(
-															marginValue
-														).error
-													}
-												</div>
-											)}
+										{marginValue && !validateMargin(marginValue).valid && (
+											<div className="text-xs mb-2 text-destructive">
+												{validateMargin(marginValue).error}
+											</div>
+										)}
 									</div>
 									<div className="space-y-3">
 										<div className="flex justify-between items-center">
-											<span className="text-sm text-primary uppercase font-medium">
-												Leverage
-											</span>
-											<span className="text-success text-lg font-bold">
-												{leverage}x
-											</span>
+											<span className="text-sm text-primary uppercase font-medium">Leverage</span>
+											<span className="text-success text-lg font-bold">{leverage}x</span>
 										</div>
 										<div className="relative">
 											<div className="flex items-center bg-muted rounded-lg p-4">
@@ -1211,13 +994,7 @@ function PerpContent() {
 															min={1}
 															max={maxLeverage}
 															step={1}
-															onValueChange={(
-																v: number[]
-															) =>
-																setLeverageValue(
-																	v[0]
-																)
-															}
+															onValueChange={(v: number[]) => setLeverageValue(v[0])}
 															aria-label="Leverage"
 														>
 															<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
@@ -1227,21 +1004,10 @@ function PerpContent() {
 														</RadixSlider.Root>
 													</div>
 													<div className="flex justify-between text-xs text-muted-foreground mt-2">
-														{[
-															1,
-															25,
-															50,
-															75,
-															maxLeverage
-														].map((lev) => (
+														{[1, 25, 50, 75, maxLeverage].map((lev) => (
 															<span
 																key={lev}
-																className={
-																	leverage ===
-																	lev
-																		? "text-primary font-bold"
-																		: ""
-																}
+																className={leverage === lev ? "text-primary font-bold" : ""}
 															>
 																{lev}x
 															</span>
@@ -1257,26 +1023,12 @@ function PerpContent() {
 												className="text-muted-foreground uppercase"
 												title="Estimated position size at current price"
 											>
-												Position Size (
-												{extractTokenSymbol(
-													tradingPair.symbol
-												)}
-												)
+												Position Size ({extractTokenSymbol(tradingPair.symbol)})
 											</span>
 											<span className="text-foreground">
 												{(
-													(parseFloat(
-														marginValue || "0"
-													) *
-														(marginTokenPriceUsd ||
-															1) *
-														leverage) /
-													parseFloat(
-														tradingPair.price.replace(
-															/[$,]/g,
-															""
-														)
-													)
+													(parseFloat(marginValue || "0") * (marginTokenPriceUsd || 1) * leverage) /
+													parseFloat(tradingPair.price.replace(/[$,]/g, ""))
 												).toFixed(6)}
 											</span>
 										</div>
@@ -1290,9 +1042,7 @@ function PerpContent() {
 											<span className="text-foreground">
 												$
 												{(
-													parseFloat(
-														marginValue || "0"
-													) *
+													parseFloat(marginValue || "0") *
 													(marginTokenPriceUsd || 1) *
 													leverage
 												).toLocaleString()}
@@ -1308,9 +1058,7 @@ function PerpContent() {
 											<span className="text-foreground">
 												0.2% (~$
 												{(
-													parseFloat(
-														marginValue || "0"
-													) *
+													parseFloat(marginValue || "0") *
 													leverage *
 													(marginTokenPriceUsd || 1) *
 													0.002
@@ -1323,53 +1071,39 @@ function PerpContent() {
 												className="text-muted-foreground uppercase"
 												title="Fee charged on closing, applied to profits only"
 											>
-												Close Fee (Applied only to
-												profits)
+												Close Fee (Applied only to profits)
 											</span>
-											<span className="text-foreground">
-												2%
-											</span>
+											<span className="text-foreground">2%</span>
 										</div>
 									</div>
 									{(approvalError || transactionError) && (
 										<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
 											<p className="text-destructive text-sm">
-												{approvalError?.message ||
-													transactionError?.message}
+												{approvalError?.message || transactionError?.message}
 											</p>
 										</div>
 									)}
-									{isApprovalConfirmed &&
-										approvalHash &&
-										!needsApproval && (
-											<div className="p-3 bg-green-900/50 border border-success rounded-lg">
-												<p className="text-success text-sm">
-													✅ {"USDC"} approval
-													confirmed! You can now
-													create positions.
-													<a
-														href={getEtherscanUrl(
-															approvalHash,
-															"sepolia"
-														)}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="text-primary hover:text-cyan-300 underline ml-1"
-													>
-														View transaction
-													</a>
-												</p>
-											</div>
-										)}
+									{isApprovalConfirmed && approvalHash && !needsApproval && (
+										<div className="p-3 bg-green-900/50 border border-success rounded-lg">
+											<p className="text-success text-sm">
+												✅ {"USDC"} approval confirmed! You can now create positions.
+												<a
+													href={getEtherscanUrl(approvalHash, "sepolia")}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-primary hover:text-cyan-300 underline ml-1"
+												>
+													View transaction
+												</a>
+											</p>
+										</div>
+									)}
 									{hash && (
 										<div className="p-3 bg-primary/5 border border-primary/30 rounded-lg">
 											<p className="text-primary text-sm">
 												Transaction submitted:
 												<a
-													href={getEtherscanUrl(
-														hash,
-														"sepolia"
-													)}
+													href={getEtherscanUrl(hash, "sepolia")}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="text-primary hover:text-cyan-300 underline ml-1"
@@ -1378,21 +1112,16 @@ function PerpContent() {
 												</a>
 											</p>
 											{isConfirming && (
-												<p className="text-warning text-sm mt-1">
-													⏳ Waiting for
-													confirmation...
-												</p>
+												<p className="text-warning text-sm mt-1">⏳ Waiting for confirmation...</p>
 											)}
 											{isConfirmed && (
 												<p className="text-success text-sm mt-1">
-													✅ Position created
-													successfully!
+													✅ Position created successfully!
 												</p>
 											)}
 											{error && (
 												<p className="text-destructive text-sm mt-1">
-													❌ Transaction failed:{" "}
-													{String(error)}
+													❌ Transaction failed: {String(error)}
 												</p>
 											)}
 										</div>
@@ -1403,17 +1132,10 @@ function PerpContent() {
 												id="auto-swap-approve"
 												type="checkbox"
 												checked={autoSwapAndApprove}
-												onChange={(e) =>
-													setAutoSwapAndApprove(
-														e.target.checked
-													)
-												}
+												onChange={(e) => setAutoSwapAndApprove(e.target.checked)}
 												className="w-4 h-4 rounded border bg-muted"
 											/>
-											<label
-												htmlFor="auto-swap-approve"
-												className="text-xs text-muted-foreground"
-											>
+											<label htmlFor="auto-swap-approve" className="text-xs text-muted-foreground">
 												Auto swap & approve
 											</label>
 										</div>
@@ -1426,36 +1148,26 @@ function PerpContent() {
 												isApprovingToken ||
 												isApproving ||
 												isApprovalConfirming ||
-												tradingPair.assetType !==
-													"crypto"
+												tradingPair.assetType !== "crypto"
 											}
 											onClick={handlePlaceTransaction}
 											className={
-												!isLong
-													? "bg-linear-to-r from-red-600 via-red-700 to-red-900"
-													: undefined
+												!isLong ? "bg-linear-to-r from-red-600 via-red-700 to-red-900" : undefined
 											}
 											connectedNode={
-												tradingPair.assetType !==
-												"crypto"
+												tradingPair.assetType !== "crypto"
 													? "Trading not available for this asset"
 													: needsApproval
-													? `Approve ${"USDC"} First`
-													: isCreatingPosition
-													? "Preparing Transaction..."
-													: isPending
-													? "Confirm in Wallet..."
-													: isConfirming
-													? "Confirming..."
-													: `${
-															isLong
-																? "Long"
-																: "Short"
-													  } ${
-															tradingPair.symbol.split(
-																"/"
-															)[0]
-													  }`
+														? `Approve ${"USDC"} First`
+														: isCreatingPosition
+															? "Preparing Transaction..."
+															: isPending
+																? "Confirm in Wallet..."
+																: isConfirming
+																	? "Confirming..."
+																	: `${isLong ? "Long" : "Short"} ${
+																			tradingPair.symbol.split("/")[0]
+																		}`
 											}
 										/>
 									</div>
@@ -1515,28 +1227,15 @@ function PerpContent() {
 					{positions.length > 0 && (
 						<div className="flex gap-4 text-sm">
 							<span className="text-muted-foreground">
-								Open:{" "}
-								<span className="text-foreground">
-									{openPositions.length}
-								</span>
+								Open: <span className="text-foreground">{openPositions.length}</span>
 							</span>
 							<span className="text-muted-foreground">
-								Total Margin:{" "}
-								<span className="text-foreground">
-									${totalMargin.toFixed(2)}
-								</span>
+								Total Margin: <span className="text-foreground">${totalMargin.toFixed(2)}</span>
 							</span>
 							<span className="text-muted-foreground">
 								Total PnL:{" "}
-								<span
-									className={
-										totalPnl >= 0
-											? "text-success"
-											: "text-destructive"
-									}
-								>
-									{totalPnl >= 0 ? "+" : ""}$
-									{totalPnl.toFixed(2)}
+								<span className={totalPnl >= 0 ? "text-success" : "text-destructive"}>
+									{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
 								</span>
 							</span>
 						</div>
@@ -1553,7 +1252,8 @@ function PerpContent() {
 							{/* Skeleton for table rows */}
 							{Array.from({ length: 3 }, (_, i) => (
 								<div
-									key={i}
+									// biome-ignore lint/suspicious/noArrayIndexKey: needed
+									key={`skeleton-row-${i}`}
 									className="flex justify-between items-center py-3 border-b border-gray-100/10"
 								>
 									<div className="flex items-center gap-3">
@@ -1582,10 +1282,7 @@ function PerpContent() {
 				)}
 			</div>
 
-			<SearchModal
-				open={isSearchModalOpen}
-				onOpenChange={setIsSearchModalOpen}
-			/>
+			<SearchModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
 		</>
 	);
 }

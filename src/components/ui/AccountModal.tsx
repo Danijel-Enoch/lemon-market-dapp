@@ -5,11 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+interface WagmiAccount {
+	address: string;
+	balanceDecimals?: number;
+	balanceFormatted?: string;
+	balanceSymbol?: string;
+	displayBalance?: string;
+	displayName: string;
+	ensAvatar?: string;
+	ensName?: string;
+	hasPendingTransactions: boolean;
+}
+
+interface ChainInfo {
+	hasIcon: boolean;
+	iconUrl?: string | undefined;
+	iconBackground?: string | undefined;
+	id: number;
+	name?: string | undefined;
+	unsupported?: boolean | undefined;
+	blockExplorers?: {
+		default?: {
+			url?: string;
+		};
+	};
+}
+
 interface AccountModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	account?: any;
-	chain?: any;
+	account?: WagmiAccount;
+	chain?: ChainInfo;
 	openConnectModal?: () => void;
 }
 
@@ -26,7 +52,7 @@ export function AccountModal({
 	const handleCopy = async () => {
 		if (!account) return;
 		try {
-			await navigator.clipboard.writeText(account.address);
+			if (account.address) await navigator.clipboard.writeText(account.address);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1500);
 		} catch (_e) {
@@ -57,9 +83,7 @@ export function AccountModal({
 									{account?.displayName ?? account?.ensName ?? account?.address}
 								</div>
 								<div className="text-muted-foreground text-sm">
-									{account?.displayBalance?.value
-										? account.displayBalance.formatted
-										: account?.displayBalance}
+									{account?.displayBalance ?? "$0.00"}
 								</div>
 							</div>
 							<div className="text-sm text-muted-foreground mt-1">{account?.address}</div>

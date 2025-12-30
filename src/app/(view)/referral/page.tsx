@@ -1,23 +1,21 @@
 "use client";
 
-import { Users, UserPlus } from "lucide-react";
+import { UserPlus, Users } from "lucide-react";
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@/components/dashboard/ReferralStats";
 import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useReferral } from "@/hooks/useReferral";
 import { applyReferralCode } from "@/lib/dashboard-service";
 import type { Metadata } from "@/lib/types";
-import toast from "react-hot-toast";
-import { useAccount } from "wagmi";
 
 export const metadata: Metadata = {
 	title: "Referral - Lemon Markets",
-	description: "Invite friends and earn rewards"
+	description: "Invite friends and earn rewards",
 };
 
 function ReferralContent() {
@@ -27,14 +25,14 @@ function ReferralContent() {
 		referralEarnings,
 		isLoading,
 		generateReferralCode,
-		refetch
+		refetch,
 	} = useDashboard();
 	const { getReferredByFromStorage } = useReferral();
 	const { address } = useAccount();
 
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [applyCode, setApplyCode] = useState("");
-	const [isApplying, setIsApplying] = useState(false);
+	const [_isApplying, setIsApplying] = useState(false);
 
 	const handleGenerateCode = async () => {
 		setIsGenerating(true);
@@ -48,7 +46,7 @@ function ReferralContent() {
 		}
 	};
 
-	const handleApplyReferralCode = async () => {
+	const _handleApplyReferralCode = async () => {
 		if (!address) {
 			toast.error("Please connect your wallet first");
 			return;
@@ -62,15 +60,13 @@ function ReferralContent() {
 		try {
 			const result = await applyReferralCode(address, applyCode.trim());
 			if (result.success) {
-				toast.success(
-					"Referral code applied successfully! You've earned bonus points."
-				);
+				toast.success("Referral code applied successfully! You've earned bonus points.");
 				setApplyCode("");
 				refetch?.();
 			} else {
 				toast.error(result.message || "Failed to apply referral code");
 			}
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Failed to apply referral code");
 		} finally {
 			setIsApplying(false);
@@ -89,9 +85,7 @@ function ReferralContent() {
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">
-							Referral Program
-						</h1>
+						<h1 className="text-2xl font-medium text-muted-foreground">Referral Program</h1>
 						<p className="text-muted-foreground text-xs">
 							Invite friends and earn rewards together
 						</p>
@@ -116,12 +110,9 @@ function ReferralContent() {
 										1
 									</div>
 									<div>
-										<p className="font-medium">
-											Share Your Code
-										</p>
+										<p className="font-medium">Share Your Code</p>
 										<p className="text-sm text-muted-foreground">
-											Get your unique referral code or
-											link
+											Get your unique referral code or link
 										</p>
 									</div>
 								</div>
@@ -130,9 +121,7 @@ function ReferralContent() {
 										2
 									</div>
 									<div>
-										<p className="font-medium">
-											Friends Join
-										</p>
+										<p className="font-medium">Friends Join</p>
 										<p className="text-sm text-muted-foreground">
 											Your friends sign up using your code
 										</p>
@@ -143,12 +132,9 @@ function ReferralContent() {
 										3
 									</div>
 									<div>
-										<p className="font-medium">
-											Earn Rewards
-										</p>
+										<p className="font-medium">Earn Rewards</p>
 										<p className="text-sm text-muted-foreground">
-											Get 10 points for each friend who
-											joins!
+											Get 10 points for each friend who joins!
 										</p>
 									</div>
 								</div>
@@ -181,17 +167,14 @@ function ReferralContent() {
 						<CardContent>
 							<div className="space-y-4">
 								<p className="text-sm text-muted-foreground">
-									Were you referred by a friend? Enter their
-									referral code below to give them bonus
+									Were you referred by a friend? Enter their referral code below to give them bonus
 									points!
 								</p>
 								{referredBy && (
 									<div className="p-3 bg-primary/10 rounded-lg">
 										<p className="text-sm text-primary">
 											You were referred with code:{" "}
-											<span className="font-mono font-bold">
-												{referredBy}
-											</span>
+											<span className="font-mono font-bold">{referredBy}</span>
 										</p>
 									</div>
 								)}
