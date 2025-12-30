@@ -2,11 +2,7 @@ import {
 	Award as AwardIcon,
 	Crown,
 	Medal,
-	RefreshCw,
-	Target,
-	TrendingUp,
-	Users,
-	Volume2
+	RefreshCw, Users
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
