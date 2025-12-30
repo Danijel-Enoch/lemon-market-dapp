@@ -18,7 +18,7 @@ const defaultBrand = {
 	name: "Lemon Markets",
 	logoSrc: "/image/logo.png",
 	tagline:
-		"Trade with confidence on the most efficient decentralized perpetual protocol. Unlimited markets, unmatched liquidity."
+		"Trade with confidence on the most efficient decentralized perpetual protocol. Unlimited markets, unmatched liquidity.",
 } as const;
 
 const defaultNavigation: ReadonlyArray<LinkItem> = [
@@ -26,31 +26,31 @@ const defaultNavigation: ReadonlyArray<LinkItem> = [
 	{ label: "Trending", href: "/trending" },
 	{ label: "Positions", href: "/positions" },
 	{ label: "Leaderboard", href: "/leaderboard" },
-	{ label: "Stake", href: "/staking" }
+	{ label: "Stake", href: "/staking" },
 ];
 
 const defaultSocials: ReadonlyArray<LinkItem> = [
 	{
 		label: "X (Twitter)",
 		href: "https://x.com/LemonMarkets",
-		external: true
+		external: true,
 	},
 	// { label: "Discord", href: "https://discord.gg/LemonMarkets", external: true },
 	{
 		label: "Telegram",
 		href: "https://t.me/+8qzsPVfrYrMxYjdk",
-		external: true
+		external: true,
 	},
 	{
 		label: "GitHub",
 		href: "https://github.com/Lemon-Markets-Perp",
-		external: true
-	}
+		external: true,
+	},
 ];
 
 const defaultLegal: ReadonlyArray<LinkItem> = [
 	{ label: "Terms Of Service", href: "#" },
-	{ label: "Privacy Policy", href: "#" }
+	{ label: "Privacy Policy", href: "#" },
 ];
 
 const navId = "footer-nav";
@@ -61,15 +61,15 @@ export const HomepageFooter = memo(function HomepageFooter({
 	brand = defaultBrand,
 	navigation = defaultNavigation,
 	socials = defaultSocials,
-	legal = defaultLegal
+	legal = defaultLegal,
 }: HomepageFooterProps) {
 	return (
 		<footer>
 			<div className="p-6 md:px-12 md:pb-24 bg-[linear-gradient(172.34deg,#0a1a0300_-34.4%,#0a1a031c_51.7%,#1c6200_161.09%)]">
 				<div className="w-full max-w-7xl mx-auto">
 					<div className="my-20 md:my-28 h-px w-full bg-[#4dad31]/60" />
-					<div className="py-12 grid gap-8 md:grid-cols-6">
-						<div className="flex flex-col gap-4 md:col-span-3">
+					<div className="py-12 grid gap-8 grid-cols-3 md:grid-cols-6">
+						<div className="flex flex-col gap-4 col-span-3">
 							<div className="flex items-center gap-3">
 								<img
 									src={brand.logoSrc}
@@ -88,10 +88,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</p>
 						</div>
 						<nav aria-labelledby={navId}>
-							<p
-								id={navId}
-								className="text-white font-medium mb-4"
-							>
+							<p id={navId} className="text-white font-medium mb-4">
 								Navigation
 							</p>
 							<ul className="flex flex-col gap-4 text-white/70">
@@ -119,10 +116,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={socialsId}>
-							<p
-								id={socialsId}
-								className="text-white font-medium mb-4"
-							>
+							<p id={socialsId} className="text-white font-medium mb-4">
 								Socials
 							</p>
 							<ul className="flex flex-col gap-4 text-white/70">
@@ -150,10 +144,7 @@ export const HomepageFooter = memo(function HomepageFooter({
 							</ul>
 						</nav>
 						<nav aria-labelledby={legalId}>
-							<p
-								id={legalId}
-								className="text-white font-medium mb-4"
-							>
+							<p id={legalId} className="text-white font-medium mb-4">
 								Legal
 							</p>
 							<ul className="flex flex-col gap-4 text-white/70">

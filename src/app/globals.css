@@ -142,6 +142,40 @@
     --sidebar-ring: #14b8a6;
 }
 
+/* macOS-style scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(155, 155, 155, 0.4);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    min-height: 40px;
+    max-height: 100px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(155, 155, 155, 0.7);
+    background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 /* Custom slider styles */
 .slider {
     -webkit-appearance: none;

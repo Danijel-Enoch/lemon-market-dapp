@@ -1,15 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
+import { type EnhancedPosition, getEnhancedUserPositions, type Position } from "@/lib/position-api";
 import {
-	type EnhancedPosition,
-	getEnhancedUserPositions,
-	type Position
-} from "@/lib/position-api";
-import {
-	useMarketApi,
 	type TraderPosition,
-	type TraderPositionsResponse
+	type TraderPositionsResponse,
+	useMarketApi,
 } from "@/lib/useMarketApi";
 
 export interface UseUserPositionsResult {
@@ -55,9 +51,7 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 
 	// Use realtime PnL for open positions, exitPricePnl for closed
 	const pnlValue =
-		isOpen && traderPos.realtimeData
-			? traderPos.realtimeData.realtimePnl
-			: traderPos.currentPnl;
+		isOpen && traderPos.realtimeData ? traderPos.realtimeData.realtimePnl : traderPos.currentPnl;
 
 	const pnlNumber = parseFloat(pnlValue) || 0;
 
@@ -65,8 +59,7 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 	const pnlFormatted =
 		isOpen && traderPos.realtimeData
 			? traderPos.realtimeData.formatted.realtimePnl
-			: traderPos.formatted.exitPricePnl ||
-			  traderPos.formatted.currentPnl;
+			: traderPos.formatted.exitPricePnl || traderPos.formatted.currentPnl;
 
 	// Get PnL percentage
 	const pnlPercentage =
@@ -106,9 +99,9 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 			formatted: {
 				realtimePnl: pnlFormatted,
 				currentPrice: traderPos.formatted.entryPrice,
-				priceChange: "$0.00"
-			}
-		}
+				priceChange: "$0.00",
+			},
+		},
 	};
 }
 
@@ -126,7 +119,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		data: fetchResult,
 		isLoading: isBasicLoading,
 		error: fetchError,
-		refetch: refetchBasic
+		refetch: refetchBasic,
 	} = useQuery({
 		queryKey: ["positions", "trader", address],
 		queryFn: async () => {
@@ -135,7 +128,7 @@ export function useUserPositions(): UseUserPositionsResult {
 			// Use the trader endpoint which includes all positions and summary data
 			const result = await marketApi.positions.trader(address);
 
-			if (!result || !(result as any).success) {
+			if (!result || !(result as TraderPositionsResponse).success) {
 				throw new Error("Failed to fetch positions");
 			}
 
@@ -143,33 +136,27 @@ export function useUserPositions(): UseUserPositionsResult {
 			const data = response.data;
 
 			// Transform positions to UI format
-			const transformedPositions = data.positions.map(
-				transformTraderPosition
-			);
+			const transformedPositions = data.positions.map(transformTraderPosition);
 
 			return {
 				positions: transformedPositions,
-				activePositions: data.activePositions.map(
-					transformTraderPosition
-				),
-				inactivePositions: data.inactivePositions.map(
-					transformTraderPosition
-				),
+				activePositions: data.activePositions.map(transformTraderPosition),
+				inactivePositions: data.inactivePositions.map(transformTraderPosition),
 				totalPnl: parseFloat(data.totalPnl) || 0,
 				totalVolume: parseFloat(data.totalVolume) || 0,
 				activePositionWorth: parseFloat(data.activePositionWorth) || 0,
-				summary: data.summary
+				summary: data.summary,
 			};
 		},
 		enabled: !!address && isConnected && !isEnhancedMode,
-		refetchInterval: 10000
+		refetchInterval: 10000,
 	});
 
 	const {
 		data: enhancedResult,
 		isLoading: isEnhancedLoading,
 		error: enhancedError,
-		refetch: refetchEnhanced
+		refetch: refetchEnhanced,
 	} = useQuery({
 		queryKey: ["positions", "enhanced", address],
 		queryFn: async () => {
@@ -180,15 +167,13 @@ export function useUserPositions(): UseUserPositionsResult {
 					positions: response.positions as Position[],
 					enhancedPositions: response.positions,
 					totalUnrealizedPnL: response.totalUnrealizedPnL || 0,
-					totalPortfolioValue: response.totalPortfolioValue || 0
+					totalPortfolioValue: response.totalPortfolioValue || 0,
 				};
 			}
-			throw new Error(
-				response.error || "Failed to fetch enhanced positions"
-			);
+			throw new Error(response.error || "Failed to fetch enhanced positions");
 		},
 		enabled: !!address && isConnected && isEnhancedMode,
-		refetchInterval: 10000
+		refetchInterval: 10000,
 	});
 
 	// Derive positions and enhanced data from fetch results using useMemo
@@ -203,9 +188,7 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [isEnhancedMode, enhancedResult, fetchResult]);
 
 	const enhancedPositions = useMemo(() => {
-		return isEnhancedMode && enhancedResult
-			? enhancedResult.enhancedPositions
-			: undefined;
+		return isEnhancedMode && enhancedResult ? enhancedResult.enhancedPositions : undefined;
 	}, [isEnhancedMode, enhancedResult]);
 
 	const totalUnrealizedPnL = useMemo(() => {
@@ -217,11 +200,7 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [enhancedResult]);
 
 	// Convert error to string for compatibility
-	const error = fetchError
-		? fetchError.message
-		: enhancedError
-		? enhancedError.message
-		: null;
+	const error = fetchError ? fetchError.message : enhancedError ? enhancedError.message : null;
 	const isLoading = isEnhancedMode ? isEnhancedLoading : isBasicLoading;
 
 	const toggleEnhancedMode = useCallback(() => {
@@ -321,6 +300,6 @@ export function useUserPositions(): UseUserPositionsResult {
 		unprofitablePositions,
 		isEnhancedMode,
 		toggleEnhancedMode,
-		summary: fetchResult?.summary
+		summary: fetchResult?.summary,
 	};
 }

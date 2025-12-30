@@ -48,7 +48,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
 		<WalletProvider>
 			{children}
 			<Toaster
-				position="top-right"
+				position="bottom-center"
 				reverseOrder={false}
 				toastOptions={{
 					// Default options for all toasts

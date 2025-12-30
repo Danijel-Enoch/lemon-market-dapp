@@ -81,7 +81,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 		data: value,
 		isLoading: loading,
 		error,
-		refetch
+		refetch,
 	} = useQuery({
 		queryKey: ["trending", options],
 		queryFn: async () => {
@@ -92,7 +92,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 					return await fetchTokensTrending({
 						limit,
 						page,
-						...params
+						...params,
 					});
 				case "fx":
 					return await fetchFXTrending({ limit });
@@ -103,7 +103,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 			}
 		},
 		enabled: !skip,
-		staleTime: 30000 // 30 seconds
+		staleTime: 30000, // 30 seconds
 	});
 
 	const handleRefetch = useCallback(
@@ -119,7 +119,7 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 			// For now, we'll just expose the standard refetch.
 			refetch();
 		},
-		[refetch]
+		[refetch],
 	);
 
 	return {
@@ -127,12 +127,11 @@ export function useTrending(options: TrendingOptions, skip: boolean = false) {
 		pagination: value?.pagination,
 		loading,
 		error: error?.message || null,
-		refetch: handleRefetch
+		refetch: handleRefetch,
 	};
 }
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 async function fetchTokensTrending(params: {
 	limit: number;
@@ -141,19 +140,13 @@ async function fetchTokensTrending(params: {
 	sort?: string;
 	hasMarket?: boolean;
 }): Promise<TrendingResult> {
-	const {
-		limit,
-		page,
-		chain = "base",
-		sort = "liquidity",
-		hasMarket
-	} = params;
+	const { limit, page, chain = "base", sort = "liquidity" } = params;
 
-	const queryParams = new URLSearchParams({
+	const _queryParams = new URLSearchParams({
 		limit: limit.toString(),
 		page: page.toString(),
 		chain,
-		sort
+		sort,
 	});
 
 	// if (hasMarket !== undefined) {
@@ -161,66 +154,55 @@ async function fetchTokensTrending(params: {
 	// }
 
 	try {
-		const { data, error } = await betterFetch<TrendingResult>(
-			`${BASE_URL}/trending/tokens/all`,
-			{
-				method: "GET"
-			}
-		);
+		const { data, error } = await betterFetch<TrendingResult>(`${BASE_URL}/trending/tokens/all`, {
+			method: "GET",
+		});
 		if (error) {
 			throw new Error("Failed to fetch trending tokens");
 		}
 		return {
 			data: data?.data || [],
-			pagination: data?.pagination
+			pagination: data?.pagination,
 		};
 	} catch {
 		return { data: [] };
 	}
 }
 
-async function fetchFXTrending({
-	limit
-}: {
-	limit: number;
-}): Promise<TrendingResult> {
+async function fetchFXTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
 		const { data, error } = await betterFetch<TrendingResult>(
 			`${BASE_URL}/trending/fx?limit=${limit}`,
 			{
-				method: "GET"
-			}
+				method: "GET",
+			},
 		);
 		if (error) {
 			throw new Error("Failed to fetch trending FX");
 		}
 		return {
 			data: data?.data || [],
-			pagination: data?.pagination
+			pagination: data?.pagination,
 		};
 	} catch {
 		return { data: [] };
 	}
 }
 
-async function fetchStocksTrending({
-	limit
-}: {
-	limit: number;
-}): Promise<TrendingResult> {
+async function fetchStocksTrending({ limit }: { limit: number }): Promise<TrendingResult> {
 	try {
 		const { data, error } = await betterFetch<TrendingResult>(
 			`${BASE_URL}/trending/stocks?limit=${limit}`,
 			{
-				method: "GET"
-			}
+				method: "GET",
+			},
 		);
 		if (error) {
 			throw new Error("Failed to fetch trending stocks");
 		}
 		return {
 			data: data?.data || [],
-			pagination: data?.pagination
+			pagination: data?.pagination,
 		};
 	} catch {
 		return { data: [] };
@@ -242,7 +224,7 @@ async function fetchFXPrice(ticker: string) {
 			priceUsd?: number;
 			lastUpdate?: string;
 		}>(`${BASE_URL}/trending/fx/${ticker}`, {
-			method: "GET"
+			method: "GET",
 		});
 
 		if (error) {
@@ -257,15 +239,14 @@ async function fetchFXPrice(ticker: string) {
 			timestamp: data?.timestamp,
 			source: data?.source,
 			priceUsd: data?.priceUsd || 0,
-			lastUpdate: data?.lastUpdate
+			lastUpdate: data?.lastUpdate,
 		};
 	} catch (error) {
 		return {
 			success: false,
 			ticker,
 			symbol: ticker,
-			error:
-				error instanceof Error ? error.message : "Failed to fetch price"
+			error: error instanceof Error ? error.message : "Failed to fetch price",
 		};
 	}
 }
@@ -285,7 +266,7 @@ async function fetchStockPrice(symbol: string) {
 			priceUsd?: number;
 			lastUpdate?: string;
 		}>(`${BASE_URL}/trending/stocks/${symbol}`, {
-			method: "GET"
+			method: "GET",
 		});
 
 		if (error) {
@@ -299,25 +280,18 @@ async function fetchStockPrice(symbol: string) {
 			timestamp: data?.timestamp,
 			source: data?.source,
 			priceUsd: data?.priceUsd || 0,
-			lastUpdate: data?.lastUpdate
+			lastUpdate: data?.lastUpdate,
 		};
 	} catch (error) {
 		return {
 			success: false,
 			symbol,
-			error:
-				error instanceof Error ? error.message : "Failed to fetch price"
+			error: error instanceof Error ? error.message : "Failed to fetch price",
 		};
 	}
 }
 
-export {
-	fetchTokensTrending,
-	fetchFXTrending,
-	fetchStocksTrending,
-	fetchFXPrice,
-	fetchStockPrice
-};
+export { fetchTokensTrending, fetchFXTrending, fetchStocksTrending, fetchFXPrice, fetchStockPrice };
 
 /**
  * Search response type for token search endpoints
@@ -339,17 +313,13 @@ export interface TokenSearchResponse {
  * @param symbol - Token symbol to search for (e.g., "ETH", "USDC")
  * @returns Search results with matching tokens
  */
-async function searchTokensBySymbol(
-	symbol: string
-): Promise<TokenSearchResponse> {
+async function searchTokensBySymbol(symbol: string): Promise<TokenSearchResponse> {
 	try {
 		const { data, error } = await betterFetch<TokenSearchResponse>(
-			`${BASE_URL}/trending/tokens/search/by-symbol/${encodeURIComponent(
-				symbol
-			)}`,
+			`${BASE_URL}/trending/tokens/search/by-symbol/${encodeURIComponent(symbol)}`,
 			{
-				method: "GET"
-			}
+				method: "GET",
+			},
 		);
 		if (error) {
 			throw new Error("Failed to search tokens by symbol");
@@ -358,7 +328,7 @@ async function searchTokensBySymbol(
 			success: data?.success ?? true,
 			data: data?.data || [],
 			pagination: data?.pagination,
-			timestamp: data?.timestamp
+			timestamp: data?.timestamp,
 		};
 	} catch {
 		return { success: false, data: [] };
@@ -370,17 +340,13 @@ async function searchTokensBySymbol(
  * @param address - Token or pair address to search for (0x...)
  * @returns Search results with matching tokens
  */
-async function searchTokensByAddress(
-	address: string
-): Promise<TokenSearchResponse> {
+async function searchTokensByAddress(address: string): Promise<TokenSearchResponse> {
 	try {
 		const { data, error } = await betterFetch<TokenSearchResponse>(
-			`${BASE_URL}/trending/tokens/search/by-address/${encodeURIComponent(
-				address
-			)}`,
+			`${BASE_URL}/trending/tokens/search/by-address/${encodeURIComponent(address)}`,
 			{
-				method: "GET"
-			}
+				method: "GET",
+			},
 		);
 		if (error) {
 			throw new Error("Failed to search tokens by address");
@@ -389,7 +355,7 @@ async function searchTokensByAddress(
 			success: data?.success ?? true,
 			data: data?.data || [],
 			pagination: data?.pagination,
-			timestamp: data?.timestamp
+			timestamp: data?.timestamp,
 		};
 	} catch {
 		return { success: false, data: [] };
@@ -405,8 +371,7 @@ async function searchTokens(query: string): Promise<TokenSearchResponse> {
 	const trimmedQuery = query.trim();
 
 	// Check if query is an address (starts with 0x and has sufficient length)
-	const isAddress =
-		trimmedQuery.startsWith("0x") && trimmedQuery.length >= 40;
+	const isAddress = trimmedQuery.startsWith("0x") && trimmedQuery.length >= 40;
 
 	if (isAddress) {
 		return searchTokensByAddress(trimmedQuery);

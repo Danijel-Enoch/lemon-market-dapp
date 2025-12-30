@@ -36,7 +36,8 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 
 	const [, handleChainSwitch] = useAsyncFn(
 		async (targetChainId: number) => {
-			switchChain({ chainId: targetChainId as any });
+			// @ts-expect-error - wont fix
+			switchChain({ chainId: targetChainId });
 			setIsOpen(false);
 		},
 		[switchChain],

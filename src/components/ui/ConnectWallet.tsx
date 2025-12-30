@@ -1,5 +1,6 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
+import { UserCircle2 } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -150,18 +151,17 @@ export function ConnectWallet({
 										)}
 										// {...props}
 									>
-										{account.displayName}
+										<span className="hidden md:inline">{account.displayName}</span>
+										<UserCircle2 size={16} className="md:hidden text-white" />
 									</motion.button>
 								</div>
 							);
 						})()}
-						{/* Custom account modal */}
 						<AccountModal
 							open={isAccountModalOpen}
 							onOpenChange={setIsAccountModalOpen}
 							account={account}
 							chain={chain}
-							openConnectModal={openConnectModal}
 						/>
 					</div>
 				);

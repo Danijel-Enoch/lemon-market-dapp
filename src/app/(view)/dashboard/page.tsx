@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 function DashboardContent() {
 	// Use user positions to calculate real stats where possible
-	const { positions, isLoading: isLoadingPositions, totalMargin, totalPnl } = useUserPositions();
+	const { positions, isLoading: isLoadingPositions } = useUserPositions();
 
 	// Calculate derived stats
 	const tradingVolume = positions.reduce((acc, pos) => {

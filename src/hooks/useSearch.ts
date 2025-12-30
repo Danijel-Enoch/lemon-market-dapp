@@ -51,7 +51,7 @@ function transformTokenToSearchResult(token: TokenItem): SearchResult {
 		dex: token.dexId || "unknown",
 		chain: token.chain || "base",
 		imageUrl: token.logo || undefined,
-		source: "api"
+		source: "api",
 	};
 }
 
@@ -88,18 +88,14 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 				}
 
 				if (response.success && response.data) {
-					const transformedResults = response.data.map(
-						transformTokenToSearchResult
-					);
+					const transformedResults = response.data.map(transformTokenToSearchResult);
 					setResults(transformedResults);
 				} else {
 					setResults([]);
 				}
 			} catch (err) {
 				if (!abortedRef.current) {
-					setError(
-						err instanceof Error ? err.message : "Search failed"
-					);
+					setError(err instanceof Error ? err.message : "Search failed");
 					setResults([]);
 				}
 			} finally {
@@ -108,7 +104,7 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 				}
 			}
 		},
-		[minQueryLength]
+		[minQueryLength],
 	);
 
 	const search = useCallback(
@@ -137,11 +133,11 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 						await searchFn(query);
 						resolve();
 					},
-					isFullAddress ? 0 : debounceMs
+					isFullAddress ? 0 : debounceMs,
 				);
 			});
 		},
-		[searchFn, debounceMs, minQueryLength]
+		[searchFn, debounceMs, minQueryLength],
 	);
 
 	const clearResults = useCallback(() => {
@@ -170,6 +166,6 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
 		isLoading,
 		error,
 		search,
-		clearResults
+		clearResults,
 	};
 }

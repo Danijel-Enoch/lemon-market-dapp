@@ -62,9 +62,12 @@ export function extractTokenSymbol(item: Record<string, unknown>): string | null
  * Get nested property from object using dot notation
  */
 function getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
-	return path.split(".").reduce((current: any, key: string) => {
-		return current?.[key];
-	}, obj);
+	return path.split(".").reduce(
+		(current: Record<string, unknown> | undefined, key: string) => {
+			return current?.[key] as Record<string, unknown> | undefined;
+		},
+		obj as Record<string, unknown> | undefined,
+	);
 }
 
 /**

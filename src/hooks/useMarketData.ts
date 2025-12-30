@@ -22,14 +22,9 @@ export interface MarketData {
 	quoteTokenAddress?: string;
 }
 
-async function fetchTokenFromDexScreener(
-	tokenAddress: string,
-	chain: string = "base"
-) {
+async function fetchTokenFromDexScreener(tokenAddress: string, chain: string = "base") {
 	try {
-		const res = await fetch(
-			`https://api.dexscreener.com/tokens/v1/${chain}/${tokenAddress}`
-		);
+		const res = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${tokenAddress}`);
 		if (!res.ok) return null;
 
 		const pairs = await res.json();
@@ -50,7 +45,7 @@ async function fetchTokenFromDexScreener(
 			txns: pair.txns,
 			pairCreatedAt: pair.pairCreatedAt,
 			pairAddress: pair.pairAddress,
-			info: pair.info
+			info: pair.info,
 		};
 
 		return response;
@@ -64,7 +59,7 @@ export function useMarketData(chain: string, tokenAddress: string) {
 		data: marketData,
 		isLoading: loading,
 		error,
-		refetch
+		refetch,
 	} = useQuery({
 		queryKey: ["marketData", chain, tokenAddress],
 		queryFn: async () => {
@@ -79,9 +74,7 @@ export function useMarketData(chain: string, tokenAddress: string) {
 			return {
 				priceUsd: pair.priceUsd,
 				priceChange: pair.priceChange?.h24
-					? `${
-							pair.priceChange.h24 >= 0 ? "+" : ""
-					  }${pair.priceChange.h24.toFixed(2)}%`
+					? `${pair.priceChange.h24 >= 0 ? "+" : ""}${pair.priceChange.h24.toFixed(2)}%`
 					: undefined,
 				marketCap: pair.marketCap?.toString(),
 				fdv: pair.fdv?.toString(),
@@ -92,14 +85,14 @@ export function useMarketData(chain: string, tokenAddress: string) {
 				txns24h: pair.txns?.h24
 					? {
 							buys: pair.txns.h24.buys || 0,
-							sells: pair.txns.h24.sells || 0
-					  }
+							sells: pair.txns.h24.sells || 0,
+						}
 					: undefined,
 				txns6h: pair.txns?.h6
 					? {
 							buys: pair.txns.h6.buys || 0,
-							sells: pair.txns.h6.sells || 0
-					  }
+							sells: pair.txns.h6.sells || 0,
+						}
 					: undefined,
 				poolCreated: pair.pairCreatedAt
 					? new Date(pair.pairCreatedAt).toLocaleDateString()
@@ -111,12 +104,12 @@ export function useMarketData(chain: string, tokenAddress: string) {
 				baseTokenSymbol: pair.baseToken?.symbol,
 				quoteTokenSymbol: pair.quoteToken?.symbol,
 				baseTokenAddress: pair.baseToken?.address,
-				quoteTokenAddress: pair.quoteToken?.address
+				quoteTokenAddress: pair.quoteToken?.address,
 			} as MarketData;
 		},
 		enabled: !!tokenAddress,
 		staleTime: 30000, // 30 seconds
-		gcTime: 1000 * 60 * 5 // 5 minutes
+		gcTime: 1000 * 60 * 5, // 5 minutes
 	});
 
 	return { marketData, loading, error, refetch };

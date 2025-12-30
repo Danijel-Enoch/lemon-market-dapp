@@ -1,8 +1,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 // Type definitions based on API schemas
 export interface PositionsQueryRequest {
@@ -212,7 +211,7 @@ export function useMarketApi() {
 	// Root
 	const [indexState, getIndex] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
@@ -220,7 +219,7 @@ export function useMarketApi() {
 	// Health
 	const [healthState, getHealth] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/health`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
@@ -228,135 +227,98 @@ export function useMarketApi() {
 	// Positions
 	const [positionsHealthState, getPositionsHealth] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/health`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
 
-	const [positionByIdState, getPositionById] = useAsyncFn(
-		async (positionId: string) => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/positions/${positionId}`,
-				{
-					method: "GET"
-				}
-			);
-			return data;
-		}
-	);
+	const [positionByIdState, getPositionById] = useAsyncFn(async (positionId: string) => {
+		const { data } = await betterFetch(`${BASE_URL}/positions/${positionId}`, {
+			method: "GET",
+		});
+		return data;
+	});
 
 	const [queryPositionsState, queryPositions] = useAsyncFn(
 		async (params: PositionsQueryRequest) => {
 			const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
 				method: "POST",
 				body: JSON.stringify(params),
-				headers: { "Content-Type": "application/json" }
+				headers: { "Content-Type": "application/json" },
 			});
 			return data;
-		}
+		},
 	);
 
 	const [positionsByTraderState, getPositionsByTrader] = useAsyncFn(
 		async (traderAddress: string) => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/positions/trader/${traderAddress}`,
-				{
-					method: "GET"
-				}
-			);
+			const { data } = await betterFetch(`${BASE_URL}/positions/trader/${traderAddress}`, {
+				method: "GET",
+			});
 			return data;
-		}
+		},
 	);
 
-	const [positionsByTokenState, getPositionsByToken] = useAsyncFn(
-		async (tokenSymbol: string) => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/positions/token/${tokenSymbol}`,
-				{
-					method: "GET"
-				}
-			);
-			return data;
-		}
-	);
+	const [positionsByTokenState, getPositionsByToken] = useAsyncFn(async (tokenSymbol: string) => {
+		const { data } = await betterFetch(`${BASE_URL}/positions/token/${tokenSymbol}`, {
+			method: "GET",
+		});
+		return data;
+	});
 
 	const [openPositionsState, getOpenPositions] = useAsyncFn(async () => {
-		const { data } = await betterFetch(
-			`${BASE_URL}/positions/status/open`,
-			{
-				method: "GET"
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/positions/status/open`, {
+			method: "GET",
+		});
 		return data;
 	});
 
 	const [closedPositionsState, getClosedPositions] = useAsyncFn(async () => {
-		const { data } = await betterFetch(
-			`${BASE_URL}/positions/status/closed`,
-			{
-				method: "GET"
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/positions/status/closed`, {
+			method: "GET",
+		});
 		return data;
 	});
 
-	const [liquidatedPositionsState, getLiquidatedPositions] = useAsyncFn(
-		async () => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/positions/status/liquidated`,
-				{
-					method: "GET"
-				}
-			);
-			return data;
-		}
-	);
+	const [liquidatedPositionsState, getLiquidatedPositions] = useAsyncFn(async () => {
+		const { data } = await betterFetch(`${BASE_URL}/positions/status/liquidated`, {
+			method: "GET",
+		});
+		return data;
+	});
 
-	const [openPositionState, openPosition] = useAsyncFn(
-		async (data: OpenPositionRequest) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/open`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
-			return responseData;
-		}
-	);
+	const [openPositionState, openPosition] = useAsyncFn(async (data: OpenPositionRequest) => {
+		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/open`, {
+			method: "POST",
+			body: JSON.stringify(data),
+			headers: { "Content-Type": "application/json" },
+		});
+		return responseData;
+	});
 
-	const [closePositionState, closePosition] = useAsyncFn(
-		async (data: ClosePositionRequest) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/close`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
-			return responseData;
-		}
-	);
+	const [closePositionState, closePosition] = useAsyncFn(async (data: ClosePositionRequest) => {
+		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/close`, {
+			method: "POST",
+			body: JSON.stringify(data),
+			headers: { "Content-Type": "application/json" },
+		});
+		return responseData;
+	});
 
 	const [openWithDevFeeState, openWithDevFee] = useAsyncFn(
 		async (
 			data: OpenPositionRequest & {
 				devFeeRecipient: string;
 				devFeeRate: number;
-			}
+			},
 		) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/open-with-dev-fee`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
+			const { data: responseData } = await betterFetch(`${BASE_URL}/positions/open-with-dev-fee`, {
+				method: "POST",
+				body: JSON.stringify(data),
+				headers: { "Content-Type": "application/json" },
+			});
 			return responseData;
-		}
+		},
 	);
 
 	const [closeWithDevFeeState, closeWithDevFee] = useAsyncFn(
@@ -364,18 +326,15 @@ export function useMarketApi() {
 			data: ClosePositionRequest & {
 				devFeeRecipient: string;
 				devFeeRate: number;
-			}
+			},
 		) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/close-with-dev-fee`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
+			const { data: responseData } = await betterFetch(`${BASE_URL}/positions/close-with-dev-fee`, {
+				method: "POST",
+				body: JSON.stringify(data),
+				headers: { "Content-Type": "application/json" },
+			});
 			return responseData;
-		}
+		},
 	);
 
 	const [approveMarketManagerState, approveMarketManager] = useAsyncFn(
@@ -385,11 +344,11 @@ export function useMarketApi() {
 				{
 					method: "POST",
 					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
+					headers: { "Content-Type": "application/json" },
+				},
 			);
 			return responseData;
-		}
+		},
 	);
 
 	const [approvePositionManagerState, approvePositionManager] = useAsyncFn(
@@ -399,87 +358,67 @@ export function useMarketApi() {
 				{
 					method: "POST",
 					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
+					headers: { "Content-Type": "application/json" },
+				},
 			);
 			return responseData;
-		}
+		},
 	);
 
-	const [approveLiquidityProviderState, approveLiquidityProvider] =
-		useAsyncFn(async (data: ApproveRequest) => {
+	const [approveLiquidityProviderState, approveLiquidityProvider] = useAsyncFn(
+		async (data: ApproveRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/approve-liquidity-provider`,
 				{
 					method: "POST",
 					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
+					headers: { "Content-Type": "application/json" },
+				},
 			);
 			return responseData;
+		},
+	);
+
+	const [approveRouterState, approveRouter] = useAsyncFn(async (data: ApproveRequest) => {
+		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/approve-router`, {
+			method: "POST",
+			body: JSON.stringify(data),
+			headers: { "Content-Type": "application/json" },
 		});
+		return responseData;
+	});
 
-	const [approveRouterState, approveRouter] = useAsyncFn(
-		async (data: ApproveRequest) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/approve-router`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
-			return responseData;
-		}
-	);
-
-	const [approveGenericState, approveGeneric] = useAsyncFn(
-		async (data: GenericApproveRequest) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/approve`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
-			return responseData;
-		}
-	);
+	const [approveGenericState, approveGeneric] = useAsyncFn(async (data: GenericApproveRequest) => {
+		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/approve`, {
+			method: "POST",
+			body: JSON.stringify(data),
+			headers: { "Content-Type": "application/json" },
+		});
+		return responseData;
+	});
 
 	const [supportedChainsState, getSupportedChains] = useAsyncFn(async () => {
-		const { data } = await betterFetch(
-			`${BASE_URL}/positions/supported-chains`,
-			{
-				method: "GET"
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/positions/supported-chains`, {
+			method: "GET",
+		});
 		return data;
 	});
 
 	const [customErrorsState, getCustomErrors] = useAsyncFn(async () => {
-		const { data } = await betterFetch(
-			`${BASE_URL}/positions/debug/custom-errors`,
-			{
-				method: "GET"
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/positions/debug/custom-errors`, {
+			method: "GET",
+		});
 		return data;
 	});
 
-	const [decodeErrorState, decodeError] = useAsyncFn(
-		async (data: DecodeErrorRequest) => {
-			const { data: responseData } = await betterFetch(
-				`${BASE_URL}/positions/debug/decode-error`,
-				{
-					method: "POST",
-					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
-			);
-			return responseData;
-		}
-	);
+	const [decodeErrorState, decodeError] = useAsyncFn(async (data: DecodeErrorRequest) => {
+		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/debug/decode-error`, {
+			method: "POST",
+			body: JSON.stringify(data),
+			headers: { "Content-Type": "application/json" },
+		});
+		return responseData;
+	});
 
 	const [verifySignatureState, verifySignature] = useAsyncFn(
 		async (data: VerifySignatureRequest) => {
@@ -488,20 +427,17 @@ export function useMarketApi() {
 				{
 					method: "POST",
 					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
+					headers: { "Content-Type": "application/json" },
+				},
 			);
 			return responseData;
-		}
+		},
 	);
 
 	const [signerInfoState, getSignerInfo] = useAsyncFn(async () => {
-		const { data } = await betterFetch(
-			`${BASE_URL}/positions/debug/signer-info`,
-			{
-				method: "GET"
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/positions/debug/signer-info`, {
+			method: "GET",
+		});
 		return data;
 	});
 
@@ -512,69 +448,55 @@ export function useMarketApi() {
 				{
 					method: "POST",
 					body: JSON.stringify(data),
-					headers: { "Content-Type": "application/json" }
-				}
+					headers: { "Content-Type": "application/json" },
+				},
 			);
 			return responseData;
-		}
+		},
 	);
 
 	// Markets
 	const [marketsState, getMarkets] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
 
-	const [marketByIdState, getMarketById] = useAsyncFn(
-		async (marketId: string) => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/markets/${marketId}`,
-				{
-					method: "GET"
-				}
-			);
-			return data;
-		}
-	);
+	const [marketByIdState, getMarketById] = useAsyncFn(async (marketId: string) => {
+		const { data } = await betterFetch(`${BASE_URL}/markets/${marketId}`, {
+			method: "GET",
+		});
+		return data;
+	});
 
-	const [marketDetailsState, getMarketDetails] = useAsyncFn(
-		async (marketId: string) => {
-			const { data } = await betterFetch(
-				`${BASE_URL}/markets/${marketId}/details`,
-				{
-					method: "GET"
-				}
-			);
-			return data;
-		}
-	);
+	const [marketDetailsState, getMarketDetails] = useAsyncFn(async (marketId: string) => {
+		const { data } = await betterFetch(`${BASE_URL}/markets/${marketId}/details`, {
+			method: "GET",
+		});
+		return data;
+	});
 
-	const [searchMarketsState, searchMarkets] = useAsyncFn(
-		async (params?: MarketsSearchRequest) => {
-			const url = new URL(`${BASE_URL}/markets/search`);
-			if (params?.limit)
-				url.searchParams.set("limit", params.limit.toString());
-			if (params?.skip)
-				url.searchParams.set("skip", params.skip.toString());
-			const { data } = await betterFetch(url.toString(), {
-				method: "GET"
-			});
-			return data;
-		}
-	);
+	const [searchMarketsState, searchMarkets] = useAsyncFn(async (params?: MarketsSearchRequest) => {
+		const url = new URL(`${BASE_URL}/markets/search`);
+		if (params?.limit) url.searchParams.set("limit", params.limit.toString());
+		if (params?.skip) url.searchParams.set("skip", params.skip.toString());
+		const { data } = await betterFetch(url.toString(), {
+			method: "GET",
+		});
+		return data;
+	});
 
 	const [marketsStatsState, getMarketsStats] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/stats`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
 
 	const [marketsHealthState, getMarketsHealth] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/health`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
@@ -582,21 +504,21 @@ export function useMarketApi() {
 	// Docs
 	const [docsState, getDocs] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/docs`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
 
 	const [openapiState, getOpenapi] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/openapi`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
 
 	const [apiDocsState, getApiDocs] = useAsyncFn(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/api-docs`, {
-			method: "GET"
+			method: "GET",
 		});
 		return data;
 	});
@@ -606,12 +528,12 @@ export function useMarketApi() {
 		indexState,
 		health: {
 			get: getHealth,
-			state: healthState
+			state: healthState,
 		},
 		positions: {
 			health: {
 				get: getPositionsHealth,
-				state: positionsHealthState
+				state: positionsHealthState,
 			},
 			byId: getPositionById,
 			byIdState: positionByIdState,
@@ -627,7 +549,7 @@ export function useMarketApi() {
 				closed: getClosedPositions,
 				closedState: closedPositionsState,
 				liquidated: getLiquidatedPositions,
-				liquidatedState: liquidatedPositionsState
+				liquidatedState: liquidatedPositionsState,
 			},
 			open: openPosition,
 			openState: openPositionState,
@@ -647,7 +569,7 @@ export function useMarketApi() {
 				router: approveRouter,
 				routerState: approveRouterState,
 				generic: approveGeneric,
-				genericState: approveGenericState
+				genericState: approveGenericState,
 			},
 			supportedChains: getSupportedChains,
 			supportedChainsState,
@@ -661,8 +583,8 @@ export function useMarketApi() {
 				signerInfo: getSignerInfo,
 				signerInfoState,
 				analyzeTransaction: analyzeTransaction,
-				analyzeTransactionState
-			}
+				analyzeTransactionState,
+			},
 		},
 		markets: {
 			list: getMarkets,
@@ -677,8 +599,8 @@ export function useMarketApi() {
 			statsState: marketsStatsState,
 			health: {
 				get: getMarketsHealth,
-				state: marketsHealthState
-			}
+				state: marketsHealthState,
+			},
 		},
 		docs: getDocs,
 		docsState,
@@ -687,57 +609,39 @@ export function useMarketApi() {
 		apiDocs: getApiDocs,
 		apiDocsState,
 		trending: {
-			tokens: useAsyncFn(async (params: any) => {
+			tokens: useAsyncFn(async (params: Record<string, string>) => {
 				const query = new URLSearchParams(params).toString();
-				const { data } = await betterFetch(
-					`${BASE_URL}/trending/tokens?${query}`,
-					{
-						method: "GET"
-					}
-				);
+				const { data } = await betterFetch(`${BASE_URL}/trending/tokens?${query}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			fx: useAsyncFn(async (limit: number = 50) => {
-				const { data } = await betterFetch(
-					`${BASE_URL}/trending/fx?limit=${limit}`,
-					{
-						method: "GET"
-					}
-				);
+				const { data } = await betterFetch(`${BASE_URL}/trending/fx?limit=${limit}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			stocks: useAsyncFn(async (limit: number = 50) => {
-				const { data } = await betterFetch(
-					`${BASE_URL}/trending/stocks?limit=${limit}`,
-					{
-						method: "GET"
-					}
-				);
+				const { data } = await betterFetch(`${BASE_URL}/trending/stocks?limit=${limit}`, {
+					method: "GET",
+				});
 				return data;
 			}),
 			chains: useAsyncFn(async () => {
-				const { data } = await betterFetch(
-					`${BASE_URL}/trending/chains`,
-					{ method: "GET" }
-				);
+				const { data } = await betterFetch(`${BASE_URL}/trending/chains`, { method: "GET" });
 				return data;
-			})
+			}),
 		},
 		prices: {
 			stock: useAsyncFn(async (symbol: string) => {
-				const { data } = await betterFetch(
-					`${BASE_URL}/prices/stock/${symbol}`,
-					{ method: "GET" }
-				);
+				const { data } = await betterFetch(`${BASE_URL}/prices/stock/${symbol}`, { method: "GET" });
 				return data;
 			}),
 			fx: useAsyncFn(async (pair: string) => {
-				const { data } = await betterFetch(
-					`${BASE_URL}/prices/fx/${pair}`,
-					{ method: "GET" }
-				);
+				const { data } = await betterFetch(`${BASE_URL}/prices/fx/${pair}`, { method: "GET" });
 				return data;
-			})
-		}
+			}),
+		},
 	};
 }

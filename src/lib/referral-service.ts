@@ -5,8 +5,7 @@
 
 import { betterFetch } from "@better-fetch/fetch";
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface LinkReferralResponse {
 	referralCode: string;
@@ -50,10 +49,10 @@ export class ReferralService {
 			{
 				method: "POST",
 				headers: {
-					"Content-Type": "application/json"
+					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ address })
-			}
+				body: JSON.stringify({ address }),
+			},
 		);
 
 		if (error || !data) {
@@ -66,22 +65,19 @@ export class ReferralService {
 	/**
 	 * Apply a referral code when linking a new address (referrer gets 10 points)
 	 */
-	async applyReferralCode(
-		address: string,
-		referralCode: string
-	): Promise<ApplyReferralResponse> {
+	async applyReferralCode(address: string, referralCode: string): Promise<ApplyReferralResponse> {
 		const { data, error } = await betterFetch<ApplyReferralResponse>(
 			`${this.baseUrl}/referrals/apply`,
 			{
 				method: "POST",
 				headers: {
-					"Content-Type": "application/json"
+					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
 					address,
-					referralCode
-				})
-			}
+					referralCode,
+				}),
+			},
 		);
 
 		if (error || !data) {
@@ -96,7 +92,7 @@ export class ReferralService {
 	 */
 	async getReferralStats(address: string): Promise<ReferralStatsResponse> {
 		const { data, error } = await betterFetch<ReferralStatsResponse>(
-			`${this.baseUrl}/referrals/stats/${address}`
+			`${this.baseUrl}/referrals/stats/${address}`,
 		);
 
 		if (error || !data) {
@@ -129,7 +125,7 @@ export class ReferralService {
 				return {
 					success: false,
 					referrer: null,
-					error: "Failed to fetch referrer"
+					error: "Failed to fetch referrer",
 				};
 			}
 
@@ -139,7 +135,7 @@ export class ReferralService {
 			return {
 				success: false,
 				referrer: null,
-				error: err instanceof Error ? err.message : "Unknown error"
+				error: err instanceof Error ? err.message : "Unknown error",
 			};
 		}
 	}

@@ -4,7 +4,7 @@ import { useAccount } from "wagmi";
 import {
 	applyReferralCode,
 	createReferralCode,
-	getUserReferralStats
+	getUserReferralStats,
 } from "@/lib/dashboard-service";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
@@ -72,10 +72,7 @@ export function useReferral() {
 
 			// If user was referred by someone, apply the referral code first
 			if (referredBy) {
-				const applyResult = await applyReferralCode(
-					userAddress,
-					referredBy
-				);
+				const applyResult = await applyReferralCode(userAddress, referredBy);
 				if (applyResult.success) {
 					// Clear the referred_by code so it's not used again
 					localStorage.removeItem(REFERRED_BY_KEY);
@@ -91,7 +88,7 @@ export function useReferral() {
 
 			return null;
 		},
-		[getReferredByFromStorage, saveReferralCode]
+		[getReferredByFromStorage, saveReferralCode],
 	);
 
 	// Load referral code from storage on mount
@@ -132,6 +129,6 @@ export function useReferral() {
 		clearReferralData,
 		initializeUserReferral,
 		isLoading,
-		error: error?.message || null
+		error: error?.message || null,
 	};
 }
