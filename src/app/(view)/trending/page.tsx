@@ -76,11 +76,17 @@ interface Asset extends Token {
 	type: "crypto" | "forex" | "stocks";
 }
 
+// Helper to determine initial items per page based on viewport
+const getInitialItemsPerPage = () => {
+	if (typeof window === "undefined") return 20;
+	return window.innerWidth < 768 ? 10 : 20;
+};
+
 export default function Home() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [_currentPage, setCurrentPage] = useState(1);
-	const [itemsPerPage, setItemsPerPage] = useState(20);
+	const [itemsPerPage, setItemsPerPage] = useState(getInitialItemsPerPage);
 	const [hasMore, setHasMore] = useState(true);
 	const observerTarget = useRef<HTMLDivElement>(null);
 	const [apiData, setApiData] = useState({
@@ -537,15 +543,15 @@ export default function Home() {
 		<>
 			<div className="border-l border-r border-[#202020]">
 				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-					<div className="flex-1 min-w-0 flex items-center gap-4">
-						<div className="relative w-80">
+					<div className="flex-1 min-w-0 flex items-center gap-4 w-full">
+						<div className="relative w-full md:w-80">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
 							<Input
 								type="text"
 								placeholder="Search Base tokens by symbol, address, or pair address..."
 								value={searchQuery}
 								onChange={handleSearchChange}
-								className="py-6 pl-10 h-full border-0 border-r rounded-none focus-visible:ring-0 focus-visible:border-0"
+								className="py-6 pl-10 h-full border-0 border-r rounded-none focus-visible:ring-0 focus-visible:border-0 w-full"
 							/>
 						</div>
 					</div>
