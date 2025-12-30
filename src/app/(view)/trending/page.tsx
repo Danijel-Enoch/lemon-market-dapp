@@ -554,7 +554,7 @@ export default function Home() {
 									}
 									className={`text-sm font-medium px-3 py-2 -mb-px whitespace-nowrap uppercase ${
 										filterType === key
-											? "text-[#0BB37E] border-b-2 border-[#0BB37E]"
+											? "text-[#a3e635] border-b-2 border-[#a3e635]"
 											: "text-[#9AA0A0] hover:text-[#ffffff]"
 									}`}
 								>
@@ -649,7 +649,7 @@ export default function Home() {
 												(item: Asset, idx: number) => (
 													<tr
 														key={`${item.type}-${item.id}-${idx}`}
-														className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#0BB37E]/40 cursor-pointer"
+														className="border-b border-[#1e1e1e] hover:bg-[#0b0b0b] transition-colors hover:border hover:border-[#a3e635]/40 cursor-pointer"
 														onClick={() =>
 															handleTradeClick(
 																item
@@ -686,7 +686,7 @@ export default function Home() {
 																		)}
 																	</div>
 																	{item.leverage && (
-																		<div className="absolute -right-1 -bottom-1 text-xs bg-[#0BB37E] text-black px-1.5 py-0.5 rounded-full border border-[#0A7F57]">
+																		<div className="absolute -right-1 -bottom-1 text-xs bg-[#a3e635] text-black px-1.5 py-0.5 rounded-full border border-[#84cc16]">
 																			{
 																				item.leverage
 																			}
@@ -708,7 +708,7 @@ export default function Home() {
 															</div>
 														</td>
 														<td className="px-4 py-4 text-center">
-															<div className="inline-block bg-[#080a07] text-[#9ef0c6] px-2 py-1 rounded text-xs font-semibold">
+															<div className="inline-block bg-[#1a2e14] text-[#a3e635] px-2 py-1 rounded text-xs font-semibold">
 																{item.xp ??
 																	"5:23"}
 															</div>
@@ -730,7 +730,7 @@ export default function Home() {
 																	className={`inline-flex items-center gap-1 px-2 py-1 ${
 																		item.trend ===
 																		"up"
-																			? "text-[#30E5A7]"
+																			? "text-[#a3e635]"
 																			: "text-[#FF6B6B]"
 																	}`}
 																>
@@ -785,7 +785,7 @@ export default function Home() {
 							</div>
 						</div>
 					</div>
-					<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#083b28]/10 to-transparent" />
+					<div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-[#1a2e14]/10 to-transparent" />
 				</div>
 			</div>
 
