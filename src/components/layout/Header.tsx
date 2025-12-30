@@ -48,21 +48,21 @@ export function Header() {
 	return (
 		<>
 			<div
-				className="fixed top-0 left-0 right-0 w-full md:p-4 lg:p-8 z-50"
+				className="fixed w-full md:p-4 lg:p-8 z-50"
 				style={safeAreaStyle}
 			>
 				<div
 					className={
 						otherPages
-							? "container px-4 sm:mx-auto"
-							: "max-w-7xl mx-auto"
+							? "sm:mx-auto"
+							: "max-w-7xl sm:mx-auto"
 					}
 				>
 					<motion.header
 						initial={{ opacity: 0.5 }}
 						animate={{ opacity: 1 }}
 						transition={{ duration: 0.6 }}
-						className="px-4 lg:px-6 sm:mx-auto flex items-center justify-between rounded-xl backdrop-blur-md py-4 bg-[#13151b99] border border-gray-100/10"
+						className="px-4 lg:px-6 sm:mx-auto flex items-center justify-between sm:rounded-xl backdrop-blur-md py-4 bg-[#13151b99] border border-gray-100/10"
 					>
 						<Link
 							to="/"
