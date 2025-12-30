@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AccountModal } from "@/components/ui/AccountModal";
 import { cn } from "@/lib/utils";
+import { CheckCircle } from "lucide-react";
 
 export function ConnectWallet({
 	text = "Connect Wallet",
@@ -150,12 +151,12 @@ export function ConnectWallet({
 										)}
 										// {...props}
 									>
-										{account.displayName}
+										<span className="hidden md:inline">{account.displayName}</span>
+										<CheckCircle size={16} className="md:hidden text-white" />
 									</motion.button>
 								</div>
 							);
 						})()}
-						{/* Custom account modal */}
 						<AccountModal
 							open={isAccountModalOpen}
 							onOpenChange={setIsAccountModalOpen}
