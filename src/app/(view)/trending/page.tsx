@@ -3,6 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
 	fetchTokensTrending,
@@ -792,17 +799,19 @@ export default function Home() {
 			<div className="border-t border-[#222222] bg-[#060606] p-3 flex items-center justify-between text-sm text-[#9AA0A0] mb-16 lg:mb-10">
 				<div className="flex items-center gap-2">
 					<span>Rows Per Page:</span>
-					<select
-						value={itemsPerPage}
-						onChange={(e) =>
-							setItemsPerPage(Number(e.target.value))
-						}
-						className="bg-[#050505] border border-[#1f1f1f] px-2 py-1 text-sm rounded text-[#E8F0EF]"
+					<Select
+						value={String(itemsPerPage)}
+						onValueChange={(value) => setItemsPerPage(Number(value))}
 					>
-						<option value="10">10</option>
-						<option value="20">20</option>
-						<option value="50">50</option>
-					</select>
+						<SelectTrigger className="w-[70px] bg-[#050505] border-[#1f1f1f] text-[#E8F0EF]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="10">10</SelectItem>
+							<SelectItem value="20">20</SelectItem>
+							<SelectItem value="50">50</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
 				<div className="flex items-center gap-3 text-[#bfc7c7]">
 					<div className="text-[#9AA0A0]">&lt;&lt;</div>

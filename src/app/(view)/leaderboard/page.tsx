@@ -9,6 +9,13 @@ import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue
+} from "@/components/ui/select";
 import type { Metadata } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -176,7 +183,7 @@ export default function LeaderboardPage() {
 			: "0";
 
 	return (
-		<div className="min-h-screen">
+		<div>
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
 					<div className="flex items-center justify-between">
@@ -220,17 +227,19 @@ export default function LeaderboardPage() {
 						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
-								<select
-									value={limit}
-									onChange={(e) =>
-										setLimit(Number(e.target.value))
-									}
-									className="text-sm bg-background border border-border rounded px-2 py-1"
+								<Select
+									value={String(limit)}
+									onValueChange={(value) => setLimit(Number(value))}
 								>
-									<option value={25}>Top 25</option>
-									<option value={50}>Top 50</option>
-									<option value={100}>Top 100</option>
-								</select>
+									<SelectTrigger className="w-[100px] text-sm bg-background border-border">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="25">Top 25</SelectItem>
+										<SelectItem value="50">Top 50</SelectItem>
+										<SelectItem value="100">Top 100</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 					</CardHeader>
