@@ -1,4 +1,4 @@
-import { Award as AwardIcon, Crown, Medal, RefreshCw, Users } from "lucide-react";
+import { Award as AwardIcon, ChevronLeft, ChevronRight, Crown, Medal, RefreshCw, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Badge } from "@/components/ui/badge";
@@ -87,10 +87,12 @@ export default function LeaderboardPage() {
 	const [sortBy, setSortBy] = useState("totalPoints");
 	const [order, setOrder] = useState("desc");
 	const [limit, setLimit] = useState<number>(50);
+	const [page, setPage] = useState<number>(1);
 
 	const [{ loading, error: fetchError, value: leaderboardResult }, fetchLeaderboard] =
 		useAsyncFn(async () => {
-			const response = await fetch(`${BASE_URL}/leaderboard`);
+			const offset = (page - 1) * limit;
+			const response = await fetch(`${BASE_URL}/leaderboard?limit=${limit}&offset=${offset}&page=${page}`);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
 			}
@@ -131,7 +133,7 @@ export default function LeaderboardPage() {
 			});
 
 			return transformedData;
-		}, [sortBy, order, limit]);
+		}, [sortBy, order, limit, page]);
 
 	const leaderboardData = useMemo(() => leaderboardResult || [], [leaderboardResult]);
 	const error = fetchError ? fetchError.message : null;
@@ -147,6 +149,19 @@ export default function LeaderboardPage() {
 			setSortBy(newSortBy);
 			setOrder("desc");
 		}
+	};
+
+	const handleLimitChange = (value: string) => {
+		setLimit(Number(value));
+		setPage(1); // Reset to first page when limit changes
+	};
+
+	const handleNextPage = () => {
+		setPage((prev) => prev + 1);
+	};
+
+	const handlePrevPage = () => {
+		setPage((prev) => Math.max(1, prev - 1));
 	};
 
 	const _totalTraders = leaderboardData.length;
@@ -194,7 +209,7 @@ export default function LeaderboardPage() {
 						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
-								<Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
+								<Select value={String(limit)} onValueChange={handleLimitChange}>
 									<SelectTrigger className="w-[100px] text-sm bg-background border-border">
 										<SelectValue />
 									</SelectTrigger>
@@ -204,6 +219,29 @@ export default function LeaderboardPage() {
 										<SelectItem value="100">Top 100</SelectItem>
 									</SelectContent>
 								</Select>
+								<div className="flex items-center gap-1 text-sm text-muted-foreground">
+									<Button
+										onClick={handlePrevPage}
+										disabled={page === 1 || loading}
+										variant="outline"
+										size="sm"
+										className="h-8 w-8 p-0"
+									>
+										<ChevronLeft className="w-4 h-4" />
+									</Button>
+									<span className="px-3 min-w-[80px] text-center">
+										Page {page}
+									</span>
+									<Button
+										onClick={handleNextPage}
+										disabled={loading || leaderboardData.length < limit}
+										variant="outline"
+										size="sm"
+										className="h-8 w-8 p-0"
+									>
+										<ChevronRight className="w-4 h-4" />
+									</Button>
+								</div>
 							</div>
 						</div>
 					</CardHeader>
@@ -302,6 +340,36 @@ export default function LeaderboardPage() {
 								</tbody>
 							</table>
 						</div>
+						{!loading && leaderboardData.length > 0 && (
+							<div className="px-6 py-4 border-t border-gray-100/10 flex items-center justify-between">
+								<div className="text-sm text-muted-foreground">
+									Showing {((page - 1) * limit) + 1} - {((page - 1) * limit) + leaderboardData.length} entries
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										onClick={handlePrevPage}
+										disabled={page === 1 || loading}
+										variant="outline"
+										size="sm"
+									>
+										<ChevronLeft className="w-4 h-4 mr-1" />
+										Previous
+									</Button>
+									<span className="text-sm text-muted-foreground px-2">
+										Page {page}
+									</span>
+									<Button
+										onClick={handleNextPage}
+										disabled={loading || leaderboardData.length < limit}
+										variant="outline"
+										size="sm"
+									>
+										Next
+										<ChevronRight className="w-4 h-4 ml-1" />
+									</Button>
+								</div>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 			</main>
