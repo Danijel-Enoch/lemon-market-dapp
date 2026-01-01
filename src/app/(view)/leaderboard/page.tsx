@@ -195,9 +195,9 @@ export default function LeaderboardPage() {
 					</Card>
 				)}
 
-				<Card>
+				<Card className="pb-0">
 					<CardHeader className="border-b border-gray-100/10">
-						<div className="flex flex-col md:flex-row md:items-center justify-between">
+						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
 								<Button
@@ -208,7 +208,7 @@ export default function LeaderboardPage() {
 									className="gap-2"
 								>
 									<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-									Refresh
+									<span className="hidden md:inline">Refresh</span>
 								</Button>
 								<Select value={String(limit)} onValueChange={handleLimitChange}>
 									<SelectTrigger className="w-[100px] text-sm border-border">
@@ -220,7 +220,7 @@ export default function LeaderboardPage() {
 										<SelectItem value="100">Top 100</SelectItem>
 									</SelectContent>
 								</Select>
-								<div className="flex items-center gap-1 text-sm text-muted-foreground">
+								<div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
 									<Button
 										onClick={handlePrevPage}
 										disabled={page === 1 || loading}
@@ -244,7 +244,7 @@ export default function LeaderboardPage() {
 							</div>
 						</div>
 					</CardHeader>
-					<CardContent className="p-0 mb-12 lg:mb-10">
+					<CardContent className="p-0">
 						<div className="overflow-x-auto">
 							<table className="w-full">
 								<thead>
@@ -271,7 +271,7 @@ export default function LeaderboardPage() {
 									</tr>
 								</thead>
 								<tbody>
-									{loading ? (
+									{loading && leaderboardData.length === 0 ? (
 										<tr>
 											<td colSpan={8} className="text-center p-8">
 												<div className="flex items-center justify-center gap-2">
@@ -340,7 +340,7 @@ export default function LeaderboardPage() {
 							</table>
 						</div>
 						{!loading && leaderboardData.length > 0 && (
-							<div className="px-6 py-4 border-t border-gray-100/10 flex items-center justify-between">
+							<div className="px-6 py-4 border-t border-gray-100/10 flex flex-col md:flex-row items-center justify-between gap-6">
 								<div className="text-sm text-muted-foreground">
 									Showing {(page - 1) * limit + 1} - {(page - 1) * limit + leaderboardData.length}{" "}
 									entries

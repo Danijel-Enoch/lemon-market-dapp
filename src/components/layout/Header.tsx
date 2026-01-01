@@ -55,11 +55,11 @@ export function Header() {
 								height={40}
 								// className="animate-spin"
 							/>
-							<span className="inline-flex md:items-start xl:items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-xl md:text-lg lg:text-xl">
+							<span className="inline-flex md:items-start xl:items-center bg-linear-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold text-lg lg:text-xl">
 								Lemon Markets
 								<Badge
 									variant="secondary"
-									className="ml-2 text-[10px] border-lime-500 bg-transparent text-white"
+									className="ml-2 py-0.5 text-[8px] md:text-[10px] border-lime-500 bg-transparent text-white"
 								>
 									BETA
 								</Badge>
@@ -172,7 +172,7 @@ export function Header() {
 			{otherPages && (
 				<nav className="md:hidden fixed bottom-0 left-0 right-0 p-3 z-50">
 					<div className="mx-auto max-w-md bg-[#13151b]/95 border border-gray-800/50 rounded-2xl backdrop-blur-xl shadow-2xl shadow-black/50">
-						<div className="flex items-center justify-around px-2 py-2">
+						<div className="flex items-center justify-around p-1 gap-1">
 							{navItems.map((item) => {
 								const href = item.href || item.subItems?.[0]?.href;
 								if (!href) return null;
@@ -186,7 +186,7 @@ export function Header() {
 									<Link
 										key={href}
 										to={href}
-										className={`flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl transition-all relative flex-1 min-w-0 ${
+										className={`flex flex-col items-center justify-center gap-1 px-0.5 py-2 rounded-xl transition-all relative flex-1 min-w-0 ${
 											isActive
 												? "bg-linear-to-t from-lime-500/20 to-transparent"
 												: "hover:bg-gray-800/30"
@@ -197,7 +197,7 @@ export function Header() {
 										)}
 										<div className="p-1.5 rounded-lg transition-all">
 											<Icon
-												size={22}
+												size={20}
 												className={`transition-all ${isActive ? "text-lime-400" : "text-gray-400"}`}
 											/>
 										</div>
