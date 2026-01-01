@@ -723,28 +723,25 @@ function PerpContent() {
 							<div className="relative">
 								{/* Chart Type Toggle */}
 								<div className="absolute bottom-2 left-2 z-10 flex items-center gap-2">
-									<button
-										type="button"
-										onClick={() => setChartType("dexscreener")}
-										className={`px-3 py-1 text-xs rounded transition-colors ${
-											chartType === "dexscreener"
-												? "bg-[#4DAD31] text-white"
-												: "text-gray-400 hover:text-white bg-black/50 backdrop-blur-sm"
-										}`}
+									<Tabs
+										value={chartType}
+										onValueChange={(v) => setChartType(v as "dexscreener" | "beta")}
 									>
-										DexScreener
-									</button>
-									<button
-										type="button"
-										onClick={() => setChartType("beta")}
-										className={`px-3 py-1 text-xs rounded transition-colors ${
-											chartType === "beta"
-												? "bg-[#4DAD31] text-white"
-												: "text-gray-400 hover:text-white bg-black/50 backdrop-blur-sm"
-										}`}
-									>
-										Lemon Chart
-									</button>
+										<TabsList className="bg-black/50 backdrop-blur-sm border-0">
+											<TabsTrigger
+												value="dexscreener"
+												className="text-xs px-3 py-1 data-[state=active]:bg-[#4DAD31] data-[state=active]:text-white text-gray-400 hover:text-white border-0"
+											>
+												DexScreener
+											</TabsTrigger>
+											<TabsTrigger
+												value="beta"
+												className="text-xs px-3 py-1 data-[state=active]:bg-[#4DAD31] data-[state=active]:text-white text-gray-400 hover:text-white border-0"
+											>
+												Lemon Chart
+											</TabsTrigger>
+										</TabsList>
+									</Tabs>
 								</div>
 								{chartType === "dexscreener" ? (
 									<div style={{ height: "600px" }}>

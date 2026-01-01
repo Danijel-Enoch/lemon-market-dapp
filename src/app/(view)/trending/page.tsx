@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchTokensTrending, searchTokens, type TokenItem } from "@/hooks/useTrending";
 import type { Metadata } from "@/lib/types";
 import { formatLargeNumber, formatPrice } from "@/lib/utils";
@@ -475,22 +476,23 @@ export default function Home() {
 					</div>
 
 					<div className="flex-none w-full sm:w-auto">
-						<nav className="flex gap-4 items-center justify-start sm:justify-end overflow-x-auto px-1">
-							{filterTabs.map(([key, label]) => (
-								<button
-									type="button"
-									key={String(key)}
-									onClick={() => setFilterType(key as FilterKey)}
-									className={`text-sm font-medium px-3 py-2 -mb-px whitespace-nowrap uppercase ${
-										filterType === key
-											? "text-[#a3e635] border-b-2 border-[#a3e635]"
-											: "text-[#9AA0A0] hover:text-[#ffffff]"
-									}`}
-								>
-									{label}
-								</button>
-							))}
-						</nav>
+						<Tabs
+							value={filterType}
+							onValueChange={(value) => setFilterType(value as FilterKey)}
+							className="w-full sm:w-auto"
+						>
+							<TabsList className="h-auto p-0 bg-transparent border-b-0 space-x-4">
+								{filterTabs.map(([key, label]) => (
+									<TabsTrigger
+										key={String(key)}
+										value={key}
+										className="text-sm font-medium px-3 py-2 -mb-px hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#a3e635] data-[state=active]:text-[#a3e635] rounded-none shadow-none"
+									>
+										{label}
+									</TabsTrigger>
+								))}
+							</TabsList>
+						</Tabs>
 					</div>
 				</div>
 			</div>
