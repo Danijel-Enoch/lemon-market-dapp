@@ -1,6 +1,5 @@
 import type React from "react";
 import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
-import toast from "react-hot-toast";
 import { useAccount, useBalance } from "wagmi";
 import { verifyTask } from "@/lib/kickoff-service";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";

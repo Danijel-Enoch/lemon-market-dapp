@@ -175,7 +175,7 @@ function AddLiquidityContent() {
 	const isAmountValid = amountBigInt > BigInt(0);
 
 	return (
-		<div className="min-h-screen container mx-auto px-4 py-8 max-w-lg">
+		<div className="min-h-screen w-full mt-8 max-w-lg mx-auto">
 			<Button
 				variant="ghost"
 				className="mb-6 pl-0 hover:bg-transparent hover:text-white"

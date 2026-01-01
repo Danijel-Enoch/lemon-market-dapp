@@ -158,11 +158,11 @@ export default function BridgeSwapPage() {
 	};
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Bridge & Swap</h1>
+						<h1 className="text-2xl font-bold text-foreground">Bridge & Swap</h1>
 						<p className="text-muted-foreground text-xs">
 							Bridge tokens across chains and swap assets
 						</p>
@@ -282,7 +282,7 @@ export default function BridgeSwapPage() {
 						<LiFiWidget integrator="omni-bot" config={widgetConfig} />
 					</div>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

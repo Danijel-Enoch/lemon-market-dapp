@@ -1,4 +1,4 @@
-import { Wallet, Plus, Loader2 } from "lucide-react";
+import { Loader2, Plus, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 

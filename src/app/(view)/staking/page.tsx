@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function StakingPage() {
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				{/* Hero Section */}
 				<div className="flex flex-col items-center justify-center text-center py-16 md:py-24">
 					{/* Animated Badge */}
@@ -20,7 +20,7 @@ export default function StakingPage() {
 					</div>
 
 					{/* Main Heading */}
-					<h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent">
+					<h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-linear-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent">
 						Staking
 					</h1>
 
@@ -39,8 +39,8 @@ export default function StakingPage() {
 
 					{/* Decorative Glow */}
 					<div className="relative w-full max-w-lg h-32 mb-8">
-						<div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 blur-3xl rounded-full" />
-						<div className="absolute inset-4 bg-gradient-to-r from-transparent via-primary/30 to-transparent blur-2xl rounded-full animate-pulse" />
+						<div className="absolute inset-0 bg-linear-to-r from-primary/20 via-primary/40 to-primary/20 blur-3xl rounded-full" />
+						<div className="absolute inset-4 bg-linear-to-r from-transparent via-primary/30 to-transparent blur-2xl rounded-full animate-pulse" />
 					</div>
 				</div>
 
@@ -48,7 +48,7 @@ export default function StakingPage() {
 				<div className="mb-16">
 					<h2 className="text-2xl font-semibold text-center mb-8">What&apos;s Coming</h2>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						<Card className="border-accent/20 bg-gradient-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
+						<Card className="border-accent/20 bg-linear-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
 							<CardContent className="pt-6">
 								<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
 									<TrendingUp className="w-6 h-6 text-primary" />
@@ -61,7 +61,7 @@ export default function StakingPage() {
 							</CardContent>
 						</Card>
 
-						<Card className="border-accent/20 bg-gradient-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
+						<Card className="border-accent/20 bg-linear-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
 							<CardContent className="pt-6">
 								<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
 									<Lock className="w-6 h-6 text-primary" />
@@ -74,7 +74,7 @@ export default function StakingPage() {
 							</CardContent>
 						</Card>
 
-						<Card className="border-accent/20 bg-gradient-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
+						<Card className="border-accent/20 bg-linear-to-br from-background to-muted/30 hover:border-primary/30 transition-colors">
 							<CardContent className="pt-6">
 								<div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
 									<Shield className="w-6 h-6 text-primary" />
@@ -89,7 +89,7 @@ export default function StakingPage() {
 				</div>
 
 				{/* Stats Preview */}
-				<Card className="border-accent/20 bg-gradient-to-br from-muted/20 to-background">
+				<Card className="border-accent/20 bg-linear-to-br from-muted/20 to-background">
 					<CardContent className="py-8">
 						<div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
 							<div>
@@ -111,7 +111,7 @@ export default function StakingPage() {
 						</div>
 					</CardContent>
 				</Card>
-			</main>
+			</div>
 		</div>
 	);
 }

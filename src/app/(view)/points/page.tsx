@@ -14,11 +14,11 @@ function PointsContent() {
 	const { pointsEarned } = useDashboard();
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Points</h1>
+						<h1 className="text-2xl font-bold text-foreground">Points</h1>
 						<p className="text-muted-foreground text-xs">
 							Earn points through trading and redeem for rewards
 						</p>
@@ -129,7 +129,7 @@ function PointsContent() {
 						</CardContent>
 					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

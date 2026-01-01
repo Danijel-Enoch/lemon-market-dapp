@@ -1,8 +1,8 @@
 "use client";
 
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
-import { useAccount, useReadContract } from "wagmi";
 import { formatUnits } from "viem";
+import { useAccount, useReadContract } from "wagmi";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

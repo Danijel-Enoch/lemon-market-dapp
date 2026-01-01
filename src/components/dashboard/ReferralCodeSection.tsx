@@ -73,7 +73,7 @@ export function ReferralCodeSection({
 					</Button>
 				</div>
 				<div className="space-y-2">
-					<Button onClick={handleCopyReferralLink} variant="default" className="w-full gap-2">
+					<Button onClick={handleCopyReferralLink} className="w-full gap-2">
 						{linkCopied ? (
 							<>
 								<span className="text-xs">✓</span>
