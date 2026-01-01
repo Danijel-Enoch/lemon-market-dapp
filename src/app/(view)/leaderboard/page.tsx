@@ -185,8 +185,8 @@ export default function LeaderboardPage() {
 			: "0";
 
 	return (
-		<div>
-			<main className="container mx-auto px-6 py-8">
+		<div className="w-full mt-8">
+			<div className="w-full">
 				{error && (
 					<Card className="mb-8 border-destructive">
 						<CardContent className="p-4">
@@ -370,7 +370,7 @@ export default function LeaderboardPage() {
 						)}
 					</CardContent>
 				</Card>
-			</main>
+			</div>
 		</div>
 	);
 }

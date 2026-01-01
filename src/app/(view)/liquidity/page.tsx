@@ -79,8 +79,8 @@ function LiquidityPoolsList() {
 
 function LiquidityContent() {
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="flex items-center justify-between mb-8">
 					<div>
 						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
@@ -108,7 +108,7 @@ function LiquidityContent() {
 						</CardContent>
 					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }
