@@ -1,4 +1,12 @@
-import { Award as AwardIcon, ChevronLeft, ChevronRight, Crown, Medal, RefreshCw, Users } from "lucide-react";
+import {
+	Award as AwardIcon,
+	ChevronLeft,
+	ChevronRight,
+	Crown,
+	Medal,
+	RefreshCw,
+	Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Badge } from "@/components/ui/badge";
@@ -92,7 +100,9 @@ export default function LeaderboardPage() {
 	const [{ loading, error: fetchError, value: leaderboardResult }, fetchLeaderboard] =
 		useAsyncFn(async () => {
 			const offset = (page - 1) * limit;
-			const response = await fetch(`${BASE_URL}/leaderboard?limit=${limit}&offset=${offset}&page=${page}`);
+			const response = await fetch(
+				`${BASE_URL}/leaderboard?limit=${limit}&offset=${offset}&page=${page}`,
+			);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
 			}
@@ -229,9 +239,7 @@ export default function LeaderboardPage() {
 									>
 										<ChevronLeft className="w-4 h-4" />
 									</Button>
-									<span className="px-3 min-w-[80px] text-center">
-										Page {page}
-									</span>
+									<span className="px-3 min-w-[80px] text-center">Page {page}</span>
 									<Button
 										onClick={handleNextPage}
 										disabled={loading || leaderboardData.length < limit}
@@ -343,7 +351,8 @@ export default function LeaderboardPage() {
 						{!loading && leaderboardData.length > 0 && (
 							<div className="px-6 py-4 border-t border-gray-100/10 flex items-center justify-between">
 								<div className="text-sm text-muted-foreground">
-									Showing {((page - 1) * limit) + 1} - {((page - 1) * limit) + leaderboardData.length} entries
+									Showing {(page - 1) * limit + 1} - {(page - 1) * limit + leaderboardData.length}{" "}
+									entries
 								</div>
 								<div className="flex items-center gap-2">
 									<Button
@@ -355,9 +364,7 @@ export default function LeaderboardPage() {
 										<ChevronLeft className="w-4 h-4 mr-1" />
 										Previous
 									</Button>
-									<span className="text-sm text-muted-foreground px-2">
-										Page {page}
-									</span>
+									<span className="text-sm text-muted-foreground px-2">Page {page}</span>
 									<Button
 										onClick={handleNextPage}
 										disabled={loading || leaderboardData.length < limit}

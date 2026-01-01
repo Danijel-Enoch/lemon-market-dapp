@@ -40,7 +40,7 @@ export function Header() {
 	return (
 		<>
 			<div className="fixed w-full md:p-4 lg:p-8 z-50" style={safeAreaStyle}>
-				<div className={otherPages ? "sm:mx-auto" : "max-w-7xl sm:mx-auto"}>
+				<div className={otherPages ? "sm:mx-auto sm:container sm:px-4" : "max-w-7xl sm:mx-auto"}>
 					<motion.header
 						initial={{ opacity: 0.5 }}
 						animate={{ opacity: 1 }}
