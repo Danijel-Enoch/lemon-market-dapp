@@ -186,7 +186,7 @@ export function Header() {
 									<Link
 										key={href}
 										to={href}
-										className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all relative ${
+										className={`flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl transition-all relative flex-1 min-w-0 ${
 											isActive
 												? "bg-linear-to-t from-lime-500/20 to-transparent"
 												: "hover:bg-gray-800/30"
@@ -202,7 +202,7 @@ export function Header() {
 											/>
 										</div>
 										<span
-											className={`text-[10px] font-semibold transition-all ${
+											className={`text-[10px] font-semibold transition-all truncate w-full text-center ${
 												isActive ? "text-lime-400" : "text-gray-500"
 											}`}
 										>
