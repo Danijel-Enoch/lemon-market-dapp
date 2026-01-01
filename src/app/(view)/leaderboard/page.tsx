@@ -186,26 +186,7 @@ export default function LeaderboardPage() {
 
 	return (
 		<div>
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
-				<div className="mb-8">
-					<div className="flex items-center justify-between">
-						<div>
-							<h1 className="text-2xl font-medium text-muted-foreground">Leaderboard</h1>
-							<p className="text-muted-foreground text-xs">Top performing traders and strategies</p>
-						</div>
-						<Button
-							onClick={fetchLeaderboard}
-							disabled={loading}
-							variant="outline"
-							size="sm"
-							className="gap-2"
-						>
-							<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-							Refresh
-						</Button>
-					</div>
-				</div>
-
+			<main className="container mx-auto px-6 py-8">
 				{error && (
 					<Card className="mb-8 border-destructive">
 						<CardContent className="p-4">
@@ -219,8 +200,18 @@ export default function LeaderboardPage() {
 						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
+								<Button
+									onClick={fetchLeaderboard}
+									disabled={loading}
+									variant="outline"
+									size="sm"
+									className="gap-2"
+								>
+									<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+									Refresh
+								</Button>
 								<Select value={String(limit)} onValueChange={handleLimitChange}>
-									<SelectTrigger className="w-[100px] text-sm bg-background border-border">
+									<SelectTrigger className="w-[100px] text-sm border-border">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>

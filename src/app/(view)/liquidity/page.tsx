@@ -83,7 +83,7 @@ function LiquidityContent() {
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Liquidity</h1>
+						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
 						<p className="text-muted-foreground text-xs">
 							Provide liquidity to pools and earn trading fees
 						</p>

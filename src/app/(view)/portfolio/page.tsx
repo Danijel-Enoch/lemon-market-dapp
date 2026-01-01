@@ -69,7 +69,7 @@ function PortfolioContent() {
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Portfolio</h1>
+						<h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
 						<p className="text-muted-foreground text-xs">
 							Overview of your investments and positions
 						</p>
