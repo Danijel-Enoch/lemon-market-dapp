@@ -484,7 +484,7 @@ function PerpContent() {
 
 			if (!txResult.to || !txResult.data) {
 				//console.error("Invalid transaction data received:", result);
-				throw new Error("Received invalid transaction data from API");
+				throw new Error("Market unavailable at the moment");
 			}
 
 			mutate({
@@ -819,19 +819,19 @@ function PerpContent() {
 							onValueChange={(value) => setIsLong(value === "long")}
 							className="w-full"
 						>
-							<TabsList className="grid grid-cols-2 gap-0 bg-transparent p-0 w-full rounded-none border-0">
+							<TabsList className="grid grid-cols-2 gap-0 w-full rounded-none border-0">
 								<TabsTrigger
 									value="long"
-									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#4DAD31] data-[state=active]:border-b-2 data-[state=active]:border-[#4DAD31] py-4`}
+									className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
 								>
-									<TrendingUp className="w-4 h-4" />
+									<TrendingUp className="w-4 h-4 mr-2" />
 									Long
 								</TabsTrigger>
 								<TabsTrigger
 									value="short"
-									className={`font-medium text-sm transition-all rounded-none border-0 bg-transparent text-[#818181] hover:text-[#bdbdbd] data-[state=active]:bg-transparent data-[state=active]:text-[#FF4C4C] data-[state=active]:border-b-2 data-[state=active]:border-[#FF4C4C] py-4`}
+									className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#FF4C4C] data-[state=active]:border-[#FF4C4C]"
 								>
-									<TrendingDown className="w-4 h-4" />
+									<TrendingDown className="w-4 h-4 mr-2" />
 									Short
 								</TabsTrigger>
 							</TabsList>

@@ -1,5 +1,8 @@
+"use client";
+
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
 import { useAccount, useReadContract } from "wagmi";
+import { formatUnits } from "viem";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { AuthGate } from "@/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +59,7 @@ function PortfolioContent() {
 	} = useUserPositions();
 
 	// USDC has 6 decimals
-	const usdcBalanceValue = usdcBalance ? Number(usdcBalance) / 1e6 : 0;
+	const usdcBalanceValue = usdcBalance ? Number(formatUnits(usdcBalance as bigint, 6)) : 0;
 
 	// Total portfolio value = USDC balance + active position worth
 	const totalPortfolioValue = usdcBalanceValue + (activePositionWorth || 0);

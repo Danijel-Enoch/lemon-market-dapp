@@ -1,6 +1,8 @@
 import { ArrowUpDown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -34,10 +36,7 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 	const [selectedLeverage, setSelectedLeverage] = useState("1x");
 
 	const isBuyMode = mode === "buy";
-	const buttonColor = isBuyMode
-		? "bg-[var(--trading-blue)] hover:bg-[var(--trading-blue-hover)]"
-		: "bg-[var(--trading-red)] hover:bg-[var(--trading-red-hover)]";
-	const roeColor = isBuyMode ? "text-[var(--trading-blue)]" : "text-[var(--trading-red)]";
+	const roeColor = isBuyMode ? "text-[var(--trade-long)]" : "text-[var(--trade-short)]";
 
 	const handleSwap = () => {
 		const tempToken = inputToken;
@@ -57,161 +56,166 @@ export function TradingForm({ mode, leverageOptions, tokens, chainMarkets }: Tra
 
 	return (
 		<div className="space-y-4">
-			<div className="bg-(--trading-bg-secondary) rounded p-4">
-				<div className="flex justify-between items-center mb-2">
-					<span className="text-(--trading-text-secondary) text-xs">You pay</span>
-					<span className="text-(--trading-text-secondary) text-xs">
-						Balance: {tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
-					</span>
-				</div>
-				<div className="flex items-center justify-between">
-					<input
-						type="text"
-						value={inputAmount}
-						onChange={(e) => setInputAmount(e.target.value)}
-						placeholder="0.00"
-						className="bg-transparent border-none text-(--trading-text-primary) text-left flex-1 p-0 text-lg font-medium"
-					/>
-					<Select value={inputToken} onValueChange={setInputToken}>
-						<SelectTrigger className="w-auto bg-(--trading-bg-tertiary) border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-bg-tertiary)">
-							{tokens.map((token) => (
-								<SelectItem
-									key={token.symbol}
-									value={token.symbol}
-									className="text-(--trading-text-primary) hover:bg-(--trading-bg-tertiary) focus:bg-(--trading-bg-tertiary)"
-								>
-									<div className="flex items-center gap-2">
-										<img src={token.icon} alt={token.symbol} width={20} height={20} />
-										<div>
-											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-(--trading-text-secondary)">{token.name}</div>
+			<Card className="bg-(--trade-surface) border-none">
+				<CardContent className="p-4">
+					<div className="flex justify-between items-center mb-2">
+						<span className="text-muted-foreground text-xs">You pay</span>
+						<span className="text-muted-foreground text-xs">
+							Balance: {tokens.find((t) => t.symbol === inputToken)?.balance || "0.00"}
+						</span>
+					</div>
+					<div className="flex items-center justify-between gap-2">
+						<Input
+							type="text"
+							value={inputAmount}
+							onChange={(e) => setInputAmount(e.target.value)}
+							placeholder="0.00"
+							className="bg-transparent border-none text-foreground text-left flex-1 p-0 text-lg font-medium shadow-none focus-visible:ring-0 h-auto"
+						/>
+						<Select value={inputToken} onValueChange={setInputToken}>
+							<SelectTrigger className="w-auto bg-background border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{tokens.map((token) => (
+									<SelectItem key={token.symbol} value={token.symbol}>
+										<div className="flex items-center gap-2">
+											<img src={token.icon} alt={token.symbol} width={20} height={20} />
+											<div>
+												<div className="text-sm font-medium">{token.symbol}</div>
+												<div className="text-xs text-muted-foreground">{token.name}</div>
+											</div>
 										</div>
-									</div>
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleMaxClick}
-						className="bg-(--trading-bg-tertiary) text-(--trading-text-secondary) text-xs h-6 px-2 hover:bg-gray-600"
-					>
-						MAX
-					</Button>
-				</div>
-			</div>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={handleMaxClick}
+							className="bg-background text-muted-foreground text-xs h-6 px-2 hover:bg-gray-600 border-none"
+						>
+							MAX
+						</Button>
+					</div>
+				</CardContent>
+			</Card>
 
 			<div className="flex justify-center">
 				<Button
 					variant="ghost"
 					size="sm"
 					onClick={handleSwap}
-					className="bg-(--trading-bg-tertiary) hover:bg-gray-600 p-2 rounded-md"
+					className="bg-(--trade-surface) hover:bg-gray-600 p-2 rounded-md"
 				>
-					<ArrowUpDown className="w-4 h-4 text-(--trading-text-secondary)" />
+					<ArrowUpDown className="w-4 h-4 text-muted-foreground" />
 				</Button>
 			</div>
 
-			<div className="bg-(--trading-bg-secondary) rounded p-4">
-				<div className="flex justify-between items-center mb-2">
-					<span className="text-(--trading-text-secondary) text-xs">You receive</span>
-					<span className="text-(--trading-text-secondary) text-xs">
-						Balance: {tokens.find((t) => t.symbol === outputToken)?.balance || "0.00"}
-					</span>
-				</div>
-				<div className="flex items-center justify-between">
-					<input
-						type="text"
-						value={outputAmount}
-						onChange={(e) => setOutputAmount(e.target.value)}
-						placeholder="0.00"
-						className="bg-transparent border-none text-(--trading-text-primary) text-left flex-1 p-0 text-lg font-medium"
-					/>
-					<Select value={outputToken} onValueChange={setOutputToken}>
-						<SelectTrigger className="w-auto bg-(--trading-bg-tertiary) border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-bg-tertiary)">
-							{tokens.map((token) => (
-								<SelectItem
-									key={token.symbol}
-									value={token.symbol}
-									className="text-(--trading-text-primary) hover:bg-(--trading-bg-tertiary) focus:bg-(--trading-bg-tertiary)"
-								>
-									<div className="flex items-center gap-2">
-										<img src={token.icon} alt={token.symbol} width={20} height={20} />
-										<div>
-											<div className="text-sm font-medium">{token.symbol}</div>
-											<div className="text-xs text-(--trading-text-secondary)">{token.name}</div>
+			<Card className="bg-(--trade-surface) border-none">
+				<CardContent className="p-4">
+					<div className="flex justify-between items-center mb-2">
+						<span className="text-muted-foreground text-xs">You receive</span>
+						<span className="text-muted-foreground text-xs">
+							Balance: {tokens.find((t) => t.symbol === outputToken)?.balance || "0.00"}
+						</span>
+					</div>
+					<div className="flex items-center justify-between gap-2">
+						<Input
+							type="text"
+							value={outputAmount}
+							onChange={(e) => setOutputAmount(e.target.value)}
+							placeholder="0.00"
+							className="bg-transparent border-none text-foreground text-left flex-1 p-0 text-lg font-medium shadow-none focus-visible:ring-0 h-auto"
+						/>
+						<Select value={outputToken} onValueChange={setOutputToken}>
+							<SelectTrigger className="w-auto bg-background border-none px-3 py-2 h-auto focus:ring-0 focus:ring-offset-0 rounded-lg">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{tokens.map((token) => (
+									<SelectItem key={token.symbol} value={token.symbol}>
+										<div className="flex items-center gap-2">
+											<img src={token.icon} alt={token.symbol} width={20} height={20} />
+											<div>
+												<div className="text-sm font-medium">{token.symbol}</div>
+												<div className="text-xs text-muted-foreground">{token.name}</div>
+											</div>
 										</div>
-									</div>
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+				</CardContent>
+			</Card>
 
-			<Button className={`w-full ${buttonColor} text-white text-sm font-medium py-3`}>
+			<Button
+				variant={isBuyMode ? "trade-long" : "trade-short"}
+				size="lg"
+				className="w-full font-medium py-3 h-12"
+			>
 				{isBuyMode ? "Buy / Long" : "Sell / Short"}
 			</Button>
 
-			<div className="bg-(--trading-bg-secondary) rounded p-4">
-				<div className="flex justify-between items-center mb-3">
-					<span className="text-(--trading-text-primary) text-xs font-medium">Leverage</span>
-					<span className="text-(--trading-text-secondary) text-xs">{selectedLeverage}</span>
-				</div>
-				<div className="mb-3">
-					<input
-						type="range"
-						min="1"
-						max="5"
-						step="0.1"
-						value={selectedLeverage.replace("x", "")}
-						onChange={(e) => setSelectedLeverage(`${e.target.value}x`)}
-						className="w-full h-1 bg-(--trading-bg-tertiary) rounded appearance-none cursor-pointer slider"
-					/>
-					<div className="flex justify-between text-(--trading-text-secondary) text-xs">
-						{leverageOptions.map((option) => (
-							<span key={option}>{option}</span>
-						))}
+			<Card className="bg-(--trade-surface) border-none">
+				<CardContent className="p-4">
+					<div className="flex justify-between items-center mb-3">
+						<span className="text-foreground text-xs font-medium">Leverage</span>
+						<span className="text-muted-foreground text-xs">{selectedLeverage}</span>
 					</div>
-				</div>
-			</div>
+					<div className="mb-3">
+						<input
+							type="range"
+							min="1"
+							max="5"
+							step="0.1"
+							value={selectedLeverage.replace("x", "")}
+							onChange={(e) => setSelectedLeverage(`${e.target.value}x`)}
+							className="w-full h-1 bg-background rounded appearance-none cursor-pointer slider"
+						/>
+						<div className="flex justify-between text-muted-foreground text-xs">
+							{leverageOptions.map((option) => (
+								<span key={option}>{option}</span>
+							))}
+						</div>
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Chain & Market Section */}
-			<div className="bg-(--trading-bg-secondary) rounded p-4">
-				<div className="flex justify-between items-center mb-3">
-					<span className="text-(--trading-text-primary) text-xs font-medium">Chain & Market</span>
-					<span className="text-(--trading-text-secondary) text-xs">ROE</span>
-				</div>
-				<div className="space-y-2">
-					{chainMarkets.map((item) => (
-						<div
-							key={`${item.chain}-${item.market}`}
-							className="flex items-center justify-between p-2 bg-(--trading-bg-primary) rounded hover:bg-gray-800 cursor-pointer transition-colors"
-						>
-							<div className="flex items-center gap-3">
-								<img src={item.icon} alt={item.chain} width={24} height={24} />
-								<span className="text-(--trading-text-primary) text-xs font-medium">
-									{item.chain} • {item.market}
-								</span>
+			<Card className="bg-(--trade-surface) border-none">
+				<CardContent className="p-4">
+					<div className="flex justify-between items-center mb-3">
+						<span className="text-foreground text-xs font-medium">Chain & Market</span>
+						<span className="text-muted-foreground text-xs">ROE</span>
+					</div>
+					<div className="space-y-2">
+						{chainMarkets.map((item) => (
+							<div
+								key={`${item.chain}-${item.market}`}
+								className="flex items-center justify-between p-2 bg-background rounded hover:bg-gray-800 cursor-pointer transition-colors"
+							>
+								<div className="flex items-center gap-3">
+									<img src={item.icon} alt={item.chain} width={24} height={24} />
+									<span className="text-foreground text-xs font-medium">
+										{item.chain} • {item.market}
+									</span>
+								</div>
+								<span className={`${roeColor} text-xs font-medium`}>{item.roe}</span>
 							</div>
-							<span className={`${roeColor} text-xs font-medium`}>{item.roe}</span>
-						</div>
-					))}
-				</div>
-				<button
-					type="button"
-					className="text-(--trading-text-secondary) text-xs hover:text-(--trading-text-primary) transition-colors"
-				>
-					View all
-				</button>
-			</div>
+						))}
+					</div>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="w-full text-muted-foreground text-xs hover:text-foreground transition-colors mt-2 h-auto py-1"
+					>
+						View all
+					</Button>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

@@ -197,7 +197,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 				const { success, message } = await verifyTask(address, "connect_wallet");
 				if (success) {
 					dispatch({ type: "SET_VERIFIED", payload: { address, message } });
-					toast.success(message || "Wallet connected and task verified!");
+					// toast.success(message || "Wallet connected and task verified!");
 				} else {
 					dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message } });
 				}

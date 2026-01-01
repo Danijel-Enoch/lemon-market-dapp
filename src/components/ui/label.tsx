@@ -1,5 +1,6 @@
-import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
 const labelVariants = cva(
@@ -10,7 +11,8 @@ const Label = React.forwardRef<
 	HTMLLabelElement,
 	React.LabelHTMLAttributes<HTMLLabelElement> & VariantProps<typeof labelVariants>
 >(({ className, ...props }, ref) => (
-	<label ref={ref} className={cn(labelVariants(), className)} {...props} />
+	// biome-ignore lint/a11y/noLabelWithoutControl: component
+<label ref={ref} className={cn(labelVariants(), className)} {...props} />
 ));
 Label.displayName = "Label";
 
