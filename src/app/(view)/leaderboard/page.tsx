@@ -188,8 +188,8 @@ export default function LeaderboardPage() {
 		<div className="w-full mt-8">
 			<div className="w-full">
 				{error && (
-					<Card className="mb-8 border-destructive">
-						<CardContent className="p-4">
+					<Card className="border-destructive p-0">
+						<CardContent className="px-4 py-2">
 							<div className="text-destructive">Error: {error}</div>
 						</CardContent>
 					</Card>
