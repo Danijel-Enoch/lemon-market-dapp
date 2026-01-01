@@ -1,5 +1,6 @@
 import { Gift, Star } from "lucide-react";
 import { AuthGate } from "@/components/ui/AuthGate";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatNumber } from "@/lib/dashboard-service";
@@ -103,12 +104,7 @@ function PointsContent() {
 											<p className="text-sm text-muted-foreground">1000 points</p>
 										</div>
 									</div>
-									<button
-										type="button"
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
-									>
-										Redeem
-									</button>
+									<Button>Redeem</Button>
 								</div>
 								<div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
 									<div className="flex items-center gap-3">
@@ -118,12 +114,7 @@ function PointsContent() {
 											<p className="text-sm text-muted-foreground">5000 points</p>
 										</div>
 									</div>
-									<button
-										type="button"
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
-									>
-										Redeem
-									</button>
+									<Button>Redeem</Button>
 								</div>
 							</div>
 						</CardContent>
