@@ -197,7 +197,7 @@ export default function LeaderboardPage() {
 
 				<Card>
 					<CardHeader className="border-b border-gray-100/10">
-						<div className="flex items-center justify-between">
+						<div className="flex flex-col md:flex-row md:items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
 								<Button
