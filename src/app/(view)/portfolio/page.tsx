@@ -141,11 +141,11 @@ function PortfolioContent() {
 				</div>
 
 				<div className="grid grid-cols-1 gap-6">
-					<Card className="border-accent/20">
+					<Card className="border-accent/20 pb-0">
 						<CardHeader>
 							<CardTitle>Your Positions</CardTitle>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="p-0">
 							<PositionsTable
 								positions={positions}
 								isLoading={isLoadingPositions}

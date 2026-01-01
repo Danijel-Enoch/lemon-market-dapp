@@ -12,7 +12,7 @@ const Label = React.forwardRef<
 	React.LabelHTMLAttributes<HTMLLabelElement> & VariantProps<typeof labelVariants>
 >(({ className, ...props }, ref) => (
 	// biome-ignore lint/a11y/noLabelWithoutControl: component
-<label ref={ref} className={cn(labelVariants(), className)} {...props} />
+	<label ref={ref} className={cn(labelVariants(), className)} {...props} />
 ));
 Label.displayName = "Label";
 
