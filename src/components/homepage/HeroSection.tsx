@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import { motion } from "framer-motion";
 import { ConnectWallet } from "@/components/ui/ConnectWallet";
 
 export const HeroSection: FC = () => {
@@ -26,12 +27,14 @@ export const HeroSection: FC = () => {
 				</p>
 				<div className="flex items-center gap-4">
 					<ConnectWallet text="Start Trading" connectedNode="Start Trading" href="/perp" />
-					<a
+					<motion.a
 						href="https://t.me/lemonMarketsBot"
-						className="rounded-xl border border-white/60 bg-[#004530]/60 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm"
+						whileHover={{ scale: 1.05 }}
+						whileTap={{ scale: 0.95 }}
+						className="rounded-xl border border-white/60 bg-[#004530]/60 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm transition-colors hover:bg-[#004530]/80 hover:border-white"
 					>
 						Claim Faucet
-					</a>
+					</motion.a>
 				</div>
 				<div className="mt-[40vh] sm:mt-[30vh] overflow-hidden animate-fade-up animate-delay-700">
 					<div className="flex animate-scroll-ticker space-x-8">
