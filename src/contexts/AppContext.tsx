@@ -200,13 +200,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 					toast.success(message || "Wallet connected and task verified!");
 				} else {
 					dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message } });
-					toast.error(message || "Verification failed");
 				}
 			} catch (err: unknown) {
 				let msg = "Verification failed";
 				if (err instanceof Error) msg = err.message;
 				dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message: msg } });
-				toast.error(msg);
 			}
 		})();
 	}, [isConnected, address]);
