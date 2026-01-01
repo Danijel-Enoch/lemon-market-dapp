@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
 import { Check, CopyIcon, ExternalLinkIcon, LogOut, Wallet } from "lucide-react";
 import { useState } from "react";
+import { formatUnits } from "viem/utils";
 import { useBalance, useDisconnect } from "wagmi";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { formatUnits } from "viem/utils";
 import { formatNumber } from "@/lib/dashboard-service";
+import { cn } from "@/lib/utils";
+
 interface WagmiAccount {
 	address: string;
 	balanceDecimals?: number;

@@ -1,5 +1,6 @@
 import { Gift, Star } from "lucide-react";
 import { AuthGate } from "@/components/ui/AuthGate";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/hooks/useDashboard";
 import { formatNumber } from "@/lib/dashboard-service";
@@ -14,11 +15,11 @@ function PointsContent() {
 	const { pointsEarned } = useDashboard();
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Points</h1>
+						<h1 className="text-2xl font-bold text-foreground">Points</h1>
 						<p className="text-muted-foreground text-xs">
 							Earn points through trading and redeem for rewards
 						</p>
@@ -103,12 +104,7 @@ function PointsContent() {
 											<p className="text-sm text-muted-foreground">1000 points</p>
 										</div>
 									</div>
-									<button
-										type="button"
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
-									>
-										Redeem
-									</button>
+									<Button>Redeem</Button>
 								</div>
 								<div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
 									<div className="flex items-center gap-3">
@@ -118,18 +114,13 @@ function PointsContent() {
 											<p className="text-sm text-muted-foreground">5000 points</p>
 										</div>
 									</div>
-									<button
-										type="button"
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
-									>
-										Redeem
-									</button>
+									<Button>Redeem</Button>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

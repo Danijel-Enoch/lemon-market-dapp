@@ -81,11 +81,11 @@ function ReferralContent() {
 	console.log("Referral code:", referralCode);
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Referral Program</h1>
+						<h1 className="text-2xl font-bold text-foreground">Referral Program</h1>
 						<p className="text-muted-foreground text-xs">
 							Invite friends and earn rewards together
 						</p>
@@ -182,7 +182,7 @@ function ReferralContent() {
 						</CardContent>
 					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

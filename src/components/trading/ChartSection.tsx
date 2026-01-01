@@ -10,6 +10,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { Button } from "@/components/ui/button";
 import { fetchChartData } from "@/lib/chart-data-service";
 
 interface ChartSectionProps {
@@ -127,18 +128,16 @@ export function ChartSection({
 			<div className="flex items-center justify-between gap-4 p-4 -mb-2">
 				<div className="flex space-x-4">
 					{timeframes.map((tf) => (
-						<button
-							type="button"
+						<Button
 							key={tf.value}
+							variant="toolbar"
+							size="sm"
 							onClick={() => setSelectedTimeframe(tf.value)}
-							className={`text-xs px-3 py-1 rounded transition-colors ${
-								selectedTimeframe === tf.value
-									? "bg-[#4DAD31] text-white"
-									: "text-gray-400 hover:text-white"
-							}`}
+							data-state={selectedTimeframe === tf.value ? "active" : "inactive"}
+							className="h-7 text-xs px-3"
 						>
 							{tf.label}
-						</button>
+						</Button>
 					))}
 				</div>
 				<div className="flex items-center">
@@ -224,9 +223,9 @@ export function ChartSection({
 							<YAxis yAxisId="background" orientation="right" hide={true} domain={[0, 1]} />
 							<Tooltip
 								contentStyle={{
-									backgroundColor: "#1a1a1a",
-									border: "1px solid #333",
-									borderRadius: "4px",
+									backgroundColor: "var(--card)",
+									border: "1px solid var(--border)",
+									borderRadius: "var(--radius)",
 									fontSize: "12px",
 								}}
 								labelFormatter={(label) => formatTime(label as number)}

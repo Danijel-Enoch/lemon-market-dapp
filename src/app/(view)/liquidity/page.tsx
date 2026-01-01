@@ -1,71 +1,75 @@
-import { Wallet } from "lucide-react";
+import { Loader2, Plus, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AuthGate } from "@/components/ui/AuthGate";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/EmptyState";
-import type { Metadata } from "@/lib/types";
-import { useMarketApi } from "@/lib/useMarketApi";
+import { Link } from "react-router-dom";
 
-export const metadata: Metadata = {
+import { AuthGate } from "@/components/ui/AuthGate";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getMarkets, type Market } from "@/lib/liquidity-api";
+
+export const metadata = {
 	title: "Liquidity - Lemon Markets",
 	description: "Provide liquidity and earn rewards",
 };
 
-interface MarketPool {
-	id?: string;
-	pair?: string;
-	name?: string;
-	tvl?: string;
-	apr?: string;
-}
-
 function LiquidityPoolsList() {
-	const marketApi = useMarketApi();
-	const [markets, setMarkets] = useState<MarketPool[]>([]);
-	const [_isLoading, setIsLoading] = useState(true);
+	const [markets, setMarkets] = useState<Market[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		const fetchMarkets = async () => {
 			try {
-				const response = await marketApi.markets.list();
-				if (response && Array.isArray(response)) {
-					setMarkets(response.slice(0, 5)); // Show top 5
+				const response = await getMarkets();
+				if (response.success) {
+					setMarkets(response.data);
 				} else {
-					// Fallback
-					setMarkets([]);
+					setError(response.error || "Failed to fetch markets");
 				}
 			} catch (e) {
 				console.error(e);
+				setError("An error occurred while fetching markets");
 			} finally {
 				setIsLoading(false);
 			}
 		};
 		fetchMarkets();
-	}, [marketApi]);
+	}, []);
 
-	const displayMarkets =
-		markets.length > 0
-			? markets
-			: [
-					{ pair: "BTC/USDT", tvl: "$500K", apr: "12.5%" },
-					{ pair: "ETH/USDT", tvl: "$300K", apr: "8.3%" },
-					{ pair: "SOL/USDT", tvl: "$150K", apr: "15.7%" },
-				];
+	if (isLoading) {
+		return (
+			<div className="flex justify-center p-4">
+				<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return <p className="text-sm text-red-500 text-center">{error}</p>;
+	}
+
+	if (markets.length === 0) {
+		return <p className="text-sm text-muted-foreground text-center">No pools available</p>;
+	}
 
 	return (
 		<>
-			{displayMarkets.map((pool: MarketPool) => (
+			{markets.map((market) => (
 				<div
-					key={pool.pair || pool.id}
+					key={market.marketId}
 					className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
 				>
 					<div>
-						<p className="font-medium">{pool.pair || pool.name || "Unknown Pool"}</p>
-						<p className="text-sm text-muted-foreground">TVL: {pool.tvl || "$0"}</p>
+						<p className="font-medium">{market.symbol || market.name || "Unknown"} Pool</p>
+						<p className="text-sm text-muted-foreground">Market ID: {market.marketId}</p>
 					</div>
 					<div className="text-right">
-						<p className="font-medium text-green-500">{pool.apr || "0%"} APR</p>
-						<p className="text-sm text-muted-foreground">Estimated</p>
+						<p className="font-medium text-green-500">
+							{market.liquidityUsd ? `$${market.liquidityUsd.toLocaleString()}` : "$0"} Liquidity
+						</p>
+						<p className="text-sm text-muted-foreground">
+							Vol: {market.volume24h ? `$${market.volume24h.toLocaleString()}` : "-"}
+						</p>
 					</div>
 				</div>
 			))}
@@ -75,50 +79,24 @@ function LiquidityPoolsList() {
 
 function LiquidityContent() {
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
-				<div className="mb-8">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
+				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Liquidity</h1>
+						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
 						<p className="text-muted-foreground text-xs">
 							Provide liquidity to pools and earn trading fees
 						</p>
 					</div>
+					<Button asChild>
+						<Link to="/liquidity/add">
+							<Plus className="mr-2 h-4 w-4" />
+							Add Liquidity
+						</Link>
+					</Button>
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>Total Liquidity</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">$0</div>
-							<p className="text-sm text-muted-foreground">Across all pools</p>
-						</CardContent>
-					</Card>
-
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>Your Positions</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">0</div>
-							<p className="text-sm text-muted-foreground">Active liquidity positions</p>
-						</CardContent>
-					</Card>
-
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>24h Fees Earned</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold text-green-500">$0.00</div>
-							<p className="text-sm text-muted-foreground">+0.0% from yesterday</p>
-						</CardContent>
-					</Card>
-				</div>
-
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<div className="grid grid-cols-1 gap-6 mb-8">
 					<Card className="border-accent/20">
 						<CardHeader>
 							<CardTitle>Liquidity Pools</CardTitle>
@@ -129,21 +107,8 @@ function LiquidityContent() {
 							</div>
 						</CardContent>
 					</Card>
-
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>Your Liquidity Positions</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<EmptyState
-								icon={Wallet}
-								title="No positions yet"
-								description="Your active liquidity positions will be displayed here."
-							/>
-						</CardContent>
-					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

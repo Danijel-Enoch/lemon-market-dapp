@@ -177,9 +177,9 @@ function DashboardContent() {
 	}
 
 	return (
-		<div className="space-y-8 pb-12">
+		<div className="space-y-8 pb-12 w-full mt-8">
 			<div className="space-y-2">
-				<h1 className="text-2xl font-medium text-muted-foreground">Dashboard</h1>
+				<h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
 				<p className="text-muted-foreground text-xs">
 					Track your trading performance and referral rewards
 				</p>
@@ -347,7 +347,7 @@ function DashboardContent() {
 export default function DashboardPage() {
 	return (
 		<div className="min-h-screen bg-background">
-			<div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+			<div className="w-full">
 				<DashboardContent />
 			</div>
 		</div>

@@ -140,6 +140,11 @@
     --sidebar-accent-foreground: #e8eaed;
     --sidebar-border: #2d374899;
     --sidebar-ring: #14b8a6;
+
+    /* Trading Specific Colors */
+    --trade-long: #10b981;  /* Matching chart-2/success */
+    --trade-short: #ef4444; /* Matching chart-5/destructive */
+    --trade-surface: #1a1f26; /* Matching popover/sidebar - dark but distinct */
 }
 
 /* macOS-style scrollbar */

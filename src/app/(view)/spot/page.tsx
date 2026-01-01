@@ -118,11 +118,11 @@ export default function SpotPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Spot Trading</h1>
+						<h1 className="text-2xl font-bold text-foreground">Spot Trading</h1>
 						<p className="text-muted-foreground text-xs">Buy and sell cryptocurrencies instantly</p>
 					</div>
 				</div>
@@ -182,7 +182,7 @@ export default function SpotPage() {
 						<p className="text-muted-foreground">Live order book will be displayed here.</p>
 					</CardContent>
 				</Card>
-			</main>
+			</div>
 		</div>
 	);
 }

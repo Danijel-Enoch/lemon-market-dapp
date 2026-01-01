@@ -121,7 +121,7 @@ export function PositionsTable({
 				if (!txResult.to || !txResult.data) {
 					toast.dismiss(loadingToastId);
 					console.error("Invalid transaction data received:", result);
-					throw new Error("Received invalid transaction data from API");
+					throw new Error("Market unavailable at the moment");
 				}
 
 				// Send the transaction
@@ -281,16 +281,16 @@ export function PositionsTable({
 	return (
 		<div className="bg-card border border-gray-100/10 rounded-lg">
 			<Tabs defaultValue="open" className="w-full">
-				<TabsList className="bg-transparent border-b border-gray-100/10 p-0 h-auto w-full justify-start">
+				<TabsList className="grid w-full grid-cols-2 gap-0 mb-4">
 					<TabsTrigger
 						value="open"
-						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-green-500 data-[state=active]:text-green-400 rounded-none px-6 py-3"
+						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
 					>
 						Open Positions ({openPositions.length})
 					</TabsTrigger>
 					<TabsTrigger
 						value="history"
-						className="bg-transparent text-white text-sm font-medium  data-[state=active]:border-green-500 data-[state=active]:text-green-400 rounded-none px-6 py-3"
+						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
 					>
 						Position History ({closedPositions.length})
 					</TabsTrigger>

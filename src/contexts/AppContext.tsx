@@ -1,6 +1,5 @@
 import type React from "react";
 import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
-import toast from "react-hot-toast";
 import { useAccount, useBalance } from "wagmi";
 import { verifyTask } from "@/lib/kickoff-service";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@/lib/mock-data";
@@ -197,16 +196,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 				const { success, message } = await verifyTask(address, "connect_wallet");
 				if (success) {
 					dispatch({ type: "SET_VERIFIED", payload: { address, message } });
-					toast.success(message || "Wallet connected and task verified!");
+					// toast.success(message || "Wallet connected and task verified!");
 				} else {
 					dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message } });
-					toast.error(message || "Verification failed");
 				}
 			} catch (err: unknown) {
 				let msg = "Verification failed";
 				if (err instanceof Error) msg = err.message;
 				dispatch({ type: "SET_VERIFICATION_ERROR", payload: { message: msg } });
-				toast.error(msg);
 			}
 		})();
 	}, [isConnected, address]);

@@ -104,20 +104,20 @@ export function TradingPanel() {
 	const [selectedMoneyMarket, setSelectedMoneyMarket] = useState("All");
 
 	return (
-		<div className="w-96 bg-[var(--trading-bg-secondary)] h-full rounded p-2">
-			<div className="flex items-center bg-[var(--trading-bg-primary)] border border-gray-800 rounded p-2 space-x-3 mb-2">
+		<div className="w-96 bg-(--trading-bg-secondary) h-full rounded p-2">
+			<div className="flex items-center bg-(--trading-bg-primary) border border-gray-800 rounded p-2 space-x-3 mb-2">
 				<Select value={selectedChain} onValueChange={setSelectedChain}>
-					<SelectTrigger className="flex items-center bg-[var(--trading-bg-secondary)] border border-[var(--trading-border)] rounded px-4 w-full">
-						<span className="text-[var(--trading-text-primary)] text-xs font-bold">
+					<SelectTrigger className="flex items-center bg-(--trading-bg-secondary) border border-(--trading-border) rounded px-4 w-full">
+						<span className="text-(--trading-text-primary) text-xs font-bold">
 							Chain: <SelectValue />
 						</span>
 					</SelectTrigger>
-					<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-border)]">
+					<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-border)">
 						{chains.map((chain) => (
 							<SelectItem
 								key={chain}
 								value={chain}
-								className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-border)] focus:bg-[var(--trading-border)]"
+								className="text-(--trading-text-primary) hover:bg-(--trading-border) focus:bg-(--trading-border)"
 							>
 								{chain}
 							</SelectItem>
@@ -125,17 +125,17 @@ export function TradingPanel() {
 					</SelectContent>
 				</Select>
 				<Select value={selectedMoneyMarket} onValueChange={setSelectedMoneyMarket}>
-					<SelectTrigger className="flex items-center bg-[var(--trading-bg-secondary)] border border-[var(--trading-border)] rounded px-4 w-full">
-						<span className="text-[var(--trading-text-primary)] text-xs">
+					<SelectTrigger className="flex items-center bg-(--trading-bg-secondary) border border-(--trading-border) rounded px-4 w-full">
+						<span className="text-(--trading-text-primary) text-xs">
 							Money Market: <SelectValue />
 						</span>
 					</SelectTrigger>
-					<SelectContent className="bg-[var(--trading-bg-secondary)] border-[var(--trading-border)]">
+					<SelectContent className="bg-(--trading-bg-secondary) border-(--trading-border)">
 						{moneyMarkets.map((market) => (
 							<SelectItem
 								key={market}
 								value={market}
-								className="text-[var(--trading-text-primary)] hover:bg-[var(--trading-border)] focus:bg-[var(--trading-border)]"
+								className="text-(--trading-text-primary) hover:bg-(--trading-border) focus:bg-(--trading-border)"
 							>
 								{market}
 							</SelectItem>
@@ -147,18 +147,18 @@ export function TradingPanel() {
 				defaultValue="buy"
 				value={activeTab}
 				onValueChange={setActiveTab}
-				className="w-full bg-[var(--trading-bg-primary)] p-2 h-full"
+				className="w-full bg-(--trading-bg-primary) p-2 h-full"
 			>
-				<TabsList className="grid w-full grid-cols-2 gap-4 bg-transparent p-0 h-auto">
+				<TabsList className="grid w-full grid-cols-2 gap-0">
 					<TabsTrigger
 						value="buy"
-						className="bg-[var(--trading-blue)] text-white text-sm font-bold rounded-l-md data-[state=active]:bg-[var(--trading-blue)] data-[state=inactive]:bg-[var(--trading-bg-tertiary)] data-[state=inactive]:text-[var(--trading-text-secondary)] py-3"
+						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
 					>
 						Buy / Long
 					</TabsTrigger>
 					<TabsTrigger
 						value="sell"
-						className="bg-[var(--trading-bg-tertiary)] text-[var(--trading-text-secondary)] text-sm font-bold rounded-r-md data-[state=active]:bg-[var(--trading-red)] data-[state=active]:text-white data-[state=inactive]:bg-[var(--trading-bg-tertiary)] py-3"
+						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#FF4C4C] data-[state=active]:border-[#FF4C4C]"
 					>
 						Sell / Short
 					</TabsTrigger>

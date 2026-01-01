@@ -18,6 +18,13 @@ const buttonVariants = cva(
 				secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
 				ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
 				link: "text-primary underline-offset-4 hover:underline",
+				"trade-long": "bg-[var(--trade-long)] text-white hover:bg-[var(--trade-long)]/90 shadow-md",
+				"trade-short":
+					"bg-[var(--trade-short)] text-white hover:bg-[var(--trade-short)]/90 shadow-md",
+				shine:
+					"bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 border border-white/20 hover:brightness-110",
+				toolbar:
+					"bg-transparent text-muted-foreground hover:text-foreground data-[state=active]:border data-[state=active]:border-[var(--lime-600)] data-[state=active]:text-[var(--lime-600)]",
 			},
 			size: {
 				default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -27,7 +34,7 @@ const buttonVariants = cva(
 			},
 		},
 		defaultVariants: {
-			variant: "default",
+			variant: "shine",
 			size: "default",
 		},
 	},

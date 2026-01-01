@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react";
-import type { FC } from "react";
-import { useState } from "react";
+import { type FC, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const items = [
 	{
@@ -61,12 +61,14 @@ export const FAQSection: FC = () => {
 						questions? Join our community!
 					</p>
 				</div>
-				<a
-					href="https://docs.lemonmarkets.xyz"
-					className="mt-6 md:mb-6 lg:mb-0 inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400"
+				<Button
+					asChild
+					variant="shine"
+					size="lg"
+					className="mt-6 md:mb-6 lg:mb-0 h-auto py-3 px-6 rounded-xl font-semibold text-sm"
 				>
-					Read Full Documentation
-				</a>
+					<a href="https://docs.lemonmarkets.xyz">Read Full Documentation</a>
+				</Button>
 			</div>
 
 			<div className="lg:w-2/3 flex flex-col gap-4">

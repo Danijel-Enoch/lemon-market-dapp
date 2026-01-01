@@ -1,4 +1,7 @@
+"use client";
+
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
+import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { PositionsTable } from "@/components/trading/PositionsTable";
 import { AuthGate } from "@/components/ui/AuthGate";
@@ -56,17 +59,17 @@ function PortfolioContent() {
 	} = useUserPositions();
 
 	// USDC has 6 decimals
-	const usdcBalanceValue = usdcBalance ? Number(usdcBalance) / 1e6 : 0;
+	const usdcBalanceValue = usdcBalance ? Number(formatUnits(usdcBalance as bigint, 6)) : 0;
 
 	// Total portfolio value = USDC balance + active position worth
 	const totalPortfolioValue = usdcBalanceValue + (activePositionWorth || 0);
 
 	return (
-		<div className="min-h-screen">
-			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-medium text-muted-foreground">Portfolio</h1>
+						<h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
 						<p className="text-muted-foreground text-xs">
 							Overview of your investments and positions
 						</p>
@@ -138,11 +141,11 @@ function PortfolioContent() {
 				</div>
 
 				<div className="grid grid-cols-1 gap-6">
-					<Card className="border-accent/20">
+					<Card className="border-accent/20 pb-0">
 						<CardHeader>
 							<CardTitle>Your Positions</CardTitle>
 						</CardHeader>
-						<CardContent>
+						<CardContent className="p-0">
 							<PositionsTable
 								positions={positions}
 								isLoading={isLoadingPositions}
@@ -152,7 +155,7 @@ function PortfolioContent() {
 						</CardContent>
 					</Card>
 				</div>
-			</main>
+			</div>
 		</div>
 	);
 }

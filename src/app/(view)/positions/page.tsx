@@ -82,8 +82,8 @@ export default function PositionsPage() {
 	const openPositionsCount = openPositions.length;
 
 	return (
-		<div className="min-h-screen bg-black text-white p-4 md:p-8">
-			<div className="max-w-screen-2xl mx-auto space-y-8">
+		<div className="min-h-screen bg-black text-white w-full mt-8">
+			<div className="w-full space-y-8">
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -92,7 +92,7 @@ export default function PositionsPage() {
 				>
 					<div className="flex items-center justify-between">
 						<div>
-							<h1 className="text-2xl font-medium text-muted-foreground">My Positions</h1>
+							<h1 className="text-2xl font-bold text-foreground">My Positions</h1>
 							<div className="flex items-center gap-2">
 								<p className="text-muted-foreground text-xs">
 									Track your trading performance and manage your positions
