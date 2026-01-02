@@ -1,4 +1,4 @@
-import { Loader2, Plus, Wallet } from "lucide-react";
+import { Loader2, Minus, Plus, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -14,7 +14,7 @@ export const metadata = {
 };
 
 function LiquidityPoolsList() {
-	const [markets, setMarkets] = useState<Market[]>([]);
+	const [markets, setMarkets] = useState<(Market & { apr: number })[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +23,12 @@ function LiquidityPoolsList() {
 			try {
 				const response = await getMarkets();
 				if (response.success) {
-					setMarkets(response.data);
+					// Add random APR for now as requested
+					const marketsWithApr = response.data.map((m) => ({
+						...m,
+						apr: Math.floor(Math.random() * 20) + 5, // 5-24%
+					}));
+					setMarkets(marketsWithApr);
 				} else {
 					setError(response.error || "Failed to fetch markets");
 				}
@@ -50,28 +55,74 @@ function LiquidityPoolsList() {
 	}
 
 	if (markets.length === 0) {
-		return <p className="text-sm text-muted-foreground text-center">No pools available</p>;
+		return (
+			<p className="text-sm text-muted-foreground text-center">
+				No pools available
+			</p>
+		);
 	}
 
 	return (
 		<>
 			{markets.map((market) => (
-				console.log({market}),
 				<div
 					key={market.marketId}
 					className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
 				>
 					<div>
-						<p className="font-medium">{market.onChainData.marketId.split("_")[0] || "Unknown"} Pool</p>
-						<p className="text-sm text-muted-foreground">APR: 13%</p>
+						<p className="font-medium">
+							{market.onChainData.marketId.split("-")[0] ||
+								"Unknown"}{" "}
+							Pool
+						</p>
+						<div className="flex flex-col gap-1 mt-1">
+							<p className="text-sm text-muted-foreground">
+								APR: {market.apr}%
+							</p>
+							<p className="text-sm text-muted-foreground">
+								Total Exposure: $
+								{(
+									market.exposure?.totalExposure || 0
+								).toLocaleString()}
+							</p>
+							<div className="flex gap-3 text-xs">
+								<span className="text-green-500 font-medium">
+									Longs:{" "}
+									{market.onChainData.longPositionCount} ($
+									{(
+										market.exposure?.totalLong || 0
+									).toLocaleString()}
+									)
+								</span>
+								<span className="text-red-500 font-medium">
+									Shorts:{" "}
+									{market.onChainData.shortPositionCount} ($
+									{(
+										market.exposure?.totalShort || 0
+									).toLocaleString()}
+									)
+								</span>
+							</div>
+						</div>
 					</div>
 					<div className="text-right">
 						<p className="font-medium text-green-500">
-							{market.onChainData.realLiquidity ? `$${formatUnits(BigInt(market.onChainData.virtualLiquidity), 6).toLocaleString()}` : "$0"} Liquidity
+							{market.onChainData.realLiquidity
+								? `$${formatUnits(
+										BigInt(
+											market.onChainData.virtualLiquidity
+										),
+										6
+								  ).toLocaleString()}`
+								: "$0"}{" "}
+							Liquidity
 						</p>
-						<p className="text-sm text-muted-foreground">
-							Vol: {market.volume24h ? `$${market.volume24h.toLocaleString()}` : "-"}
-						</p>
+						{/* <p className="text-sm text-muted-foreground">
+							Vol:{" "}
+							{market.volume24h
+								? `$${market.volume24h.toLocaleString()}`
+								: "-"}
+						</p> */}
 					</div>
 				</div>
 			))}
@@ -85,17 +136,27 @@ function LiquidityContent() {
 			<div className="w-full">
 				<div className="flex items-center justify-between mb-8">
 					<div>
-						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
+						<h1 className="text-2xl font-bold text-foreground">
+							Liquidity
+						</h1>
 						<p className="text-muted-foreground text-xs">
 							Provide liquidity to pools and earn trading fees
 						</p>
 					</div>
-					<Button asChild>
-						<Link to="/liquidity/add">
-							<Plus className="mr-2 h-4 w-4" />
-							Add Liquidity
-						</Link>
-					</Button>
+					<div className="flex gap-2">
+						<Button asChild variant="outline">
+							<Link to="/liquidity/remove">
+								<Minus className="mr-2 h-4 w-4" />
+								Remove Liquidity
+							</Link>
+						</Button>
+						<Button asChild>
+							<Link to="/liquidity/add">
+								<Plus className="mr-2 h-4 w-4" />
+								Add Liquidity
+							</Link>
+						</Button>
+					</div>
 				</div>
 
 				<div className="grid grid-cols-1 gap-6 mb-8">

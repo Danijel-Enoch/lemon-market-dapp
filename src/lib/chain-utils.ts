@@ -84,14 +84,18 @@ export function getAllSupportedChains(): ChainInfo[] {
  * Get production chains only (excluding testnets)
  */
 export function getProductionChains(): ChainInfo[] {
-	return Object.values(SUPPORTED_CHAIN_INFO).filter((chain) => !chain.isTestnet);
+	return Object.values(SUPPORTED_CHAIN_INFO).filter(
+		(chain) => !chain.isTestnet
+	);
 }
 
 /**
  * Get testnet chains only
  */
 export function getTestnetChains(): ChainInfo[] {
-	return Object.values(SUPPORTED_CHAIN_INFO).filter((chain) => chain.isTestnet);
+	return Object.values(SUPPORTED_CHAIN_INFO).filter(
+		(chain) => chain.isTestnet
+	);
 }
 
 /**
@@ -128,7 +132,10 @@ export function getChainExplorerUrl(hash: string, chainId: number): string {
 /**
  * Get explorer URL for an address
  */
-export function getChainAddressExplorerUrl(address: string, chainId: number): string {
+export function getChainAddressExplorerUrl(
+	address: string,
+	chainId: number
+): string {
 	const chainInfo = getChainInfo(chainId);
 	const explorerUrl = chainInfo?.explorerUrl || "https://etherscan.io";
 	return `${explorerUrl}/address/${address}`;

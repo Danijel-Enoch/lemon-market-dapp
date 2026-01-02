@@ -1,6 +1,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.com";
+const BASE_URL =
+	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.com";
 
 export interface AddLiquidityRequest {
 	marketId: string; // Required by API
@@ -12,11 +13,26 @@ export interface AddLiquidityRequest {
 export interface AddLiquidityResponse {
 	success: boolean;
 	data?: {
-		to: string;
-		data: string;
-		value: string;
-		gasEstimate?: bigint;
+		transactionData: {
+			to: string;
+			data: string;
+			value: string;
+			gasEstimate?: string;
+		};
+		oracleData?: {
+			marketId: string;
+			amount: string;
+			nonce: string;
+			deadline: string;
+			signature: string;
+		};
 	};
+	simulationResult?: {
+		success: boolean;
+		gasUsed: string;
+		reverted: boolean;
+	};
+	timestamp?: string;
 	error?: string;
 }
 
@@ -41,9 +57,13 @@ export interface Market {
 		totalShares: string;
 		totalShortMargin: string;
 		virtualLiquidity: string;
-	}
 	};
-
+	exposure: {
+		totalExposure: number;
+		totalLong: number;
+		totalShort: number;
+	};
+}
 
 export interface GetMarketsResponse {
 	success: boolean;
@@ -54,13 +74,54 @@ export interface GetMarketsResponse {
 /**
  * Call the add liquidity API to get transaction data
  */
-export async function addLiquidity(params: AddLiquidityRequest): Promise<AddLiquidityResponse> {
+export async function addLiquidity(
+	params: AddLiquidityRequest
+): Promise<AddLiquidityResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/add`, {
 		method: "POST",
 		body: JSON.stringify(params),
 		headers: { "Content-Type": "application/json" },
 	});
 	return data as AddLiquidityResponse;
+}
+
+export interface RemoveLiquidityRequest {
+	marketId: string;
+	amount: string; // Amount of LP tokens to burn
+	userAddress: string;
+	chainId?: number;
+}
+
+export interface RemoveLiquidityResponse {
+	success: boolean;
+	data?: {
+		transactionData: {
+			to: string;
+			data: string;
+			value: string;
+			gasEstimate?: string;
+		};
+	};
+	simulationResult?: {
+		success: boolean;
+		gasUsed: string;
+		reverted: boolean;
+	};
+	error?: string;
+}
+
+/**
+ * Call the remove liquidity API to get transaction data
+ */
+export async function removeLiquidity(
+	params: RemoveLiquidityRequest
+): Promise<RemoveLiquidityResponse> {
+	const { data } = await betterFetch(`${BASE_URL}/liquidity/remove`, {
+		method: "POST",
+		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
+	});
+	return data as RemoveLiquidityResponse;
 }
 
 /**

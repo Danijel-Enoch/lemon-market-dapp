@@ -5,13 +5,10 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatUnits, parseUnits } from "viem";
 import {
 	useAccount,
-	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
-	useWriteContract,
 } from "wagmi";
 
 import { AuthGate } from "@/components/ui/AuthGate";
@@ -32,21 +29,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	ERC20Abi,
-	lpContract,
-	SyntheticPerpetualContract,
-	usdc,
-} from "@/lib/contracts"; // Removed SyntheticAbi
-import { addLiquidity, getMarkets, type Market } from "@/lib/liquidity-api";
+import { getMarkets, removeLiquidity, type Market } from "@/lib/liquidity-api";
 
-// Helper to format balance
-const formatBalance = (balance?: bigint, decimals = 6) => {
-	if (!balance) return "0.00";
-	return Number(formatUnits(balance, decimals)).toFixed(2);
-};
-
-function AddLiquidityContent() {
+function RemoveLiquidityContent() {
 	const navigate = useNavigate();
 	const { address, chainId } = useAccount();
 	const [amount, setAmount] = useState("");
@@ -57,49 +42,20 @@ function AddLiquidityContent() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [apiError, setApiError] = useState<string | null>(null);
 
-	// Contracts state
-	const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
-		address: usdc,
-		abi: ERC20Abi,
-		functionName: "balanceOf",
-		args: address ? [address] : undefined,
-		query: { enabled: !!address },
-	});
-
-	const { data: allowance, refetch: refetchAllowance } = useReadContract({
-		address: usdc,
-		abi: ERC20Abi,
-		functionName: "allowance",
-		args: address ? [address, lpContract] : undefined,
-		query: { enabled: !!address },
-	});
-
 	// Write hooks
 	const {
-		writeContract: writeApprove,
-		data: approveHash,
-		isPending: isApprovePending,
-		error: approveError,
-	} = useWriteContract();
-
-	const {
 		sendTransaction,
-		data: addLiquidityHash,
-		isPending: isAddLiquidityPending,
-		error: addLiquidityError,
+		data: removeLiquidityHash,
+		isPending: isRemoveLiquidityPending,
+		error: removeLiquidityError,
 	} = useSendTransaction();
 
 	// Transaction wait hooks
-	const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } =
-		useWaitForTransactionReceipt({
-			hash: approveHash,
-		});
-
 	const {
-		isLoading: isAddLiquidityConfirming,
-		isSuccess: isAddLiquiditySuccess,
+		isLoading: isRemoveLiquidityConfirming,
+		isSuccess: isRemoveLiquiditySuccess,
 	} = useWaitForTransactionReceipt({
-		hash: addLiquidityHash,
+		hash: removeLiquidityHash,
 	});
 
 	// Fetch markets on mount
@@ -115,9 +71,7 @@ function AddLiquidityContent() {
 				}
 			} catch (e) {
 				console.error("Failed to fetch markets", e);
-				setApiError(
-					"Failed to backend markets. Please try again later."
-				);
+				setApiError("Failed to fetch markets. Please try again later.");
 			} finally {
 				setIsMarketsLoading(false);
 			}
@@ -125,40 +79,20 @@ function AddLiquidityContent() {
 		fetchMarkets();
 	}, []);
 
-	// Refetch data after success
 	useEffect(() => {
-		if (isApproveSuccess) {
-			toast.success("Approval successful! You can now add liquidity.");
-			refetchAllowance();
+		if (isRemoveLiquiditySuccess) {
+			toast.success("Liquidity removed successfully!");
+			// Optional: Navigate back or clear form
 		}
-	}, [isApproveSuccess, refetchAllowance]);
+	}, [isRemoveLiquiditySuccess]);
 
-	useEffect(() => {
-		if (isAddLiquiditySuccess) {
-			refetchBalance();
-			// Optional: Show success toast or navigate
-		}
-	}, [isAddLiquiditySuccess, refetchBalance]);
-
-	// Handlers
-	const handleApprove = () => {
-		if (!amount) return;
-		const amountBigInt = parseUnits(amount, 6); // USDC has 6 decimals
-		writeApprove({
-			address: usdc,
-			abi: ERC20Abi,
-			functionName: "approve",
-			args: [lpContract, amountBigInt],
-		});
-	};
-
-	const handleAddLiquidity = async () => {
+	const handleRemoveLiquidity = async () => {
 		if (!amount || !address || !selectedMarketId) return;
 		setIsSubmitting(true);
 		setApiError(null);
 
 		try {
-			const response = await addLiquidity({
+			const response = await removeLiquidity({
 				amount: amount,
 				userAddress: address,
 				chainId,
@@ -188,15 +122,9 @@ function AddLiquidityContent() {
 	};
 
 	const isLoading =
-		isApprovePending ||
-		isApproveConfirming ||
-		isAddLiquidityPending ||
-		isAddLiquidityConfirming ||
-		isSubmitting;
-	const amountBigInt = amount ? parseUnits(amount, 6) : BigInt(0);
-	const hasAllowance = allowance ? allowance >= amountBigInt : false;
-	const hasBalance = usdcBalance ? usdcBalance >= amountBigInt : false;
-	const isAmountValid = amountBigInt > BigInt(0);
+		isRemoveLiquidityPending || isRemoveLiquidityConfirming || isSubmitting;
+
+	const isAmountValid = Number(amount) > 0;
 
 	return (
 		<div className="min-h-screen w-full mt-8 max-w-lg mx-auto">
@@ -212,17 +140,17 @@ function AddLiquidityContent() {
 				<Button
 					variant="link"
 					className="text-muted-foreground hover:text-primary"
-					onClick={() => navigate("/liquidity/remove")}
+					onClick={() => navigate("/liquidity/add")}
 				>
-					Remove Liquidity →
+					Add Liquidity →
 				</Button>
 			</div>
 
 			<Card className="border-accent/20">
 				<CardHeader>
-					<CardTitle>Add Liquidity</CardTitle>
+					<CardTitle>Remove Liquidity</CardTitle>
 					<CardDescription>
-						Deposit USDC to earn trading fees.
+						Withdraw your liquidity from the pool.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-6">
@@ -260,11 +188,9 @@ function AddLiquidityContent() {
 					<div className="space-y-2">
 						<div className="flex justify-between text-sm">
 							<span className="text-muted-foreground">
-								Amount (USDC)
+								Amount to Remove
 							</span>
-							<span className="text-muted-foreground">
-								Balance: {formatBalance(usdcBalance)} USDC
-							</span>
+							{/* Balance is unknown for now without API support */}
 						</div>
 						<div className="relative">
 							<Input
@@ -275,73 +201,31 @@ function AddLiquidityContent() {
 								className="pr-16"
 								min="0"
 							/>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="absolute right-1 top-1 h-8 text-xs text-primary"
-								onClick={() =>
-									usdcBalance &&
-									setAmount(formatUnits(usdcBalance, 6))
-								}
-							>
-								MAX
-							</Button>
 						</div>
 					</div>
 
 					<div className="space-y-4">
-						{!hasAllowance && isAmountValid ? (
-							<Button
-								className="w-full"
-								onClick={handleApprove}
-								disabled={isLoading || !hasBalance}
-							>
-								{isLoading ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : null}
-								{isApprovePending || isApproveConfirming
-									? "Approving..."
-									: "Approve USDC"}
-							</Button>
-						) : (
-							<Button
-								className="w-full"
-								onClick={handleAddLiquidity}
-								disabled={
-									isLoading ||
-									!isAmountValid ||
-									!hasBalance ||
-									!selectedMarketId
-								}
-							>
-								{isLoading ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : null}
-								{isAddLiquidityPending ||
-								isAddLiquidityConfirming ||
-								isSubmitting
-									? "Adding Liquidity..."
-									: "Add Liquidity"}
-							</Button>
-						)}
+						<Button
+							className="w-full"
+							onClick={handleRemoveLiquidity}
+							disabled={
+								isLoading || !isAmountValid || !selectedMarketId
+							}
+						>
+							{isLoading ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : null}
+							{isRemoveLiquidityPending ||
+							isRemoveLiquidityConfirming ||
+							isSubmitting
+								? "Removing Liquidity..."
+								: "Remove Liquidity"}
+						</Button>
 
-						{!hasBalance && isAmountValid && (
-							<p className="text-sm text-center text-red-500">
-								Insufficient balance
-							</p>
-						)}
-
-						{approveError && (
-							<p className="text-sm text-center text-red-500">
-								Approval failed:{" "}
-								{approveError.message.slice(0, 50)}...
-							</p>
-						)}
-
-						{addLiquidityError && (
+						{removeLiquidityError && (
 							<p className="text-sm text-center text-red-500">
 								Transaction failed:{" "}
-								{addLiquidityError.message.slice(0, 50)}...
+								{removeLiquidityError.message.slice(0, 50)}...
 							</p>
 						)}
 
@@ -351,9 +235,9 @@ function AddLiquidityContent() {
 							</p>
 						)}
 
-						{isAddLiquiditySuccess && !isLoading && (
+						{isRemoveLiquiditySuccess && !isLoading && (
 							<p className="text-sm text-center text-green-500">
-								Liquidity added successfully!
+								Liquidity removed successfully!
 							</p>
 						)}
 					</div>
@@ -363,14 +247,14 @@ function AddLiquidityContent() {
 	);
 }
 
-export default function AddLiquidityPage() {
+export default function RemoveLiquidityPage() {
 	return (
 		<AuthGate
 			icon={Wallet}
-			title="Connect Wallet to Add Liquidity"
-			description="Connect your wallet to deposit USDC."
+			title="Connect Wallet to Remove Liquidity"
+			description="Connect your wallet to withdraw funds."
 		>
-			<AddLiquidityContent />
+			<RemoveLiquidityContent />
 		</AuthGate>
 	);
 }
