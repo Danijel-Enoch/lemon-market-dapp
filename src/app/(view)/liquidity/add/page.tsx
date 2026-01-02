@@ -94,7 +94,7 @@ function AddLiquidityContent() {
 				const response = await getMarkets();
 				if (response.success && response.data.length > 0) {
 					setMarkets(response.data);
-					setSelectedMarketId(response.data[0].marketId); // Default to first market
+					setSelectedMarketId(response.data[0].onChainData.marketId.split("_")[0]); // Default to first market
 				}
 			} catch (e) {
 				console.error("Failed to fetch markets", e);
@@ -206,8 +206,8 @@ function AddLiquidityContent() {
 								</SelectTrigger>
 								<SelectContent>
 									{markets.map((m) => (
-										<SelectItem key={m.marketId} value={m.marketId}>
-											{m.symbol || m.name || m.marketId}
+										<SelectItem key={m.onChainData.marketId} value={m.onChainData.marketId}>
+											{m.onChainData.marketId.split("_")[0]}
 										</SelectItem>
 									))}
 								</SelectContent>

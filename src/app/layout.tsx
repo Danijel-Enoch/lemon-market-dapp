@@ -1,3 +1,4 @@
+import { FaucetBanner } from "@/components/layout/FaucetBanner";
 import { Header } from "@/components/layout/Header";
 // import { BProgressProvider } from "@/components/providers/BProgressProvider";
 import { MiniAppProvider } from "@/components/providers/MiniAppProvider";
@@ -17,6 +18,7 @@ export default function RootLayout({
 			<ToastProvider>
 				<AppProvider>
 					<ReferralHandler />
+					<FaucetBanner />
 					{/* <BProgressProvider> */}
 					<Header />
 					<PageTransition>{children}</PageTransition>

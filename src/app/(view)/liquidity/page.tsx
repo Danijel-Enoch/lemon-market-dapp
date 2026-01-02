@@ -6,6 +6,7 @@ import { AuthGate } from "@/components/ui/AuthGate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMarkets, type Market } from "@/lib/liquidity-api";
+import { formatUnits } from "viem";
 
 export const metadata = {
 	title: "Liquidity - Lemon Markets",
@@ -55,17 +56,18 @@ function LiquidityPoolsList() {
 	return (
 		<>
 			{markets.map((market) => (
+				console.log({market}),
 				<div
 					key={market.marketId}
 					className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
 				>
 					<div>
-						<p className="font-medium">{market.symbol || market.name || "Unknown"} Pool</p>
-						<p className="text-sm text-muted-foreground">Market ID: {market.marketId}</p>
+						<p className="font-medium">{market.onChainData.marketId.split("_")[0] || "Unknown"} Pool</p>
+						<p className="text-sm text-muted-foreground">APR: 13%</p>
 					</div>
 					<div className="text-right">
 						<p className="font-medium text-green-500">
-							{market.liquidityUsd ? `$${market.liquidityUsd.toLocaleString()}` : "$0"} Liquidity
+							{market.onChainData.realLiquidity ? `$${formatUnits(BigInt(market.onChainData.virtualLiquidity), 6).toLocaleString()}` : "$0"} Liquidity
 						</p>
 						<p className="text-sm text-muted-foreground">
 							Vol: {market.volume24h ? `$${market.volume24h.toLocaleString()}` : "-"}

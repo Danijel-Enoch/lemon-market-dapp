@@ -142,9 +142,12 @@
     --sidebar-ring: #14b8a6;
 
     /* Trading Specific Colors */
-    --trade-long: #10b981;  /* Matching chart-2/success */
-    --trade-short: #ef4444; /* Matching chart-5/destructive */
-    --trade-surface: #1a1f26; /* Matching popover/sidebar - dark but distinct */
+    --trade-long: #10b981;
+    /* Matching chart-2/success */
+    --trade-short: #ef4444;
+    /* Matching chart-5/destructive */
+    --trade-surface: #1a1f26;
+    /* Matching popover/sidebar - dark but distinct */
 }
 
 /* macOS-style scrollbar */
@@ -224,6 +227,7 @@ button {
     0% {
         transform: translateX(0);
     }
+
     100% {
         transform: translateX(-50%);
     }
@@ -233,6 +237,7 @@ button {
     0% {
         transform: translateX(-50%);
     }
+
     100% {
         transform: translateX(0);
     }
@@ -254,4 +259,42 @@ button {
 
 .animate-scroll-ticker-reverse:hover {
     animation-play-state: paused;
+}
+
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes gradient-shift-reverse {
+    0% {
+        background-position: 100% 50%;
+    }
+
+    50% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 100% 50%;
+    }
+}
+
+.animate-gradient-shift {
+    background-size: 200% 200%;
+    animation: gradient-shift 4s ease infinite;
+}
+
+.animate-gradient-shift-reverse {
+    background-size: 200% 200%;
+    animation: gradient-shift-reverse 3s ease infinite;
 }

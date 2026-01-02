@@ -28,8 +28,22 @@ export interface Market {
 	priceUsd?: number;
 	change24h?: number;
 	volume24h?: number;
-	// Add other fields as per /markets response if needed
-}
+	onChainData: {
+		createdTimestamp: string;
+		durationFeeRate: string;
+		longPositionCount: string;
+		marketId: string;
+		realLiquidity: string;
+		sharedCollateralPool: string;
+		shortPositionCount: string;
+		totalLiquidity: string;
+		totalLongMargin: string;
+		totalShares: string;
+		totalShortMargin: string;
+		virtualLiquidity: string;
+	}
+	};
+
 
 export interface GetMarketsResponse {
 	success: boolean;
