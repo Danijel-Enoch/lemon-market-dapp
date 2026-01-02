@@ -81,24 +81,39 @@ function LiquidityPoolsList() {
 							</p>
 							<p className="text-sm text-muted-foreground">
 								Total Exposure: $
-								{(
-									market.exposure?.totalExposure || 0
+								{parseFloat(
+									formatUnits(
+										BigInt(
+											market.exposure?.totalExposure || 0
+										),
+										6
+									)
 								).toLocaleString()}
 							</p>
 							<div className="flex gap-3 text-xs">
 								<span className="text-green-500 font-medium">
 									Longs:{" "}
 									{market.onChainData.longPositionCount} ($
-									{(
-										market.exposure?.totalLong || 0
+									{parseFloat(
+										formatUnits(
+											BigInt(
+												market.exposure?.totalLong || 0
+											),
+											6
+										)
 									).toLocaleString()}
 									)
 								</span>
 								<span className="text-red-500 font-medium">
 									Shorts:{" "}
 									{market.onChainData.shortPositionCount} ($
-									{(
-										market.exposure?.totalShort || 0
+									{parseFloat(
+										formatUnits(
+											BigInt(
+												market.exposure?.totalShort || 0
+											),
+											6
+										)
 									).toLocaleString()}
 									)
 								</span>

@@ -289,6 +289,15 @@ function AddLiquidityContent() {
 						</div>
 					</div>
 
+					<div className="bg-orange-950/30 border border-orange-500/30 p-3 rounded-md text-sm text-orange-400">
+						<p className="font-medium mb-1">Disclaimer</p>
+						<p className="text-xs opacity-90">
+							Your liquidity is used to pay out winning trades.
+							You may lose your funds if traders win. Please check
+							market conditions before adding liquidity.
+						</p>
+					</div>
+
 					<div className="space-y-4">
 						{!hasAllowance && isAmountValid ? (
 							<Button
