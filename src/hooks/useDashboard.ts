@@ -2,7 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
-import { createReferralCode, getUserReferralStats } from "@/lib/dashboard-service";
+import {
+	createReferralCode,
+	getUserAggregatedPoints,
+	getUserReferralStats,
+} from "@/lib/dashboard-service";
 
 export function useDashboard() {
 	const { address, isConnected } = useAccount();
@@ -20,10 +24,13 @@ export function useDashboard() {
 			}
 
 			// Use Promise.allSettled to handle partial failures gracefully
-			const results = await Promise.allSettled([getUserReferralStats(address)]);
+			const results = await Promise.allSettled([
+				getUserReferralStats(address),
+				getUserAggregatedPoints(address),
+			]);
 
 			// Extract successful results with fallback values
-			const [referralStatsResult] = results;
+			const [referralStatsResult, aggregatedPointsResult] = results;
 
 			const referralStats =
 				referralStatsResult.status === "fulfilled"
@@ -33,13 +40,26 @@ export function useDashboard() {
 							referralEarnings: 0,
 							points: 0,
 							referralCode: null,
-						};
+					  };
+
+			const aggregatedPoints =
+				aggregatedPointsResult.status === "fulfilled"
+					? aggregatedPointsResult.value
+					: {
+							referral: 0,
+							trading: 0,
+							total: 0,
+					  };
 
 			// Get referral code from stats response
 			const referralCode = referralStats?.referralCode || null;
 
+			// Prefer aggregated total points, fallback to referral stats points if aggregated is 0 (and strict check to ensure we don't overwrite with 0 if referral stats has something, though aggregated should be more comprehensive)
+			const pointsEarned = aggregatedPoints.total || referralStats.points;
+
 			return {
-				pointsEarned: referralStats.points,
+				pointsEarned,
+				pointsBreakdown: aggregatedPoints,
 				feesEarned: 0,
 				tradingVolume: 0,
 				referralCode,
@@ -52,24 +72,27 @@ export function useDashboard() {
 		refetchInterval: 60000, // Refresh data every 60 seconds
 	});
 
-	const [{ value: generatedCode, error: generateError }, generateReferralCode] =
-		useAsyncFn(async () => {
-			if (!isConnected || !address) {
-				throw new Error("Wallet not connected");
-			}
+	const [
+		{ value: generatedCode, error: generateError },
+		generateReferralCode,
+	] = useAsyncFn(async () => {
+		if (!isConnected || !address) {
+			throw new Error("Wallet not connected");
+		}
 
-			const code = await createReferralCode(address);
-			if (!code) {
-				throw new Error("Failed to generate referral code");
-			}
+		const code = await createReferralCode(address);
+		if (!code) {
+			throw new Error("Failed to generate referral code");
+		}
 
-			return code;
-		}, [address, isConnected]);
+		return code;
+	}, [address, isConnected]);
 
 	// Compute stats from fetched data with memoization
 	const stats = useMemo(() => {
 		const data = dashboardData || {
 			pointsEarned: 0,
+			pointsBreakdown: { referral: 0, trading: 0, total: 0 },
 			feesEarned: 0,
 			tradingVolume: 0,
 			referralCode: generatedCode || null,

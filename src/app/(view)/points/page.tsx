@@ -12,14 +12,16 @@ export const metadata: Metadata = {
 };
 
 function PointsContent() {
-	const { pointsEarned } = useDashboard();
+	const { pointsEarned, pointsBreakdown } = useDashboard();
 
 	return (
 		<div className="min-h-screen w-full mt-8">
 			<div className="w-full">
 				<div className="mb-8">
 					<div>
-						<h1 className="text-2xl font-bold text-foreground">Points</h1>
+						<h1 className="text-2xl font-bold text-foreground">
+							Points
+						</h1>
 						<p className="text-muted-foreground text-xs">
 							Earn points through trading and redeem for rewards
 						</p>
@@ -31,28 +33,40 @@ function PointsContent() {
 							<CardTitle>Total Points</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">{formatNumber(pointsEarned)}</div>
-							<p className="text-sm text-muted-foreground">Lifetime points earned</p>
+							<div className="text-3xl font-bold">
+								{formatNumber(pointsBreakdown.total)}
+							</div>
+							<p className="text-sm text-muted-foreground">
+								Lifetime points earned
+							</p>
 						</CardContent>
 					</Card>
 
 					<Card className="border-accent/20">
 						<CardHeader>
-							<CardTitle>Available Points</CardTitle>
+							<CardTitle>Referral Points</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">{formatNumber(pointsEarned)}</div>
-							<p className="text-sm text-muted-foreground">Ready to redeem</p>
+							<div className="text-3xl font-bold">
+								{formatNumber(pointsBreakdown?.referral || 0)}
+							</div>
+							<p className="text-sm text-muted-foreground">
+								Earned from invites
+							</p>
 						</CardContent>
 					</Card>
 
 					<Card className="border-accent/20">
 						<CardHeader>
-							<CardTitle>Points This Month</CardTitle>
+							<CardTitle>Trading Points</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="text-3xl font-bold">{formatNumber(pointsEarned * 0.1)}</div>
-							<p className="text-sm text-muted-foreground">+15% from last month</p>
+							<div className="text-3xl font-bold">
+								{formatNumber(pointsBreakdown?.trading || 0)}
+							</div>
+							<p className="text-sm text-muted-foreground">
+								Earned from trading volume
+							</p>
 						</CardContent>
 					</Card>
 				</div>{" "}
@@ -66,14 +80,20 @@ function PointsContent() {
 								<div className="flex items-start gap-3">
 									<Star className="w-5 h-5 text-primary mt-0.5" />
 									<div>
-										<p className="font-medium">Trading Volume</p>
-										<p className="text-sm text-muted-foreground">Earn 1 point per $100 traded</p>
+										<p className="font-medium">
+											Trading Volume
+										</p>
+										<p className="text-sm text-muted-foreground">
+											Earn 1 point per $100 traded
+										</p>
 									</div>
 								</div>
 								<div className="flex items-start gap-3">
 									<Star className="w-5 h-5 text-primary mt-0.5" />
 									<div>
-										<p className="font-medium">Referral Program</p>
+										<p className="font-medium">
+											Referral Program
+										</p>
 										<p className="text-sm text-muted-foreground">
 											Earn 10% of your referrals' points
 										</p>
@@ -82,39 +102,13 @@ function PointsContent() {
 								<div className="flex items-start gap-3">
 									<Star className="w-5 h-5 text-primary mt-0.5" />
 									<div>
-										<p className="font-medium">Daily Login</p>
-										<p className="text-sm text-muted-foreground">Earn 5 points per day</p>
+										<p className="font-medium">
+											Daily Login
+										</p>
+										<p className="text-sm text-muted-foreground">
+											Earn 5 points per day
+										</p>
 									</div>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>Redeem Points</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="space-y-4">
-								<div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-									<div className="flex items-center gap-3">
-										<Gift className="w-5 h-5 text-primary" />
-										<div>
-											<p className="font-medium">$10 Trading Credit</p>
-											<p className="text-sm text-muted-foreground">1000 points</p>
-										</div>
-									</div>
-									<Button>Redeem</Button>
-								</div>
-								<div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-									<div className="flex items-center gap-3">
-										<Gift className="w-5 h-5 text-primary" />
-										<div>
-											<p className="font-medium">VIP Status</p>
-											<p className="text-sm text-muted-foreground">5000 points</p>
-										</div>
-									</div>
-									<Button>Redeem</Button>
 								</div>
 							</div>
 						</CardContent>
