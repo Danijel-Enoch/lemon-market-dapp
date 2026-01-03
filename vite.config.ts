@@ -1,22 +1,23 @@
-import path from "node:path";
-import react from "@vitejs/plugin-react";
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	plugins: [react()],
-	resolve: {
-		alias: {
-			"@": path.resolve(__dirname, "./src"),
-		},
-	},
+	plugins: [reactRouter(), tailwindcss(), tsconfigPaths()],
 	server: {
+		port: 5174,
+		strictPort: true,
+		hmr: {
+			host: "localhost",
+		},
 		proxy: {
 			"/api/geckoterminal": {
 				target: "https://api.geckoterminal.com",
 				changeOrigin: true,
 				headers: {
-					Origin: "http://localhost:5173",
+					Origin: "http://localhost:5174",
 				},
 				rewrite: (path) => path.replace(/^\/api\/geckoterminal/, ""),
 			},
@@ -24,7 +25,7 @@ export default defineConfig({
 				target: "https://api.dexscreener.com",
 				changeOrigin: true,
 				headers: {
-					Origin: "http://localhost:5173",
+					Origin: "http://localhost:5174",
 				},
 				rewrite: (path) => path.replace(/^\/api\/dexscreener/, ""),
 			},
@@ -32,7 +33,7 @@ export default defineConfig({
 				target: "https://api.coingecko.com",
 				changeOrigin: true,
 				headers: {
-					Origin: "http://localhost:5173",
+					Origin: "http://localhost:5174",
 				},
 				rewrite: (path) => path.replace(/^\/api\/coingecko/, ""),
 			},
@@ -44,33 +45,5 @@ export default defineConfig({
 	build: {
 		reportCompressedSize: false,
 		target: "esnext",
-		rolldownOptions: {
-			onwarn(warning, warn) {
-				// Suppress warnings about PURE comments in node_modules
-				if (warning.message.includes("contains an annotation that Rollup cannot interpret")) {
-					return;
-				}
-				warn(warning);
-			},
-			external: ["react-use"],
-			output: {
-				advancedChunks: {
-					groups: [
-						{
-							test: /react-/,
-							name: "vendor_react",
-						},
-						{
-							test: /wagmi|viem|@tanstack\/react-query/,
-							name: "vendor_wagmi",
-						},
-						{
-							test: /lucide-react|framer-motion|@radix-ui\/react-.*$/,
-							name: "vendor_ui_libs",
-						},
-					],
-				},
-			},
-		},
 	},
 });
