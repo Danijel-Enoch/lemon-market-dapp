@@ -1,8 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { formatUnits } from "viem";
+import { useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { Input } from "@app/components/ui/input";
 import {
 	Select,
@@ -16,13 +14,33 @@ import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { fetchTokensTrending, searchTokens, type TokenItem } from "@app/hooks/useTrending";
 import type { Metadata } from "@app/lib/types";
 import { formatLargeNumber, formatPrice } from "@app/lib/utils";
+import type { Route } from "./+types/page";
 
 export const metadata: Metadata = {
 	title: "Trending - Lemon Markets",
 	description: "Discover trending tokens and market opportunities",
 };
 
-// Removed useSearch & external search results integration
+export async function loader({ request }: { request: Request }) {
+	const url = new URL(request.url);
+	const chain = url.searchParams.get("chain") || "base";
+	const sort = url.searchParams.get("sort") || "liquidity";
+	const limit = Number(url.searchParams.get("limit")) || 20;
+
+	const tokensData = await fetchTokensTrending({
+		limit,
+		page: 1,
+		chain: chain === "all" ? undefined : chain,
+		sort,
+	});
+
+	return {
+		initialTokens: tokensData.data || [],
+		initialHasMore: tokensData.pagination?.hasMore ?? false,
+		chain,
+		sort,
+	};
+}
 
 // Types
 interface Token {
@@ -52,26 +70,35 @@ interface Token {
 	chainId?: string;
 }
 
-interface ForexPair {
-	id: number;
-	symbol: string;
-	name: string;
-	price: string;
-	sortPrice?: number;
-	change24h: string;
-	volume: string;
-	spread: string;
-	trend: "up" | "down";
-	logo: string;
-	xp?: string;
-	leverage?: string;
-	marketCap?: string;
-	totalLiquidity?: string;
-}
-
 interface Asset extends Token {
 	type: "crypto" | "forex" | "stocks";
 }
+
+type FilterKey = "all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft";
+
+// Helper function to normalize TokenItem to Token
+const normalizeToken = (t: TokenItem, index: number): Token => ({
+	id: index + 1,
+	symbol: String(t.symbol ?? ""),
+	name: String(t.name ?? t.symbol ?? ""),
+	price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
+	sortPrice: Number(t.priceUsd) || 0,
+	change24h:
+		typeof t.change24h === "number" ? `${t.change24h.toFixed(2)}%` : String(t.change24h ?? "0.00%"),
+	volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
+	marketCap: t.marketCap ? `$${formatLargeNumber(Number(t.marketCap))}` : "N/A",
+	trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+	logo: String(t.logo ?? ""),
+	tokenAddress: String(t.tokenAddress ?? ""),
+	pairAddress: String(t.pairAddress ?? ""),
+	totalLiquidity: t.liquidityUsd ? `$${formatLargeNumber(Number(t.liquidityUsd))}` : "$0.00",
+	realLiquidity: undefined,
+	openInterest: undefined,
+	hasMarket: t.hasMarket,
+	marketId: t.marketId,
+	virtualLiquidity: undefined,
+	chain: t.chain || undefined,
+});
 
 // Helper to determine initial items per page based on viewport
 const getInitialItemsPerPage = () => {
@@ -79,57 +106,29 @@ const getInitialItemsPerPage = () => {
 	return window.innerWidth < 768 ? 10 : 20;
 };
 
-export default function Home() {
+export default function Home({ loaderData: { initialTokens } }: Route.ComponentProps) {
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [_currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(getInitialItemsPerPage);
-	const [hasMore, setHasMore] = useState(true);
-	const observerTarget = useRef<HTMLDivElement>(null);
-	const [apiData, setApiData] = useState({
-		stocks: [] as Token[],
-		fx: [] as ForexPair[],
-		tokens: [] as Token[],
-	});
-	// UI filter state: all | tokens | fx | stocks
-	const [filterType, setFilterType] = useState<
-		"all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft"
-	>("all");
 
-	type FilterKey = "all" | "crypto" | "forex" | "commodities" | "rwa" | "stocks" | "gdp" | "nft";
-	const [chainFilter] = useState<"all" | string>("all");
-	const [onlyPerpMarkets] = useState(false);
+	const filterType = (searchParams.get("type") as FilterKey) || "all";
+	const chainFilter = searchParams.get("chain") || "all";
+
+	const setSearchParam = (key: string, value: string) => {
+		const newParams = new URLSearchParams(searchParams);
+		if (value === "all" || !value) {
+			newParams.delete(key);
+		} else {
+			newParams.set(key, value);
+		}
+		navigate(`?${newParams.toString()}`, { replace: true });
+	};
 
 	// Search state
 	const [searchResults, setSearchResults] = useState<Token[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-
-	// Helper function to normalize TokenItem to Token
-	const normalizeToken = (t: TokenItem, index: number): Token => ({
-		id: index + 1,
-		symbol: String(t.symbol ?? ""),
-		name: String(t.name ?? t.symbol ?? ""),
-		price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
-		sortPrice: Number(t.priceUsd) || 0,
-		change24h:
-			typeof t.change24h === "number"
-				? `${t.change24h.toFixed(2)}%`
-				: String(t.change24h ?? "0.00%"),
-		volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
-		marketCap: t.marketCap ? `$${formatLargeNumber(Number(t.marketCap))}` : "N/A",
-		trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
-		logo: String(t.logo ?? ""),
-		tokenAddress: String(t.tokenAddress ?? ""),
-		pairAddress: String(t.pairAddress ?? ""),
-		totalLiquidity: t.liquidityUsd ? `$${formatLargeNumber(Number(t.liquidityUsd))}` : "$0.00",
-		realLiquidity: undefined,
-		openInterest: undefined,
-		hasMarket: t.hasMarket,
-		marketId: t.marketId,
-		virtualLiquidity: undefined,
-		chain: t.chain || undefined,
-	});
 
 	const handleTradeClick = (item: Asset) => {
 		const params = new URLSearchParams();
@@ -143,10 +142,6 @@ export default function Home() {
 		params.set("assetType", item.type === "stocks" ? "stock" : item.type);
 		navigate(`/perp?${params.toString()}`);
 	};
-
-	// Removed external search result click handler; local table rows use handleTradeClick
-
-	// specialized stock/forex trade handlers removed — unified handler `handleTradeClick` manages navigation
 
 	const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = e.target.value;
@@ -187,227 +182,21 @@ export default function Home() {
 		}, delay);
 	};
 
-	// Cleanup search timeout on unmount
-	useEffect(() => {
-		return () => {
-			if (searchTimeoutRef.current) {
-				clearTimeout(searchTimeoutRef.current);
-			}
-		};
-	}, []);
-
-	const [{ loading: isLoadingMore, value: tokensResult }, fetchTokens] = useAsyncFn(
-		async (page: number, append: boolean = false, chain?: string, hasMarket?: boolean | null) => {
-			const tokensData = await fetchTokensTrending({
-				limit: itemsPerPage,
-				page,
-				chain,
-				hasMarket: hasMarket ?? undefined,
-			});
-			// Normalize tokens to the local Token interface
-			const normalizedTokens = (
-				(tokensData.data || []) as import("@app/hooks/useTrending").TokenItem[]
-			).map((t, i) => ({
-				id: i + 1,
-				symbol: String(t.symbol ?? ""),
-				name: String(t.name ?? t.symbol ?? ""),
-				price: t.priceUsd ? formatPrice(Number(t.priceUsd)) : "$0.00",
-				sortPrice: Number(t.priceUsd) || 0,
-				change24h:
-					typeof t.change24h === "number"
-						? `${t.change24h.toFixed(2)}%`
-						: String(t.change24h ?? "0.00%"),
-				volume: t.volume24h ? `$${(Number(t.volume24h) / 1000000).toFixed(2)}M` : "N/A",
-				marketCap: t.marketCap ? `$${formatLargeNumber(Number(t.marketCap))}` : "N/A",
-				trend: Number(t.change24h ?? 0) >= 0 ? ("up" as const) : ("down" as const),
-				logo: String(t.logo ?? ""),
-				tokenAddress: String(t.tokenAddress ?? ""),
-				pairAddress: String(t.pairAddress ?? ""),
-				totalLiquidity: t.liquidityUsd ? `$${formatLargeNumber(Number(t.liquidityUsd))}` : "$0.00",
-				realLiquidity: undefined,
-				openInterest: t.exposure.totalExposure
-					? `$${formatLargeNumber(
-							Number(formatUnits(BigInt(t.exposure.totalExposure.toString()), 6)),
-						)}`
-					: "$0.00",
-				hasMarket: undefined,
-				marketId: undefined,
-				virtualLiquidity: undefined,
-				chain: t.chain || undefined,
-			}));
-
-			return {
-				tokens: normalizedTokens,
-				append,
-				hasMore: tokensData.pagination?.hasMore ?? false,
-			};
-		},
-		[itemsPerPage],
-	);
-
-	const [{ loading: isLoading, value: trendingResult }, fetchTrendingData] =
-		useAsyncFn(async () => {
-			// Fetch tokens with pagination
-			await fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-
-			// const stocksData = await fetchStocksTrending({ limit: 50 });
-			// const fxData = await fetchFXTrending({ limit: 50 });
-
-			return { stocks: [], fx: [], tokens: [] };
-			/*
-			// Transform stocks data
-			const transformedStocks: Token[] = (stocksData.data as import("@/hooks/useTrending").StockItem[]).map(
-				(stock, index) => ({
-					id: index + 1,
-					symbol: stock.symbol,
-					name: stock.symbol,
-					price: typeof stock.price === "number" ? formatPrice(stock.price) : "$0.00",
-					sortPrice: stock.price || 0,
-					change24h: stock.change24h ? `${stock.change24h.toFixed(2)}%` : "0.00%",
-					volume: stock.volume24h ? `$${formatLargeNumber(stock.volume24h)}` : "N/A",
-					marketCap: stock.MarketCap ? `$${formatLargeNumber(Number(stock.MarketCap))}` : "N/A",
-					trend: (stock.change24h || 0) >= 0 ? "up" : "down",
-					logo: "📈",
-					tokenAddress: "",
-					totalLiquidity: stock.Liquidity
-						? `$${formatLargeNumber(Number(stock.Liquidity))}`
-						: "$0.00",
-					chain: "base",
-				}),
-			);
-
-			const transformedFX: ForexPair[] = fxData.data.map((fx, index) => {
-				const getDisplaySymbol = (ticker: string) => {
-					if (ticker.includes("AUD-USD")) return "AUD/USD";
-					if (ticker.includes("CNY-USD")) return "CNY/USD";
-					if (ticker.includes("NGN-USD")) return "NGN/USD";
-					return ticker;
-				};
-
-				const getDisplayName = (ticker: string) => {
-					if (ticker.includes("AUD")) return "Australian Dollar/US Dollar";
-					if (ticker.includes("CNY")) return "Chinese Yuan/US Dollar";
-					if (ticker.includes("NGN")) return "Nigerian Naira/US Dollar";
-					return ticker;
-				};
-
-				const getLogo = (ticker: string) => {
-					if (ticker.includes("AUD")) return "🇦🇺";
-					if (ticker.includes("CNY")) return "🇨🇳";
-					if (ticker.includes("NGN")) return "🇳🇬";
-					return "💱";
-				};
-
-				const fxItem = fx as import("@/hooks/useTrending").FXItem;
-
-				return {
-					id: index + 1,
-					symbol: getDisplaySymbol(fxItem.ticker),
-					name: getDisplayName(fxItem.ticker),
-					price: fxItem.price.toFixed(4),
-					sortPrice: fxItem.price,
-					change24h: fxItem.change24h ? `${fxItem.change24h.toFixed(2)}%` : "0.00%",
-					volume: fxItem.volume24h ? `$${formatLargeNumber(fxItem.volume24h)}` : "N/A",
-					spread: "N/A",
-					trend: (fxItem.change24h || 0) >= 0 ? "up" : "down",
-					logo: getLogo(fxItem.ticker),
-					marketCap: fxItem.MarketCap ? `$${formatLargeNumber(Number(fxItem.MarketCap))}` : "N/A",
-					totalLiquidity: fxItem.Liquidity ? `$${formatLargeNumber(Number(fxItem.Liquidity))}` : "$0.00",
-				};
-			});
-
-			return { stocks: transformedStocks, fx: transformedFX, tokens: [] };
-			*/
-		}, [fetchTokens]);
-
-	// Update apiData when results change
-	useEffect(() => {
-		if (tokensResult) {
-			setApiData((prev) => ({
-				...prev,
-				tokens: tokensResult.append
-					? [...prev.tokens, ...tokensResult.tokens]
-					: tokensResult.tokens,
-			}));
-			setHasMore(tokensResult.hasMore);
-		}
-	}, [tokensResult]);
-
-	useEffect(() => {
-		if (trendingResult) {
-			setApiData((prev) => ({
-				...prev,
-				stocks: trendingResult.stocks,
-				fx: trendingResult.fx,
-			}));
-		}
-	}, [trendingResult]);
-
-	useEffect(() => {
-		fetchTrendingData();
-	}, [fetchTrendingData]); // Infinite scroll with Intersection Observer
-
-	// Refetch tokens when chain or perp filter changes
-	useEffect(() => {
-		setCurrentPage(1);
-		fetchTokens(1, false, chainFilter === "all" ? undefined : chainFilter, onlyPerpMarkets);
-	}, [chainFilter, onlyPerpMarkets, fetchTokens]);
-	useEffect(() => {
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
-					setCurrentPage((prev) => {
-						const nextPage = prev + 1;
-						fetchTokens(
-							nextPage,
-							true,
-							chainFilter === "all" ? undefined : chainFilter,
-							onlyPerpMarkets,
-						);
-						return nextPage;
-					});
-				}
-			},
-			{ threshold: 0.1 },
-		);
-
-		if (observerTarget.current) {
-			observer.observe(observerTarget.current);
-		}
-
-		return () => {
-			if (observerTarget.current) {
-				observer.unobserve(observerTarget.current);
-			}
-		};
-	}, [hasMore, isLoadingMore, isLoading, fetchTokens, chainFilter, onlyPerpMarkets]);
-
-	// Determine which tokens to display:
-	// - If we have search results from API (query >= 3 chars or is an address), use those
-	// - Otherwise, fall back to local filtering of trending data
 	const isApiSearchActive =
 		searchQuery.trim().length >= 3 || (searchQuery.startsWith("0x") && searchQuery.length >= 40);
+
+	const normalizedInitialTokens = initialTokens.map((t, i) => normalizeToken(t as TokenItem, i));
 
 	const filteredTokens =
 		isApiSearchActive && searchResults.length > 0
 			? searchResults
 			: isApiSearchActive && searchResults.length === 0 && !isSearching
 				? [] // API search returned no results
-				: apiData.tokens.filter(
+				: normalizedInitialTokens.filter(
 						(token) =>
 							token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 							token.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
 					);
-	const _filteredFX = apiData.fx.filter(
-		(pair) =>
-			pair.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			pair.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
-	const _filteredStocks = apiData.stocks.filter(
-		(stock) =>
-			stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()),
-	);
 
 	const combinedAssets: Asset[] = [
 		...filteredTokens.map((t) => ({ ...t, type: "crypto" }) as Asset),
@@ -458,6 +247,8 @@ export default function Home() {
 		// ["nft", "NFT"],
 	] as const;
 
+	// Reset pagination when loader data changes (e.g. initial load or full navigation)
+
 	return (
 		<>
 			<div className="border-l border-r border-[#202020]">
@@ -475,10 +266,21 @@ export default function Home() {
 						</div>
 					</div>
 
-					<div className="flex-none w-full sm:w-auto">
+					<div className="flex-none w-full sm:w-auto flex items-center gap-2">
+						<Select value={chainFilter} onValueChange={(v) => setSearchParam("chain", v)}>
+							<SelectTrigger className="w-[120px] bg-transparent border-0 border-r rounded-none hover:text-[#a3e635] focus:ring-0 shadow-none py-6">
+								<SelectValue placeholder="Chain" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Chains</SelectItem>
+								<SelectItem value="base">Base</SelectItem>
+								<SelectItem value="arbitrum">Arbitrum</SelectItem>
+								<SelectItem value="solana">Solana</SelectItem>
+							</SelectContent>
+						</Select>
 						<Tabs
 							value={filterType}
-							onValueChange={(value) => setFilterType(value as FilterKey)}
+							onValueChange={(value) => setSearchParam("type", value)}
 							className="w-full sm:w-auto"
 						>
 							<TabsList className="h-auto p-0 bg-transparent border-b-0 space-x-4">
@@ -531,7 +333,7 @@ export default function Home() {
 										</tr>
 									</thead>
 									<tbody>
-										{isLoading || isSearching || (isLoadingMore && _currentPage === 1) ? (
+										{isSearching && combinedAssets.length === 0 ? (
 											// eslint-disable-next-line react/no-array-index-key
 											Array.from({ length: 10 }).map((_, i) => (
 												<tr

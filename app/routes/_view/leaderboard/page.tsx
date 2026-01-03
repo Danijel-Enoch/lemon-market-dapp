@@ -7,8 +7,7 @@ import {
 	RefreshCw,
 	Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
@@ -19,6 +18,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@app/components/ui/select";
+import { fetchLeaderboardData } from "@app/lib/leaderboard-service";
 import type { Metadata } from "@app/lib/types";
 
 export const metadata: Metadata = {
@@ -26,37 +26,19 @@ export const metadata: Metadata = {
 	description: "View top traders and compete for rewards",
 };
 
-interface LeaderboardEntry {
-	id: string;
-	rank: number;
-	trader: string;
-	totalPoints: string;
-	totalPointsFormatted: string;
-	totalTrades: number;
-	pointsPerTrade: string;
-	pointsPerTradeFormatted: string;
-	currentTier: string;
-	firstTradeTimestamp: string;
-	lastTradeTimestamp: string;
-	lastPointsAwarded: string;
-	lastPointsAwardedFormatted: string;
-	bronzeTierAt: string | null;
-	silverTierAt: string | null;
-	goldTierAt: string | null;
-	lastTransactionHash: string;
-	lastBlockNumber: number;
-	lastBlockTimestamp: string;
-}
+export async function loader({ request }: { request: Request }) {
+	const url = new URL(request.url);
+	const limit = Number(url.searchParams.get("limit")) || 50;
+	const page = Number(url.searchParams.get("page")) || 1;
+	const offset = (page - 1) * limit;
 
-interface ApiLeaderboardEntry {
-	address: string;
-	points: string;
-	rank: number;
-}
+	const leaderboardData = await fetchLeaderboardData({ limit, offset, page });
 
-interface ApiLeaderboardResponse {
-	success: boolean;
-	data: ApiLeaderboardEntry[];
+	return {
+		leaderboardData,
+		limit,
+		page,
+	};
 }
 
 const getTierIcon = (tier: string) => {
@@ -89,125 +71,66 @@ const formatAddress = (address: string) => {
 	return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
-
 export default function LeaderboardPage() {
-	const [sortBy, setSortBy] = useState("totalPoints");
-	const [order, setOrder] = useState("desc");
-	const [limit, setLimit] = useState<number>(50);
-	const [page, setPage] = useState<number>(1);
+	const { leaderboardData, limit, page } = useLoaderData<typeof loader>();
+	const [_searchParams, setSearchParams] = useSearchParams();
+	const navigation = useNavigation();
+	const isLoading = navigation.state !== "idle";
 
-	const [{ loading, error: fetchError, value: leaderboardResult }, fetchLeaderboard] =
-		useAsyncFn(async () => {
-			const offset = (page - 1) * limit;
-			const response = await fetch(
-				`${BASE_URL}/leaderboard?limit=${limit}&offset=${offset}&page=${page}`,
-			);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
-			}
-			const result: ApiLeaderboardResponse = await response.json();
-
-			if (!result.success) {
-				throw new Error("API returned unsuccessful response");
-			}
-
-			// Transform API data to LeaderboardEntry format
-			const transformedData: LeaderboardEntry[] = result.data.map((entry) => {
-				const pointsNum = Number(entry.points) / 1e6; // Assuming points are in smallest unit
-				const tier = entry.rank <= 3 ? "Gold" : entry.rank <= 10 ? "Silver" : "Bronze";
-
-				return {
-					id: entry.address,
-					rank: entry.rank,
-					trader: entry.address,
-					totalPoints: entry.points,
-					totalPointsFormatted: pointsNum.toLocaleString(undefined, {
-						maximumFractionDigits: 2,
-					}),
-					totalTrades: 0, // Not provided by API
-					pointsPerTrade: "0",
-					pointsPerTradeFormatted: "0",
-					currentTier: tier,
-					firstTradeTimestamp: new Date().toISOString(),
-					lastTradeTimestamp: new Date().toISOString(),
-					lastPointsAwarded: "0",
-					lastPointsAwardedFormatted: "0",
-					bronzeTierAt: null,
-					silverTierAt: null,
-					goldTierAt: null,
-					lastTransactionHash: "0x...",
-					lastBlockNumber: 0,
-					lastBlockTimestamp: new Date().toISOString(),
-				};
-			});
-
-			return transformedData;
-		}, [sortBy, order, limit, page]);
-
-	const leaderboardData = useMemo(() => leaderboardResult || [], [leaderboardResult]);
-	const error = fetchError ? fetchError.message : null;
-
-	useEffect(() => {
-		fetchLeaderboard();
-	}, [fetchLeaderboard]);
-
-	const handleSort = (newSortBy: string) => {
-		if (sortBy === newSortBy) {
-			setOrder(order === "desc" ? "asc" : "desc");
-		} else {
-			setSortBy(newSortBy);
-			setOrder("desc");
-		}
+	const handleSort = (_newSortBy: string) => {
+		// Sort is currently mock
 	};
 
 	const handleLimitChange = (value: string) => {
-		setLimit(Number(value));
-		setPage(1); // Reset to first page when limit changes
+		setSearchParams((prev) => {
+			prev.set("limit", value);
+			prev.set("page", "1");
+			return prev;
+		});
 	};
 
 	const handleNextPage = () => {
-		setPage((prev) => prev + 1);
+		setSearchParams((prev) => {
+			prev.set("page", String(page + 1));
+			return prev;
+		});
 	};
 
 	const handlePrevPage = () => {
-		setPage((prev) => Math.max(1, prev - 1));
+		setSearchParams((prev) => {
+			prev.set("page", String(Math.max(1, page - 1)));
+			return prev;
+		});
 	};
 
+	const handleRefresh = () => {
+		setSearchParams((prev) => {
+			prev.set("_refresh", String(Date.now()));
+			return prev;
+		});
+	};
+
+	// Mock stats for dashboard (they were internally calculated before)
 	const _totalTraders = leaderboardData.length;
-	const _totalTrades = leaderboardData.reduce((sum, entry) => sum + entry.totalTrades, 0);
-	const _avgPointsPerTrade =
-		leaderboardData.length > 0
-			? (
-					leaderboardData.reduce((sum, entry) => sum + parseFloat(entry.pointsPerTrade), 0) /
-					leaderboardData.length
-				).toFixed(0)
-			: "0";
+	const _totalTrades = 0;
+	const _avgPointsPerTrade = "0";
 
 	return (
 		<div className="w-full mt-8">
 			<div className="w-full">
-				{error && (
-					<Card className="border-destructive p-0">
-						<CardContent className="px-4 py-2">
-							<div className="text-destructive">Error: {error}</div>
-						</CardContent>
-					</Card>
-				)}
-
 				<Card className="pb-0">
 					<CardHeader className="border-b border-gray-100/10">
 						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
 								<Button
-									onClick={fetchLeaderboard}
-									disabled={loading}
+									onClick={handleRefresh}
+									disabled={isLoading}
 									variant="outline"
 									size="sm"
 									className="gap-2"
 								>
-									<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+									<RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
 									<span className="hidden md:inline">Refresh</span>
 								</Button>
 								<Select value={String(limit)} onValueChange={handleLimitChange}>
@@ -223,7 +146,7 @@ export default function LeaderboardPage() {
 								<div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
 									<Button
 										onClick={handlePrevPage}
-										disabled={page === 1 || loading}
+										disabled={page === 1 || isLoading}
 										variant="outline"
 										size="sm"
 										className="h-8 w-8 p-0"
@@ -233,7 +156,7 @@ export default function LeaderboardPage() {
 									<span className="px-3 min-w-[80px] text-center">Page {page}</span>
 									<Button
 										onClick={handleNextPage}
-										disabled={loading || leaderboardData.length < limit}
+										disabled={isLoading || leaderboardData.length < limit}
 										variant="outline"
 										size="sm"
 										className="h-8 w-8 p-0"
@@ -256,13 +179,13 @@ export default function LeaderboardPage() {
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
 											onClick={() => handleSort("trader")}
 										>
-											Trader {sortBy === "trader" && (order === "desc" ? "↓" : "↑")}
+											Trader
 										</th>
 										<th
 											className="text-left p-3 text-muted-foreground font-medium text-xs uppercase cursor-pointer hover:text-foreground"
 											onClick={() => handleSort("totalPoints")}
 										>
-											Total Points {sortBy === "totalPoints" && (order === "desc" ? "↓" : "↑")}
+											Total Points
 										</th>
 
 										<th className="text-left p-3 text-muted-foreground font-medium text-xs uppercase">
@@ -271,7 +194,7 @@ export default function LeaderboardPage() {
 									</tr>
 								</thead>
 								<tbody>
-									{loading && leaderboardData.length === 0 ? (
+									{isLoading && leaderboardData.length === 0 ? (
 										<tr>
 											<td colSpan={8} className="text-center p-8">
 												<div className="flex items-center justify-center gap-2">
@@ -339,7 +262,7 @@ export default function LeaderboardPage() {
 								</tbody>
 							</table>
 						</div>
-						{!loading && leaderboardData.length > 0 && (
+						{!isLoading && leaderboardData.length > 0 && (
 							<div className="px-6 py-4 border-t border-gray-100/10 flex flex-col md:flex-row items-center justify-between gap-6">
 								<div className="text-sm text-muted-foreground">
 									Showing {(page - 1) * limit + 1} - {(page - 1) * limit + leaderboardData.length}{" "}
@@ -348,7 +271,7 @@ export default function LeaderboardPage() {
 								<div className="flex items-center gap-2">
 									<Button
 										onClick={handlePrevPage}
-										disabled={page === 1 || loading}
+										disabled={page === 1 || isLoading}
 										variant="outline"
 										size="sm"
 									>
@@ -358,7 +281,7 @@ export default function LeaderboardPage() {
 									<span className="text-sm text-muted-foreground px-2">Page {page}</span>
 									<Button
 										onClick={handleNextPage}
-										disabled={loading || leaderboardData.length < limit}
+										disabled={isLoading || leaderboardData.length < limit}
 										variant="outline"
 										size="sm"
 									>

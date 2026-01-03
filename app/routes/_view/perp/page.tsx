@@ -1,7 +1,7 @@
 import * as RadixSlider from "@radix-ui/react-slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { redirect, useSearchParams } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { formatUnits, parseUnits } from "viem";
 import {
@@ -66,12 +66,41 @@ export const metadata: Metadata = {
 	},
 };
 
+export async function loader({ request }: { request: Request }) {
+	const url = new URL(request.url);
+	const symbol = url.searchParams.get("symbol");
+	const pairAddress = url.searchParams.get("pairAddress");
+	const tokenAddress = url.searchParams.get("tokenAddress");
+
+	if (!symbol && !pairAddress && !tokenAddress) {
+		try {
+			const data = await fetchTokensTrending({
+				limit: 1,
+				page: 1,
+				chain: "base",
+				sort: "change",
+			});
+			const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
+			if (top) {
+				const params = new URLSearchParams();
+				if (top.symbol) params.set("symbol", top.symbol);
+				if (top.pairAddress) params.set("pairAddress", top.pairAddress);
+				if (top.tokenAddress) params.set("tokenAddress", top.tokenAddress);
+				params.set("chain", top.chain || "base");
+				params.set("assetType", "crypto");
+				return redirect(`/perp?${params.toString()}`);
+			}
+		} catch (error) {
+			console.error("Failed to fetch top trending token for redirect:", error);
+		}
+	}
+	return null;
+}
+
 const DEFAULT_REFERRER_ADDRESS = "0x273d6779DDFa7e942F6b87c420e4072F4468f1cB";
 
 function PerpContent() {
 	const [searchParams] = useSearchParams();
-	const navigate = useNavigate();
-	const [didDefaultTrendingRedirect, setDidDefaultTrendingRedirect] = useState(false);
 	const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
 		symbol: "",
@@ -277,36 +306,6 @@ function PerpContent() {
 		const chain = searchParams.get("chain") || "base";
 		const assetType = (searchParams.get("assetType") || "crypto") as "crypto" | "stock" | "forex";
 
-		// If no symbol/pair/token was passed in the URL, redirect to the top performing trending token
-		if (!symbol && !pairAddress && !tokenAddress && !didDefaultTrendingRedirect) {
-			setDidDefaultTrendingRedirect(true);
-			(async () => {
-				try {
-					const data = await fetchTokensTrending({
-						limit: 5,
-						page: 1,
-						chain: "base",
-						sort: "change",
-					});
-					// Support both array-shaped and single object responses for backwards compatibility
-					const top = Array.isArray(data?.data) ? data.data[0] : data?.data;
-					if (top) {
-						const params = new URLSearchParams();
-						const token = top as import("@app/hooks/useTrending").TokenItem;
-						if (token.symbol) params.set("symbol", token.symbol);
-						if (token.pairAddress) params.set("pairAddress", token.pairAddress);
-						if (token.tokenAddress) params.set("tokenAddress", token.tokenAddress);
-						params.set("chain", token.chain || "base");
-						params.set("assetType", "crypto");
-						navigate(`/perp?${params.toString()}`, {
-							replace: true,
-						});
-						return;
-					}
-				} catch {}
-			})();
-		}
-
 		if (symbol) {
 			// Format the symbol for display
 			// For stocks and forex, use symbol as-is
@@ -323,7 +322,7 @@ function PerpContent() {
 				assetType: assetType,
 			}));
 		}
-	}, [searchParams, navigate, didDefaultTrendingRedirect]);
+	}, [searchParams]);
 
 	useEffect(() => {
 		const interval = setInterval(() => {

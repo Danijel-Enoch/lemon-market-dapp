@@ -1,6 +1,6 @@
 import { Loader2, Minus, Plus, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLoaderData } from "react-router";
 
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
@@ -19,42 +19,23 @@ export const metadata = {
 	description: "Provide liquidity and earn rewards",
 };
 
-function LiquidityPoolsList() {
-	const [markets, setMarkets] = useState<(Market & { apr: number })[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		const fetchMarkets = async () => {
-			try {
-				const response = await getMarkets();
-				if (response.success) {
-					// Add random APR for now as requested
-					const marketsWithApr = response.data.map((m) => ({
-						...m,
-						apr: Math.floor(Math.random() * 20) + 5, // 5-24%
-					}));
-					setMarkets(marketsWithApr);
-				} else {
-					setError(response.error || "Failed to fetch markets");
-				}
-			} catch (e) {
-				console.error(e);
-				setError("An error occurred while fetching markets");
-			} finally {
-				setIsLoading(false);
-			}
-		};
-		fetchMarkets();
-	}, []);
-
-	if (isLoading) {
-		return (
-			<div className="flex justify-center p-4">
-				<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-			</div>
-		);
+export async function loader() {
+	const response = await getMarkets();
+	if (response.success) {
+		// Add random APR for now as requested
+		const marketsWithApr = response.data.map((m) => ({
+			...m,
+			apr: Math.floor(Math.random() * 20) + 5, // 5-24%
+		}));
+		return { initialMarkets: marketsWithApr };
 	}
+	return { initialMarkets: [], error: response.error || "Failed to fetch markets" };
+}
+
+function LiquidityPoolsList() {
+	const { initialMarkets, error: loaderError } = useLoaderData<typeof loader>();
+	const [markets] = useState<(Market & { apr: number })[]>(initialMarkets);
+	const [error] = useState<string | null>(loaderError || null);
 
 	if (error) {
 		return <p className="text-sm text-red-500 text-center">{error}</p>;
