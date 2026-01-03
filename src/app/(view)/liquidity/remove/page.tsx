@@ -5,10 +5,13 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { formatUnits, parseUnits } from "viem";
 import {
 	useAccount,
+	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
+	useWriteContract,
 } from "wagmi";
 
 import { AuthGate } from "@/components/ui/AuthGate";
@@ -29,7 +32,15 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { getMarkets, removeLiquidity, type Market } from "@/lib/liquidity-api";
+import { Slider } from "@/components/ui/slider";
+import { ERC20Abi, lpContract } from "@/lib/contracts";
+import {
+	getMarkets,
+	removeLiquidity,
+	getLiquidityPositions,
+	type Market,
+	type LiquidityPosition,
+} from "@/lib/liquidity-api";
 
 function RemoveLiquidityContent() {
 	const navigate = useNavigate();
@@ -37,12 +48,63 @@ function RemoveLiquidityContent() {
 	const [amount, setAmount] = useState("");
 	const [selectedMarketId, setSelectedMarketId] = useState<string>("");
 	const [markets, setMarkets] = useState<Market[]>([]);
+	const [positions, setPositions] = useState<LiquidityPosition[]>([]);
 	const [isMarketsLoading, setIsMarketsLoading] = useState(true);
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [apiError, setApiError] = useState<string | null>(null);
 
+	console.log("State Debug:", {
+		selectedMarketId,
+		positionsCount: positions.length,
+	});
+
+	const selectedPosition = positions.find(
+		(p) =>
+			p.marketId === selectedMarketId ||
+			p.onChainData?.marketId === selectedMarketId
+	);
+
+	// Determine LP Token Address
+	const lpTokenAddress =
+		selectedPosition?.lpTokenDetails?.lpToken || selectedPosition?.lp;
+
+	console.log("Derived Debug:", {
+		selectedPosition,
+		lpTokenAddress,
+	});
+
+	// Allowance check
+	const { data: allowance, refetch: refetchAllowance } = useReadContract({
+		address: lpTokenAddress as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "allowance",
+		args: address ? [address, lpContract] : undefined,
+		query: { enabled: !!address && !!lpTokenAddress },
+	});
+
+	// Balance check (LP Token)
+	const { data: lpBalance, refetch: refetchLpBalance } = useReadContract({
+		address: lpTokenAddress as `0x${string}`,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address && !!lpTokenAddress },
+	});
+
+	console.log("LP Balance Debug:", {
+		lpBalance,
+		formatted: lpBalance ? formatUnits(lpBalance as bigint, 18) : "N/A",
+	});
+
 	// Write hooks
+	const {
+		writeContract: writeApprove,
+		data: approveHash,
+		isPending: isApprovePending,
+		error: approveError,
+	} = useWriteContract();
+
 	const {
 		sendTransaction,
 		data: removeLiquidityHash,
@@ -51,6 +113,11 @@ function RemoveLiquidityContent() {
 	} = useSendTransaction();
 
 	// Transaction wait hooks
+	const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } =
+		useWaitForTransactionReceipt({
+			hash: approveHash,
+		});
+
 	const {
 		isLoading: isRemoveLiquidityConfirming,
 		isSuccess: isRemoveLiquiditySuccess,
@@ -65,9 +132,7 @@ function RemoveLiquidityContent() {
 				const response = await getMarkets();
 				if (response.success && response.data.length > 0) {
 					setMarkets(response.data);
-					setSelectedMarketId(
-						response.data[0].onChainData.marketId.split("-")[0]
-					); // Default to first market
+					setSelectedMarketId(response.data[0].onChainData.marketId); // Default to first market
 				}
 			} catch (e) {
 				console.error("Failed to fetch markets", e);
@@ -80,11 +145,49 @@ function RemoveLiquidityContent() {
 	}, []);
 
 	useEffect(() => {
+		const fetchPositions = async () => {
+			if (!address) return;
+			try {
+				const response = await getLiquidityPositions(address);
+				if (response.success) {
+					setPositions(response.data);
+				}
+				console.log(
+					".....................................",
+					response.data
+				);
+			} catch (e) {
+				console.error("Failed to fetch positions", e);
+			}
+		};
+		fetchPositions();
+	}, [address]);
+
+	useEffect(() => {
+		if (isApproveSuccess) {
+			toast.success("Approval successful! You can now remove liquidity.");
+			refetchAllowance();
+		}
+	}, [isApproveSuccess, refetchAllowance]);
+
+	useEffect(() => {
 		if (isRemoveLiquiditySuccess) {
 			toast.success("Liquidity removed successfully!");
+			refetchLpBalance(); // Refresh balance
 			// Optional: Navigate back or clear form
 		}
-	}, [isRemoveLiquiditySuccess]);
+	}, [isRemoveLiquiditySuccess, refetchLpBalance]);
+
+	const handleApprove = () => {
+		if (!amount || !lpTokenAddress) return;
+		const amountBigInt = parseUnits(amount, 18);
+		writeApprove({
+			address: lpTokenAddress as `0x${string}`,
+			abi: ERC20Abi,
+			functionName: "approve",
+			args: [lpContract, amountBigInt],
+		});
+	};
 
 	const handleRemoveLiquidity = async () => {
 		if (!amount || !address || !selectedMarketId) return;
@@ -92,13 +195,13 @@ function RemoveLiquidityContent() {
 		setApiError(null);
 
 		try {
+			console.log({ amount, address, selectedMarketId, chainId });
 			const response = await removeLiquidity({
-				amount: amount,
+				lpTokenAmount: amount,
 				userAddress: address,
-				chainId,
 				marketId: selectedMarketId,
 			});
-			console.log({ response });
+			console.table({ response });
 
 			if (response.success && response.data) {
 				const { transactionData } = response.data;
@@ -113,6 +216,7 @@ function RemoveLiquidityContent() {
 				setApiError(response.error || "Failed to get transaction data");
 			}
 		} catch (err) {
+			console.error({ err });
 			setApiError(
 				err instanceof Error ? err.message : "An unknown error occurred"
 			);
@@ -122,9 +226,30 @@ function RemoveLiquidityContent() {
 	};
 
 	const isLoading =
-		isRemoveLiquidityPending || isRemoveLiquidityConfirming || isSubmitting;
+		isRemoveLiquidityPending ||
+		isRemoveLiquidityConfirming ||
+		isSubmitting ||
+		isApprovePending ||
+		isApproveConfirming;
 
-	const isAmountValid = Number(amount) > 0;
+	// Calculate current balance (prioritize on-chain)
+	const currentBalance =
+		lpBalance !== undefined && lpBalance !== null
+			? (lpBalance as bigint)
+			: selectedPosition
+			? BigInt(
+					selectedPosition.lpTokenDetails?.balance ||
+						selectedPosition.lpTokensReceived ||
+						"0"
+			  )
+			: BigInt(0);
+
+	const amountBigInt = amount ? parseUnits(amount, 18) : BigInt(0);
+	const isAmountValid = Number(amount) > 0 && amountBigInt <= currentBalance;
+	const hasAllowance = allowance
+		? (allowance as bigint) >= amountBigInt
+		: false;
+	const isExceedingBalance = amountBigInt > currentBalance;
 
 	return (
 		<div className="min-h-screen w-full mt-8 max-w-lg mx-auto">
@@ -190,7 +315,33 @@ function RemoveLiquidityContent() {
 							<span className="text-muted-foreground">
 								Amount to Remove
 							</span>
-							{/* Balance is unknown for now without API support */}
+							<span className="text-muted-foreground">
+								Balance:{" "}
+								{lpBalance !== undefined && lpBalance !== null
+									? parseFloat(
+											formatUnits(lpBalance as bigint, 18)
+									  ).toLocaleString(undefined, {
+											minimumFractionDigits: 2,
+											maximumFractionDigits: 6,
+									  })
+									: selectedPosition
+									? parseFloat(
+											formatUnits(
+												BigInt(
+													selectedPosition
+														.lpTokenDetails
+														?.balance ||
+														selectedPosition.lpTokensReceived ||
+														"0"
+												),
+												18
+											)
+									  ).toLocaleString(undefined, {
+											minimumFractionDigits: 2,
+											maximumFractionDigits: 6,
+									  })
+									: "0.00"}
+							</span>
 						</div>
 						<div className="relative">
 							<Input
@@ -201,26 +352,96 @@ function RemoveLiquidityContent() {
 								className="pr-16"
 								min="0"
 							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="absolute right-0 top-0 h-full px-3 text-xs text-muted-foreground hover:text-foreground"
+								onClick={() => {
+									if (lpBalance) {
+										setAmount(
+											formatUnits(lpBalance as bigint, 18)
+										);
+									}
+								}}
+							>
+								MAX
+							</Button>
+						</div>
+						<div className="pt-2">
+							<Slider
+								defaultValue={[0]}
+								max={100}
+								step={25}
+								onValueChange={(val) => {
+									if (lpBalance) {
+										const percentage = val[0];
+										const balance = BigInt(
+											lpBalance as bigint
+										);
+										const newAmount =
+											(balance * BigInt(percentage)) /
+											BigInt(100);
+										setAmount(formatUnits(newAmount, 18));
+									}
+								}}
+							/>
+							<div className="flex justify-between mt-1 text-xs text-muted-foreground">
+								<span>0%</span>
+								<span>25%</span>
+								<span>50%</span>
+								<span>75%</span>
+								<span>100%</span>
+							</div>
 						</div>
 					</div>
 
 					<div className="space-y-4">
-						<Button
-							className="w-full"
-							onClick={handleRemoveLiquidity}
-							disabled={
-								isLoading || !isAmountValid || !selectedMarketId
-							}
-						>
-							{isLoading ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : null}
-							{isRemoveLiquidityPending ||
-							isRemoveLiquidityConfirming ||
-							isSubmitting
-								? "Removing Liquidity..."
-								: "Remove Liquidity"}
-						</Button>
+						{!hasAllowance && isAmountValid ? (
+							<Button
+								className="w-full"
+								onClick={handleApprove}
+								disabled={isLoading || !lpTokenAddress}
+							>
+								{isLoading ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : null}
+								{isApprovePending || isApproveConfirming
+									? "Approving..."
+									: "Approve LP Token"}
+							</Button>
+						) : (
+							<Button
+								className="w-full"
+								onClick={handleRemoveLiquidity}
+								disabled={
+									isLoading ||
+									!isAmountValid ||
+									!selectedMarketId
+								}
+							>
+								{isLoading ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : null}
+								{isRemoveLiquidityPending ||
+								isRemoveLiquidityConfirming ||
+								isSubmitting
+									? "Removing Liquidity..."
+									: "Remove Liquidity"}
+							</Button>
+						)}
+
+						{!isAmountValid && isExceedingBalance && (
+							<p className="text-sm text-center text-red-500">
+								Amount exceeds balance
+							</p>
+						)}
+
+						{approveError && (
+							<p className="text-sm text-center text-red-500">
+								Approval failed:{" "}
+								{approveError.message.slice(0, 50)}...
+							</p>
+						)}
 
 						{removeLiquidityError && (
 							<p className="text-sm text-center text-red-500">
@@ -240,12 +461,55 @@ function RemoveLiquidityContent() {
 								Liquidity removed successfully!
 							</p>
 						)}
+
+						{/* Debug info - Remove after fixing */}
+						<div className="mt-4 p-2 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-mono overflow-auto max-h-40">
+							<p className="font-bold">Debug Info:</p>
+							<p>Selected Market: {selectedMarketId}</p>
+							<p>Positions Loaded: {positions.length}</p>
+							<p>
+								Found Position:{" "}
+								{selectedPosition ? "Yes" : "No"}
+							</p>
+							{selectedPosition && (
+								<>
+									<p>
+										Pos ID: {selectedPosition.marketId} /{" "}
+										{selectedPosition.onChainData?.marketId}
+									</p>
+									<p>LP Token: {lpTokenAddress || "None"}</p>
+									<p>
+										API Balance:{" "}
+										{selectedPosition.lpTokenDetails
+											?.balance || "N/A"}
+									</p>
+								</>
+							)}
+							<p>
+								Live Balance:{" "}
+								{lpBalance ? listBalance(lpBalance) : "None"}
+							</p>
+							<p>Available Position IDs:</p>
+							<ul className="list-disc pl-4">
+								{positions.map((p, i) => (
+									<li key={i}>
+										{p.marketId} (Chain:{" "}
+										{p.onChainData?.marketId})
+									</li>
+								))}
+							</ul>
+						</div>
 					</div>
 				</CardContent>
 			</Card>
 		</div>
 	);
 }
+
+const listBalance = (bal: unknown) => {
+	if (typeof bal === "bigint") return bal.toString();
+	return String(bal);
+};
 
 export default function RemoveLiquidityPage() {
 	return (

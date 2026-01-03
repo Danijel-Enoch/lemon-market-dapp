@@ -65,6 +65,46 @@ export interface Market {
 	};
 }
 
+export interface LiquidityPosition {
+	marketId: string;
+	lpTokensReceived: string;
+	lpTokensRedeemed: string | null;
+	lp: string;
+	feesCollected: string | null;
+	amountReceived: string | null;
+	amountProvided: string;
+	holdingDurationSeconds: string | null;
+	entryTimestamp: string;
+	entryLPTokenPrice: string;
+	marketAddress: string;
+	lpTokenDetails?: {
+		marketId: string;
+		lpToken: string;
+		symbol: string;
+		name: string;
+		balance: string;
+	};
+	onChainData: {
+		realLiquidity: string;
+		virtualLiquidity: string;
+		totalLiquidity: string;
+		totalLongMargin: string;
+		totalShortMargin: string;
+		longPositionCount: string;
+		shortPositionCount: string;
+		sharedCollateralPool: string;
+		totalShares: string;
+		marketId: string;
+	};
+}
+
+export interface GetLiquidityPositionsResponse {
+	success: boolean;
+	data: LiquidityPosition[];
+	timestamp?: string;
+	error?: string;
+}
+
 export interface GetMarketsResponse {
 	success: boolean;
 	data: Market[];
@@ -87,7 +127,7 @@ export async function addLiquidity(
 
 export interface RemoveLiquidityRequest {
 	marketId: string;
-	amount: string; // Amount of LP tokens to burn
+	lpTokenAmount: string; // Amount of LP tokens to burn
 	userAddress: string;
 	chainId?: number;
 }
@@ -101,12 +141,20 @@ export interface RemoveLiquidityResponse {
 			value: string;
 			gasEstimate?: string;
 		};
+		oracleData?: {
+			marketId: string;
+			lpTokenAmount: string;
+			nonce: string;
+			deadline: string;
+			signature: string;
+		};
 	};
 	simulationResult?: {
 		success: boolean;
 		gasUsed: string;
 		reverted: boolean;
 	};
+	timestamp?: string;
 	error?: string;
 }
 
@@ -116,11 +164,13 @@ export interface RemoveLiquidityResponse {
 export async function removeLiquidity(
 	params: RemoveLiquidityRequest
 ): Promise<RemoveLiquidityResponse> {
+	console.log({ params });
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/remove`, {
 		method: "POST",
 		body: JSON.stringify(params),
 		headers: { "Content-Type": "application/json" },
 	});
+	console.log({ data });
 	return data as RemoveLiquidityResponse;
 }
 
@@ -132,4 +182,19 @@ export async function getMarkets(): Promise<GetMarketsResponse> {
 		method: "GET",
 	});
 	return data as GetMarketsResponse;
+}
+
+/**
+ * Fetch user's liquidity positions
+ */
+export async function getLiquidityPositions(
+	userAddress: string
+): Promise<GetLiquidityPositionsResponse> {
+	const { data } = await betterFetch(`${BASE_URL}/liquidity/positions`, {
+		method: "GET",
+		query: {
+			userAddress,
+		},
+	});
+	return data as GetLiquidityPositionsResponse;
 }

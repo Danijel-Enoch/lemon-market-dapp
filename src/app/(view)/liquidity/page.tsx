@@ -5,8 +5,14 @@ import { Link } from "react-router-dom";
 import { AuthGate } from "@/components/ui/AuthGate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getMarkets, type Market } from "@/lib/liquidity-api";
+import {
+	getMarkets,
+	getLiquidityPositions,
+	type Market,
+	type LiquidityPosition,
+} from "@/lib/liquidity-api";
 import { formatUnits } from "viem";
+import { useAccount } from "wagmi";
 
 export const metadata = {
 	title: "Liquidity - Lemon Markets",
@@ -175,6 +181,7 @@ function LiquidityContent() {
 				</div>
 
 				<div className="grid grid-cols-1 gap-6 mb-8">
+					<MyPositionsList />
 					<Card className="border-accent/20">
 						<CardHeader>
 							<CardTitle>Liquidity Pools</CardTitle>
@@ -188,6 +195,122 @@ function LiquidityContent() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function MyPositionsList() {
+	const { address } = useAccount();
+	const [positions, setPositions] = useState<LiquidityPosition[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		const fetchPositions = async () => {
+			if (!address) return;
+			try {
+				const response = await getLiquidityPositions(address);
+				if (response.success) {
+					setPositions(response.data);
+				} else {
+					setError(response.error || "Failed to fetch positions");
+				}
+			} catch (e) {
+				console.error(e);
+				setError("An error occurred while fetching positions");
+			} finally {
+				setIsLoading(false);
+			}
+		};
+		fetchPositions();
+	}, [address]);
+
+	if (isLoading) {
+		return (
+			<div className="flex justify-center p-4">
+				<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+			</div>
+		);
+	}
+
+	if (error) {
+		return null; // Don't show anything on error for now? Or show error
+	}
+
+	if (positions.length === 0) {
+		return null; // Don't show the section if no positions
+	}
+
+	return (
+		<Card className="border-accent/20 mb-8">
+			<CardHeader>
+				<CardTitle>My Positions</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="space-y-4">
+					{positions.map((position) => (
+						<div
+							key={position.marketId}
+							className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+						>
+							<div>
+								<p className="font-medium">
+									{position.onChainData.marketId.split(
+										"-"
+									)[0] || "Unknown"}{" "}
+									Pool
+								</p>
+								<div className="flex flex-col gap-1 mt-1">
+									<p className="text-sm text-muted-foreground">
+										Provided: $
+										{parseFloat(
+											formatUnits(
+												BigInt(position.amountProvided),
+												6
+											)
+										).toLocaleString()}
+									</p>
+									<p className="text-sm text-muted-foreground">
+										Entry Time:{" "}
+										{new Date(
+											Number(position.entryTimestamp) *
+												1000
+										).toLocaleDateString()}
+									</p>
+								</div>
+							</div>
+							<div className="text-right">
+								<p className="font-medium text-green-500">
+									{position.lpTokensReceived &&
+									position.onChainData.virtualLiquidity &&
+									Number(position.onChainData.totalShares) > 0
+										? `$${(
+												(Number(
+													position.lpTokenDetails
+														?.balance ||
+														position.lpTokensReceived
+												) /
+													Number(
+														position.onChainData
+															.totalShares
+													)) *
+												Number(
+													position.onChainData
+														.virtualLiquidity
+												) *
+												1e-6
+										  ).toLocaleString(undefined, {
+												minimumFractionDigits: 2,
+												maximumFractionDigits: 2,
+										  })}`
+										: "$0.00"}{" "}
+									Value
+								</p>
+							</div>
+						</div>
+					))}
+				</div>
+			</CardContent>
+		</Card>
 	);
 }
 
