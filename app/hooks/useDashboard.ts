@@ -1,8 +1,8 @@
+import { createReferralCode, getUserReferralStats } from "@app/lib/dashboard-service";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
-import { createReferralCode, getUserReferralStats } from "@app/lib/dashboard-service";
 
 export function useDashboard() {
 	const { address, isConnected } = useAccount();

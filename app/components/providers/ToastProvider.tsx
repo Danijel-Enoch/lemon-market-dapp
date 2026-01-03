@@ -1,5 +1,5 @@
-import { type Toast, Toaster } from "react-hot-toast";
 import { WalletProvider } from "@app/components/providers/WalletProvider";
+import { type Toast, Toaster } from "react-hot-toast";
 
 interface CustomToastProps {
 	toast: Toast;

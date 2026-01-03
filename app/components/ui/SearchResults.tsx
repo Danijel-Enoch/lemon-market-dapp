@@ -1,9 +1,9 @@
-import { ArrowDownRight, ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent } from "@app/components/ui/card";
 import { TokenImage } from "@app/components/ui/TokenImage";
 import type { SearchResult } from "@app/hooks/useSearch";
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 
 interface SearchResultsProps {
 	results: SearchResult[];

@@ -1,6 +1,6 @@
-import type { FC } from "react";
-import { motion } from "framer-motion";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
+import { motion } from "framer-motion";
+import type { FC } from "react";
 
 export const HeroSection: FC = () => {
 	return (

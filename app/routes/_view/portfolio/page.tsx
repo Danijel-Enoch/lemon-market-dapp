@@ -1,13 +1,13 @@
 "use client";
 
-import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
-import { formatUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import type { Metadata } from "@app/lib/types";
+import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
+import { formatUnits } from "viem";
+import { useAccount, useReadContract } from "wagmi";
 
 export const metadata: Metadata = {
 	title: "Portfolio - Lemon Markets",

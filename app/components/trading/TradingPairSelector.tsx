@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@app/components/ui/select";
+import { useState } from "react";
 
 const tradingPairs = [
 	{ symbol: "ETH/USDC.e", gradient: "from-blue-500 to-purple-500" },

@@ -1,12 +1,12 @@
-import { motion } from "framer-motion";
-import { Activity, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
-import { useAccount } from "wagmi";
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import type { Metadata } from "@app/lib/types";
+import { motion } from "framer-motion";
+import { Activity, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { useAccount } from "wagmi";
 
 const miniAppEmbed = {
 	version: "1",

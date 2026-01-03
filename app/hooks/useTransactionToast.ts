@@ -1,6 +1,6 @@
+import { parseTransactionError, type TransactionStatus } from "@app/lib/transaction-utils";
 import { useCallback, useState } from "react";
 import toast from "react-hot-toast";
-import { parseTransactionError, type TransactionStatus } from "@app/lib/transaction-utils";
 
 interface UseTransactionOptions {
 	onSuccess?: (hash: string) => void;

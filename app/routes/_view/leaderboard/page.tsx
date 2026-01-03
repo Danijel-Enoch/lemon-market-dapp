@@ -1,13 +1,3 @@
-import {
-	Award as AwardIcon,
-	ChevronLeft,
-	ChevronRight,
-	Crown,
-	Medal,
-	RefreshCw,
-	Users,
-} from "lucide-react";
-import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
@@ -20,6 +10,16 @@ import {
 } from "@app/components/ui/select";
 import { fetchLeaderboardData } from "@app/lib/leaderboard-service";
 import type { Metadata } from "@app/lib/types";
+import {
+	Award as AwardIcon,
+	ChevronLeft,
+	ChevronRight,
+	Crown,
+	Medal,
+	RefreshCw,
+	Users,
+} from "lucide-react";
+import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 
 export const metadata: Metadata = {
 	title: "Leaderboard - Lemon Markets",

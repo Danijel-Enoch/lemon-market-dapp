@@ -1,15 +1,8 @@
 {
 	"compilerOptions": {
 		"target": "ES2018",
-		"lib": [
-			"dom",
-			"dom.iterable",
-			"esnext"
-		],
-		"rootDirs": [
-			".",
-			"./.react-router/types"
-		],
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"rootDirs": [".", "./.react-router/types"],
 		"allowJs": true,
 		"skipLibCheck": true,
 		"strict": true,
@@ -24,18 +17,9 @@
 		"incremental": true,
 		"baseUrl": ".",
 		"paths": {
-			"@app/*": [
-				"./app/*"
-			]
+			"@app/*": ["./app/*"]
 		}
 	},
-	"include": [
-		"./.react-router/types",
-		"app/**/*"
-	],
-	"exclude": [
-		"node_modules",
-		"dist",
-		"build"
-	]
+	"include": ["./.react-router/types", "app/**/*"],
+	"exclude": ["node_modules", "dist", "build"]
 }

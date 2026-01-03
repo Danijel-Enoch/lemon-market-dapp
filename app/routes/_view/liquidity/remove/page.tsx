@@ -1,18 +1,5 @@
 "use client";
 
-import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { formatUnits, parseUnits } from "viem";
-import {
-	useAccount,
-	useReadContract,
-	useSendTransaction,
-	useWaitForTransactionReceipt,
-	useWriteContract,
-} from "wagmi";
-
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@app/components/ui/card";
@@ -28,12 +15,24 @@ import {
 import { Slider } from "@app/components/ui/slider";
 import { ERC20Abi, lpContract } from "@app/lib/contracts";
 import {
-	getMarkets,
-	removeLiquidity,
 	getLiquidityPositions,
-	type Market,
+	getMarkets,
 	type LiquidityPosition,
+	type Market,
+	removeLiquidity,
 } from "@app/lib/liquidity-api";
+import { ArrowLeft, Loader2, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
+import { formatUnits, parseUnits } from "viem";
+import {
+	useAccount,
+	useReadContract,
+	useSendTransaction,
+	useWaitForTransactionReceipt,
+	useWriteContract,
+} from "wagmi";
 
 function RemoveLiquidityContent() {
 	const navigate = useNavigate();

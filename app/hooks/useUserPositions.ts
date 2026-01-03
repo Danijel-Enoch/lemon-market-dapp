@@ -1,12 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
-import { type EnhancedPosition, getEnhancedUserPositions, type Position } from "@app/lib/position-api";
+import {
+	type EnhancedPosition,
+	getEnhancedUserPositions,
+	type Position,
+} from "@app/lib/position-api";
 import {
 	type TraderPosition,
 	type TraderPositionsResponse,
 	useMarketApi,
 } from "@app/lib/useMarketApi";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
+import { useAccount } from "wagmi";
 
 export interface UseUserPositionsResult {
 	positions: Position[];

@@ -1,7 +1,6 @@
 import { betterFetch } from "@better-fetch/fetch";
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.com";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.com";
 
 export interface AddLiquidityRequest {
 	marketId: string; // Required by API
@@ -114,9 +113,7 @@ export interface GetMarketsResponse {
 /**
  * Call the add liquidity API to get transaction data
  */
-export async function addLiquidity(
-	params: AddLiquidityRequest
-): Promise<AddLiquidityResponse> {
+export async function addLiquidity(params: AddLiquidityRequest): Promise<AddLiquidityResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/add`, {
 		method: "POST",
 		body: JSON.stringify(params),
@@ -162,7 +159,7 @@ export interface RemoveLiquidityResponse {
  * Call the remove liquidity API to get transaction data
  */
 export async function removeLiquidity(
-	params: RemoveLiquidityRequest
+	params: RemoveLiquidityRequest,
 ): Promise<RemoveLiquidityResponse> {
 	console.log({ params });
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/remove`, {
@@ -188,7 +185,7 @@ export async function getMarkets(): Promise<GetMarketsResponse> {
  * Fetch user's liquidity positions
  */
 export async function getLiquidityPositions(
-	userAddress: string
+	userAddress: string,
 ): Promise<GetLiquidityPositionsResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/positions`, {
 		method: "GET",

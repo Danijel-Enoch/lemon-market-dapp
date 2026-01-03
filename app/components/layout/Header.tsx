@@ -1,10 +1,10 @@
+import { useMiniApp } from "@app/components/providers/MiniAppProvider";
+import { Badge } from "@app/components/ui/badge";
+import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { AnimatePresence, motion } from "framer-motion";
 import { Briefcase, ChevronDown, Coins, Flame, Gift, Medal, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import { useMiniApp } from "@app/components/providers/MiniAppProvider";
-import { Badge } from "@app/components/ui/badge";
-import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 
 const earnSubItems = [
 	{ href: "/points", label: "Points" },

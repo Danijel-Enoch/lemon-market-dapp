@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { searchTokens, type TokenItem } from "@app/hooks/useTrending";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // SearchResult type that matches the TokenItem from the API
 export interface SearchResult {

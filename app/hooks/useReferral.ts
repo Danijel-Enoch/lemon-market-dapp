@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
 import {
 	applyReferralCode,
 	createReferralCode,
 	getUserReferralStats,
 } from "@app/lib/dashboard-service";
+import { useCallback, useEffect, useState } from "react";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAccount } from "wagmi";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
 const REFERRED_BY_KEY = "lemon_referred_by";

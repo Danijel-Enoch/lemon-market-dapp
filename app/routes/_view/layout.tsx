@@ -1,5 +1,5 @@
-import { Outlet, useLocation } from "react-router";
 import TopTicker from "@app/components/layout/TopTicker";
+import { Outlet, useLocation } from "react-router";
 
 export default function ViewLayout() {
 	const location = useLocation();

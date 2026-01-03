@@ -1,7 +1,3 @@
-import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@app/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@app/components/dashboard/ReferralStats";
 import { StatCard } from "@app/components/dashboard/StatCard";
@@ -13,6 +9,10 @@ import { Skeleton } from "@app/components/ui/skeleton";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { formatCurrency, formatNumber } from "@app/lib/dashboard-service";
 import type { Metadata } from "@app/lib/types";
+import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAccount } from "wagmi";
 
 export const metadata: Metadata = {
 	title: "Dashboard | Lemon Markets",

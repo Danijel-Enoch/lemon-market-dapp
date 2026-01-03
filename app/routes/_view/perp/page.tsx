@@ -1,17 +1,3 @@
-import * as RadixSlider from "@radix-ui/react-slider";
-import { Search, TrendingDown, TrendingUp } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
-import { redirect, useSearchParams } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { formatUnits, parseUnits } from "viem";
-import {
-	useBalance,
-	useConnection,
-	useReadContract,
-	useSendTransaction,
-	useWaitForTransactionReceipt,
-	useWriteContract,
-} from "wagmi";
 import { ChartSection } from "@app/components/trading/ChartSection";
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import TradingViewWidget from "@app/components/trading/TradingViewWidget";
@@ -36,6 +22,20 @@ import {
 import { referralService } from "@app/lib/referral-service";
 import type { Metadata } from "@app/lib/types";
 import { useMarketApi } from "@app/lib/useMarketApi";
+import * as RadixSlider from "@radix-ui/react-slider";
+import { Search, TrendingDown, TrendingUp } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { redirect, useSearchParams } from "react-router";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { formatUnits, parseUnits } from "viem";
+import {
+	useBalance,
+	useConnection,
+	useReadContract,
+	useSendTransaction,
+	useWaitForTransactionReceipt,
+	useWriteContract,
+} from "wagmi";
 
 const miniAppEmbed = {
 	version: "1",

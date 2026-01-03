@@ -1,11 +1,11 @@
+import { Skeleton } from "@app/components/ui/skeleton";
+import { fetchTokensTrending } from "@app/hooks/useTrending";
+import { cn } from "@app/lib/utils";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import useAsync from "react-use/lib/useAsync";
 import useTimeout from "react-use/lib/useTimeout";
-import { Skeleton } from "@app/components/ui/skeleton";
-import { fetchTokensTrending } from "@app/hooks/useTrending";
-import { cn } from "@app/lib/utils";
 
 type Pill = {
 	icon: string;

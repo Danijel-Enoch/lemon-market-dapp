@@ -1,11 +1,11 @@
+import { AccountModal } from "@app/components/ui/AccountModal";
+import { cn } from "@app/lib/utils";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import { UserCircle2 } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { AccountModal } from "@app/components/ui/AccountModal";
-import { cn } from "@app/lib/utils";
 
 export function ConnectWallet({
 	text = "Connect Wallet",

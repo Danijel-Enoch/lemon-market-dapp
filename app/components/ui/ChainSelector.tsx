@@ -1,7 +1,3 @@
-import { Check, ChevronDown } from "lucide-react";
-import { useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useChainId, useSwitchChain } from "wagmi";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -13,6 +9,10 @@ import {
 	getChainInfo,
 	isChainSupportedInEnvironment,
 } from "@app/lib/chain-utils";
+import { Check, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useChainId, useSwitchChain } from "wagmi";
 
 interface ChainSelectorProps {
 	className?: string;

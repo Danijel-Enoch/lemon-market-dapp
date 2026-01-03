@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
 import { useReferral } from "@app/hooks/useReferral";
 import { referralService } from "@app/lib/referral-service";
 import { generateReferralUrl } from "@app/lib/referral-utils";
+import { useEffect, useMemo, useState } from "react";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAccount } from "wagmi";
 
 /**
  * Example component showing how to use the referral system

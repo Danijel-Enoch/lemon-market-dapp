@@ -1,19 +1,5 @@
 "use client";
 
-import toast from "react-hot-toast";
-
-import { ArrowLeft, Loader2, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { formatUnits, parseUnits } from "viem";
-import {
-	useAccount,
-	useReadContract,
-	useSendTransaction,
-	useWaitForTransactionReceipt,
-	useWriteContract,
-} from "wagmi";
-
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@app/components/ui/card";
@@ -28,6 +14,18 @@ import {
 } from "@app/components/ui/select";
 import { ERC20Abi, lpContract, usdc } from "@app/lib/contracts"; // Removed SyntheticAbi
 import { addLiquidity, getMarkets, type Market } from "@app/lib/liquidity-api";
+import { ArrowLeft, Loader2, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
+import { formatUnits, parseUnits } from "viem";
+import {
+	useAccount,
+	useReadContract,
+	useSendTransaction,
+	useWaitForTransactionReceipt,
+	useWriteContract,
+} from "wagmi";
 
 // Helper to format balance
 const formatBalance = (balance?: bigint, decimals = 6) => {

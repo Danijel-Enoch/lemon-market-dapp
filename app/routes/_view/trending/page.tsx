@@ -1,6 +1,3 @@
-import { ArrowDownRight, ArrowUpRight, Search } from "lucide-react";
-import { useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
 import { Input } from "@app/components/ui/input";
 import {
 	Select,
@@ -14,6 +11,9 @@ import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { fetchTokensTrending, searchTokens, type TokenItem } from "@app/hooks/useTrending";
 import type { Metadata } from "@app/lib/types";
 import { formatLargeNumber, formatPrice } from "@app/lib/utils";
+import { ArrowDownRight, ArrowUpRight, Search } from "lucide-react";
+import { useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/page";
 
 export const metadata: Metadata = {

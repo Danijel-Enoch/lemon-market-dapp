@@ -1,5 +1,3 @@
-import { ArrowUpDown } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent } from "@app/components/ui/card";
 import { Input } from "@app/components/ui/input";
@@ -10,6 +8,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@app/components/ui/select";
+import { ArrowUpDown } from "lucide-react";
+import { useState } from "react";
 
 interface TradingFormProps {
 	mode: "buy" | "sell";

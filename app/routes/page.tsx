@@ -1,6 +1,6 @@
-import { lazy, Suspense } from "react";
 import { HeroSection } from "@app/components/homepage/HeroSection";
 import type { Metadata } from "@app/lib/types";
+import { lazy, Suspense } from "react";
 
 // Dynamically import heavy components to reduce initial bundle size
 const TrendingCoinsSection = lazy(() =>

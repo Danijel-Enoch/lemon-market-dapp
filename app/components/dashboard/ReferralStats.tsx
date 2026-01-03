@@ -1,7 +1,7 @@
-import { Gift, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { formatCurrency } from "@app/lib/dashboard-service";
+import { Gift, Users } from "lucide-react";
 
 interface ReferralStatsProps {
 	totalReferrals: number;

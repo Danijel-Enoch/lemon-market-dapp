@@ -1,8 +1,8 @@
+import { ConnectWallet } from "@app/components/ui/ConnectWallet";
+import { Card, CardContent } from "@app/components/ui/card";
 import { Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useAccount } from "wagmi";
-import { ConnectWallet } from "@app/components/ui/ConnectWallet";
-import { Card, CardContent } from "@app/components/ui/card";
 
 interface AuthGateProps {
 	children: ReactNode;

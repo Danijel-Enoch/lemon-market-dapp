@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 
 const BANNER_HEIGHT = 48; // Approximate height in pixels
 
@@ -38,7 +38,7 @@ export const FaucetBanner = () => {
 							<div className="absolute inset-0 bg-[#004530]/40 backdrop-blur-sm" />
 							{/* Shimmer effect */}
 							<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-gradient-shift opacity-30" />
-							
+
 							<div className="container mx-auto px-4 py-3 h-full relative z-10">
 								<div className="flex items-center justify-between gap-4 h-full">
 									<div className="flex-1 flex items-center justify-center gap-3 text-center">
@@ -100,4 +100,3 @@ export const FaucetBanner = () => {
 		</>
 	);
 };
-

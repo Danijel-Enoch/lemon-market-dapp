@@ -1,11 +1,11 @@
+import { Dialog, DialogContent } from "@app/components/ui/dialog";
+import { formatNumber } from "@app/lib/dashboard-service";
+import { cn } from "@app/lib/utils";
 import { motion } from "framer-motion";
 import { Check, CopyIcon, ExternalLinkIcon, LogOut, Wallet } from "lucide-react";
 import { useState } from "react";
 import { formatUnits } from "viem/utils";
 import { useBalance, useDisconnect } from "wagmi";
-import { Dialog, DialogContent } from "@app/components/ui/dialog";
-import { formatNumber } from "@app/lib/dashboard-service";
-import { cn } from "@app/lib/utils";
 
 interface WagmiAccount {
 	address: string;

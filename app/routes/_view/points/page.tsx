@@ -1,10 +1,10 @@
-import { Gift, Star } from "lucide-react";
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useDashboard } from "@app/hooks/useDashboard";
 import { formatNumber } from "@app/lib/dashboard-service";
 import type { Metadata } from "@app/lib/types";
+import { Gift, Star } from "lucide-react";
 
 export const metadata: Metadata = {
 	title: "Points - Lemon Markets",

@@ -1,7 +1,7 @@
-import { Share2, UserPlus } from "lucide-react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
 import { Button } from "@app/components/ui/button";
 import { useMiniAppActions } from "@app/hooks/useMiniAppActions";
+import { Share2, UserPlus } from "lucide-react";
+import useAsyncFn from "react-use/lib/useAsyncFn";
 
 interface ShareTradeButtonProps {
 	tradeDetails?: {

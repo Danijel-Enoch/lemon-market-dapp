@@ -1,5 +1,5 @@
-import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
+import useAsyncFn from "react-use/lib/useAsyncFn";
 
 export function useMiniAppActions() {
 	const { isMiniApp } = useMiniApp();

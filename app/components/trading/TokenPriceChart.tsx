@@ -1,3 +1,4 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { TrendingUp } from "lucide-react";
 import {
 	Area,
@@ -8,7 +9,6 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 
 interface TokenPriceChartProps {
 	tokenSymbol?: string;

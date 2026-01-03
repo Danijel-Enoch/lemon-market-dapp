@@ -1,7 +1,7 @@
-import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { cn } from "@app/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
 interface StatCardProps {
 	title: string;

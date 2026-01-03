@@ -1,9 +1,9 @@
+import { Button } from "@app/components/ui/button";
+import { Input } from "@app/components/ui/input";
 import { Copy, Link, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { Button } from "@app/components/ui/button";
-import { Input } from "@app/components/ui/input";
 
 interface ReferralCodeSectionProps {
 	referralCode: string | null;

@@ -1,9 +1,5 @@
 "use client";
 
-import { UserPlus, Users } from "lucide-react";
-import { useState } from "react";
-import toast from "react-hot-toast";
-import { useAccount } from "wagmi";
 import { ReferralCodeSection } from "@app/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@app/components/dashboard/ReferralStats";
 import { AuthGate } from "@app/components/ui/AuthGate";
@@ -12,6 +8,10 @@ import { useDashboard } from "@app/hooks/useDashboard";
 import { useReferral } from "@app/hooks/useReferral";
 import { applyReferralCode } from "@app/lib/dashboard-service";
 import type { Metadata } from "@app/lib/types";
+import { UserPlus, Users } from "lucide-react";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { useAccount } from "wagmi";
 
 export const metadata: Metadata = {
 	title: "Referral - Lemon Markets",

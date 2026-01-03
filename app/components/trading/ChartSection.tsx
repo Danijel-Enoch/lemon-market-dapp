@@ -1,3 +1,5 @@
+import { Button } from "@app/components/ui/button";
+import { fetchChartData } from "@app/lib/chart-data-service";
 import { useEffect, useMemo, useState } from "react";
 import useAsync from "react-use/lib/useAsync";
 import {
@@ -10,8 +12,6 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { Button } from "@app/components/ui/button";
-import { fetchChartData } from "@app/lib/chart-data-service";
 
 interface ChartSectionProps {
 	pairAddress?: string;

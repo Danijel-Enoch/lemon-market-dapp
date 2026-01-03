@@ -1,8 +1,8 @@
-import { Zap } from "lucide-react";
 import { Badge } from "@app/components/ui/badge";
 import { Card } from "@app/components/ui/card";
 import { useAppContext } from "@app/contexts/AppContext";
 import { mockTradingPairs } from "@app/lib/mock-data";
+import { Zap } from "lucide-react";
 
 export function TradingPairsList() {
 	const { state, dispatch } = useAppContext();

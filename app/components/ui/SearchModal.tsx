@@ -1,10 +1,10 @@
-import { Search } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@app/components/ui/dialog";
 import { Input } from "@app/components/ui/input";
 import { SearchResults } from "@app/components/ui/SearchResults";
 import { type SearchResult, useSearch } from "@app/hooks/useSearch";
+import { Search } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router";
 
 interface SearchModalProps {
 	open: boolean;

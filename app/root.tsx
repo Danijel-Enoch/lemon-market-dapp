@@ -1,5 +1,5 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import { PostHogProvider } from "posthog-js/react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import { MiniAppProvider } from "./components/providers/MiniAppProvider";
 import { ToastProvider } from "./components/providers/ToastProvider";

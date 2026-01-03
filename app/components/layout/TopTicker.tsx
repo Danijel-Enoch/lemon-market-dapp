@@ -1,10 +1,10 @@
+import { Skeleton } from "@app/components/ui/skeleton";
+import { fetchTokensTrending } from "@app/hooks/useTrending";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import useEvent from "react-use/lib/useEvent";
-import { Skeleton } from "@app/components/ui/skeleton";
-import { fetchTokensTrending } from "@app/hooks/useTrending";
 
 interface TickerToken {
 	symbol: string;

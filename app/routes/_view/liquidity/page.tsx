@@ -1,16 +1,15 @@
-import { Loader2, Minus, Plus, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link, useLoaderData } from "react-router";
-
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import {
-	getMarkets,
 	getLiquidityPositions,
-	type Market,
+	getMarkets,
 	type LiquidityPosition,
+	type Market,
 } from "@app/lib/liquidity-api";
+import { Loader2, Minus, Plus, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLoaderData } from "react-router";
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 

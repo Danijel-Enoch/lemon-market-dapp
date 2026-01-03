@@ -1,8 +1,3 @@
-import { useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
-import { useNavigate } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@app/components/ui/dialog";
@@ -18,6 +13,11 @@ import {
 	validateMargin,
 } from "@app/lib/position-api";
 import { useMarketApi } from "@app/lib/useMarketApi";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
+import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface PositionsTableProps {
 	positions: Position[];

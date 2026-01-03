@@ -1,6 +1,6 @@
-import { Award as AwardIcon, Crown, Medal, Users } from "lucide-react";
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
+import { Award as AwardIcon, Crown, Medal, Users } from "lucide-react";
 
 interface LeaderboardEntry {
 	id: string;

@@ -1,6 +1,6 @@
-import { Bell, Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@app/components/ui/card";
 import type { Metadata } from "@app/lib/types";
+import { Bell, Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
 
 export const metadata: Metadata = {
 	title: "Staking - Coming Soon | Lemon Markets",
