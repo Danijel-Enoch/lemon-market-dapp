@@ -2,10 +2,9 @@ FROM oven/bun:1.3.5 AS base
 WORKDIR /usr/src/app
 
 FROM base AS install
-RUN apt-get update && apt-get install -y python3 make g++
 RUN mkdir -p /temp/dev
 COPY package.json bun.lock /temp/dev/
-RUN cd /temp/dev && bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache cd /temp/dev && bun install --frozen-lockfile
 
 FROM base AS prerelease
 COPY --from=install /temp/dev/node_modules node_modules

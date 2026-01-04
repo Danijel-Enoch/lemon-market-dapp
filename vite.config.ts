@@ -12,6 +12,7 @@ export default defineConfig({
 		hmr: {
 			host: "localhost",
 		},
+		allowedHosts: ["testb.kubesmith.app", "lemonmarkets.xyz", "www.lemonmarkets.xyz"],
 	},
 	build: {
 		reportCompressedSize: false,
