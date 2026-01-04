@@ -109,7 +109,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 								<p className="text-[#94a3b8] text-base leading-relaxed">{message}</p>
 							</div>
 
-							{stack && (
+							{stack && import.meta.env.DEV && (
 								<div className="w-full text-left bg-[#050505] border border-[#222222] rounded-lg p-4 overflow-x-auto max-h-64 scrollbar-thin">
 									<pre className="text-xs text-red-400 font-mono leading-tight">{stack}</pre>
 								</div>
