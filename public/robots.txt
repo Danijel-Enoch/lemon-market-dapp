@@ -6,4 +6,4 @@ Allow: /
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://demo.lemonmarkets.xyz/sitemap.xml
+Sitemap: https://lemonmarkets.xyz/sitemap.xml
