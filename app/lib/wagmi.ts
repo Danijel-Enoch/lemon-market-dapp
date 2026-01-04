@@ -8,6 +8,7 @@ import {
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
+import { farcasterWallet } from "./farcaster-connector";
 
 const projectId =
 	import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "eea6d53be219bc80965a59a7d6f235b0";
@@ -15,20 +16,12 @@ const projectId =
 // Define chains based on environment
 const _isDevelopment = import.meta.env.MODE === "development";
 
-// Import Mini App connector (will be added to connectors automatically)
-let farcasterMiniAppConnector: unknown;
-try {
-	const { farcasterMiniApp } = require("@farcaster/miniapp-wagmi-connector");
-	farcasterMiniAppConnector = farcasterMiniApp;
-} catch {}
-
 const connectors = connectorsForWallets(
 	[
 		{
 			groupName: "Popular",
 			wallets: [
-				// Add Mini App connector if available
-				...(farcasterMiniAppConnector ? [farcasterMiniAppConnector as any] : []),
+				farcasterWallet,
 				metaMaskWallet,
 				braveWallet,
 				walletConnectWallet,

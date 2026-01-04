@@ -16,6 +16,17 @@ export default defineConfig({
 		reportCompressedSize: false,
 		target: "esnext",
 		sourcemap: false,
+		rollupOptions: {
+			onwarn(warning, warn) {
+				if (
+					warning.code === "INVALID_ANNOTATION" &&
+					warning.message.includes("contains an annotation that Rollup cannot interpret")
+				) {
+					return;
+				}
+				warn(warning);
+			},
+		},
 	},
 	optimizeDeps: {
 		exclude: ["@reown/appkit", "@reown/appkit-controllers"],

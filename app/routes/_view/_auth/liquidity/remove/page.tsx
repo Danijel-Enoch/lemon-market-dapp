@@ -20,7 +20,13 @@ import {
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	useFetcher,
+	useLoaderData,
+	useNavigate,
+} from "react-router";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useConnection,
@@ -29,12 +35,6 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	useFetcher,
-	useLoaderData,
-} from "react-router";
 
 export const handle = {
 	authTitle: "Connect Wallet to Remove Liquidity",
@@ -42,7 +42,7 @@ export const handle = {
 	authIcon: Wallet,
 };
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader(_: LoaderFunctionArgs) {
 	try {
 		const response = await getMarkets();
 		if (response.success) {
@@ -435,8 +435,8 @@ export default function RemoveLiquidityPage() {
 							<p>Live Balance: {lpBalance ? listBalance(lpBalance) : "None"}</p>
 							<p>Available Position IDs:</p>
 							<ul className="list-disc pl-4">
-								{positions.map((p, i) => (
-									<li key={i}>
+								{positions.map((p) => (
+									<li key={p.marketId}>
 										{p.marketId} (Chain: {p.onChainData?.marketId})
 									</li>
 								))}

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
-import type { MetaFunction } from "react-router";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [

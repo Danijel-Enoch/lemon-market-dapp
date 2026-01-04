@@ -2,7 +2,7 @@ import { verifyTask } from "@app/lib/kickoff-service";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@app/lib/mock-data";
 import type React from "react";
 import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
-import { useConnection, useBalance } from "wagmi";
+import { useBalance, useConnection } from "wagmi";
 
 interface AppState {
 	selectedPair: TradingPair | null;

@@ -11,6 +11,7 @@ import { useMarketData } from "@app/hooks/useMarketData";
 import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@app/lib/contracts";
+import { openPosition } from "@app/lib/market-api";
 import { formatPrice, getForexPrice, getStockPrice } from "@app/lib/oracle";
 import {
 	extractTokenSymbol,
@@ -20,11 +21,12 @@ import {
 	validateMargin,
 } from "@app/lib/position-api";
 import { referralService } from "@app/lib/referral-service";
-import type { MetaFunction } from "react-router";
 import * as RadixSlider from "@radix-ui/react-slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { redirect, useSearchParams } from "react-router";
+import { toast } from "react-hot-toast";
+import type { MetaFunction } from "react-router";
+import { type ActionFunctionArgs, redirect, useFetcher, useSearchParams } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { formatUnits, parseUnits } from "viem";
 import {
@@ -35,9 +37,6 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
-import { type ActionFunctionArgs, useFetcher } from "react-router";
-import { openPosition } from "@app/lib/market-api";
-import { toast } from "react-hot-toast";
 
 export async function action({ request }: ActionFunctionArgs) {
 	const formData = await request.formData();

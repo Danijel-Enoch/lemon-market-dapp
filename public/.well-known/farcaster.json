@@ -16,12 +16,7 @@
 		"description": "A decentralized trading platform for perpetual futures",
 		"subtitle": "Trade perps with leverage",
 		"primaryCategory": "finance",
-		"tags": [
-			"trading",
-			"defi",
-			"perpetuals",
-			"leverage"
-		],
+		"tags": ["trading", "defi", "perpetuals", "leverage"],
 		"ogTitle": "Lemon Markets - Perp Trading",
 		"ogDescription": "Trade perpetual futures with leverage on a decentralized platform",
 		"ogImageUrl": "https://lemonmarkets.xyz/image/features-image.png"

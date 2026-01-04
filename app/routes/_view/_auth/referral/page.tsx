@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/car
 import { useDashboard } from "@app/hooks/useDashboard";
 import { useReferral } from "@app/hooks/useReferral";
 import { applyReferralCode } from "@app/lib/dashboard-service";
-import type { MetaFunction } from "react-router";
 import { UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import type { MetaFunction } from "react-router";
 import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => {
