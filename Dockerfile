@@ -18,7 +18,7 @@ RUN bun run build
 FROM base AS release
 COPY --from=install --chown=bun:bun /temp/dev/node_modules node_modules
 COPY --from=prerelease --chown=bun:bun /usr/src/app/package.json .
-COPY --from=prerelease --chown=bun:bun /usr/src/app/vite.config.ts .
+COPY --from=prerelease --chown=bun:bun /usr/src/app/vite.config.js .
 COPY --from=prerelease --chown=bun:bun /usr/src/app/app app
 COPY --from=prerelease --chown=bun:bun /usr/src/app/public public
 COPY --from=prerelease --chown=bun:bun /usr/src/app/build build

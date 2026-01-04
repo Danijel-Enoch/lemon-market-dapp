@@ -3,6 +3,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+console.log("Vite config loaded!");
+
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [reactRouter(), tailwindcss(), tsconfigPaths()],
