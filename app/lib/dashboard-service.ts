@@ -1,10 +1,6 @@
 import { betterFetch } from "@better-fetch/fetch";
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL ||
-	(import.meta.env.DEV
-		? "http://localhost:3000"
-		: "https://api.degenoptions.xyz");
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface DashboardStats {
 	pointsEarned: number;
@@ -83,9 +79,7 @@ interface AggregatedPointsResponse {
 /**
  * Fetch user's referral stats including code from API
  */
-export async function getUserReferralCode(
-	address: string
-): Promise<string | null> {
+export async function getUserReferralCode(address: string): Promise<string | null> {
 	try {
 		const stats = await getUserReferralStats(address);
 		return stats?.referralCode || null;
@@ -97,18 +91,13 @@ export async function getUserReferralCode(
 /**
  * Link an Ethereum address and generate a referral code
  */
-export async function createReferralCode(
-	address: string
-): Promise<string | null> {
+export async function createReferralCode(address: string): Promise<string | null> {
 	try {
-		const { data } = await betterFetch<LinkApiResponse>(
-			`${BASE_URL}/referrals/link`,
-			{
-				method: "POST",
-				body: JSON.stringify({ address }),
-				headers: { "Content-Type": "application/json" },
-			}
-		);
+		const { data } = await betterFetch<LinkApiResponse>(`${BASE_URL}/referrals/link`, {
+			method: "POST",
+			body: JSON.stringify({ address }),
+			headers: { "Content-Type": "application/json" },
+		});
 		console.log("Create referral code API response:", data);
 		// The API returns { success, message, user: { address, referralCode, points } }
 		return data?.user?.referralCode || null;
@@ -123,17 +112,14 @@ export async function createReferralCode(
  */
 export async function applyReferralCode(
 	address: string,
-	referralCode: string
+	referralCode: string,
 ): Promise<ApplyReferralResponse> {
 	try {
-		const { data } = await betterFetch<ApplyReferralResponse>(
-			`${BASE_URL}/referrals/apply`,
-			{
-				method: "POST",
-				body: JSON.stringify({ address, referralCode }),
-				headers: { "Content-Type": "application/json" },
-			}
-		);
+		const { data } = await betterFetch<ApplyReferralResponse>(`${BASE_URL}/referrals/apply`, {
+			method: "POST",
+			body: JSON.stringify({ address, referralCode }),
+			headers: { "Content-Type": "application/json" },
+		});
 		return data || { success: false };
 	} catch (_error) {
 		console.error("Failed to apply referral code:", _error);
@@ -146,12 +132,9 @@ export async function applyReferralCode(
  */
 export async function getUserPoints(address: string): Promise<number> {
 	try {
-		const { data } = await betterFetch(
-			`${BASE_URL}/users/${address}/points`,
-			{
-				method: "GET",
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/points`, {
+			method: "GET",
+		});
 		return (data as { points?: number } | null)?.points || 0;
 	} catch (_error) {
 		return 0;
@@ -163,12 +146,9 @@ export async function getUserPoints(address: string): Promise<number> {
  */
 export async function getUserFeesEarned(address: string): Promise<number> {
 	try {
-		const { data } = await betterFetch(
-			`${BASE_URL}/users/${address}/fees-earned`,
-			{
-				method: "GET",
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/fees-earned`, {
+			method: "GET",
+		});
 		return (data as { feesEarned?: number } | null)?.feesEarned || 0;
 	} catch (_error) {
 		return 0;
@@ -180,12 +160,9 @@ export async function getUserFeesEarned(address: string): Promise<number> {
  */
 export async function getUserTradingVolume(address: string): Promise<number> {
 	try {
-		const { data } = await betterFetch(
-			`${BASE_URL}/users/${address}/volume`,
-			{
-				method: "GET",
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/users/${address}/volume`, {
+			method: "GET",
+		});
 		return (data as { volume?: number } | null)?.volume || 0;
 	} catch (_error) {
 		return 0;
@@ -195,16 +172,11 @@ export async function getUserTradingVolume(address: string): Promise<number> {
 /**
  * Fetch user's referral statistics
  */
-export async function getUserReferralStats(
-	address: string
-): Promise<ReferralStats> {
+export async function getUserReferralStats(address: string): Promise<ReferralStats> {
 	try {
-		const { data } = await betterFetch<StatsApiResponse>(
-			`${BASE_URL}/referrals/stats/${address}`,
-			{
-				method: "GET",
-			}
-		);
+		const { data } = await betterFetch<StatsApiResponse>(`${BASE_URL}/referrals/stats/${address}`, {
+			method: "GET",
+		});
 		//console.log("Referral stats API response:", data);
 
 		// The API returns { success, stats: { address, referralCode, points, totalReferrals, ... } }
@@ -241,7 +213,7 @@ export async function getUserAggregatedPoints(address: string): Promise<{
 			`${BASE_URL}/referrals/points/${address}`,
 			{
 				method: "GET",
-			}
+			},
 		);
 
 		return (
@@ -265,12 +237,9 @@ export async function getUserAggregatedPoints(address: string): Promise<{
  */
 export async function getUserLeaderboardRank(address: string): Promise<number> {
 	try {
-		const { data } = await betterFetch(
-			`${BASE_URL}/leaderboard/rank/${address}`,
-			{
-				method: "GET",
-			}
-		);
+		const { data } = await betterFetch(`${BASE_URL}/leaderboard/rank/${address}`, {
+			method: "GET",
+		});
 		return (data as { rank?: number } | null)?.rank || 0;
 	} catch (_error) {
 		return 0;
@@ -280,10 +249,7 @@ export async function getUserLeaderboardRank(address: string): Promise<number> {
 /**
  * Format large numbers for display
  */
-export function formatNumber(
-	num: number | undefined | null,
-	decimals = 2
-): string {
+export function formatNumber(num: number | undefined | null, decimals = 2): string {
 	// Handle undefined, null, or non-numeric values
 	if (num == null || typeof num !== "number" || Number.isNaN(num)) {
 		return "0";
@@ -301,12 +267,6 @@ export function formatNumber(
 /**
  * Format currency for display
  */
-export function formatCurrency(
-	amount: number,
-	symbol = "$",
-	decimals = 2
-): string {
-	return (
-		symbol + amount.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-	);
+export function formatCurrency(amount: number, symbol = "$", decimals = 2): string {
+	return symbol + amount.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
