@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useDashboard } from "@app/hooks/useDashboard";
 import { formatNumber } from "@app/lib/dashboard-service";
-import type { MetaFunction } from "react-router";
 import { Star } from "lucide-react";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [

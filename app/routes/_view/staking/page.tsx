@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@app/components/ui/card";
-import type { MetaFunction } from "react-router";
 import { Bell, Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [

@@ -14,7 +14,13 @@ import { addLiquidity, getMarkets } from "@app/lib/liquidity-api";
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	useFetcher,
+	useLoaderData,
+	useNavigate,
+} from "react-router";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useConnection,
@@ -23,12 +29,6 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	useFetcher,
-	useLoaderData,
-} from "react-router";
 
 export const handle = {
 	authTitle: "Connect Wallet to Add Liquidity",
@@ -36,7 +36,7 @@ export const handle = {
 	authIcon: Wallet,
 };
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader(_: LoaderFunctionArgs) {
 	try {
 		const response = await getMarkets();
 		if (response.success) {

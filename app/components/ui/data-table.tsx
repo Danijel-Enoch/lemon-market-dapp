@@ -1,9 +1,9 @@
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { Input } from "./input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { Skeleton } from "./skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
 // Column definition for the table
 export interface ColumnDef<T> {
@@ -207,6 +207,7 @@ export function DataTable<T>({
 									<tbody>
 										{showSkeletons ? (
 											Array.from({ length: skeletonCount }).map((_, i) => (
+												// biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are static
 												<tr key={`skeleton-${i}`} className="border-b border-[#1e1e1e]">
 													{columns.map((col) => (
 														<td

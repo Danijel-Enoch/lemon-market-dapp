@@ -3,10 +3,10 @@ import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { formatPrice, formatPriceChange, getTokenPriceByPair } from "@app/lib/oracle";
-import type { MetaFunction } from "react-router";
 import { LiFiWidget, useWidgetEvents, type WidgetConfig, WidgetEvent } from "@lifi/widget";
 import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { MetaFunction } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 
 export const meta: MetaFunction = () => {

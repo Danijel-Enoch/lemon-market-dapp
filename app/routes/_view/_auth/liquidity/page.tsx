@@ -10,11 +10,10 @@ import {
 import { formatLargeNumber } from "@app/lib/utils";
 import { Loader2, Minus, Plus, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLoaderData, useSearchParams, useNavigate } from "react-router";
+import type { MetaFunction } from "react-router";
+import { Link, useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { formatUnits } from "viem";
 import { useConnection } from "wagmi";
-
-import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [

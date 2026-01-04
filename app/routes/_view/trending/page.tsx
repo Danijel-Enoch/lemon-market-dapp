@@ -1,5 +1,4 @@
 import { type ColumnDef, DataTable, type FilterTab } from "@app/components/ui/data-table";
-import { Skeleton } from "@app/components/ui/skeleton";
 import {
 	Select,
 	SelectContent,
@@ -7,11 +6,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@app/components/ui/select";
+import { Skeleton } from "@app/components/ui/skeleton";
 import { fetchTokensTrending, searchTokens, type TokenItem } from "@app/hooks/useTrending";
-import type { MetaFunction } from "react-router";
 import { formatLargeNumber, formatPrice } from "@app/lib/utils";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useRef, useState } from "react";
+import type { MetaFunction } from "react-router";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/page";
 

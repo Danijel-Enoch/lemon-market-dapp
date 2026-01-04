@@ -1,6 +1,6 @@
 import { HeroSection } from "@app/components/homepage/HeroSection";
-import type { MetaFunction } from "react-router";
 import { lazy, Suspense } from "react";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [

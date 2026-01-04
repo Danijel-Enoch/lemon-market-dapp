@@ -1,8 +1,8 @@
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
-import type { MetaFunction } from "react-router";
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
+import type { MetaFunction } from "react-router";
 import { formatUnits } from "viem";
 import { useConnection, useReadContract } from "wagmi";
 

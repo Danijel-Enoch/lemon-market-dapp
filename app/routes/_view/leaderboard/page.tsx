@@ -9,7 +9,6 @@ import {
 	SelectValue,
 } from "@app/components/ui/select";
 import { fetchLeaderboardData } from "@app/lib/leaderboard-service";
-import type { MetaFunction } from "react-router";
 import {
 	Award as AwardIcon,
 	ChevronLeft,
@@ -19,6 +18,7 @@ import {
 	RefreshCw,
 	Users,
 } from "lucide-react";
+import type { MetaFunction } from "react-router";
 import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 
 export const meta: MetaFunction = () => {

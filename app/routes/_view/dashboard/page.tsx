@@ -8,9 +8,9 @@ import { Skeleton } from "@app/components/ui/skeleton";
 // import { useDashboard } from "@/hooks/useDashboard";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { formatCurrency, formatNumber } from "@app/lib/dashboard-service";
-import type { MetaFunction } from "react-router";
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { MetaFunction } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useConnection } from "wagmi";
 
