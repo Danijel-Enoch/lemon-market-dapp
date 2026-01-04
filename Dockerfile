@@ -4,7 +4,7 @@ WORKDIR /usr/src/app
 FROM base AS install
 RUN mkdir -p /temp/dev
 COPY package.json bun.lock /temp/dev/
-RUN --mount=type=cache,target=/root/.bun/install/cache cd /temp/dev && bun install --frozen-lockfile --ignore-scripts
+RUN --mount=type=cache,target=/root/.bun/install/cache cd /temp/dev && bun install --frozen-lockfile --optional --ignore-scripts
 
 FROM base AS prerelease
 COPY --from=install /temp/dev/node_modules node_modules
