@@ -24,6 +24,9 @@ COPY --from=prerelease --chown=bun:bun /usr/src/app/public public
 COPY --from=prerelease --chown=bun:bun /usr/src/app/build build
 COPY --from=prerelease --chown=bun:bun /usr/src/app/tsconfig.json .
 
+# Fix permissions for runtime
+RUN mkdir -p .react-router && chown -R bun:bun .react-router
+
 # run the app
 USER bun
 EXPOSE 3002/tcp
