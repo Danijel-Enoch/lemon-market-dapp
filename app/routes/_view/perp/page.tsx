@@ -23,7 +23,7 @@ import { referralService } from "@app/lib/referral-service";
 import type { Metadata } from "@app/lib/types";
 import * as RadixSlider from "@radix-ui/react-slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { redirect, useSearchParams } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { formatUnits, parseUnits } from "viem";
@@ -64,7 +64,21 @@ export async function action({ request }: ActionFunctionArgs) {
 			if (result.success && result.data) {
 				return { success: true, intent, transactionData: result.data };
 			}
-			return { success: false, intent, error: result.error || "Failed to open position" };
+
+			// Handle simulation errors
+			let errorMessage = result.error || "Failed to open position";
+			if (result.simulationResult && !result.simulationResult.success) {
+				if (result.simulationResult.revertReason) {
+					errorMessage = `Transaction reverted: ${result.simulationResult.revertReason}`;
+				} else if (result.simulationResult.error) {
+					// Extract the main error message from the detailed error string
+					const errorMatch = result.simulationResult.error.match(/^([^.\n]+)/);
+					errorMessage = errorMatch ? errorMatch[1].trim() : "Transaction simulation failed";
+				} else if (result.simulationResult.reverted) {
+					errorMessage = "Transaction would fail - please check your parameters";
+				}
+			}
+			return { success: false, intent, error: errorMessage };
 		} catch (error) {
 			return {
 				success: false,
@@ -138,7 +152,7 @@ export async function loader({ request }: { request: Request }) {
 
 const DEFAULT_REFERRER_ADDRESS = "0x273d6779DDFa7e942F6b87c420e4072F4468f1cB";
 
-function PerpContent() {
+export default function PerpContent() {
 	const [searchParams] = useSearchParams();
 	const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 	const [tradingPair, setTradingPair] = useState({
@@ -808,7 +822,7 @@ function PerpContent() {
 											key={`chart-skeleton-${i}`}
 											className="bg-gray-800 rounded-t flex-1"
 											style={{
-												height: `${Math.random() * 60 + 40}%`,
+												height: `${40 + ((Math.sin(i * 0.5) + 1) / 2) * 60}%`,
 											}}
 										/>
 									))}
@@ -1290,22 +1304,5 @@ function PerpContent() {
 
 			<SearchModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
 		</>
-	);
-}
-
-export default function PerpPage() {
-	return (
-		<Suspense
-			fallback={
-				<div className="min-h-screen bg-black text-foreground flex items-center justify-center">
-					<div className="flex flex-col items-center gap-4">
-						<Skeleton className="h-12 w-48 mb-4" />
-						<Skeleton className="h-96 w-full max-w-4xl" />
-					</div>
-				</div>
-			}
-		>
-			<PerpContent />
-		</Suspense>
 	);
 }

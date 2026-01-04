@@ -14,6 +14,13 @@ export interface OpenPositionRequest {
 	referrer?: string;
 }
 
+export interface SimulationResult {
+	success: boolean;
+	reverted?: boolean;
+	revertReason?: string;
+	error?: string;
+}
+
 export interface OpenPositionResponse {
 	success: boolean;
 	data?: {
@@ -21,7 +28,8 @@ export interface OpenPositionResponse {
 		data: string;
 		value: string;
 		gasEstimate?: number;
-	};
+	} | null;
+	simulationResult?: SimulationResult;
 	error?: string;
 }
 

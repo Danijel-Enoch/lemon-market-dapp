@@ -178,9 +178,9 @@ export function ChartSection({
 						<div className="flex items-end justify-between h-full gap-1 px-2">
 							{Array.from({ length: 50 }, (_, i) => (
 								<div
-									key={`skeleton-bar-${Math.random()}-${i}`}
+									key={`skeleton-bar-${i}`}
 									className="bg-gray-800 rounded-t flex-1"
-									style={{ height: `${Math.random() * 60 + 40}%` }}
+									style={{ height: `${40 + ((Math.sin(i * 0.5) + 1) / 2) * 60}%` }}
 								/>
 							))}
 						</div>
