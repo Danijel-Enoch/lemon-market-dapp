@@ -16,7 +16,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface PositionsTableProps {
@@ -106,7 +106,7 @@ export function PositionsTable({
 
 	// Handle modify position
 	const [{ loading: isModifyingPosition, error: modifyError }, handleModifyPosition] =
-		useAsyncFn(async () => {
+		useAsyncCallback(async () => {
 			if (!address || !selectedPosition) {
 				throw new Error("Please connect your wallet first");
 			}

@@ -9,9 +9,9 @@ import {
 	getChainInfo,
 	isChainSupportedInEnvironment,
 } from "@app/lib/chain-utils";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useChainId, useSwitchChain } from "wagmi";
 
 interface ChainSelectorProps {
@@ -34,7 +34,7 @@ export function ChainSelector({ className = "", showTestnets }: ChainSelectorPro
 		return true;
 	});
 
-	const [, handleChainSwitch] = useAsyncFn(
+	const [, handleChainSwitch] = useAsyncCallback(
 		async (targetChainId: number) => {
 			// @ts-expect-error - wont fix
 			switchChain({ chainId: targetChainId });

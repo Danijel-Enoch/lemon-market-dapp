@@ -1,10 +1,10 @@
 import { Skeleton } from "@app/components/ui/skeleton";
 import { fetchTokensTrending } from "@app/hooks/useTrending";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
+import { useWindowEvent } from "@app/hooks/useWindowEvent";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
-import useEvent from "react-use/lib/useEvent";
 
 interface TickerToken {
 	symbol: string;
@@ -96,7 +96,7 @@ export const TopTicker: FC = () => {
 	const pathname = location.pathname;
 	const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
-	const [{ value: tickerTokens }, fetchTickerData] = useAsyncFn(async () => {
+	const [{ value: tickerTokens }, fetchTickerData] = useAsyncCallback(async () => {
 		const result = await fetchTokensTrending({ limit: 15, page: 1 });
 		if (result.data && Array.isArray(result.data)) {
 			const tokens: TickerToken[] = (result.data as import("@app/hooks/useTrending").TokenItem[])
@@ -128,7 +128,7 @@ export const TopTicker: FC = () => {
 		return () => clearInterval(interval);
 	}, [fetchTickerData]);
 
-	useEvent("resize", () => {
+	useWindowEvent("resize", () => {
 		// Calculate how many times we need to repeat the base set so that the
 		// animated container's width is at least twice the visible container
 		// width. This ensures translateX(-50%) slides exactly one copy and

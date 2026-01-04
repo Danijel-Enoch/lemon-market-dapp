@@ -1,10 +1,10 @@
 import { Skeleton } from "@app/components/ui/skeleton";
 import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { cn } from "@app/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import useAsync from "react-use/lib/useAsync";
 
 type Pill = {
 	icon: string;
@@ -172,10 +172,14 @@ export const TrendingCoinsSection: FC = () => {
 	}, []);
 
 	// Fetch trending tokens from API
-	const { value: trendingData, loading } = useAsync(async () => {
-		const data = await fetchTokensTrending({ limit: 50, page: 1 });
-		return data.data as TrendingToken[];
-	}, [isReady]);
+	const { data: trendingData, isLoading: loading } = useQuery({
+		queryKey: ["trending-coins", isReady],
+		queryFn: async () => {
+			const data = await fetchTokensTrending({ limit: 50, page: 1 });
+			return data.data as TrendingToken[];
+		},
+		enabled: isReady,
+	});
 
 	const pills = convertToPills(trendingData || []);
 	const top = pills.slice(0, Math.ceil(pills.length / 2));

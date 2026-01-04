@@ -11,7 +11,7 @@ import { formatCurrency, formatNumber } from "@app/lib/dashboard-service";
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { MetaFunction } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => {
@@ -91,7 +91,7 @@ function DashboardContent() {
 		}
 	}, [isWalletConnected, directIsConnected, walletAddress, directAddress, status]);
 
-	const [{ loading: isGeneratingCode }, handleGenerateCode] = useAsyncFn(async () => {
+	const [{ loading: isGeneratingCode }, handleGenerateCode] = useAsyncCallback(async () => {
 		return await generateReferralCode();
 	}, [generateReferralCode]);
 

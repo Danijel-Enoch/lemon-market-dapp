@@ -1,8 +1,8 @@
 import { useReferral } from "@app/hooks/useReferral";
 import { referralService } from "@app/lib/referral-service";
 import { generateReferralUrl } from "@app/lib/referral-utils";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useEffect, useMemo, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useConnection } from "wagmi";
 
 /**
@@ -15,7 +15,7 @@ export function ReferralExample() {
 	const [copiedToClipboard, setCopiedToClipboard] = useState(false);
 
 	const [{ loading: statsLoading, error: statsError, value: statsData }, fetchStats] =
-		useAsyncFn(async () => {
+		useAsyncCallback(async () => {
 			if (!address) return null;
 			return await referralService.getReferralStats(address);
 		}, [address]);
@@ -30,7 +30,7 @@ export function ReferralExample() {
 		}
 	}, [address, fetchStats]);
 
-	const [, handleCopyReferralLink] = useAsyncFn(async () => {
+	const [, handleCopyReferralLink] = useAsyncCallback(async () => {
 		if (!referralCode) return;
 
 		const shareUrl = generateReferralUrl(

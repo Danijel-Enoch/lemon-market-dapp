@@ -5,7 +5,7 @@ import {
 } from "@app/lib/dashboard-service";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 export function useDashboard() {
@@ -73,7 +73,7 @@ export function useDashboard() {
 	});
 
 	const [{ value: generatedCode, error: generateError }, generateReferralCode] =
-		useAsyncFn(async () => {
+		useAsyncCallback(async () => {
 			if (!isConnected || !address) {
 				throw new Error("Wallet not connected");
 			}

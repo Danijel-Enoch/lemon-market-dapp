@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import type { MetaFunction } from "react-router";
 import { type ActionFunctionArgs, redirect, useFetcher, useSearchParams } from "react-router";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useBalance,
@@ -300,36 +300,37 @@ export default function PerpContent() {
 	// Fetch margin token logo. Prefer logos from the marketData (quote/base) when possible,
 	// otherwise query DexScreener tokens endpoint for metadata
 
-	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] = useAsyncFn(async () => {
-		if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
+	const [{ loading: isLoadingPrice, value: priceData }, fetchLatestPrice] =
+		useAsyncCallback(async () => {
+			if (!tradingPair.symbol && !tradingPair.pairAddress) return null;
 
-		const assetType = tradingPair.assetType;
-		const lastUpdate = new Date();
+			const assetType = tradingPair.assetType;
+			const lastUpdate = new Date();
 
-		if (assetType === "stock") {
-			// Fetch stock price using price API
-			const stockPrice = await getStockPrice(tradingPair.symbol);
-			if (stockPrice?.success) {
-				return {
-					price: formatPrice(stockPrice.price),
-					change: "N/A", // Stock API doesn't provide change data
-					lastUpdate,
-				};
+			if (assetType === "stock") {
+				// Fetch stock price using price API
+				const stockPrice = await getStockPrice(tradingPair.symbol);
+				if (stockPrice?.success) {
+					return {
+						price: formatPrice(stockPrice.price),
+						change: "N/A", // Stock API doesn't provide change data
+						lastUpdate,
+					};
+				}
+			} else if (assetType === "forex") {
+				// Fetch forex price using price API
+				const forexPrice = await getForexPrice(tradingPair.symbol);
+				if (forexPrice?.success) {
+					return {
+						price: formatPrice(forexPrice.price),
+						change: "N/A", // Forex API doesn't provide change data
+						lastUpdate,
+					};
+				}
 			}
-		} else if (assetType === "forex") {
-			// Fetch forex price using price API
-			const forexPrice = await getForexPrice(tradingPair.symbol);
-			if (forexPrice?.success) {
-				return {
-					price: formatPrice(forexPrice.price),
-					change: "N/A", // Forex API doesn't provide change data
-					lastUpdate,
-				};
-			}
-		}
-		// For crypto, we now rely on useMarketData to avoid double fetching
-		return null;
-	}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
+			// For crypto, we now rely on useMarketData to avoid double fetching
+			return null;
+		}, [tradingPair.symbol, tradingPair.pairAddress, tradingPair.assetType, tradingPair.chain]);
 
 	// Update tradingPair when priceData changes (for stocks/forex) or marketData changes (for crypto)
 	useEffect(() => {
@@ -457,7 +458,7 @@ export default function PerpContent() {
 	};
 
 	const [{ loading: isApprovingToken, error: approvalError }, handleApproveToken] =
-		useAsyncFn(async () => {
+		useAsyncCallback(async () => {
 			if (!isConnected || !address) {
 				throw new Error("Please connect your wallet first");
 			}

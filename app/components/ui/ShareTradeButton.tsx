@@ -1,7 +1,7 @@
 import { Button } from "@app/components/ui/button";
 import { useMiniAppActions } from "@app/hooks/useMiniAppActions";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { Share2, UserPlus } from "lucide-react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
 
 interface ShareTradeButtonProps {
 	tradeDetails?: {
@@ -15,7 +15,7 @@ interface ShareTradeButtonProps {
 export function ShareTradeButton({ tradeDetails }: ShareTradeButtonProps) {
 	const { composeCast, addMiniApp, isMiniApp } = useMiniAppActions();
 
-	const [, handleShare] = useAsyncFn(async () => {
+	const [, handleShare] = useAsyncCallback(async () => {
 		if (!tradeDetails) return;
 
 		const text = `Just opened a ${tradeDetails.leverage}x ${tradeDetails.type} on ${tradeDetails.pair} with ${tradeDetails.amount} USDC on @lemonmarkets 🍋`;
@@ -24,7 +24,7 @@ export function ShareTradeButton({ tradeDetails }: ShareTradeButtonProps) {
 		await composeCast({ text, embeds: embeds as [string] });
 	}, [tradeDetails, composeCast]);
 
-	const [, handleAddApp] = useAsyncFn(async () => {
+	const [, handleAddApp] = useAsyncCallback(async () => {
 		await addMiniApp();
 	}, [addMiniApp]);
 

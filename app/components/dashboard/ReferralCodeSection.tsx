@@ -1,9 +1,9 @@
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { Copy, Link, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import useAsyncFn from "react-use/lib/useAsyncFn";
 
 interface ReferralCodeSectionProps {
 	referralCode: string | null;
@@ -19,7 +19,7 @@ export function ReferralCodeSection({
 	const [copied, setCopied] = useState(false);
 	const [linkCopied, setLinkCopied] = useState(false);
 
-	const [, handleCopyCode] = useAsyncFn(async () => {
+	const [, handleCopyCode] = useAsyncCallback(async () => {
 		if (!referralCode) return;
 		try {
 			await navigator.clipboard.writeText(referralCode);
@@ -32,7 +32,7 @@ export function ReferralCodeSection({
 		}
 	}, [referralCode]);
 
-	const [, handleCopyReferralLink] = useAsyncFn(async () => {
+	const [, handleCopyReferralLink] = useAsyncCallback(async () => {
 		if (!referralCode) return;
 		try {
 			const baseUrl = window.location.origin;
@@ -47,7 +47,7 @@ export function ReferralCodeSection({
 		}
 	}, [referralCode]);
 
-	const [, handleGenerateCode] = useAsyncFn(async () => {
+	const [, handleGenerateCode] = useAsyncCallback(async () => {
 		const code = await onGenerate();
 		if (code) {
 			toast.success("Referral code generated successfully!");

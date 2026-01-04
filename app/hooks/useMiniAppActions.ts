@@ -1,10 +1,10 @@
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 
 export function useMiniAppActions() {
 	const { isMiniApp } = useMiniApp();
 
-	const [, composeCast] = useAsyncFn(
+	const [, composeCast] = useAsyncCallback(
 		async (options: { text?: string; embeds?: [] | [string] | [string, string] }) => {
 			if (!isMiniApp) {
 				return null;
@@ -17,7 +17,7 @@ export function useMiniAppActions() {
 		[isMiniApp],
 	);
 
-	const [, addMiniApp] = useAsyncFn(async () => {
+	const [, addMiniApp] = useAsyncCallback(async () => {
 		if (!isMiniApp) {
 			return;
 		}
@@ -26,7 +26,7 @@ export function useMiniAppActions() {
 		await sdk.actions.addMiniApp();
 	}, [isMiniApp]);
 
-	const [, openUrl] = useAsyncFn(
+	const [, openUrl] = useAsyncCallback(
 		async (url: string) => {
 			if (!isMiniApp) {
 				// Fallback to regular navigation for web

@@ -1,7 +1,7 @@
 import { Button } from "@app/components/ui/button";
 import { fetchChartData } from "@app/lib/chart-data-service";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import useAsync from "react-use/lib/useAsync";
 import {
 	Area,
 	Bar,
@@ -55,19 +55,30 @@ export function ChartSection({
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-	const chartState = useAsync(async () => {
-		const result = await fetchChartData(
-			pairAddress || "",
+	const chartQuery = useQuery({
+		queryKey: [
+			"chart-data",
+			pairAddress,
 			chain,
 			selectedTimeframe,
+			refreshTrigger,
 			assetType,
 			symbol,
-		);
-		return result.data;
-	}, [pairAddress, chain, selectedTimeframe, refreshTrigger, assetType, symbol]);
+		],
+		queryFn: async () => {
+			const result = await fetchChartData(
+				pairAddress || "",
+				chain,
+				selectedTimeframe,
+				assetType,
+				symbol,
+			);
+			return result.data;
+		},
+	});
 
-	const chartData = useMemo(() => chartState.value || [], [chartState.value]);
-	const loading = chartState.loading && isInitialLoad;
+	const chartData = useMemo(() => chartQuery.data || [], [chartQuery.data]);
+	const loading = chartQuery.isLoading && isInitialLoad;
 	const latestCandle = useMemo(
 		() => (chartData.length > 0 ? chartData[chartData.length - 1] : null),
 		[chartData],
@@ -230,9 +241,9 @@ export function ChartSection({
 									fontSize: "12px",
 								}}
 								labelFormatter={(label) => formatTime(label as number)}
-								formatter={(value: number, name: string) => {
-									if (name === "close") {
-										return [formatPrice(value), "Price"];
+								formatter={(value, name) => {
+									if (value && name === "close") {
+										return [formatPrice(parseFloat(value.toString())), "Price"];
 									}
 									return null;
 								}}

@@ -4,7 +4,7 @@ import {
 	getUserReferralStats,
 } from "@app/lib/dashboard-service";
 import { useCallback, useEffect, useState } from "react";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
@@ -55,7 +55,7 @@ export function useReferral() {
 	}, []);
 
 	// Initialize user with referral code (call this when user connects wallet)
-	const [{ loading: isLoading, error }, initializeUserReferral] = useAsyncFn(
+	const [{ loading: isLoading, error }, initializeUserReferral] = useAsyncCallback(
 		async (userAddress: string) => {
 			if (!userAddress) return;
 

@@ -1,5 +1,5 @@
 import { betterFetch } from "@better-fetch/fetch";
-import useAsyncFn from "react-use/lib/useAsyncFn";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
@@ -209,7 +209,7 @@ export interface DocsResponse {
 
 export function useMarketApi() {
 	// Root
-	const [indexState, getIndex] = useAsyncFn(async () => {
+	const [indexState, getIndex] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/`, {
 			method: "GET",
 		});
@@ -217,7 +217,7 @@ export function useMarketApi() {
 	});
 
 	// Health
-	const [healthState, getHealth] = useAsyncFn(async () => {
+	const [healthState, getHealth] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/health`, {
 			method: "GET",
 		});
@@ -225,21 +225,21 @@ export function useMarketApi() {
 	});
 
 	// Positions
-	const [positionsHealthState, getPositionsHealth] = useAsyncFn(async () => {
+	const [positionsHealthState, getPositionsHealth] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/health`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [positionByIdState, getPositionById] = useAsyncFn(async (positionId: string) => {
+	const [positionByIdState, getPositionById] = useAsyncCallback(async (positionId: string) => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/${positionId}`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [queryPositionsState, queryPositions] = useAsyncFn(
+	const [queryPositionsState, queryPositions] = useAsyncCallback(
 		async (params: PositionsQueryRequest) => {
 			const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
 				method: "POST",
@@ -250,7 +250,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [positionsByTraderState, getPositionsByTrader] = useAsyncFn(
+	const [positionsByTraderState, getPositionsByTrader] = useAsyncCallback(
 		async (traderAddress: string) => {
 			const { data } = await betterFetch(`${BASE_URL}/positions/trader/${traderAddress}`, {
 				method: "GET",
@@ -259,35 +259,37 @@ export function useMarketApi() {
 		},
 	);
 
-	const [positionsByTokenState, getPositionsByToken] = useAsyncFn(async (tokenSymbol: string) => {
-		const { data } = await betterFetch(`${BASE_URL}/positions/token/${tokenSymbol}`, {
-			method: "GET",
-		});
-		return data;
-	});
+	const [positionsByTokenState, getPositionsByToken] = useAsyncCallback(
+		async (tokenSymbol: string) => {
+			const { data } = await betterFetch(`${BASE_URL}/positions/token/${tokenSymbol}`, {
+				method: "GET",
+			});
+			return data;
+		},
+	);
 
-	const [openPositionsState, getOpenPositions] = useAsyncFn(async () => {
+	const [openPositionsState, getOpenPositions] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/status/open`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [closedPositionsState, getClosedPositions] = useAsyncFn(async () => {
+	const [closedPositionsState, getClosedPositions] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/status/closed`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [liquidatedPositionsState, getLiquidatedPositions] = useAsyncFn(async () => {
+	const [liquidatedPositionsState, getLiquidatedPositions] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/status/liquidated`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [openPositionState, openPosition] = useAsyncFn(async (data: OpenPositionRequest) => {
+	const [openPositionState, openPosition] = useAsyncCallback(async (data: OpenPositionRequest) => {
 		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/open`, {
 			method: "POST",
 			body: JSON.stringify(data),
@@ -296,16 +298,18 @@ export function useMarketApi() {
 		return responseData;
 	});
 
-	const [closePositionState, closePosition] = useAsyncFn(async (data: ClosePositionRequest) => {
-		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/close`, {
-			method: "POST",
-			body: JSON.stringify(data),
-			headers: { "Content-Type": "application/json" },
-		});
-		return responseData;
-	});
+	const [closePositionState, closePosition] = useAsyncCallback(
+		async (data: ClosePositionRequest) => {
+			const { data: responseData } = await betterFetch(`${BASE_URL}/positions/close`, {
+				method: "POST",
+				body: JSON.stringify(data),
+				headers: { "Content-Type": "application/json" },
+			});
+			return responseData;
+		},
+	);
 
-	const [openWithDevFeeState, openWithDevFee] = useAsyncFn(
+	const [openWithDevFeeState, openWithDevFee] = useAsyncCallback(
 		async (
 			data: OpenPositionRequest & {
 				devFeeRecipient: string;
@@ -321,7 +325,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [closeWithDevFeeState, closeWithDevFee] = useAsyncFn(
+	const [closeWithDevFeeState, closeWithDevFee] = useAsyncCallback(
 		async (
 			data: ClosePositionRequest & {
 				devFeeRecipient: string;
@@ -337,7 +341,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [approveMarketManagerState, approveMarketManager] = useAsyncFn(
+	const [approveMarketManagerState, approveMarketManager] = useAsyncCallback(
 		async (data: ApproveRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/approve-market-manager`,
@@ -351,7 +355,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [approvePositionManagerState, approvePositionManager] = useAsyncFn(
+	const [approvePositionManagerState, approvePositionManager] = useAsyncCallback(
 		async (data: ApproveRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/approve-position-manager`,
@@ -365,7 +369,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [approveLiquidityProviderState, approveLiquidityProvider] = useAsyncFn(
+	const [approveLiquidityProviderState, approveLiquidityProvider] = useAsyncCallback(
 		async (data: ApproveRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/approve-liquidity-provider`,
@@ -379,7 +383,7 @@ export function useMarketApi() {
 		},
 	);
 
-	const [approveRouterState, approveRouter] = useAsyncFn(async (data: ApproveRequest) => {
+	const [approveRouterState, approveRouter] = useAsyncCallback(async (data: ApproveRequest) => {
 		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/approve-router`, {
 			method: "POST",
 			body: JSON.stringify(data),
@@ -388,30 +392,32 @@ export function useMarketApi() {
 		return responseData;
 	});
 
-	const [approveGenericState, approveGeneric] = useAsyncFn(async (data: GenericApproveRequest) => {
-		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/approve`, {
-			method: "POST",
-			body: JSON.stringify(data),
-			headers: { "Content-Type": "application/json" },
-		});
-		return responseData;
-	});
+	const [approveGenericState, approveGeneric] = useAsyncCallback(
+		async (data: GenericApproveRequest) => {
+			const { data: responseData } = await betterFetch(`${BASE_URL}/positions/approve`, {
+				method: "POST",
+				body: JSON.stringify(data),
+				headers: { "Content-Type": "application/json" },
+			});
+			return responseData;
+		},
+	);
 
-	const [supportedChainsState, getSupportedChains] = useAsyncFn(async () => {
+	const [supportedChainsState, getSupportedChains] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/supported-chains`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [customErrorsState, getCustomErrors] = useAsyncFn(async () => {
+	const [customErrorsState, getCustomErrors] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/debug/custom-errors`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [decodeErrorState, decodeError] = useAsyncFn(async (data: DecodeErrorRequest) => {
+	const [decodeErrorState, decodeError] = useAsyncCallback(async (data: DecodeErrorRequest) => {
 		const { data: responseData } = await betterFetch(`${BASE_URL}/positions/debug/decode-error`, {
 			method: "POST",
 			body: JSON.stringify(data),
@@ -420,7 +426,7 @@ export function useMarketApi() {
 		return responseData;
 	});
 
-	const [verifySignatureState, verifySignature] = useAsyncFn(
+	const [verifySignatureState, verifySignature] = useAsyncCallback(
 		async (data: VerifySignatureRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/debug/verify-signature`,
@@ -434,14 +440,14 @@ export function useMarketApi() {
 		},
 	);
 
-	const [signerInfoState, getSignerInfo] = useAsyncFn(async () => {
+	const [signerInfoState, getSignerInfo] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/positions/debug/signer-info`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [analyzeTransactionState, analyzeTransaction] = useAsyncFn(
+	const [analyzeTransactionState, analyzeTransaction] = useAsyncCallback(
 		async (data: AnalyzeTransactionRequest) => {
 			const { data: responseData } = await betterFetch(
 				`${BASE_URL}/positions/debug/analyze-transaction`,
@@ -456,45 +462,47 @@ export function useMarketApi() {
 	);
 
 	// Markets
-	const [marketsState, getMarkets] = useAsyncFn(async () => {
+	const [marketsState, getMarkets] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [marketByIdState, getMarketById] = useAsyncFn(async (marketId: string) => {
+	const [marketByIdState, getMarketById] = useAsyncCallback(async (marketId: string) => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/${marketId}`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [marketDetailsState, getMarketDetails] = useAsyncFn(async (marketId: string) => {
+	const [marketDetailsState, getMarketDetails] = useAsyncCallback(async (marketId: string) => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/${marketId}/details`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [searchMarketsState, searchMarkets] = useAsyncFn(async (params?: MarketsSearchRequest) => {
-		const url = new URL(`${BASE_URL}/markets/search`);
-		if (params?.limit) url.searchParams.set("limit", params.limit.toString());
-		if (params?.skip) url.searchParams.set("skip", params.skip.toString());
-		const { data } = await betterFetch(url.toString(), {
-			method: "GET",
-		});
-		return data;
-	});
+	const [searchMarketsState, searchMarkets] = useAsyncCallback(
+		async (params?: MarketsSearchRequest) => {
+			const url = new URL(`${BASE_URL}/markets/search`);
+			if (params?.limit) url.searchParams.set("limit", params.limit.toString());
+			if (params?.skip) url.searchParams.set("skip", params.skip.toString());
+			const { data } = await betterFetch(url.toString(), {
+				method: "GET",
+			});
+			return data;
+		},
+	);
 
-	const [marketsStatsState, getMarketsStats] = useAsyncFn(async () => {
+	const [marketsStatsState, getMarketsStats] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/stats`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [marketsHealthState, getMarketsHealth] = useAsyncFn(async () => {
+	const [marketsHealthState, getMarketsHealth] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/markets/health`, {
 			method: "GET",
 		});
@@ -502,21 +510,21 @@ export function useMarketApi() {
 	});
 
 	// Docs
-	const [docsState, getDocs] = useAsyncFn(async () => {
+	const [docsState, getDocs] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/docs`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [openapiState, getOpenapi] = useAsyncFn(async () => {
+	const [openapiState, getOpenapi] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/openapi`, {
 			method: "GET",
 		});
 		return data;
 	});
 
-	const [apiDocsState, getApiDocs] = useAsyncFn(async () => {
+	const [apiDocsState, getApiDocs] = useAsyncCallback(async () => {
 		const { data } = await betterFetch(`${BASE_URL}/api-docs`, {
 			method: "GET",
 		});
@@ -609,36 +617,36 @@ export function useMarketApi() {
 		apiDocs: getApiDocs,
 		apiDocsState,
 		trending: {
-			tokens: useAsyncFn(async (params: Record<string, string>) => {
+			tokens: useAsyncCallback(async (params: Record<string, string>) => {
 				const query = new URLSearchParams(params).toString();
 				const { data } = await betterFetch(`${BASE_URL}/trending/tokens?${query}`, {
 					method: "GET",
 				});
 				return data;
 			}),
-			fx: useAsyncFn(async (limit: number = 50) => {
+			fx: useAsyncCallback(async (limit: number = 50) => {
 				const { data } = await betterFetch(`${BASE_URL}/trending/fx?limit=${limit}`, {
 					method: "GET",
 				});
 				return data;
 			}),
-			stocks: useAsyncFn(async (limit: number = 50) => {
+			stocks: useAsyncCallback(async (limit: number = 50) => {
 				const { data } = await betterFetch(`${BASE_URL}/trending/stocks?limit=${limit}`, {
 					method: "GET",
 				});
 				return data;
 			}),
-			chains: useAsyncFn(async () => {
+			chains: useAsyncCallback(async () => {
 				const { data } = await betterFetch(`${BASE_URL}/trending/chains`, { method: "GET" });
 				return data;
 			}),
 		},
 		prices: {
-			stock: useAsyncFn(async (symbol: string) => {
+			stock: useAsyncCallback(async (symbol: string) => {
 				const { data } = await betterFetch(`${BASE_URL}/prices/stock/${symbol}`, { method: "GET" });
 				return data;
 			}),
-			fx: useAsyncFn(async (pair: string) => {
+			fx: useAsyncCallback(async (pair: string) => {
 				const { data } = await betterFetch(`${BASE_URL}/prices/fx/${pair}`, { method: "GET" });
 				return data;
 			}),
