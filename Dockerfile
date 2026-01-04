@@ -12,7 +12,7 @@ COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
 FROM base AS release
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 COPY --from=install /temp/dev/node_modules node_modules
 COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/vite.config.ts .
