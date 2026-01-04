@@ -9,10 +9,6 @@ const app = new Elysia()
 		set.headers["X-XSS-Protection"] = "1; mode=block";
 		set.headers["X-Content-Type-Options"] = "nosniff";
 		set.headers["Referrer-Policy"] = "no-referrer-when-downgrade";
-		if (process.env.NODE_ENV === "production") {
-			set.headers["Content-Security-Policy"] =
-				"default-src 'self' http: https: data: blob: 'unsafe-inline'; connect-src 'self' http: https: wss: https://relay.walletconnect.org wss://relay.walletconnect.org https://io.dexscreener.com wss://io.dexscreener.com https://dexscreener.com; script-src 'self' http: https: 'unsafe-inline' 'unsafe-eval'; style-src 'self' http: https: 'unsafe-inline'; img-src 'self' http: https: data: blob:; font-src 'self' http: https: data:; frame-src https://dexscreener.com;";
-		}
 	})
 	.get("/api/geckoterminal/*", async ({ params, request }) => {
 		const path = params["*"];
@@ -40,9 +36,12 @@ const app = new Elysia()
 if (process.env.NODE_ENV === "production") {
 	app.use(
 		await staticPlugin({
-			assets: `${process.cwd()}/build/client`,
+			assets: "./build/client",
 			prefix: "/",
 			alwaysStatic: true,
+			headers: {
+				"Cache-Control": "public, max-age=31536000, immutable",
+			},
 		}),
 	);
 }

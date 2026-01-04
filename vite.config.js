@@ -16,9 +16,6 @@ export default defineConfig({
 		sourcemapIgnoreList: (sourcePath) => sourcePath.includes("node_modules"),
 	},
 	build: {
-		reportCompressedSize: false,
-		target: "esnext",
-		sourcemap: false,
 		rollupOptions: {
 			onwarn(warning, warn) {
 				if (
@@ -46,6 +43,22 @@ export default defineConfig({
 
 					if (id.includes("node_modules/react-hot-toast")) {
 						return "toast-vendor";
+					}
+
+					if (id.includes("node_modules/posthog-js")) {
+						return "posthog";
+					}
+
+					if (id.includes("node_modules/viem") || id.includes("node_modules/@wagmi")) {
+						return "web3-vendor";
+					}
+
+					if (id.includes("node_modules/recharts")) {
+						return "recharts";
+					}
+
+					if (id.includes("node_modules/framer-motion")) {
+						return "framer-motion";
 					}
 				},
 			},
