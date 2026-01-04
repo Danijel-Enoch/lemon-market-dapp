@@ -48,7 +48,7 @@ export default function App() {
 				<Meta />
 				<Links />
 			</head>
-			<body className="antialiased bg-black">
+			<body className="antialiased bg-black text-white">
 				<PostHogProvider
 					apiKey={"phc_3yzfWThidiuKV0AbmI2r7WOrtSx0PEAcGdDbQujHyl5"}
 					options={posthogOptions}

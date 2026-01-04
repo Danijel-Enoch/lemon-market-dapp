@@ -1,4 +1,3 @@
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Input } from "@app/components/ui/input";
@@ -30,6 +29,12 @@ import {
 	useFetcher,
 	useLoaderData,
 } from "react-router";
+
+export const handle = {
+	authTitle: "Connect Wallet to Add Liquidity",
+	authDescription: "Connect your wallet to deposit USDC.",
+	authIcon: Wallet,
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	try {
@@ -83,7 +88,7 @@ const formatBalance = (balance?: bigint, decimals = 6) => {
 	return Number(formatUnits(balance, decimals)).toFixed(2);
 };
 
-function AddLiquidityContent() {
+export default function AddLiquidityPage() {
 	const navigate = useNavigate();
 	const { address, chainId } = useAccount();
 	const { markets } = useLoaderData<typeof loader>();
@@ -342,17 +347,5 @@ function AddLiquidityContent() {
 				</CardContent>
 			</Card>
 		</div>
-	);
-}
-
-export default function AddLiquidityPage() {
-	return (
-		<AuthGate
-			icon={Wallet}
-			title="Connect Wallet to Add Liquidity"
-			description="Connect your wallet to deposit USDC."
-		>
-			<AddLiquidityContent />
-		</AuthGate>
 	);
 }

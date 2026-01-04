@@ -1,4 +1,3 @@
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import {
@@ -16,6 +15,12 @@ import { useAccount } from "wagmi";
 export const metadata = {
 	title: "Liquidity - Lemon Markets",
 	description: "Provide liquidity and earn rewards",
+};
+
+export const handle = {
+	authTitle: "Connect Wallet to View Liquidity",
+	authDescription: "Connect your wallet to provide liquidity and earn trading fees.",
+	authIcon: Wallet,
 };
 
 export async function loader() {
@@ -98,51 +103,6 @@ function LiquidityPoolsList() {
 				</div>
 			))}
 		</>
-	);
-}
-
-function LiquidityContent() {
-	return (
-		<div className="min-h-screen w-full mt-8">
-			<div className="w-full">
-				<div className="flex items-center justify-between mb-8">
-					<div>
-						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
-						<p className="text-muted-foreground text-xs">
-							Provide liquidity to pools and earn trading fees
-						</p>
-					</div>
-					<div className="flex gap-2">
-						<Button asChild variant="outline">
-							<Link to="/liquidity/remove">
-								<Minus className="mr-2 h-4 w-4" />
-								Remove Liquidity
-							</Link>
-						</Button>
-						<Button asChild>
-							<Link to="/liquidity/add">
-								<Plus className="mr-2 h-4 w-4" />
-								Add Liquidity
-							</Link>
-						</Button>
-					</div>
-				</div>
-
-				<div className="grid grid-cols-1 gap-6 mb-8">
-					<MyPositionsList />
-					<Card className="border-accent/20">
-						<CardHeader>
-							<CardTitle>Liquidity Pools</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="space-y-4">
-								<LiquidityPoolsList />
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-			</div>
-		</div>
 	);
 }
 
@@ -243,12 +203,45 @@ function MyPositionsList() {
 
 export default function LiquidityPage() {
 	return (
-		<AuthGate
-			icon={Wallet}
-			title="Connect Wallet to View Liquidity"
-			description="Connect your wallet to provide liquidity and earn trading fees."
-		>
-			<LiquidityContent />
-		</AuthGate>
+		<div className="min-h-screen w-full mt-8">
+			<div className="w-full">
+				<div className="flex items-center justify-between mb-8">
+					<div>
+						<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
+						<p className="text-muted-foreground text-xs">
+							Provide liquidity to pools and earn trading fees
+						</p>
+					</div>
+					<div className="flex gap-2">
+						<Button asChild variant="outline">
+							<Link to="/liquidity/remove">
+								<Minus className="mr-2 h-4 w-4" />
+								Remove Liquidity
+							</Link>
+						</Button>
+						<Button asChild>
+							<Link to="/liquidity/add">
+								<Plus className="mr-2 h-4 w-4" />
+								Add Liquidity
+							</Link>
+						</Button>
+					</div>
+				</div>
+
+				<div className="grid grid-cols-1 gap-6 mb-8">
+					<MyPositionsList />
+					<Card className="border-accent/20">
+						<CardHeader>
+							<CardTitle>Liquidity Pools</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="space-y-4">
+								<LiquidityPoolsList />
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+			</div>
+		</div>
 	);
 }

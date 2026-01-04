@@ -1,6 +1,5 @@
 import { ReferralCodeSection } from "@app/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@app/components/dashboard/ReferralStats";
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useDashboard } from "@app/hooks/useDashboard";
 import { useReferral } from "@app/hooks/useReferral";
@@ -16,7 +15,14 @@ export const metadata: Metadata = {
 	description: "Invite friends and earn rewards",
 };
 
-function ReferralContent() {
+export const handle = {
+	authTitle: "Connect Wallet to View Referrals",
+	authDescription:
+		"Connect your wallet to access your referral code, track your earnings, and invite friends.",
+	authIcon: Users,
+};
+
+export default function ReferralPage() {
 	const {
 		referralCode,
 		totalReferrals,
@@ -182,17 +188,5 @@ function ReferralContent() {
 				</div>
 			</div>
 		</div>
-	);
-}
-
-export default function ReferralPage() {
-	return (
-		<AuthGate
-			icon={Users}
-			title="Connect Wallet to View Referrals"
-			description="Connect your wallet to access your referral code, track your earnings, and invite friends."
-		>
-			<ReferralContent />
-		</AuthGate>
 	);
 }

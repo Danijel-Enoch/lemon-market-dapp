@@ -1,4 +1,3 @@
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useDashboard } from "@app/hooks/useDashboard";
@@ -11,7 +10,14 @@ export const metadata: Metadata = {
 	description: "Earn and redeem points for rewards",
 };
 
-function PointsContent() {
+export const handle = {
+	authTitle: "Connect Wallet to View Points",
+	authDescription:
+		"Connect your wallet to track your points, view your history, and redeem rewards.",
+	authIcon: Star,
+};
+
+export default function PointsPage() {
 	const { pointsEarned } = useDashboard();
 
 	return (
@@ -122,17 +128,5 @@ function PointsContent() {
 				</div>
 			</div>
 		</div>
-	);
-}
-
-export default function PointsPage() {
-	return (
-		<AuthGate
-			icon={Star}
-			title="Connect Wallet to View Points"
-			description="Connect your wallet to track your points, view your history, and redeem rewards."
-		>
-			<PointsContent />
-		</AuthGate>
 	);
 }

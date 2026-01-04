@@ -1,4 +1,3 @@
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Input } from "@app/components/ui/input";
@@ -36,6 +35,12 @@ import {
 	useFetcher,
 	useLoaderData,
 } from "react-router";
+
+export const handle = {
+	authTitle: "Connect Wallet to Remove Liquidity",
+	authDescription: "Connect your wallet to withdraw funds.",
+	authIcon: Wallet,
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
 	try {
@@ -81,7 +86,12 @@ export async function action({ request }: ActionFunctionArgs) {
 	return { success: false, intent, error: "Invalid intent" };
 }
 
-function RemoveLiquidityContent() {
+const listBalance = (bal: unknown) => {
+	if (typeof bal === "bigint") return bal.toString();
+	return String(bal);
+};
+
+export default function RemoveLiquidityPage() {
 	const navigate = useNavigate();
 	const { address } = useAccount();
 	const { markets } = useLoaderData<typeof loader>();
@@ -436,22 +446,5 @@ function RemoveLiquidityContent() {
 				</CardContent>
 			</Card>
 		</div>
-	);
-}
-
-const listBalance = (bal: unknown) => {
-	if (typeof bal === "bigint") return bal.toString();
-	return String(bal);
-};
-
-export default function RemoveLiquidityPage() {
-	return (
-		<AuthGate
-			icon={Wallet}
-			title="Connect Wallet to Remove Liquidity"
-			description="Connect your wallet to withdraw funds."
-		>
-			<RemoveLiquidityContent />
-		</AuthGate>
 	);
 }

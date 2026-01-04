@@ -1,5 +1,4 @@
 import { PositionsTable } from "@app/components/trading/PositionsTable";
-import { AuthGate } from "@app/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import type { Metadata } from "@app/lib/types";
@@ -10,6 +9,12 @@ import { useAccount, useReadContract } from "wagmi";
 export const metadata: Metadata = {
 	title: "Portfolio - Lemon Markets",
 	description: "View your portfolio information",
+};
+
+export const handle = {
+	authTitle: "Connect Wallet to View Portfolio",
+	authDescription: "Connect your wallet to view your portfolio, positions, and performance.",
+	authIcon: Wallet,
 };
 
 // USDC contract address
@@ -33,7 +38,7 @@ const ERC20_BALANCE_ABI = [
 	},
 ] as const;
 
-function PortfolioContent() {
+export default function PortfolioPage() {
 	const { address } = useAccount();
 
 	// Fetch USDC balance
@@ -155,17 +160,5 @@ function PortfolioContent() {
 				</div>
 			</div>
 		</div>
-	);
-}
-
-export default function PortfolioPage() {
-	return (
-		<AuthGate
-			icon={Wallet}
-			title="Connect Wallet to View Portfolio"
-			description="Connect your wallet to view your portfolio, positions, and performance."
-		>
-			<PortfolioContent />
-		</AuthGate>
 	);
 }
