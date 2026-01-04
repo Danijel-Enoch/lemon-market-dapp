@@ -1,9 +1,6 @@
 import { betterFetch } from "@better-fetch/fetch";
 
-// @ts-ignore
-const BASE_URL =
-	(typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-	"https://api.degenoptions.xyz";
+const BASE_URL = import.meta.env?.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface OpenPositionRequest {
 	marketId: string;
