@@ -3,6 +3,7 @@ import { Button } from "@app/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@app/components/ui/dialog";
 import { Input } from "@app/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@app/components/ui/tabs";
+import { useClosePosition } from "@app/hooks/useClosePosition";
 import {
 	extractTokenSymbol,
 	formatPositionSize,
@@ -12,7 +13,6 @@ import {
 	validateLeverage,
 	validateMargin,
 } from "@app/lib/position-api";
-import { useMarketApi } from "@app/lib/useMarketApi";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
@@ -39,12 +39,11 @@ export function PositionsTable({
 	const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 	const navigate = useNavigate();
 
-	const marketApi = useMarketApi();
-
 	// State for position management
 	const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
 	const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
 	const [isModifyDialogOpen, setIsModifyDialogOpen] = useState(false);
+	const [closeLoadingToastId, setCloseLoadingToastId] = useState<string | null>(null);
 
 	// Modify position form state
 	const [newMargin, setNewMargin] = useState("");
@@ -59,106 +58,51 @@ export function PositionsTable({
 		(pos) => pos.status.toLowerCase() !== "opened" && pos.status.toLowerCase() !== "open",
 	);
 
-	// Handle close position
-	const [{ loading: isClosingPosition, error: closeError }, handleClosePosition] = useAsyncFn(
-		async (position: Position) => {
-			if (!address) {
-				throw new Error("Please connect your wallet first");
+	// Handle close position with TanStack Query mutation
+	const {
+		closePosition,
+		isClosing: isClosingPosition,
+		error: closeError,
+	} = useClosePosition({
+		onSuccess: () => {
+			if (closeLoadingToastId) {
+				toast.dismiss(closeLoadingToastId);
+				setCloseLoadingToastId(null);
 			}
-
-			// Show initial loading toast
-			const loadingToastId = toast.loading(`Closing ${position.pair} position...`);
-
-			try {
-				const result = (await marketApi.positions.close({
-					positionId: parseInt(position.id, 10),
-					marketId: position.tokenSymbol,
-					userAddress: address,
-				})) as {
-					to?: string;
-					data?: string | object;
-					gasEstimate?: number;
-					error?: string | object;
-					success?: boolean;
-				};
-
-				if (!result) {
-					toast.dismiss(loadingToastId);
-					throw new Error("Failed to close position");
-				}
-
-				// Check for API error response
-				if (typeof result === "object" && "error" in result && result.error) {
-					toast.dismiss(loadingToastId);
-					throw new Error(
-						typeof result.error === "string" ? result.error : "Failed to close position",
-					);
-				}
-
-				if (typeof result === "object" && "success" in result && result.success === false) {
-					toast.dismiss(loadingToastId);
-					throw new Error("Failed to close position");
-				}
-
-				let txResult = result as {
-					to?: string;
-					data?: string;
-					gasEstimate?: number;
-				};
-
-				// Handle case where tx data is nested in 'data' property
-				if ("data" in result && typeof result.data === "object" && result.data !== null) {
-					const nestedData = result.data as {
-						to?: string;
-						data?: string;
-						gasEstimate?: number;
-					};
-					if (nestedData.to && nestedData.data) {
-						txResult = nestedData;
-					}
-				}
-
-				if (!txResult.to || !txResult.data) {
-					toast.dismiss(loadingToastId);
-					console.error("Invalid transaction data received:", result);
-					throw new Error("Market unavailable at the moment");
-				}
-
-				// Send the transaction
-				sendTransaction({
-					to: txResult.to as `0x${string}`,
-					data: txResult.data as `0x${string}`,
-					value: BigInt(0),
-					gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
-				});
-
-				// Dismiss loading toast and show success
-				toast.dismiss(loadingToastId);
-				toast.success(
-					<div>
-						{`Successfully submitted close transaction for ${position.pair}!`}
-						<div className="text-xs text-muted-foreground">
-							Transaction is being processed on the blockchain
-						</div>
-					</div>,
-				);
-
-				// Close the dialog
-				setIsCloseDialogOpen(false);
-				setSelectedPosition(null);
-			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : "Failed to close position";
-				toast.error(
-					<div>
-						Failed to close position
-						<div className="text-xs text-muted-foreground">{errorMessage}</div>
-					</div>,
-				);
-				throw error;
-			}
+			toast.success(
+				<div>
+					{`Successfully submitted close transaction for ${selectedPosition?.pair}!`}
+					<div className="text-xs text-muted-foreground">
+						Transaction is being processed on the blockchain
+					</div>
+				</div>,
+			);
+			setIsCloseDialogOpen(false);
+			setSelectedPosition(null);
 		},
-		[address, tradingPairAddress, sendTransaction],
-	);
+		onError: (error: Error) => {
+			if (closeLoadingToastId) {
+				toast.dismiss(closeLoadingToastId);
+				setCloseLoadingToastId(null);
+			}
+			const errorMessage = error.message || "Failed to close position";
+			toast.error(
+				<div>
+					Failed to close position
+					<div className="text-xs text-muted-foreground">{errorMessage}</div>
+				</div>,
+			);
+		},
+	});
+
+	const handleClosePosition = (position: Position) => {
+		const toastId = toast.loading(`Closing ${position.pair} position...`);
+		setCloseLoadingToastId(toastId);
+		closePosition({
+			positionId: parseInt(position.id, 10),
+			marketId: position.tokenSymbol,
+		});
+	};
 
 	// Handle modify position
 	const [{ loading: isModifyingPosition, error: modifyError }, handleModifyPosition] =
