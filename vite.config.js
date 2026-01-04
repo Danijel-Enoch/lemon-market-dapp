@@ -11,9 +11,7 @@ export default defineConfig({
 	server: {
 		port: 5174,
 		strictPort: true,
-		hmr: {
-			host: "localhost",
-		},
+
 		allowedHosts: ["testb.kubesmith.app", "lemonmarkets.xyz", "www.lemonmarkets.xyz"],
 	},
 	build: {
