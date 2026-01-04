@@ -8,16 +8,18 @@ import {
 	SelectValue,
 } from "@app/components/ui/select";
 import { fetchTokensTrending, searchTokens, type TokenItem } from "@app/hooks/useTrending";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { formatLargeNumber, formatPrice } from "@app/lib/utils";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/page";
 
-export const metadata: Metadata = {
-	title: "Trending - Lemon Markets",
-	description: "Discover trending tokens and market opportunities",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Trending - Lemon Markets" },
+		{ name: "description", content: "Discover trending tokens and market opportunities" },
+	];
 };
 
 export async function loader({ request }: { request: Request }) {

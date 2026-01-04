@@ -1,10 +1,12 @@
 import { Card, CardContent } from "@app/components/ui/card";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { Bell, Lock, Shield, Sparkles, TrendingUp } from "lucide-react";
 
-export const metadata: Metadata = {
-	title: "Staking - Coming Soon | Lemon Markets",
-	description: "Stake your tokens and earn rewards - Coming Soon",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Staking - Coming Soon | Lemon Markets" },
+		{ name: "description", content: "Stake your tokens and earn rewards - Coming Soon" },
+	];
 };
 
 export default function StakingPage() {

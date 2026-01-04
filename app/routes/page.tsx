@@ -1,6 +1,13 @@
 import { HeroSection } from "@app/components/homepage/HeroSection";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { lazy, Suspense } from "react";
+
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Lemon Markets - Decentralized Perpetual Trading" },
+		{ name: "description", content: "Trade perpetual futures with leverage on the blockchain" },
+	];
+};
 
 // Dynamically import heavy components to reduce initial bundle size
 const TrendingCoinsSection = lazy(() =>
@@ -46,11 +53,6 @@ const HomepageFooter = lazy(() =>
 		default: HomepageFooter,
 	})),
 );
-
-export const metadata: Metadata = {
-	title: "Lemon Markets - Decentralized Perpetual Trading",
-	description: "Trade perpetual futures with leverage on the blockchain",
-};
 
 export default function Homepage() {
 	return (

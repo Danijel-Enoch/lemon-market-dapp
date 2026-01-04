@@ -20,7 +20,7 @@ import {
 	validateMargin,
 } from "@app/lib/position-api";
 import { referralService } from "@app/lib/referral-service";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import * as RadixSlider from "@radix-ui/react-slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -105,18 +105,16 @@ const miniAppEmbed = {
 	},
 };
 
-export const metadata: Metadata = {
-	title: "Perpetuals Trading - Lemon Markets",
-	description: "Trade perpetual futures with leverage on Lemon Markets",
-	other: {
-		"fc:miniapp": JSON.stringify(miniAppEmbed),
-		"fc:frame": JSON.stringify(miniAppEmbed),
-	},
-	openGraph: {
-		title: "Perpetuals Trading - Lemon Markets",
-		description: "Trade perpetual futures with leverage",
-		images: ["https://lemonmarkets.xyz/image/trading-icon.svg"],
-	},
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Perpetuals Trading - Lemon Markets" },
+		{ name: "description", content: "Trade perpetual futures with leverage on Lemon Markets" },
+		{ name: "fc:miniapp", content: JSON.stringify(miniAppEmbed) },
+		{ name: "fc:frame", content: JSON.stringify(miniAppEmbed) },
+		{ property: "og:title", content: "Perpetuals Trading - Lemon Markets" },
+		{ property: "og:description", content: "Trade perpetual futures with leverage" },
+		{ property: "og:image", content: "https://lemonmarkets.xyz/image/trading-icon.svg" },
+	];
 };
 
 export async function loader({ request }: { request: Request }) {

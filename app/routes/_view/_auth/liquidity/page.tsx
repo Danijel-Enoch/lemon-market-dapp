@@ -14,9 +14,13 @@ import { Link, useLoaderData, useSearchParams, useNavigate } from "react-router"
 import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 
-export const metadata = {
-	title: "Liquidity - Lemon Markets",
-	description: "Provide liquidity and earn rewards",
+import type { MetaFunction } from "react-router";
+
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Liquidity - Lemon Markets" },
+		{ name: "description", content: "Provide liquidity and earn rewards" },
+	];
 };
 
 export const handle = {

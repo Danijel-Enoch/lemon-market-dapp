@@ -8,15 +8,20 @@ import { Skeleton } from "@app/components/ui/skeleton";
 // import { useDashboard } from "@/hooks/useDashboard";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { formatCurrency, formatNumber } from "@app/lib/dashboard-service";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
 import { useAccount } from "wagmi";
 
-export const metadata: Metadata = {
-	title: "Dashboard | Lemon Markets",
-	description: "View your trading statistics, referral rewards, and performance metrics",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Dashboard | Lemon Markets" },
+		{
+			name: "description",
+			content: "View your trading statistics, referral rewards, and performance metrics",
+		},
+	];
 };
 
 function DashboardContent() {

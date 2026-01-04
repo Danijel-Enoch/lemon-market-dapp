@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useDashboard } from "@app/hooks/useDashboard";
 import { formatNumber } from "@app/lib/dashboard-service";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { Star } from "lucide-react";
 
-export const metadata: Metadata = {
-	title: "Points - Lemon Markets",
-	description: "Earn and redeem points for rewards",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Points - Lemon Markets" },
+		{ name: "description", content: "Earn and redeem points for rewards" },
+	];
 };
 
 export const handle = {

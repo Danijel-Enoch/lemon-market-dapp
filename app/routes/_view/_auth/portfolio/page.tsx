@@ -1,14 +1,16 @@
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
 import { formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 
-export const metadata: Metadata = {
-	title: "Portfolio - Lemon Markets",
-	description: "View your portfolio information",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Portfolio - Lemon Markets" },
+		{ name: "description", content: "View your portfolio information" },
+	];
 };
 
 export const handle = {

@@ -3,9 +3,9 @@ import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { useUserPositions } from "@app/hooks/useUserPositions";
-import type { Metadata } from "@app/lib/types";
 import { motion } from "framer-motion";
 import { Activity, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import type { MetaFunction } from "react-router";
 import { useAccount } from "wagmi";
 
 const miniAppEmbed = {
@@ -23,18 +23,16 @@ const miniAppEmbed = {
 	},
 };
 
-export const metadata: Metadata = {
-	title: "My Positions - Lemon Markets",
-	description: "View and manage your trading positions",
-	other: {
-		"fc:miniapp": JSON.stringify(miniAppEmbed),
-		"fc:frame": JSON.stringify(miniAppEmbed),
-	},
-	openGraph: {
-		title: "My Positions - Lemon Markets",
-		description: "View and manage your trading positions",
-		images: ["https://demo.lemonmarkets.xyz/image/wallet-icon.svg"],
-	},
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "My Positions - Lemon Markets" },
+		{ name: "description", content: "View and manage your trading positions" },
+		{ name: "fc:miniapp", content: JSON.stringify(miniAppEmbed) },
+		{ name: "fc:frame", content: JSON.stringify(miniAppEmbed) },
+		{ property: "og:title", content: "My Positions - Lemon Markets" },
+		{ property: "og:description", content: "View and manage your trading positions" },
+		{ property: "og:image", content: "https://demo.lemonmarkets.xyz/image/wallet-icon.svg" },
+	];
 };
 
 export default function PositionsPage() {

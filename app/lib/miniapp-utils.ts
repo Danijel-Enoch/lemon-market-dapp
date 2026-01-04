@@ -29,22 +29,24 @@ export function generateMiniAppEmbed(options: EmbedOptions) {
 	};
 }
 
-export function generateMetadata(options: EmbedOptions & { pageTitle?: string }) {
+export function generateMeta(options: EmbedOptions & { pageTitle?: string }) {
 	const embed = generateMiniAppEmbed(options);
 
-	return {
-		title: options.pageTitle || options.title,
-		description: options.description || "Trade perpetual futures on Lemon Markets",
-		other: {
-			"fc:miniapp": JSON.stringify(embed),
-			"fc:frame": JSON.stringify(embed),
+	return [
+		{ title: options.pageTitle || options.title },
+		{
+			name: "description",
+			content: options.description || "Trade perpetual futures on Lemon Markets",
 		},
-		openGraph: {
-			title: options.pageTitle || options.title,
-			description: options.description || "Trade perpetual futures on Lemon Markets",
-			images: [embed.imageUrl],
+		{ name: "fc:miniapp", content: JSON.stringify(embed) },
+		{ name: "fc:frame", content: JSON.stringify(embed) },
+		{ property: "og:title", content: options.pageTitle || options.title },
+		{
+			property: "og:description",
+			content: options.description || "Trade perpetual futures on Lemon Markets",
 		},
-	};
+		{ property: "og:image", content: embed.imageUrl },
+	];
 }
 
 /**

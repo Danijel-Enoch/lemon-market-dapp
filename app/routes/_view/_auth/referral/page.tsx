@@ -4,15 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/car
 import { useDashboard } from "@app/hooks/useDashboard";
 import { useReferral } from "@app/hooks/useReferral";
 import { applyReferralCode } from "@app/lib/dashboard-service";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
 
-export const metadata: Metadata = {
-	title: "Referral - Lemon Markets",
-	description: "Invite friends and earn rewards",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Referral - Lemon Markets" },
+		{ name: "description", content: "Invite friends and earn rewards" },
+	];
 };
 
 export const handle = {

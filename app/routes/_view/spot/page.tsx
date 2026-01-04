@@ -1,11 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export const metadata: Metadata = {
-	title: "Spot Trading - Lemon Markets",
-	description: "Trade cryptocurrencies on the spot market",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Spot Trading - Lemon Markets" },
+		{ name: "description", content: "Trade cryptocurrencies on the spot market" },
+	];
 };
 
 interface TradingPair {

@@ -9,7 +9,7 @@ import {
 	SelectValue,
 } from "@app/components/ui/select";
 import { fetchLeaderboardData } from "@app/lib/leaderboard-service";
-import type { Metadata } from "@app/lib/types";
+import type { MetaFunction } from "react-router";
 import {
 	Award as AwardIcon,
 	ChevronLeft,
@@ -21,9 +21,11 @@ import {
 } from "lucide-react";
 import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 
-export const metadata: Metadata = {
-	title: "Leaderboard - Lemon Markets",
-	description: "View top traders and compete for rewards",
+export const meta: MetaFunction = () => {
+	return [
+		{ title: "Leaderboard - Lemon Markets" },
+		{ name: "description", content: "View top traders and compete for rewards" },
+	];
 };
 
 export async function loader({ request }: { request: Request }) {
