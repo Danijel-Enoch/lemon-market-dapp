@@ -20,5 +20,6 @@ export default defineConfig({
 		sourcemap: false,
 	},
 	optimizeDeps: {
+		exclude: ["@reown/appkit", "@reown/appkit-controllers"],
 	},
 });

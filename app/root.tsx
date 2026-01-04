@@ -1,4 +1,3 @@
-import { PostHogProvider } from "posthog-js/react";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -8,15 +7,7 @@ import {
 	ScrollRestoration,
 } from "react-router";
 import type { Route } from "./+types/root";
-import { MiniAppProvider } from "./components/providers/MiniAppProvider";
-import { ToastProvider } from "./components/providers/ToastProvider";
-import { AppProvider } from "./contexts/AppContext";
 import "./globals.css";
-
-const posthogOptions = {
-	api_host: "https://us.i.posthog.com",
-	defaults: "2025-11-30",
-} as const;
 
 export const meta: Route.MetaFunction = () => {
 	return [
@@ -69,18 +60,7 @@ export default function App() {
 				<Links />
 			</head>
 			<body className="antialiased bg-black text-white">
-				<PostHogProvider
-					apiKey={"phc_3yzfWThidiuKV0AbmI2r7WOrtSx0PEAcGdDbQujHyl5"}
-					options={posthogOptions}
-				>
-					<MiniAppProvider>
-						<ToastProvider>
-							<AppProvider>
-								<Outlet />
-							</AppProvider>
-						</ToastProvider>
-					</MiniAppProvider>
-				</PostHogProvider>
+				<Outlet />
 				<ScrollRestoration />
 				<Scripts />
 			</body>
