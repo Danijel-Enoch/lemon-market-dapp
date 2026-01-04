@@ -21,7 +21,7 @@ import {
 	validateMargin,
 } from "@app/lib/position-api";
 import { referralService } from "@app/lib/referral-service";
-import * as RadixSlider from "@radix-ui/react-slider";
+import { Slider } from "@app/components/ui/slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -1006,20 +1006,15 @@ export default function PerpContent() {
 											<div className="flex items-center bg-muted rounded-lg p-4">
 												<div className="flex-1 relative w-full">
 													<div className="w-full">
-														<RadixSlider.Root
-															className="relative flex items-center select-none touch-none w-full h-6"
+														<Slider
+															className="w-full h-6 cursor-pointer"
 															value={[leverage]}
 															min={1}
 															max={maxLeverage}
 															step={1}
 															onValueChange={(v: number[]) => setLeverageValue(v[0])}
 															aria-label="Leverage"
-														>
-															<RadixSlider.Track className="relative bg-slate-700 h-2 rounded-full w-full">
-																<RadixSlider.Range className="absolute h-2 bg-green-600 rounded-full" />
-															</RadixSlider.Track>
-															<RadixSlider.Thumb className="block w-4 h-4 bg-white rounded-full shadow border border-gray-200" />
-														</RadixSlider.Root>
+														/>
 													</div>
 													<div className="flex justify-between text-xs text-muted-foreground mt-2">
 														{[1, 25, 50, 75, maxLeverage].map((lev) => (
