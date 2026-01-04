@@ -244,7 +244,8 @@ export default function Home({ loaderData: { initialTokens } }: Route.ComponentP
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [itemsPerPage, setItemsPerPage] = useState(getInitialItemsPerPage);
+	// Initialize with default (SSR-safe) value and update on mount
+	const [itemsPerPage, setItemsPerPage] = useState(getInitialItemsPerPage());
 
 	const filterType = (searchParams.get("type") as FilterKey) || "all";
 	const chainFilter = searchParams.get("chain") || "all";

@@ -65,6 +65,7 @@
       },
       "optionalDependencies": {
         "lightningcss-linux-arm64-gnu": "^1.30.2",
+        "lightningcss-linux-x64-gnu": "^1.30.2",
       },
     },
   },
@@ -1758,6 +1759,8 @@
     "lightningcss-darwin-x64": ["lightningcss-darwin-x64@1.30.2", "", { "os": "darwin", "cpu": "x64" }, ""],
 
     "lightningcss-linux-arm64-gnu": ["lightningcss-linux-arm64-gnu@1.30.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-UK65WJAbwIJbiBFXpxrbTNArtfuznvxAJw4Q2ZGlU8kPeDIWEX1dg3rn2veBVUylA2Ezg89ktszWbaQnxD/e3A=="],
+
+    "lightningcss-linux-x64-gnu": ["lightningcss-linux-x64-gnu@1.30.2", "", { "os": "linux", "cpu": "x64" }, "sha512-Cfd46gdmj1vQ+lR6VRTTadNHu6ALuw2pKR9lYq4FnhvgBc4zWY1EtZcAc6EffShbb1MFrIPfLDXD6Xprbnni4w=="],
 
     "lightweight-charts": ["lightweight-charts@5.0.9", "", { "dependencies": { "fancy-canvas": "2.1.0" } }, ""],
 
