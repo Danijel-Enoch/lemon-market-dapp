@@ -1,7 +1,8 @@
+import staticPlugin from "@elysiajs/static";
 import { Elysia } from "elysia";
 import { reactRouter } from "elysia-react-router";
 
-new Elysia()
+const app = new Elysia()
 	.onRequest(({ set }) => {
 		// Security headers
 		set.headers["X-Frame-Options"] = "SAMEORIGIN";
@@ -32,8 +33,28 @@ new Elysia()
 		return fetch(`https://api.coingecko.com/${path}${url.search}`, {
 			headers: { "X-Forwarded-For": "127.0.0.1" },
 		});
-	})
-	.use(await reactRouter({ getLoadContext: (ctx) => ctx }))
-	.listen(3002);
+	});
+
+// Serve static assets in production before React Router catches all routes
+if (process.env.NODE_ENV === "production") {
+	app.use(
+		await staticPlugin({
+			assets: `${process.cwd()}/build/client`,
+			prefix: "/",
+			alwaysStatic: true,
+		}),
+	);
+}
+
+app.use(
+	await reactRouter({
+		getLoadContext: (ctx) => ctx,
+		production: {
+			assets: false,
+		},
+	}),
+);
+
+app.listen(3002);
 
 console.log("Server is running on port 3002");
