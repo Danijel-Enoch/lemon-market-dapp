@@ -16,17 +16,29 @@ const projectId =
 const _isDevelopment = import.meta.env.MODE === "development";
 
 // Import Mini App connector (will be added to connectors automatically)
-let _farcasterMiniAppConnector: unknown;
+let farcasterMiniAppConnector: unknown;
 try {
 	const { farcasterMiniApp } = require("@farcaster/miniapp-wagmi-connector");
-	_farcasterMiniAppConnector = farcasterMiniApp;
-} catch (_e) {}
+	farcasterMiniAppConnector = farcasterMiniApp;
+} catch {}
 
 const connectors = connectorsForWallets(
 	[
 		{
 			groupName: "Popular",
-			wallets: [metaMaskWallet, braveWallet, walletConnectWallet, baseAccount, trustWallet],
+			wallets: [
+				// Add Mini App connector if available
+				...(farcasterMiniAppConnector ? [farcasterMiniAppConnector as any] : []),
+				metaMaskWallet,
+				braveWallet,
+				walletConnectWallet,
+				baseAccount,
+				trustWallet,
+			],
+		},
+		{
+			groupName: "Other",
+			wallets: [trustWallet],
 		},
 	],
 	{

@@ -7,18 +7,23 @@
 	"miniapp": {
 		"version": "1",
 		"name": "Lemon Markets",
-		"iconUrl": "https://demo.lemonmarkets.xyz/image/logo.png",
-		"homeUrl": "https://demo.lemonmarkets.xyz",
-		"imageUrl": "https://demo.lemonmarkets.xyz/image/features-image.png",
+		"iconUrl": "https://lemonmarkets.xyz/image/logo.png",
+		"homeUrl": "https://lemonmarkets.xyz",
+		"imageUrl": "https://lemonmarkets.xyz/image/features-image.png",
 		"buttonTitle": "Start Trading",
-		"splashImageUrl": "https://demo.lemonmarkets.xyz/image/logo.png",
+		"splashImageUrl": "https://lemonmarkets.xyz/image/logo.png",
 		"splashBackgroundColor": "#000000",
 		"description": "A decentralized trading platform for perpetual futures",
 		"subtitle": "Trade perps with leverage",
 		"primaryCategory": "finance",
-		"tags": ["trading", "defi", "perpetuals", "leverage"],
+		"tags": [
+			"trading",
+			"defi",
+			"perpetuals",
+			"leverage"
+		],
 		"ogTitle": "Lemon Markets - Perp Trading",
 		"ogDescription": "Trade perpetual futures with leverage on a decentralized platform",
-		"ogImageUrl": "https://demo.lemonmarkets.xyz/image/features-image.png"
+		"ogImageUrl": "https://lemonmarkets.xyz/image/features-image.png"
 	}
 }

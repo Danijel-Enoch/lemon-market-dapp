@@ -10,14 +10,14 @@ import { useConnection } from "wagmi";
 
 const miniAppEmbed = {
 	version: "1",
-	imageUrl: "https://demo.lemonmarkets.xyz/image/wallet-icon.svg",
+	imageUrl: "https://lemonmarkets.xyz/image/wallet-icon.svg",
 	button: {
 		title: "View Positions",
 		action: {
 			type: "launch_miniapp",
 			name: "Lemon Markets - Positions",
-			url: "https://demo.lemonmarkets.xyz/positions",
-			splashImageUrl: "https://demo.lemonmarkets.xyz/image/logo.png",
+			url: "https://lemonmarkets.xyz/positions",
+			splashImageUrl: "https://lemonmarkets.xyz/image/logo.png",
 			splashBackgroundColor: "#000000",
 		},
 	},
@@ -31,7 +31,7 @@ export const meta: MetaFunction = () => {
 		{ name: "fc:frame", content: JSON.stringify(miniAppEmbed) },
 		{ property: "og:title", content: "My Positions - Lemon Markets" },
 		{ property: "og:description", content: "View and manage your trading positions" },
-		{ property: "og:image", content: "https://demo.lemonmarkets.xyz/image/wallet-icon.svg" },
+		{ property: "og:image", content: "https://lemonmarkets.xyz/image/wallet-icon.svg" },
 	];
 };
 

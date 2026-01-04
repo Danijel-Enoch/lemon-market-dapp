@@ -92,14 +92,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const miniAppEmbed = {
 	version: "1",
-	imageUrl: "https://demo.lemonmarkets.xyz/image/trading-icon.svg",
+	imageUrl: "https://lemonmarkets.xyz/image/trading-icon.svg",
 	button: {
 		title: "Trade Perpetuals",
 		action: {
 			type: "launch_miniapp",
 			name: "Lemon Markets - Perpetuals",
-			url: "https://demo.lemonmarkets.xyz/perp",
-			splashImageUrl: "https://demo.lemonmarkets.xyz/image/logo.png",
+			url: "https://lemonmarkets.xyz/perp",
+			splashImageUrl: "https://lemonmarkets.xyz/image/logo.png",
 			splashBackgroundColor: "#000000",
 		},
 	},
