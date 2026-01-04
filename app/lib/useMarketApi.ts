@@ -1,5 +1,5 @@
-import { betterFetch } from "@better-fetch/fetch";
 import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
+import { betterFetch } from "@better-fetch/fetch";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 

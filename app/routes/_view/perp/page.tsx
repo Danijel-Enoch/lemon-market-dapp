@@ -6,7 +6,9 @@ import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { Input } from "@app/components/ui/input";
 import { SearchModal } from "@app/components/ui/SearchModal";
 import { Skeleton } from "@app/components/ui/skeleton";
+import { Slider } from "@app/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useMarketData } from "@app/hooks/useMarketData";
 import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { useUserPositions } from "@app/hooks/useUserPositions";
@@ -21,13 +23,11 @@ import {
 	validateMargin,
 } from "@app/lib/position-api";
 import { referralService } from "@app/lib/referral-service";
-import { Slider } from "@app/components/ui/slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import type { MetaFunction } from "react-router";
 import { type ActionFunctionArgs, redirect, useFetcher, useSearchParams } from "react-router";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { formatUnits, parseUnits } from "viem";
 import {
 	useBalance,

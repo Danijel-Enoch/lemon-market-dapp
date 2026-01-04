@@ -1,6 +1,6 @@
 import { Skeleton } from "@app/components/ui/skeleton";
-import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
+import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { useWindowEvent } from "@app/hooks/useWindowEvent";
 import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";

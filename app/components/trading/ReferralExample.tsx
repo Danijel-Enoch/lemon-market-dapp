@@ -1,7 +1,7 @@
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useReferral } from "@app/hooks/useReferral";
 import { referralService } from "@app/lib/referral-service";
 import { generateReferralUrl } from "@app/lib/referral-utils";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useEffect, useMemo, useState } from "react";
 import { useConnection } from "wagmi";
 

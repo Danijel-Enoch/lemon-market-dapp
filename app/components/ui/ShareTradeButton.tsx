@@ -1,6 +1,6 @@
 import { Button } from "@app/components/ui/button";
-import { useMiniAppActions } from "@app/hooks/useMiniAppActions";
 import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
+import { useMiniAppActions } from "@app/hooks/useMiniAppActions";
 import { Share2, UserPlus } from "lucide-react";
 
 interface ShareTradeButtonProps {

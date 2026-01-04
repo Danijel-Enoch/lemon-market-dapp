@@ -5,13 +5,13 @@ import { Button } from "@app/components/ui/button";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
 import { Skeleton } from "@app/components/ui/skeleton";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 // import { useDashboard } from "@/hooks/useDashboard";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { formatCurrency, formatNumber } from "@app/lib/dashboard-service";
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { MetaFunction } from "react-router";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => {

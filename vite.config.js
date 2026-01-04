@@ -5,7 +5,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	plugins: [ tailwindcss(), reactRouter(), tsconfigPaths()],
+	plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
 	css: {
 		devSourcemap: false,
 	},
@@ -28,6 +28,26 @@ export default defineConfig({
 					return;
 				}
 				warn(warning);
+			},
+			output: {
+				// (Rollup throws if a manual chunk references an external module)
+				manualChunks(id, { getModuleInfo }) {
+					// If a module is marked external, do not try to include it in a manual chunk
+					const info = getModuleInfo?.(id);
+					if (info?.isExternal) return;
+
+					if (id.includes("node_modules/react") || id.includes("node_modules/react-dom")) {
+						return "react-vendor";
+					}
+
+					if (id.includes("node_modules/react-router")) {
+						return "react-router-vendor";
+					}
+
+					if (id.includes("node_modules/react-hot-toast")) {
+						return "toast-vendor";
+					}
+				},
 			},
 		},
 	},

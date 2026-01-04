@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useState, useEffect } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Define the context type based on what sdk.context resolves to
 interface MiniAppUser {

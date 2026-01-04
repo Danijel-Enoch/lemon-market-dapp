@@ -1,10 +1,10 @@
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import {
 	applyReferralCode,
 	createReferralCode,
 	getUserReferralStats,
 } from "@app/lib/dashboard-service";
 import { useCallback, useEffect, useState } from "react";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";

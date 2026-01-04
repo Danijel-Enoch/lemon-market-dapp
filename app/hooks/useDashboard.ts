@@ -1,3 +1,4 @@
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import {
 	createReferralCode,
 	getUserAggregatedPoints,
@@ -5,7 +6,6 @@ import {
 } from "@app/lib/dashboard-service";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection } from "wagmi";
 
 export function useDashboard() {

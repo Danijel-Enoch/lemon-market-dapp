@@ -4,12 +4,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@app/components/ui/dropdown-menu";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import {
 	getAllSupportedChains,
 	getChainInfo,
 	isChainSupportedInEnvironment,
 } from "@app/lib/chain-utils";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useChainId, useSwitchChain } from "wagmi";

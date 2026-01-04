@@ -3,6 +3,7 @@ import { Button } from "@app/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@app/components/ui/dialog";
 import { Input } from "@app/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@app/components/ui/tabs";
+import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useClosePosition } from "@app/hooks/useClosePosition";
 import {
 	extractTokenSymbol,
@@ -16,7 +17,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
-import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useConnection, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface PositionsTableProps {
