@@ -1,5 +1,3 @@
-"use client";
-
 import { ReferralCodeSection } from "@app/components/dashboard/ReferralCodeSection";
 import { ReferralStats } from "@app/components/dashboard/ReferralStats";
 import { AuthGate } from "@app/components/ui/AuthGate";

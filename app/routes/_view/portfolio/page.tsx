@@ -1,5 +1,3 @@
-"use client";
-
 import { PositionsTable } from "@app/components/trading/PositionsTable";
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";

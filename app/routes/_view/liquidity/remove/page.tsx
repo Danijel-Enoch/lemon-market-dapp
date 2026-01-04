@@ -1,5 +1,3 @@
-"use client";
-
 import { AuthGate } from "@app/components/ui/AuthGate";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@app/components/ui/card";

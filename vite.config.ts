@@ -12,35 +12,6 @@ export default defineConfig({
 		hmr: {
 			host: "localhost",
 		},
-		proxy: {
-			"/api/geckoterminal": {
-				target: "https://api.geckoterminal.com",
-				changeOrigin: true,
-				headers: {
-					Origin: "http://localhost:5174",
-				},
-				rewrite: (path) => path.replace(/^\/api\/geckoterminal/, ""),
-			},
-			"/api/dexscreener": {
-				target: "https://api.dexscreener.com",
-				changeOrigin: true,
-				headers: {
-					Origin: "http://localhost:5174",
-				},
-				rewrite: (path) => path.replace(/^\/api\/dexscreener/, ""),
-			},
-			"/api/coingecko": {
-				target: "https://api.coingecko.com",
-				changeOrigin: true,
-				headers: {
-					Origin: "http://localhost:5174",
-				},
-				rewrite: (path) => path.replace(/^\/api\/coingecko/, ""),
-			},
-		},
-	},
-	optimizeDeps: {
-		// exclude: ["ox"],
 	},
 	build: {
 		reportCompressedSize: false,
