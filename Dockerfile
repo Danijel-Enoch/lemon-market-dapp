@@ -21,6 +21,8 @@ COPY --from=prerelease --chown=bun:bun /usr/src/app/package.json .
 COPY --from=prerelease --chown=bun:bun /usr/src/app/vite.config.ts .
 COPY --from=prerelease --chown=bun:bun /usr/src/app/app app
 COPY --from=prerelease --chown=bun:bun /usr/src/app/public public
+COPY --from=prerelease --chown=bun:bun /usr/src/app/build build
+COPY --from=prerelease --chown=bun:bun /usr/src/app/tsconfig.json .
 
 # run the app
 USER bun
