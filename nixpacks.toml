@@ -1,9 +1,0 @@
-[phases.setup]
-nixPkgs = ["bun"]
-nixpkgsArchive = "7d853e518814cca2a657b72eeba67ae20ebf7059"
-
-[phases.build]
-cmds = ["bun run build"]
-
-[start]
-cmd = "bun run start"

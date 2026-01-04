@@ -5,7 +5,6 @@ import type { FC } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import useAsync from "react-use/lib/useAsync";
-import useTimeout from "react-use/lib/useTimeout";
 
 type Pill = {
 	icon: string;
@@ -165,7 +164,13 @@ const convertToPills = (tokens: TrendingToken[]): Pill[] => {
 };
 
 export const TrendingCoinsSection: FC = () => {
-	const [isReady] = useTimeout(15_000);
+	// SSR-safe timeout implementation
+	const [isReady, setIsReady] = useState(false);
+	useEffect(() => {
+		const timer = setTimeout(() => setIsReady(true), 15_000);
+		return () => clearTimeout(timer);
+	}, []);
+
 	// Fetch trending tokens from API
 	const { value: trendingData, loading } = useAsync(async () => {
 		const data = await fetchTokensTrending({ limit: 50, page: 1 });

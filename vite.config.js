@@ -6,11 +6,14 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [reactRouter(), tailwindcss(), tsconfigPaths()],
+	css: {
+		devSourcemap: false,
+	},
 	server: {
 		port: 5174,
 		strictPort: true,
-
 		allowedHosts: ["testb.kubesmith.app", "lemonmarkets.xyz", "www.lemonmarkets.xyz"],
+		sourcemapIgnoreList: (sourcePath) => sourcePath.includes("node_modules"),
 	},
 	build: {
 		reportCompressedSize: false,
