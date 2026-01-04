@@ -1,6 +1,6 @@
 import { type ClosePositionRequest, useMarketApi } from "@app/lib/useMarketApi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
+import { useConnection, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface ClosePositionResult {
 	to?: string;
@@ -16,7 +16,7 @@ export interface UseClosePositionOptions {
 }
 
 export function useClosePosition(options: UseClosePositionOptions = {}) {
-	const { address } = useAccount();
+	const { address } = useConnection();
 	const marketApi = useMarketApi();
 	const queryClient = useQueryClient();
 	const { sendTransaction, data: hash, isPending: isSendingTx } = useSendTransaction();

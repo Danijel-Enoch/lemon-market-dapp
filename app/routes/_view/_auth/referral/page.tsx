@@ -8,7 +8,7 @@ import type { MetaFunction } from "react-router";
 import { UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -34,7 +34,7 @@ export default function ReferralPage() {
 		refetch,
 	} = useDashboard();
 	const { getReferredByFromStorage } = useReferral();
-	const { address } = useAccount();
+	const { address } = useConnection();
 
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [applyCode, setApplyCode] = useState("");

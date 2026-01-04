@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { formatUnits, parseUnits } from "viem";
 import {
-	useAccount,
+	useConnection,
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
@@ -93,7 +93,7 @@ const listBalance = (bal: unknown) => {
 
 export default function RemoveLiquidityPage() {
 	const navigate = useNavigate();
-	const { address } = useAccount();
+	const { address } = useConnection();
 	const { markets } = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<typeof action>();
 	const [amount, setAmount] = useState("");

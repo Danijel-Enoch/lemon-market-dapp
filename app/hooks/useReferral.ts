@@ -5,13 +5,13 @@ import {
 } from "@app/lib/dashboard-service";
 import { useCallback, useEffect, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 const REFERRAL_CODE_KEY = "lemon_referral_code";
 const REFERRED_BY_KEY = "lemon_referred_by";
 
 export function useReferral() {
-	const { address } = useAccount();
+	const { address } = useConnection();
 	const [referralCode, setReferralCode] = useState<string | null>(null);
 
 	// Get referral code from localStorage

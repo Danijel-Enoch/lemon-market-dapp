@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
+import { useConnection, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface PositionsTableProps {
 	positions: Position[];
@@ -34,7 +34,7 @@ export function PositionsTable({
 	onRefetch,
 	tradingPairAddress,
 }: PositionsTableProps) {
-	const { address } = useAccount();
+	const { address } = useConnection();
 	const { sendTransaction, data: hash, isPending } = useSendTransaction();
 	const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 	const navigate = useNavigate();

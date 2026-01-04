@@ -10,7 +10,7 @@ import {
 } from "@app/lib/useMarketApi";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 export interface UseUserPositionsResult {
 	positions: Position[];
@@ -115,7 +115,7 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
  * with real-time PnL calculations
  */
 export function useUserPositions(): UseUserPositionsResult {
-	const { address, isConnected } = useAccount();
+	const { address, isConnected } = useConnection();
 	const [isEnhancedMode, setIsEnhancedMode] = useState(false);
 	const marketApi = useMarketApi();
 

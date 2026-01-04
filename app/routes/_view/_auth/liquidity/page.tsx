@@ -12,7 +12,7 @@ import { Loader2, Minus, Plus, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLoaderData, useSearchParams, useNavigate } from "react-router";
 import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 import type { MetaFunction } from "react-router";
 
@@ -222,7 +222,7 @@ export default function LiquidityPage() {
 	const { initialMarkets, error: loaderError } = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const { address } = useAccount();
+	const { address } = useConnection();
 
 	// State
 	const [searchQuery, setSearchQuery] = useState("");

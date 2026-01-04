@@ -4,7 +4,7 @@ import { useUserPositions } from "@app/hooks/useUserPositions";
 import type { MetaFunction } from "react-router";
 import { Activity, DollarSign, TrendingUp, Wallet } from "lucide-react";
 import { formatUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useConnection, useReadContract } from "wagmi";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -41,7 +41,7 @@ const ERC20_BALANCE_ABI = [
 ] as const;
 
 export default function PortfolioPage() {
-	const { address } = useAccount();
+	const { address } = useConnection();
 
 	// Fetch USDC balance
 	const { data: usdcBalance } = useReadContract({

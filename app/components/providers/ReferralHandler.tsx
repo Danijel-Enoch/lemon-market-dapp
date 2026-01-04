@@ -1,12 +1,12 @@
 import { useReferral } from "@app/hooks/useReferral";
 import { useEffect } from "react";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 /**
  * Global referral handler that processes referral codes when user connects wallet
  */
 export function ReferralHandler() {
-	const { address, isConnected } = useAccount();
+	const { address, isConnected } = useConnection();
 	const { initializeUserReferral } = useReferral();
 
 	useEffect(() => {

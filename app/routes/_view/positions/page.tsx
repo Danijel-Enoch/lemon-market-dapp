@@ -6,7 +6,7 @@ import { useUserPositions } from "@app/hooks/useUserPositions";
 import { motion } from "framer-motion";
 import { Activity, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import type { MetaFunction } from "react-router";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 const miniAppEmbed = {
 	version: "1",
@@ -36,7 +36,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function PositionsPage() {
-	const { isConnected } = useAccount();
+	const { isConnected } = useConnection();
 	const {
 		positions,
 		enhancedPositions,

@@ -2,7 +2,7 @@ import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { Card, CardContent } from "@app/components/ui/card";
 import { Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 interface AuthGateProps {
 	children: ReactNode;
@@ -33,7 +33,7 @@ export function AuthGate({
 	icon: Icon = Wallet,
 	inline = false,
 }: AuthGateProps) {
-	const { isConnected } = useAccount();
+	const { isConnected } = useConnection();
 
 	if (isConnected) {
 		return children;

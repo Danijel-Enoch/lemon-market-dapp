@@ -12,7 +12,7 @@ import type { MetaFunction } from "react-router";
 import { ArrowUpRight, TrendingUp, Trophy, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => {
 	return [
@@ -56,10 +56,10 @@ function DashboardContent() {
 	const refetch = () => {}; // No-op for now
 	const generateReferralCode = async () => "LEMON-NEW";
 
-	const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
+	const { address: walletAddress, isConnected: isWalletConnected } = useConnection();
 
 	// Also get wallet connection directly from wagmi for comparison
-	const { address: directAddress, isConnected: directIsConnected, status } = useAccount();
+	const { address: directAddress, isConnected: directIsConnected, status } = useConnection();
 	const [showConnectMessage, setShowConnectMessage] = useState(true);
 	const [isCheckingConnection, setIsCheckingConnection] = useState(true);
 

@@ -6,10 +6,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 export function useDashboard() {
-	const { address, isConnected } = useAccount();
+	const { address, isConnected } = useConnection();
 
 	const {
 		data: dashboardData,

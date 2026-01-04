@@ -17,7 +17,7 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import { formatUnits, parseUnits } from "viem";
 import {
-	useAccount,
+	useConnection,
 	useReadContract,
 	useSendTransaction,
 	useWaitForTransactionReceipt,
@@ -90,7 +90,7 @@ const formatBalance = (balance?: bigint, decimals = 6) => {
 
 export default function AddLiquidityPage() {
 	const navigate = useNavigate();
-	const { address, chainId } = useAccount();
+	const { address, chainId } = useConnection();
 	const { markets } = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<typeof action>();
 	const [amount, setAmount] = useState("");

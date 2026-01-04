@@ -3,14 +3,14 @@ import { referralService } from "@app/lib/referral-service";
 import { generateReferralUrl } from "@app/lib/referral-utils";
 import { useEffect, useMemo, useState } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
-import { useAccount } from "wagmi";
+import { useConnection } from "wagmi";
 
 /**
  * Example component showing how to use the referral system
  * This demonstrates all referral functionality
  */
 export function ReferralExample() {
-	const { address } = useAccount();
+	const { address } = useConnection();
 	const { referralCode, isLoading, error } = useReferral();
 	const [copiedToClipboard, setCopiedToClipboard] = useState(false);
 

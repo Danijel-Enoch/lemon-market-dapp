@@ -2,7 +2,7 @@ import { verifyTask } from "@app/lib/kickoff-service";
 import type { Chain, MoneyMarket, Position, TradingPair, Transaction } from "@app/lib/mock-data";
 import type React from "react";
 import { createContext, type ReactNode, useContext, useEffect, useReducer, useRef } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useConnection, useBalance } from "wagmi";
 
 interface AppState {
 	selectedPair: TradingPair | null;
@@ -158,7 +158,7 @@ const AppContext = createContext<{
 
 export function AppProvider({ children }: { children: ReactNode }) {
 	const [state, dispatch] = useReducer(appReducer, initialState);
-	const { address, isConnected } = useAccount();
+	const { address, isConnected } = useConnection();
 	const { data: balance } = useBalance({
 		address: address,
 	});
