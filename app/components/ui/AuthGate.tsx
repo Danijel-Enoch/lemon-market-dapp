@@ -36,7 +36,7 @@ export function AuthGate({
 	const { isConnected } = useAccount();
 
 	if (isConnected) {
-		return <>{children}</>;
+		return children;
 	}
 
 	if (inline) {
