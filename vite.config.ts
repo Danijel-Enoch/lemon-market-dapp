@@ -17,5 +17,6 @@ export default defineConfig({
 	build: {
 		reportCompressedSize: false,
 		target: "esnext",
+		sourcemap: false,
 	},
 });
