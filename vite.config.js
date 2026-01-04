@@ -19,4 +19,7 @@ export default defineConfig({
 		target: "esnext",
 		sourcemap: false,
 	},
+	optimizeDeps: {
+		exclude: ["react", "react-dom", "react-router", "react-router-dom"],
+	},
 });
