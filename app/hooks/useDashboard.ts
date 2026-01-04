@@ -1,4 +1,8 @@
-import { createReferralCode, getUserReferralStats } from "@app/lib/dashboard-service";
+import {
+	createReferralCode,
+	getUserAggregatedPoints,
+	getUserReferralStats,
+} from "@app/lib/dashboard-service";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import useAsyncFn from "react-use/lib/useAsyncFn";
@@ -20,10 +24,13 @@ export function useDashboard() {
 			}
 
 			// Use Promise.allSettled to handle partial failures gracefully
-			const results = await Promise.allSettled([getUserReferralStats(address)]);
+			const results = await Promise.allSettled([
+				getUserReferralStats(address),
+				getUserAggregatedPoints(address),
+			]);
 
 			// Extract successful results with fallback values
-			const [referralStatsResult] = results;
+			const [referralStatsResult, aggregatedPointsResult] = results;
 
 			const referralStats =
 				referralStatsResult.status === "fulfilled"
@@ -35,11 +42,24 @@ export function useDashboard() {
 							referralCode: null,
 						};
 
+			const aggregatedPoints =
+				aggregatedPointsResult.status === "fulfilled"
+					? aggregatedPointsResult.value
+					: {
+							referral: 0,
+							trading: 0,
+							total: 0,
+						};
+
 			// Get referral code from stats response
 			const referralCode = referralStats?.referralCode || null;
 
+			// Prefer aggregated total points, fallback to referral stats points if aggregated is 0 (and strict check to ensure we don't overwrite with 0 if referral stats has something, though aggregated should be more comprehensive)
+			const pointsEarned = aggregatedPoints.total || referralStats.points;
+
 			return {
-				pointsEarned: referralStats.points,
+				pointsEarned,
+				pointsBreakdown: aggregatedPoints,
 				feesEarned: 0,
 				tradingVolume: 0,
 				referralCode,
@@ -70,6 +90,7 @@ export function useDashboard() {
 	const stats = useMemo(() => {
 		const data = dashboardData || {
 			pointsEarned: 0,
+			pointsBreakdown: { referral: 0, trading: 0, total: 0 },
 			feesEarned: 0,
 			tradingVolume: 0,
 			referralCode: generatedCode || null,
