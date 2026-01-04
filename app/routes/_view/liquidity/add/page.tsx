@@ -10,8 +10,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@app/components/ui/select";
-import { ERC20Abi, lpContract, usdc } from "@app/lib/contracts"; // Removed SyntheticAbi
-import { addLiquidity, getMarkets, type Market } from "@app/lib/liquidity-api";
+import { ERC20Abi, lpContract, usdc } from "@app/lib/contracts";
+import { addLiquidity, getMarkets } from "@app/lib/liquidity-api";
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -24,6 +24,58 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
+import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	useFetcher,
+	useLoaderData,
+} from "react-router";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+	try {
+		const response = await getMarkets();
+		if (response.success) {
+			return { markets: response.data };
+		}
+	} catch (error) {
+		console.error("Failed to fetch markets in loader:", error);
+	}
+	return { markets: [] };
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+	const formData = await request.formData();
+	const intent = formData.get("intent");
+
+	if (intent === "add-liquidity") {
+		const amount = formData.get("amount") as string;
+		const userAddress = formData.get("userAddress") as `0x${string}`;
+		const marketId = formData.get("marketId") as string;
+		const chainId = Number(formData.get("chainId"));
+
+		try {
+			const response = await addLiquidity({
+				amount,
+				userAddress,
+				chainId,
+				marketId,
+			});
+
+			if (response.success && response.data) {
+				return { success: true, intent, transactionData: response.data.transactionData };
+			}
+			return { success: false, intent, error: response.error || "Failed to add liquidity" };
+		} catch (error) {
+			return {
+				success: false,
+				intent,
+				error: error instanceof Error ? error.message : "An unknown error occurred",
+			};
+		}
+	}
+
+	return { success: false, intent, error: "Invalid intent" };
+}
 
 // Helper to format balance
 const formatBalance = (balance?: bigint, decimals = 6) => {
@@ -34,13 +86,12 @@ const formatBalance = (balance?: bigint, decimals = 6) => {
 function AddLiquidityContent() {
 	const navigate = useNavigate();
 	const { address, chainId } = useAccount();
+	const { markets } = useLoaderData<typeof loader>();
+	const fetcher = useFetcher<typeof action>();
 	const [amount, setAmount] = useState("");
-	const [selectedMarketId, setSelectedMarketId] = useState<string>("");
-	const [markets, setMarkets] = useState<Market[]>([]);
-	const [isMarketsLoading, setIsMarketsLoading] = useState(true);
-
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [apiError, setApiError] = useState<string | null>(null);
+	const [selectedMarketId, setSelectedMarketId] = useState<string>(
+		markets?.[0]?.onChainData.marketId || "",
+	);
 
 	// Contracts state
 	const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
@@ -85,25 +136,6 @@ function AddLiquidityContent() {
 			hash: addLiquidityHash,
 		});
 
-	// Fetch markets on mount
-	useEffect(() => {
-		const fetchMarkets = async () => {
-			try {
-				const response = await getMarkets();
-				if (response.success && response.data.length > 0) {
-					setMarkets(response.data);
-					setSelectedMarketId(response.data[0].onChainData.marketId.split("-")[0]); // Default to first market
-				}
-			} catch (e) {
-				console.error("Failed to fetch markets", e);
-				setApiError("Failed to backend markets. Please try again later.");
-			} finally {
-				setIsMarketsLoading(false);
-			}
-		};
-		fetchMarkets();
-	}, []);
-
 	// Refetch data after success
 	useEffect(() => {
 		if (isApproveSuccess) {
@@ -115,9 +147,26 @@ function AddLiquidityContent() {
 	useEffect(() => {
 		if (isAddLiquiditySuccess) {
 			refetchBalance();
-			// Optional: Show success toast or navigate
+			toast.success("Liquidity added successfully!");
 		}
 	}, [isAddLiquiditySuccess, refetchBalance]);
+
+	// Handle action response
+	useEffect(() => {
+		if (
+			fetcher.data?.success &&
+			fetcher.data.transactionData &&
+			fetcher.data.intent === "add-liquidity"
+		) {
+			const { to, data, value, gasEstimate } = fetcher.data.transactionData;
+			sendTransaction({
+				to: to as `0x${string}`,
+				data: data as `0x${string}`,
+				value: value ? BigInt(value) : BigInt(0),
+				gas: gasEstimate ? BigInt(gasEstimate) : undefined,
+			});
+		}
+	}, [fetcher.data, sendTransaction]);
 
 	// Handlers
 	const handleApprove = () => {
@@ -131,38 +180,23 @@ function AddLiquidityContent() {
 		});
 	};
 
-	const handleAddLiquidity = async () => {
+	const handleAddLiquidity = () => {
 		if (!amount || !address || !selectedMarketId) return;
-		setIsSubmitting(true);
-		setApiError(null);
-
-		try {
-			const response = await addLiquidity({
-				amount: amount,
+		fetcher.submit(
+			{
+				intent: "add-liquidity",
+				amount,
 				userAddress: address,
-				chainId,
+				chainId: chainId?.toString() || "",
 				marketId: selectedMarketId,
-			});
-			console.log({ response });
-
-			if (response.success && response.data) {
-				const { transactionData } = response.data;
-				const { to, data, value, gasEstimate } = transactionData;
-				sendTransaction({
-					to: to as `0x${string}`,
-					data: data as `0x${string}`,
-					value: value ? BigInt(value) : BigInt(0),
-					gas: gasEstimate ? BigInt(gasEstimate) : undefined,
-				});
-			} else {
-				setApiError(response.error || "Failed to get transaction data");
-			}
-		} catch (err) {
-			setApiError(err instanceof Error ? err.message : "An unknown error occurred");
-		} finally {
-			setIsSubmitting(false);
-		}
+			},
+			{ method: "post" },
+		);
 	};
+
+	const isSubmitting =
+		fetcher.state !== "idle" && fetcher.formData?.get("intent") === "add-liquidity";
+	const apiError = fetcher.data?.intent === "add-liquidity" ? fetcher.data.error : null;
 
 	const isLoading =
 		isApprovePending ||
@@ -203,7 +237,7 @@ function AddLiquidityContent() {
 				<CardContent className="space-y-6">
 					<div className="space-y-2">
 						<Label>Select Market</Label>
-						{isMarketsLoading ? (
+						{markets.length === 0 ? (
 							<div className="h-10 w-full animate-pulse bg-muted rounded-md" />
 						) : (
 							<Select

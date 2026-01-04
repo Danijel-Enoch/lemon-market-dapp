@@ -67,7 +67,7 @@ export interface StockItem {
 export type TrendingItem = TokenItem | FXItem | StockItem;
 
 export interface TrendingResult {
-	data: TrendingItem[];
+	data: TokenItem[];
 	pagination?: {
 		page: number;
 		limit: number;

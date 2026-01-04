@@ -21,7 +21,6 @@ import {
 } from "@app/lib/position-api";
 import { referralService } from "@app/lib/referral-service";
 import type { Metadata } from "@app/lib/types";
-import { useMarketApi } from "@app/lib/useMarketApi";
 import * as RadixSlider from "@radix-ui/react-slider";
 import { Search, TrendingDown, TrendingUp } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
@@ -36,6 +35,46 @@ import {
 	useWaitForTransactionReceipt,
 	useWriteContract,
 } from "wagmi";
+import { type ActionFunctionArgs, useFetcher } from "react-router";
+import { openPosition } from "@app/lib/market-api";
+import { toast } from "react-hot-toast";
+
+export async function action({ request }: ActionFunctionArgs) {
+	const formData = await request.formData();
+	const intent = formData.get("intent");
+
+	if (intent === "open-position") {
+		const marketId = formData.get("marketId") as string;
+		const isLong = formData.get("isLong") === "true";
+		const margin = formData.get("margin") as string;
+		const leverage = Number(formData.get("leverage"));
+		const userAddress = formData.get("userAddress") as string;
+		const referrer = formData.get("referrer") as string;
+
+		try {
+			const result = await openPosition({
+				marketId,
+				isLong,
+				margin,
+				leverage,
+				userAddress,
+				referrer,
+			});
+
+			if (result.success && result.data) {
+				return { success: true, intent, transactionData: result.data };
+			}
+			return { success: false, intent, error: result.error || "Failed to open position" };
+		} catch (error) {
+			return {
+				success: false,
+				intent,
+				error: error instanceof Error ? error.message : "An unknown error occurred",
+			};
+		}
+	}
+	return { success: false, intent, error: "Invalid intent" };
+}
 
 const miniAppEmbed = {
 	version: "1",
@@ -122,8 +161,6 @@ function PerpContent() {
 		totalMargin,
 	} = useUserPositions();
 
-	const marketApi = useMarketApi();
-
 	const { address, isConnected } = useConnection();
 	const { mutate, data: hash, error, isPending } = useSendTransaction();
 	const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
@@ -174,6 +211,7 @@ function PerpContent() {
 	const [isLong, setIsLong] = useState(true);
 	const [marginValue, setMarginValue] = useState("");
 	const [autoSwapAndApprove, setAutoSwapAndApprove] = useState(false);
+	const fetcher = useFetcher<typeof action>();
 	const [leverage, setLeverage] = useState(2);
 	const [chartType, setChartType] = useState<"dexscreener" | "beta">("dexscreener");
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
@@ -386,6 +424,22 @@ function PerpContent() {
 		}
 	}, [isConfirmed, hash, address, fetchUserPositions]);
 
+	useEffect(() => {
+		if (
+			fetcher.data?.success &&
+			fetcher.data.transactionData &&
+			fetcher.data.intent === "open-position"
+		) {
+			const { to, data, value, gasEstimate } = fetcher.data.transactionData;
+			mutate({
+				to: to as `0x${string}`,
+				data: data as `0x${string}`,
+				value: value ? BigInt(value) : BigInt(0),
+				gas: gasEstimate ? BigInt(String(gasEstimate)) : undefined,
+			});
+		}
+	}, [fetcher.data, mutate]);
+
 	const setLeverageValue = (value: number) => {
 		const newLeverage = Math.max(1, Math.min(maxLeverage, value));
 		setLeverage(newLeverage);
@@ -408,101 +462,57 @@ function PerpContent() {
 		}, [isConnected, address, writeContract]);
 
 	// Handle place transaction
-	const [{ loading: isCreatingPosition, error: transactionError }, handlePlaceTransaction] =
-		useAsyncFn(async () => {
-			if (!isConnected || !address) {
-				throw new Error("Please connect your wallet first");
-			}
+	const handlePlaceTransaction = () => {
+		if (!isConnected || !address) {
+			toast.error("Please connect your wallet first");
+			return;
+		}
 
-			if (tradingPair.assetType !== "crypto") {
-				throw new Error("Trading is currently only available for crypto assets");
-			}
+		if (tradingPair.assetType !== "crypto") {
+			toast.error("Trading is currently only available for crypto assets");
+			return;
+		}
 
-			// Convert margin token amount to USD for validation (if price available)
-			const marginUsdForValidation = marginTokenPriceUsd
-				? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
-				: marginValue;
-			const marginValidation = validateMargin(marginUsdForValidation);
-			if (!marginValidation.valid) {
-				throw new Error(marginValidation.error || "Invalid margin");
-			}
+		// Convert margin token amount to USD for validation (if price available)
+		const marginUsdForValidation = marginTokenPriceUsd
+			? String(parseFloat(marginValue || "0") * marginTokenPriceUsd)
+			: marginValue;
+		const marginValidation = validateMargin(marginUsdForValidation);
+		if (!marginValidation.valid) {
+			toast.error(marginValidation.error || "Invalid margin");
+			return;
+		}
 
-			const leverageValidation = validateLeverage(leverage);
-			if (!leverageValidation.valid) {
-				throw new Error(leverageValidation.error || "Invalid leverage");
-			}
+		const leverageValidation = validateLeverage(leverage);
+		if (!leverageValidation.valid) {
+			toast.error(leverageValidation.error || "Invalid leverage");
+			return;
+		}
 
-			const tokenSymbol = extractTokenSymbol(tradingPair.symbol).toUpperCase().replace(" ", "");
-			const tokenAddress = tradingPair.tokenAddress;
-			const chainName = tradingPair.chain || "base";
+		const tokenSymbol = extractTokenSymbol(tradingPair.symbol).toUpperCase().replace(" ", "");
+		const tokenAddress = tradingPair.tokenAddress;
+		const chainName = tradingPair.chain || "base";
 
-			// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
-			const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
-			//console.log("referrerAddress:", referrerAddress);
-			const result = await marketApi.positions.open({
+		// Market ID format: "{Token Symbol in uppercase}-{Token Contract Address}-{currentChain Name}"
+		const marketId = `${tokenSymbol}-${tokenAddress}-${chainName}`;
+
+		fetcher.submit(
+			{
+				intent: "open-position",
 				marketId,
-				isLong,
+				isLong: isLong.toString(),
 				margin: marginValue,
-				leverage,
+				leverage: leverage.toString(),
 				userAddress: address,
 				referrer: referrerAddress,
-			});
+			},
+			{ method: "post" },
+		);
+	};
 
-			if (!result) {
-				throw new Error("Failed to create position");
-			}
-
-			// Check for API error response
-			if (typeof result === "object" && "error" in result && result.error) {
-				throw new Error(
-					typeof result.error === "string" ? result.error : "Failed to create position",
-				);
-			}
-
-			if (typeof result === "object" && "success" in result && result.success === false) {
-				throw new Error("Failed to create position");
-			}
-
-			let txResult = result as {
-				to?: string;
-				data?: string;
-				gasEstimate?: number;
-			};
-
-			// Handle case where tx data is nested in 'data' property
-			if ("data" in txResult && typeof txResult.data === "object" && txResult.data !== null) {
-				const nestedData = txResult.data as {
-					to?: string;
-					data?: string;
-					gasEstimate?: number;
-				};
-				if (nestedData.to && nestedData.data) {
-					txResult = nestedData;
-				}
-			}
-
-			if (!txResult.to || !txResult.data) {
-				//console.error("Invalid transaction data received:", result);
-				throw new Error("Market unavailable at the moment");
-			}
-
-			mutate({
-				to: txResult.to as `0x${string}`,
-				data: txResult.data as `0x${string}`,
-				value: BigInt(0),
-				gas: txResult.gasEstimate ? BigInt(String(txResult.gasEstimate)) : undefined,
-			});
-		}, [
-			isConnected,
-			address,
-			marginValue,
-			leverage,
-			tradingPair,
-			isLong,
-			mutate,
-			marginTokenPriceUsd,
-			referrerAddress,
-		]);
+	const isCreatingPosition =
+		fetcher.state !== "idle" && fetcher.formData?.get("intent") === "open-position";
+	const transactionError = fetcher.data?.intent === "open-position" ? fetcher.data.error : null;
 
 	return (
 		<>
@@ -1075,7 +1085,7 @@ function PerpContent() {
 									{(approvalError || transactionError) && (
 										<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">
 											<p className="text-destructive text-sm">
-												{approvalError?.message || transactionError?.message}
+												{approvalError?.message || transactionError}
 											</p>
 										</div>
 									)}
