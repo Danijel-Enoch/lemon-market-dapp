@@ -20,6 +20,5 @@ export default defineConfig({
 		sourcemap: false,
 	},
 	optimizeDeps: {
-		exclude: ["react", "react-dom", "react-router", "react-router-dom"],
 	},
 });
