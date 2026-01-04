@@ -31,7 +31,4 @@ export default defineConfig({
 			},
 		},
 	},
-	optimizeDeps: {
-		exclude: ["@reown/appkit", "@reown/appkit-controllers"],
-	},
 });
