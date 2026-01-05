@@ -397,7 +397,7 @@ export default function Home({ loaderData: { initialTokens } }: Route.ComponentP
 							value={String(itemsPerPage)}
 							onValueChange={(value) => setItemsPerPage(Number(value))}
 						>
-							<SelectTrigger className="w-[70px] bg-[#050505] border-[#1f1f1f] text-[#E8F0EF]">
+							<SelectTrigger className="w-17.5 bg-[#050505] border-[#1f1f1f] text-[#E8F0EF]">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
