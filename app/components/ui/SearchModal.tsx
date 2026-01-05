@@ -82,71 +82,64 @@
 //   );
 // }
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@app/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@app/components/ui/dialog";
 import { Input } from "@app/components/ui/input";
 import { Search } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 interface SearchModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  header: string;
-  placeholder: string;
-  minQueryLength?: number;
-  onSearch: (query: string) => void;
-  onClear?: () => void;
-  children: ReactNode;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	header: string;
+	placeholder: string;
+	minQueryLength?: number;
+	onSearch: (query: string) => void;
+	onClear?: () => void;
+	children: ReactNode;
 }
 
 export function SearchModal({
-  open,
-  onOpenChange,
-  header,
-  placeholder,
-  //   minQueryLength = 3,
-  onSearch,
-  onClear,
-  children,
+	open,
+	onOpenChange,
+	header,
+	placeholder,
+	//   minQueryLength = 3,
+	onSearch,
+	onClear,
+	children,
 }: SearchModalProps) {
-  const [query, setQuery] = useState("");
+	const [query, setQuery] = useState("");
 
-  const handleSearch = (value: string) => {
-    setQuery(value);
-    if (value.trim().length >= 3) {
-      onSearch(value);
-    } else {
-      onClear?.();
-    }
-  };
+	const handleSearch = (value: string) => {
+		setQuery(value);
+		if (value.trim().length >= 3) {
+			onSearch(value);
+		} else {
+			onClear?.();
+		}
+	};
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-150 bg-[#1a1a1a] border-[#333] px-4">
-        <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Search className="w-5 h-5" />
-            {header}
-          </DialogTitle>
-        </DialogHeader>
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-150 bg-[#1a1a1a] border-[#333] px-4">
+				<DialogHeader>
+					<DialogTitle className="text-white flex items-center gap-2">
+						<Search className="w-5 h-5" />
+						{header}
+					</DialogTitle>
+				</DialogHeader>
 
-        <div className="space-y-4">
-          <Input
-            autoFocus
-            placeholder={placeholder}
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="bg-[#2a2a2a] border-[#444] text-white placeholder:text-[#888]"
-          />
-          <div className="max-h-56 w-full sm:max-w-142 overflow-x-auto">
-            {children}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+				<div className="space-y-4">
+					<Input
+						autoFocus
+						placeholder={placeholder}
+						value={query}
+						onChange={(e) => handleSearch(e.target.value)}
+						className="bg-[#2a2a2a] border-[#444] text-white placeholder:text-[#888]"
+					/>
+					<div className="max-h-56 w-full sm:max-w-142 overflow-x-auto">{children}</div>
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
 }
