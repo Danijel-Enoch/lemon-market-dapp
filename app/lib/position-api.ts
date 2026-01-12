@@ -19,6 +19,52 @@ export interface CreatePositionRequest {
 	pairAddress?: string; // optional pair address for accurate pricing
 }
 
+export interface LimitOrder {
+	id: string;
+	transactionHash: string;
+	trader: string;
+	tokenSymbol: string;
+	timestamp: string;
+	takeProfitPrice: string;
+	stopLossPrice: string;
+	positionId: string;
+	margin: string;
+	limitPrice: string;
+	leverage: string;
+	isLong: boolean;
+	blockTimestamp: string;
+	blockNumber: string;
+}
+
+export interface GetLimitOrdersResponse {
+	success: boolean;
+	data?: {
+		limitOrders: LimitOrder[];
+		count: number;
+		metadata: {
+			fetchedAt: string;
+			source: string;
+			limit: number;
+			offset: number;
+		};
+	};
+	error?: string;
+}
+
+export interface ModifyLimitOrderRequest {
+	positionId: number;
+	marketId: string;
+	newLimitPrice: string;
+	newTpPrice?: string;
+	newSlPrice?: string;
+	userAddress: string;
+}
+
+export interface CancelLimitOrderRequest {
+	positionId: number;
+	userAddress: string;
+}
+
 export interface CreatePositionResponse {
 	success: boolean;
 	data?: {
@@ -454,6 +500,80 @@ export async function modifyPosition(
 	}
 
 	return response.json();
+}
+
+/**
+ * Fetch limit orders for a trader
+ */
+export async function getLimitOrders(
+	trader: string,
+	limit = 10,
+	offset = 0
+): Promise<GetLimitOrdersResponse> {
+	try {
+		const { data } = await betterFetch(`${BASE_URL}/positions/limit-orders`, {
+			method: "POST",
+			body: JSON.stringify({ trader, limit, offset }),
+			headers: { "Content-Type": "application/json" },
+		});
+		return data as GetLimitOrdersResponse;
+	} catch (error) {
+		return {
+			success: false,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to fetch limit orders",
+		};
+	}
+}
+
+/**
+ * Call the modify limit order API
+ */
+export async function modifyLimitOrder(
+	params: ModifyLimitOrderRequest
+): Promise<ModifyPositionResponse> {
+	try {
+		const { data } = await betterFetch(`${BASE_URL}/positions/modify-limit-order`, {
+			method: "POST",
+			body: JSON.stringify(params),
+			headers: { "Content-Type": "application/json" },
+		});
+		return data as ModifyPositionResponse;
+	} catch (error) {
+		return {
+			success: false,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to modify limit order",
+		};
+	}
+}
+
+/**
+ * Call the cancel limit order API
+ */
+export async function cancelLimitOrder(
+	params: CancelLimitOrderRequest
+): Promise<ModifyPositionResponse> {
+	try {
+		const { data } = await betterFetch(`${BASE_URL}/positions/cancel-limit-order`, {
+			method: "POST",
+			body: JSON.stringify(params),
+			headers: { "Content-Type": "application/json" },
+		});
+		return data as ModifyPositionResponse;
+	} catch (error) {
+		return {
+			success: false,
+			error:
+				error instanceof Error
+					? error.message
+					: "Failed to cancel limit order",
+		};
+	}
 }
 
 /**
