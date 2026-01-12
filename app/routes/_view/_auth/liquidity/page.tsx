@@ -1,439 +1,913 @@
 import { Button } from "@app/components/ui/button";
-import { type ColumnDef, DataTable, type FilterTab } from "@app/components/ui/data-table";
 import { Skeleton } from "@app/components/ui/skeleton";
-import {
-	getLiquidityPositions,
-	getMarkets,
-	type LiquidityPosition,
-	type Market,
-} from "@app/lib/liquidity-api";
 import { formatLargeNumber } from "@app/lib/utils";
-import { Loader2, Minus, Plus, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+	ArrowUpDown,
+	DollarSign,
+	TrendingUp,
+	Wallet,
+	Loader2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import type { MetaFunction } from "react-router";
-import { Link, useLoaderData, useNavigate, useSearchParams } from "react-router";
-import { formatUnits } from "viem";
-import { useConnection } from "wagmi";
+import {
+	useConnection,
+	useReadContract,
+	useWriteContract,
+	useWaitForTransactionReceipt,
+	useSendTransaction,
+} from "wagmi";
+import { ERC20Abi, vaultContract, usdc, lmusdc } from "@app/lib/contracts";
+import { formatUnits, parseUnits } from "viem";
+import toast from "react-hot-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	getVaultUserStats,
+	getVaultStats,
+	getAnalyticsSummary,
+} from "@app/lib/liquidity-api";
 
 export const meta: MetaFunction = () => {
 	return [
-		{ title: "Liquidity - Lemon Markets" },
-		{ name: "description", content: "Provide liquidity and earn rewards" },
+		{ title: "Liquidity Vault - Lemon Markets" },
+		{
+			name: "description",
+			content: "Deposit into the unified LP vault and earn yield",
+		},
 	];
 };
 
 export const handle = {
-	authTitle: "Connect Wallet to View Liquidity",
-	authDescription: "Connect your wallet to provide liquidity and earn trading fees.",
+	authTitle: "Connect Wallet to Access Vault",
+	authDescription:
+		"Connect your wallet to deposit into the liquidity vault and earn yield.",
 	authIcon: Wallet,
 };
 
-type FilterKey = "all" | "my-positions";
+type TabType = "deposit" | "withdraw";
 
-// Extended market type with APR
-type MarketWithApr = Market & { apr: number };
-
-// Display item that combines market data with position info
-interface DisplayMarket extends MarketWithApr {
-	position?: LiquidityPosition;
-	marketName: string;
-	totalLiquidity: string;
-	totalExposure: string;
-	longValue: string;
-	shortValue: string;
-	positionValue: string;
-}
-
-export async function loader() {
-	const response = await getMarkets();
-	if (response.success) {
-		// Add random APR for now as requested
-		const marketsWithApr = response.data.map((m) => ({
-			...m,
-			apr: Math.floor(Math.random() * 20) + 5, // 5-24%
-		}));
-		return { initialMarkets: marketsWithApr };
-	}
-	return { initialMarkets: [], error: response.error || "Failed to fetch markets" };
-}
-
-// Column definitions for the liquidity table
-const getColumns = (): ColumnDef<DisplayMarket>[] => [
-	{
-		key: "pool",
-		header: "Pool",
-		headerAlign: "left",
-		cellAlign: "left",
-		render: (item) => (
-			<div className="flex items-center gap-4">
-				<div className="relative">
-					<div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden border border-[#2c2c2c] bg-[#0b0b0b]">
-						<span className="text-lg">🍋</span>
-					</div>
-					{item.position && (
-						<div className="absolute -right-1 -bottom-1 text-xs bg-[#a3e635] text-black px-1.5 py-0.5 rounded-full border border-[#84cc16]">
-							LP
-						</div>
-					)}
-				</div>
-				<div className="min-w-0">
-					<div className="text-[#E9F0EF] font-semibold text-sm leading-5 truncate">
-						{item.marketName} Pool
-					</div>
-					<div className="text-[#9AA0A0] text-xs truncate">
-						{item.onChainData.longPositionCount + item.onChainData.shortPositionCount} positions
-					</div>
-				</div>
-			</div>
-		),
-		skeleton: () => (
-			<div className="flex items-center gap-4">
-				<Skeleton className="w-11 h-11 rounded-full" />
-				<div className="min-w-0">
-					<Skeleton className="h-4 w-24 mb-1" />
-					<Skeleton className="h-3 w-16" />
-				</div>
-			</div>
-		),
-	},
-	{
-		key: "apr",
-		header: "APR",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[100px]",
-		render: (item) => (
-			<div className="inline-block bg-[#1a2e14] text-[#a3e635] px-2 py-1 rounded text-xs font-semibold">
-				{item.apr}%
-			</div>
-		),
-		skeleton: () => <Skeleton className="h-4 w-12 ml-auto" />,
-	},
-	{
-		key: "totalLiquidity",
-		header: "Total Liquidity",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[140px]",
-		render: (item) => (
-			<span className="text-[#a3e635] font-semibold text-sm">{item.totalLiquidity}</span>
-		),
-		skeleton: () => <Skeleton className="h-4 w-20 ml-auto" />,
-	},
-	{
-		key: "totalExposure",
-		header: "Total Exposure",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[140px]",
-		render: (item) => <span className="text-[#E9F0EF] text-sm">{item.totalExposure}</span>,
-		skeleton: () => <Skeleton className="h-4 w-20 ml-auto" />,
-	},
-	{
-		key: "longs",
-		header: "Longs",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[120px]",
-		render: (item) => (
-			<>
-				<span className="text-green-500 text-sm">{item.longValue}</span>
-				<div className="text-xs text-[#9AA0A0]">{item.onChainData.longPositionCount} pos</div>
-			</>
-		),
-		skeleton: () => <Skeleton className="h-4 w-16 ml-auto" />,
-	},
-	{
-		key: "shorts",
-		header: "Shorts",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[120px]",
-		render: (item) => (
-			<>
-				<span className="text-red-500 text-sm">{item.shortValue}</span>
-				<div className="text-xs text-[#9AA0A0]">{item.onChainData.shortPositionCount} pos</div>
-			</>
-		),
-		skeleton: () => <Skeleton className="h-4 w-16 ml-auto" />,
-	},
-	{
-		key: "yourPosition",
-		header: "Your Position",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[140px]",
-		render: (item) => (
-			<span className="text-[#E9F0EF] font-semibold text-sm">
-				{item.position ? item.positionValue : "-"}
-			</span>
-		),
-		skeleton: () => <Skeleton className="h-4 w-16 ml-auto" />,
-	},
-	{
-		key: "actions",
-		header: "Actions",
-		headerAlign: "right",
-		cellAlign: "right",
-		width: "w-[120px]",
-		render: (item) => (
-			// biome-ignore lint/a11y/useKeyWithClickEvents: no need
-			<div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-				{item.position ? (
-					<Button size="sm" variant="outline" asChild>
-						<Link to="/liquidity/remove">
-							<Minus className="h-3 w-3" />
-						</Link>
-					</Button>
-				) : null}
-				<Button size="sm" asChild>
-					<Link to="/liquidity/add">
-						<Plus className="h-3 w-3" />
-					</Link>
-				</Button>
-			</div>
-		),
-		skeleton: () => <Skeleton className="h-8 w-16 ml-auto" />,
-	},
+// Duration options in days (minimum 2 days, maximum 6 months = 180 days)
+const DURATION_OPTIONS = [
+	{ label: "2 Days", value: 2, apy: 6.5 },
+	{ label: "7 Days", value: 7, apy: 8.5 },
+	{ label: "14 Days", value: 14, apy: 10.2 },
+	{ label: "30 Days", value: 30, apy: 11.52 },
+	{ label: "60 Days", value: 60, apy: 13.8 },
+	{ label: "90 Days", value: 90, apy: 15.5 },
+	{ label: "180 Days", value: 180, apy: 18.5 },
 ];
 
-// Calculate position value
-const calculatePositionValue = (position: LiquidityPosition | undefined): string => {
-	if (
-		!position?.lpTokensReceived ||
-		!position.onChainData.virtualLiquidity ||
-		Number(position.onChainData.totalShares) <= 0
-	) {
-		return "$0.00";
-	}
-	const value =
-		(Number(position.lpTokenDetails?.balance || position.lpTokensReceived) /
-			Number(position.onChainData.totalShares)) *
-		Number(position.onChainData.virtualLiquidity) *
-		1e-6;
-	return `$${value.toLocaleString(undefined, {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	})}`;
-};
-
 export default function LiquidityPage() {
-	const { initialMarkets, error: loaderError } = useLoaderData<typeof loader>();
-	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
 	const { address } = useConnection();
+	const queryClient = useQueryClient();
 
 	// State
-	const [searchQuery, setSearchQuery] = useState("");
-	const [markets] = useState<MarketWithApr[]>(initialMarkets);
-	const [positions, setPositions] = useState<LiquidityPosition[]>([]);
-	const [isLoadingPositions, setIsLoadingPositions] = useState(true);
-	const [error] = useState<string | null>(loaderError || null);
+	const [activeTab, setActiveTab] = useState<TabType>("deposit");
+	const [depositAmount, setDepositAmount] = useState("");
+	const [selectedDuration, setSelectedDuration] = useState(
+		DURATION_OPTIONS[3]
+	); // Default 30 days
+	const [lockIndex, setLockIndex] = useState("");
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [apiError, setApiError] = useState<string | null>(null);
 
-	const filterType = (searchParams.get("tab") as FilterKey) || "all";
+	// Read USDC balance
+	const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
+		address: usdc,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address },
+	});
 
-	const setSearchParam = (key: string, value: string) => {
-		const newParams = new URLSearchParams(searchParams);
-		if (value === "all" || !value) {
-			newParams.delete(key);
-		} else {
-			newParams.set(key, value);
-		}
-		navigate(`?${newParams.toString()}`, { replace: true });
+	// Read USDC allowance for vault
+	const { data: allowance, refetch: refetchAllowance } = useReadContract({
+		address: usdc,
+		abi: ERC20Abi,
+		functionName: "allowance",
+		args: address ? [address, vaultContract as `0x${string}`] : undefined,
+		query: { enabled: !!address },
+	});
+
+	// Read LMUSDC balance (LP tokens)
+	const { data: lmusdcBalance, refetch: refetchLpBalance } = useReadContract({
+		address: lmusdc,
+		abi: ERC20Abi,
+		functionName: "balanceOf",
+		args: address ? [address] : undefined,
+		query: { enabled: !!address },
+	});
+
+	// Approval transaction
+	const {
+		writeContract: writeApprove,
+		data: approveHash,
+		isPending: isApprovePending,
+		error: approveError,
+	} = useWriteContract();
+
+	const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } =
+		useWaitForTransactionReceipt({
+			hash: approveHash,
+		});
+
+	// Deposit transaction
+	const {
+		sendTransaction: sendDeposit,
+		data: depositHash,
+		isPending: isDepositPending,
+		error: depositError,
+	} = useSendTransaction();
+
+	const { isLoading: isDepositConfirming, isSuccess: isDepositSuccess } =
+		useWaitForTransactionReceipt({
+			hash: depositHash,
+		});
+
+	// Analytics Data
+	const { data: vaultUserStats, isLoading: isUserStatsLoading } = useQuery({
+		queryKey: ["vaultUserStats", address],
+		queryFn: () => getVaultUserStats(address as string),
+		enabled: !!address,
+	});
+
+	const { data: vaultStats, isLoading: isVaultStatsLoading } = useQuery({
+		queryKey: ["vaultStats"],
+		queryFn: getVaultStats,
+	});
+
+	const { data: analyticsSummary, isLoading: isSummaryLoading } = useQuery({
+		queryKey: ["analyticsSummary"],
+		queryFn: getAnalyticsSummary,
+	});
+
+	// Derived vault data
+	const vaultData = {
+		totalDeposits: vaultStats?.data.totalInsuranceLiquidity
+			? Number(
+					formatUnits(
+						BigInt(vaultStats.data.totalInsuranceLiquidity),
+						6
+					)
+				)
+			: 0,
+		allTimeFees: analyticsSummary?.data.totalFees
+			? Number(formatUnits(BigInt(analyticsSummary.data.totalFees), 6))
+			: 0,
+		projectedAPY: vaultStats?.data.estimatedAPR
+			? Number(vaultStats.data.estimatedAPR)
+			: 0,
+		userDeposit: vaultUserStats?.data.totalLpAdded
+			? Number(formatUnits(BigInt(vaultUserStats.data.totalLpAdded), 6))
+			: 0,
+		currentEarnings: (() => {
+			if (!vaultUserStats || !vaultStats) return 0;
+			const lpBalance = BigInt(vaultUserStats.data.lpTokenBalance);
+			const sharePrice = BigInt(vaultStats.data.currentSharePrice);
+			const totalAdded = BigInt(vaultUserStats.data.totalLpAdded);
+			const currentValue = (lpBalance * sharePrice) / BigInt(1e18);
+			return Number(formatUnits(currentValue - totalAdded, 6));
+		})(),
+		totalShares: vaultUserStats?.data.lpTokenBalance
+			? Number(formatUnits(BigInt(vaultUserStats.data.lpTokenBalance), 6))
+			: 0,
 	};
 
-	// Fetch user positions
+	// Refetch allowance after approval
 	useEffect(() => {
-		const fetchPositions = async () => {
-			if (!address) {
-				setIsLoadingPositions(false);
+		if (isApproveSuccess) {
+			toast.success("Approval successful! You can now deposit.");
+			refetchAllowance();
+		}
+	}, [isApproveSuccess, refetchAllowance]);
+
+	// Handle deposit success
+	useEffect(() => {
+		if (isDepositSuccess) {
+			toast.success("Deposit successful!");
+			setDepositAmount("");
+			refetchBalance();
+			refetchLpBalance();
+			setIsProcessing(false);
+			// Invalidate queries to refetch data
+			queryClient.invalidateQueries({ queryKey: ["vaultUserStats"] });
+			queryClient.invalidateQueries({ queryKey: ["vaultStats"] });
+			queryClient.invalidateQueries({ queryKey: ["analyticsSummary"] });
+		}
+	}, [isDepositSuccess, refetchBalance, refetchLpBalance, queryClient]);
+
+	// Handle deposit error
+	useEffect(() => {
+		if (depositError) {
+			const errorMsg =
+				depositError.message || "Deposit transaction failed";
+			setApiError(errorMsg);
+			toast.error(errorMsg);
+			setIsProcessing(false);
+		}
+	}, [depositError]);
+
+	const handleApprove = () => {
+		if (!depositAmount) return;
+		const amountBigInt = parseUnits(depositAmount, 6); // USDC has 6 decimals
+		setApiError(null);
+		writeApprove({
+			address: usdc,
+			abi: ERC20Abi,
+			functionName: "approve",
+			args: [vaultContract, amountBigInt],
+		});
+	};
+
+	const handleDeposit = async () => {
+		if (!address || !depositAmount || Number(depositAmount) <= 0) return;
+
+		setIsProcessing(true);
+		setApiError(null);
+		try {
+			// Convert duration from days to seconds
+			const durationInSeconds = selectedDuration.value * 24 * 60 * 60;
+
+			const response = await fetch(
+				"http://localhost:3000/liquidity/vault/deposit-insurance",
+				{
+					method: "POST",
+					headers: {
+						Accept: "*/*",
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						userAddress: address,
+						amount: depositAmount,
+						duration: durationInSeconds.toString(),
+					}),
+				}
+			);
+
+			const data = await response.json();
+			console.log("Deposit response:", data);
+
+			if (!response.ok || !data.success) {
+				const errorMsg =
+					data.error ||
+					data.message ||
+					`HTTP error! status: ${response.status}`;
+				setApiError(errorMsg);
+				toast.error(errorMsg);
+				setIsProcessing(false);
 				return;
 			}
-			try {
-				const response = await getLiquidityPositions(address);
-				if (response.success) {
-					setPositions(response.data);
-				}
-			} catch (e) {
-				console.error(e);
-			} finally {
-				setIsLoadingPositions(false);
+
+			// Check simulation result
+			if (data.simulationResult && !data.simulationResult.success) {
+				const errorMsg =
+					"Transaction simulation failed. Please check your inputs.";
+				setApiError(errorMsg);
+				toast.error(errorMsg);
+				setIsProcessing(false);
+				return;
 			}
-		};
-		fetchPositions();
-	}, [address]);
 
-	// Filter markets based on search
-	const filteredMarkets = useMemo(() => {
-		return markets.filter((market) => {
-			const marketName = market.onChainData.marketId.split("-")[0] || "Unknown";
-			return marketName.toLowerCase().includes(searchQuery.toLowerCase());
-		});
-	}, [markets, searchQuery]);
-
-	// Get position market IDs for filtering
-	const positionMarketIds = useMemo(() => {
-		return new Set(positions.map((p) => p.marketId));
-	}, [positions]);
-
-	// Transform markets to display items
-	const displayMarkets: DisplayMarket[] = useMemo(() => {
-		const filtered =
-			filterType === "my-positions"
-				? filteredMarkets.filter((m) => positionMarketIds.has(m.marketId))
-				: filteredMarkets;
-
-		return filtered.map((market) => {
-			const position = positions.find((p) => p.marketId === market.marketId);
-			const marketName = market.onChainData.marketId.split("-")[0] || "Unknown";
-			const totalLiquidity = market.onChainData.virtualLiquidity
-				? `$${formatLargeNumber(Number(formatUnits(BigInt(market.onChainData.virtualLiquidity), 6)))}`
-				: "$0";
-			const totalExposure = market.exposure?.totalExposure
-				? `$${formatLargeNumber(Number(formatUnits(BigInt(market.exposure.totalExposure), 6)))}`
-				: "$0";
-			const longValue = market.exposure?.totalLong
-				? `$${formatLargeNumber(Number(formatUnits(BigInt(market.exposure.totalLong), 6)))}`
-				: "$0";
-			const shortValue = market.exposure?.totalShort
-				? `$${formatLargeNumber(Number(formatUnits(BigInt(market.exposure.totalShort), 6)))}`
-				: "$0";
-			const positionValue = calculatePositionValue(position);
-
-			return {
-				...market,
-				position,
-				marketName,
-				totalLiquidity,
-				totalExposure,
-				longValue,
-				shortValue,
-				positionValue,
-			};
-		});
-	}, [filteredMarkets, filterType, positionMarketIds, positions]);
-
-	const filterTabs: FilterTab[] = [
-		{ key: "all", label: "All Pools" },
-		{
-			key: "my-positions",
-			label: `My Positions${positions.length > 0 ? ` (${positions.length})` : ""}`,
-		},
-	];
-
-	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setSearchQuery(e.target.value);
+			// Execute the transaction with the data returned from API
+			if (data.data && data.data.to && data.data.data) {
+				sendDeposit({
+					to: data.data.to as `0x${string}`,
+					data: data.data.data as `0x${string}`,
+					value: BigInt(data.data.value || "0x0"),
+				});
+				// Note: Success/error handling is done in useEffect hooks
+			} else {
+				throw new Error("Invalid transaction data received from API");
+			}
+		} catch (error) {
+			console.error("Deposit error:", error);
+			const errorMsg =
+				error instanceof Error ? error.message : "Failed to deposit";
+			setApiError(errorMsg);
+			toast.error(errorMsg);
+			setIsProcessing(false);
+		}
 	};
 
-	const isLoading = isLoadingPositions && filterType === "my-positions";
+	const handleWithdraw = async () => {
+		if (!address || !lockIndex) return;
 
-	const columns = getColumns();
+		setIsProcessing(true);
+		setApiError(null);
+		try {
+			const response = await fetch(
+				"http://localhost:3000/liquidity/vault/withdraw-insurance",
+				{
+					method: "POST",
+					headers: {
+						Accept: "*/*",
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						userAddress: address,
+						lockIndex: lockIndex,
+					}),
+				}
+			);
 
-	// Determine empty state content
-	const getEmptyContent = () => {
-		if (isLoadingPositions) {
-			return {
-				title: "",
-				description: "",
-				action: <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />,
-			};
+			const data = await response.json();
+			console.log("Withdraw response:", data);
+
+			if (!response.ok || !data.success) {
+				const errorMsg =
+					data.error ||
+					data.message ||
+					`HTTP error! status: ${response.status}`;
+				setApiError(errorMsg);
+				toast.error(errorMsg);
+				return;
+			}
+
+			// Handle success
+			toast.success("Withdrawal successful!");
+			setLockIndex("");
+			refetchBalance();
+			refetchLpBalance();
+			// Invalidate queries to refetch data
+			queryClient.invalidateQueries({ queryKey: ["vaultUserStats"] });
+			queryClient.invalidateQueries({ queryKey: ["vaultStats"] });
+			queryClient.invalidateQueries({ queryKey: ["analyticsSummary"] });
+		} catch (error) {
+			console.error("Withdraw error:", error);
+			const errorMsg =
+				error instanceof Error ? error.message : "Failed to withdraw";
+			setApiError(errorMsg);
+			toast.error(errorMsg);
+		} finally {
+			setIsProcessing(false);
 		}
-		if (filterType === "my-positions") {
-			return {
-				title: "You don't have any liquidity positions yet",
-				description: "Add liquidity to a pool to start earning trading fees",
-				action: (
-					<Button asChild className="mt-4">
-						<Link to="/liquidity/add">
-							<Plus className="mr-2 h-4 w-4" />
-							Add Liquidity
-						</Link>
-					</Button>
-				),
-			};
-		}
-		if (searchQuery) {
-			return {
-				title: `No pools found for "${searchQuery}"`,
-				description: "Try adjusting your search or check back later",
-				action: undefined,
-			};
-		}
-		return {
-			title: "No pools available",
-			description: "Try adjusting your search or check back later",
-			action: undefined,
-		};
 	};
 
-	const emptyContent = getEmptyContent();
+	const estimatedReceive =
+		depositAmount && Number(depositAmount) > 0
+			? (Number(depositAmount) * 0.99).toFixed(2) // Mock calculation
+			: "0";
+
+	const estimatedYield =
+		depositAmount && Number(depositAmount) > 0
+			? (
+					(Number(depositAmount) * selectedDuration.apy) /
+					100 /
+					(365 / selectedDuration.value)
+				).toFixed(2)
+			: "0";
 
 	return (
-		<>
-			{/* Header */}
-			<div className="flex items-center justify-between mb-6 mt-8">
-				<div>
-					<h1 className="text-2xl font-bold text-foreground">Liquidity</h1>
-					<p className="text-muted-foreground text-xs">
-						Provide liquidity to pools and earn trading fees
-					</p>
-				</div>
-				<div className="flex gap-2">
-					<Button asChild variant="outline">
-						<Link to="/liquidity/remove">
-							<Minus className="mr-2 h-4 w-4" />
-							Remove Liquidity
-						</Link>
-					</Button>
-					<Button asChild>
-						<Link to="/liquidity/add">
-							<Plus className="mr-2 h-4 w-4" />
-							Add Liquidity
-						</Link>
-					</Button>
+		<div className="mt-8 max-w-7xl mx-auto">
+			{/* Header Banner */}
+			<div className="bg-gradient-to-r from-purple-900/40 via-purple-800/30 to-purple-900/40 border border-purple-700/30 rounded-2xl p-8 mb-8">
+				<div className="flex items-start gap-6">
+					<div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center border-2 border-purple-500/50 shadow-lg shadow-purple-500/20">
+						<span className="text-4xl">🍋</span>
+					</div>
+					<div className="flex-1">
+						<h1 className="text-3xl font-bold text-white mb-2">
+							Lemon LP Vault
+						</h1>
+						<p className="text-purple-200 text-sm mb-3 max-w-2xl">
+							All liquidity pools have been unified into one LP
+							Vault. Your deposits continue to earn yield, with
+							better APYs than before.
+						</p>
+						<a
+							href="#"
+							className="text-[#a3e635] text-sm font-medium hover:underline inline-flex items-center gap-1"
+						>
+							Learn more about vault unification →
+						</a>
+					</div>
 				</div>
 			</div>
 
-			{/* Error State */}
-			{error && (
-				<div className="p-4 text-center text-sm text-red-500 border border-red-500/20 rounded-lg bg-red-500/5 mt-4">
-					{error}
+			{/* Stats Grid */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+				<div className="bg-[#0f0f0f] border border-[#2c2c2c] rounded-xl p-6">
+					<div className="flex items-center gap-3 mb-3">
+						<div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+							<DollarSign className="w-5 h-5 text-yellow-500" />
+						</div>
+						<span className="text-[#9AA0A0] text-sm">
+							Vault Deposits
+						</span>
+					</div>
+					<div className="text-3xl font-bold text-white">
+						{isVaultStatsLoading ? (
+							<Skeleton className="h-9 w-32 bg-[#1a1a1a]" />
+						) : (
+							`$${formatLargeNumber(vaultData.totalDeposits)}`
+						)}
+					</div>
 				</div>
-			)}
 
-			<DataTable
-				data={displayMarkets}
-				isLoading={isLoading}
-				skeletonCount={5}
-				searchPlaceholder="Search pools by name..."
-				searchValue={searchQuery}
-				onSearchChange={handleSearchChange}
-				filterTabs={filterTabs}
-				activeFilter={filterType}
-				onFilterChange={(value) => setSearchParam("tab", value)}
-				columns={columns}
-				getRowKey={(item, idx) => `${item.marketId}-${idx}`}
-				emptyTitle={emptyContent.title}
-				emptyDescription={emptyContent.description}
-				emptyAction={emptyContent.action}
-				footer={
-					<>
-						<div className="flex items-center gap-4">
-							<span>
-								Total Pools: <span className="text-[#E8F0EF]">{markets.length}</span>
-							</span>
-							{positions.length > 0 && (
-								<span>
-									Your Positions: <span className="text-[#a3e635]">{positions.length}</span>
-								</span>
+				<div className="bg-[#0f0f0f] border border-[#2c2c2c] rounded-xl p-6">
+					<div className="flex items-center gap-3 mb-3">
+						<div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+							<ArrowUpDown className="w-5 h-5 text-green-500" />
+						</div>
+						<span className="text-[#9AA0A0] text-sm">
+							All-time Fees
+						</span>
+					</div>
+					<div className="text-3xl font-bold text-white">
+						{isSummaryLoading ? (
+							<Skeleton className="h-9 w-24 bg-[#1a1a1a]" />
+						) : (
+							`$${formatLargeNumber(vaultData.allTimeFees)}`
+						)}
+					</div>
+				</div>
+
+				<div className="bg-[#0f0f0f] border border-[#2c2c2c] rounded-xl p-6">
+					<div className="flex items-center gap-3 mb-3">
+						<div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+							<TrendingUp className="w-5 h-5 text-purple-500" />
+						</div>
+						<span className="text-[#9AA0A0] text-sm">
+							Projected APY
+						</span>
+					</div>
+					<div className="text-3xl font-bold text-[#a3e635]">
+						{isVaultStatsLoading ? (
+							<Skeleton className="h-9 w-16 bg-[#1a1a1a]" />
+						) : (
+							`${vaultData.projectedAPY}%`
+						)}
+					</div>
+				</div>
+			</div>
+
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+				{/* Main Deposit/Withdraw Panel */}
+				<div className="lg:col-span-2">
+					<div className="bg-[#0f0f0f] border border-[#2c2c2c] rounded-xl overflow-hidden">
+						{/* Tabs */}
+						<div className="flex border-b border-[#2c2c2c]">
+							<button
+								type="button"
+								onClick={() => setActiveTab("deposit")}
+								className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+									activeTab === "deposit"
+										? "bg-[#1a1a1a] text-white border-b-2 border-[#a3e635]"
+										: "text-[#9AA0A0] hover:text-white hover:bg-[#151515]"
+								}`}
+							>
+								Deposit
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("withdraw")}
+								className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
+									activeTab === "withdraw"
+										? "bg-[#1a1a1a] text-white border-b-2 border-[#a3e635]"
+										: "text-[#9AA0A0] hover:text-white hover:bg-[#151515]"
+								}`}
+							>
+								Withdraw
+							</button>
+						</div>
+
+						{/* Content */}
+						<div className="p-6">
+							{activeTab === "deposit" ? (
+								<div className="space-y-6">
+									{/* Deposit Amount */}
+									<div>
+										<label
+											htmlFor="deposit-amount"
+											className="block text-sm text-[#9AA0A0] mb-2"
+										>
+											Deposit Amount
+										</label>
+										<div className="relative">
+											<input
+												id="deposit-amount"
+												type="number"
+												value={depositAmount}
+												onChange={(e) =>
+													setDepositAmount(
+														e.target.value
+													)
+												}
+												placeholder="0"
+												className="w-full bg-[#1a1a1a] border border-[#2c2c2c] rounded-lg px-4 py-3 text-white text-lg pr-20 focus:outline-none focus:border-[#a3e635] transition-colors"
+											/>
+											<div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+												<span className="text-white font-medium">
+													USDC
+												</span>
+												<div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+													<span className="text-xs">
+														💵
+													</span>
+												</div>
+											</div>
+										</div>
+										<button
+											type="button"
+											className="mt-2 text-xs text-[#a3e635] hover:underline flex items-center gap-1"
+											onClick={() => {
+												if (usdcBalance) {
+													setDepositAmount(
+														formatUnits(
+															usdcBalance as bigint,
+															6
+														)
+													);
+												}
+											}}
+										>
+											<Wallet className="w-3 h-3" />
+											Balance:{" "}
+											{usdcBalance
+												? Number(
+														formatUnits(
+															usdcBalance as bigint,
+															6
+														)
+													).toFixed(2)
+												: "0.00"}{" "}
+											USDC
+											<span className="ml-2 text-[#9AA0A0]">
+												Max
+											</span>
+										</button>
+									</div>
+
+									{/* Duration Selection */}
+									<div>
+										<label className="block text-sm text-[#9AA0A0] mb-3">
+											Lock Duration
+										</label>
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+											{DURATION_OPTIONS.map((option) => (
+												<button
+													key={option.value}
+													type="button"
+													onClick={() =>
+														setSelectedDuration(
+															option
+														)
+													}
+													className={`p-4 rounded-lg border-2 transition-all ${
+														selectedDuration.value ===
+														option.value
+															? "border-[#a3e635] bg-[#a3e635]/10"
+															: "border-[#2c2c2c] bg-[#1a1a1a] hover:border-[#3c3c3c]"
+													}`}
+												>
+													<div className="text-white font-semibold mb-1">
+														{option.label}
+													</div>
+													<div className="text-xs text-[#a3e635]">
+														{option.apy}% APY
+													</div>
+												</button>
+											))}
+										</div>
+									</div>
+
+									{/* Estimates */}
+									<div className="bg-[#1a1a1a] border border-[#2c2c2c] rounded-lg p-4 space-y-3">
+										<div className="flex justify-between items-center">
+											<span className="text-sm text-[#9AA0A0]">
+												Receive
+											</span>
+											<span className="text-white font-semibold">
+												{estimatedReceive} lmUSDC
+											</span>
+										</div>
+										<div className="flex justify-between items-center">
+											<span className="text-sm text-[#9AA0A0]">
+												Est. Deposit Fee:
+											</span>
+											<span className="text-white">
+												0 USDC
+											</span>
+										</div>
+										<div className="flex justify-between items-center">
+											<span className="text-sm text-[#9AA0A0]">
+												Est. APY:
+											</span>
+											<span className="text-[#a3e635] font-semibold">
+												{selectedDuration.apy}%
+											</span>
+										</div>
+										<div className="flex justify-between items-center">
+											<span className="text-sm text-[#9AA0A0]">
+												Est. Annual Yield:
+											</span>
+											<span className="text-[#a3e635] font-semibold">
+												{estimatedYield} USDC
+											</span>
+										</div>
+									</div>
+
+									{/* Approve/Deposit Buttons */}
+									<div className="space-y-3">
+										{(() => {
+											const amountBigInt = depositAmount
+												? parseUnits(depositAmount, 6)
+												: BigInt(0);
+											const hasAllowance = allowance
+												? (allowance as bigint) >=
+													amountBigInt
+												: false;
+											const hasBalance = usdcBalance
+												? (usdcBalance as bigint) >=
+													amountBigInt
+												: false;
+											const isAmountValid =
+												amountBigInt > BigInt(0);
+											const isLoading =
+												isProcessing ||
+												isApprovePending ||
+												isApproveConfirming ||
+												isDepositPending ||
+												isDepositConfirming;
+
+											if (
+												!hasAllowance &&
+												isAmountValid
+											) {
+												return (
+													<Button
+														onClick={handleApprove}
+														disabled={
+															isLoading ||
+															!hasBalance
+														}
+														className="w-full bg-[#a3e635] hover:bg-[#84cc16] text-black font-semibold py-6 text-lg rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+													>
+														{isLoading ? (
+															<>
+																<Loader2 className="mr-2 h-5 w-5 animate-spin inline" />
+																Approving...
+															</>
+														) : (
+															"Approve USDC"
+														)}
+													</Button>
+												);
+											}
+
+											return (
+												<Button
+													onClick={handleDeposit}
+													disabled={
+														!isAmountValid ||
+														!hasBalance ||
+														isLoading
+													}
+													className="w-full bg-[#a3e635] hover:bg-[#84cc16] text-black font-semibold py-6 text-lg rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+												>
+													{isLoading ? (
+														<>
+															<Loader2 className="mr-2 h-5 w-5 animate-spin inline" />
+															Processing...
+														</>
+													) : (
+														"Deposit"
+													)}
+												</Button>
+											);
+										})()}
+
+										{/* Error Messages */}
+										{approveError && (
+											<p className="text-sm text-center text-red-500">
+												Approval failed:{" "}
+												{approveError.message.slice(
+													0,
+													100
+												)}
+											</p>
+										)}
+										{depositError && (
+											<p className="text-sm text-center text-red-500">
+												Deposit failed:{" "}
+												{depositError.message.slice(
+													0,
+													100
+												)}
+											</p>
+										)}
+										{apiError && (
+											<p className="text-sm text-center text-red-500">
+												{apiError}
+											</p>
+										)}
+									</div>
+								</div>
+							) : (
+								<div className="space-y-6">
+									{/* Active Positions */}
+									<div className="space-y-4">
+										<h3 className="text-white font-semibold">
+											Your Active Positions
+										</h3>
+										{!vaultUserStats ||
+										vaultUserStats.data.positions.length ===
+											0 ? (
+											<div className="bg-[#1a1a1a] border border-[#2c2c2c] rounded-lg p-8 text-center">
+												<p className="text-[#9AA0A0] text-sm">
+													No active positions found.
+												</p>
+											</div>
+										) : (
+											<div className="space-y-3">
+												{vaultUserStats.data.positions.map(
+													(pos, index) => {
+														const isUnlocked =
+															Date.now() / 1000 >=
+															Number(
+																pos.unlockTime
+															);
+														const unlockDate =
+															new Date(
+																Number(
+																	pos.unlockTime
+																) * 1000
+															);
+
+														const contractIndex =
+															vaultUserStats.data
+																.positions
+																.length -
+															1 -
+															index;
+
+														return (
+															<div
+																key={pos.id}
+																className={`bg-[#1a1a1a] border ${
+																	lockIndex ===
+																	contractIndex.toString()
+																		? "border-[#a3e635]"
+																		: "border-[#2c2c2c]"
+																} rounded-lg p-4 transition-colors hover:border-[#3c3c3c] cursor-pointer`}
+																onClick={() =>
+																	setLockIndex(
+																		contractIndex.toString()
+																	)
+																}
+															>
+																<div className="flex justify-between items-start mb-2">
+																	<div>
+																		<span className="text-white font-medium">
+																			{Number(
+																				formatUnits(
+																					BigInt(
+																						pos.amount
+																					),
+																					6
+																				)
+																			).toFixed(
+																				2
+																			)}{" "}
+																			USDC
+																		</span>
+																		<p className="text-xs text-[#9AA0A0]">
+																			Locked
+																			at:{" "}
+																			{new Date(
+																				Number(
+																					pos.blockTimestamp
+																				) *
+																					1000
+																			).toLocaleDateString()}
+																		</p>
+																	</div>
+																	<div className="text-right">
+																		{isUnlocked ? (
+																			<span className="text-xs font-semibold text-[#a3e635] bg-[#a3e635]/10 px-2 py-1 rounded">
+																				Unlocked
+																			</span>
+																		) : (
+																			<span className="text-xs font-semibold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded">
+																				Locked
+																			</span>
+																		)}
+																		<p className="text-xs text-[#9AA0A0] mt-1">
+																			Unlock:{" "}
+																			{unlockDate.toLocaleDateString()}
+																		</p>
+																	</div>
+																</div>
+																{lockIndex ===
+																	contractIndex.toString() && (
+																	<div className="mt-4 pt-4 border-t border-[#2c2c2c]">
+																		<Button
+																			onClick={(
+																				e
+																			) => {
+																				e.stopPropagation();
+																				handleWithdraw();
+																			}}
+																			disabled={
+																				!isUnlocked ||
+																				isProcessing
+																			}
+																			className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg transition-colors"
+																		>
+																			{isProcessing
+																				? "Processing..."
+																				: isUnlocked
+																					? "Withdraw Position"
+																					: `Unlocks on ${unlockDate.toLocaleDateString()}`}
+																		</Button>
+																	</div>
+																)}
+															</div>
+														);
+													}
+												)}
+											</div>
+										)}
+									</div>
+								</div>
 							)}
 						</div>
-						<div className="text-[#9AA0A0]">
-							Showing {displayMarkets.length} of {markets.length} pools
+					</div>
+				</div>
+
+				{/* Vault Portfolio Stats */}
+				<div className="lg:col-span-1">
+					<div className="bg-[#0f0f0f] border border-[#2c2c2c] rounded-xl p-6 sticky top-4">
+						<h2 className="text-lg font-bold text-white mb-6">
+							Vault Portfolio Stats
+						</h2>
+
+						<div className="space-y-4">
+							<div className="flex justify-between items-center py-3 border-b border-[#2c2c2c]">
+								<span className="text-sm text-[#9AA0A0]">
+									My Deposit
+								</span>
+								<span className="text-white font-semibold">
+									{isUserStatsLoading ? (
+										<Skeleton className="h-5 w-16 bg-[#1a1a1a]" />
+									) : (
+										`${vaultData.userDeposit.toFixed(2)} USDC`
+									)}
+								</span>
+							</div>
+
+							<div className="flex justify-between items-center py-3 border-b border-[#2c2c2c]">
+								<span className="text-sm text-[#9AA0A0]">
+									Total Shares
+								</span>
+								<span className="text-white font-semibold">
+									{isUserStatsLoading || !lmusdcBalance ? (
+										<Skeleton className="h-5 w-20 bg-[#1a1a1a]" />
+									) : (
+										`${Number(formatUnits(lmusdcBalance as bigint, 6)).toFixed(2)} lmUSDC`
+									)}
+								</span>
+							</div>
+
+							<div className="flex justify-between items-center py-3">
+								<span className="text-sm text-[#9AA0A0]">
+									P/L
+								</span>
+								<span
+									className={`font-semibold ${
+										vaultData.currentEarnings >= 0
+											? "text-[#a3e635]"
+											: "text-red-500"
+									}`}
+								>
+									{isUserStatsLoading ||
+									isVaultStatsLoading ? (
+										<Skeleton className="h-5 w-16 bg-[#1a1a1a]" />
+									) : (
+										`${vaultData.currentEarnings >= 0 ? "+" : ""}${vaultData.currentEarnings.toFixed(2)} USDC`
+									)}
+								</span>
+							</div>
 						</div>
-					</>
-				}
-			/>
-		</>
+
+						{/* Empty State */}
+						{vaultData.userDeposit === 0 && (
+							<div className="mt-8 text-center py-8">
+								<div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center mx-auto mb-4">
+									<Wallet className="w-8 h-8 text-[#9AA0A0]" />
+								</div>
+								<p className="text-sm text-[#9AA0A0] mb-2">
+									No deposits yet
+								</p>
+								<p className="text-xs text-[#6c6c6c]">
+									Deposit into the vault to start earning
+									yield
+								</p>
+							</div>
+						)}
+					</div>
+				</div>
+			</div>
+		</div>
 	);
 }

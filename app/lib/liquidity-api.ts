@@ -1,6 +1,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
+const BASE_URL =
+	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface AddLiquidityRequest {
 	marketId: string; // Required by API
@@ -113,7 +114,9 @@ export interface GetMarketsResponse {
 /**
  * Call the add liquidity API to get transaction data
  */
-export async function addLiquidity(params: AddLiquidityRequest): Promise<AddLiquidityResponse> {
+export async function addLiquidity(
+	params: AddLiquidityRequest
+): Promise<AddLiquidityResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/add`, {
 		method: "POST",
 		body: JSON.stringify(params),
@@ -159,7 +162,7 @@ export interface RemoveLiquidityResponse {
  * Call the remove liquidity API to get transaction data
  */
 export async function removeLiquidity(
-	params: RemoveLiquidityRequest,
+	params: RemoveLiquidityRequest
 ): Promise<RemoveLiquidityResponse> {
 	console.log({ params });
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/remove`, {
@@ -185,7 +188,7 @@ export async function getMarkets(): Promise<GetMarketsResponse> {
  * Fetch user's liquidity positions
  */
 export async function getLiquidityPositions(
-	userAddress: string,
+	userAddress: string
 ): Promise<GetLiquidityPositionsResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/liquidity/positions`, {
 		method: "GET",
@@ -194,4 +197,102 @@ export async function getLiquidityPositions(
 		},
 	});
 	return data as GetLiquidityPositionsResponse;
+}
+
+export interface VaultUserStats {
+	success: boolean;
+	data: {
+		lpTokenBalance: string;
+		totalLpAdded: string;
+		positions: {
+			provider: string;
+			id: string;
+			total: string;
+			amount: string;
+			transactionHash: string;
+			unlockTime: string;
+			blockTimestamp: string;
+			blockNumber: string;
+		}[];
+	};
+}
+
+export interface VaultStats {
+	success: boolean;
+	data: {
+		averageLockDuration: string;
+		currentSharePrice: string;
+		estimatedAPR: string;
+		feesLast24h: string;
+		feesLast30d: string;
+		feesLast7d: string;
+		id: string;
+		insuranceAvailable: string;
+		insuranceUtilized: string;
+		lastFeeDistributionTimestamp: string | null;
+		lastUpdateBlockNumber: string;
+		lastUpdateBlockTimestamp: string;
+		lastUpdateTransactionHash: string;
+		payoutsLast24h: string;
+		payoutsLast7d: string;
+		payoutsLast30d: string;
+		totalFeesGenerated: string;
+		totalInsuranceLiquidity: string;
+		totalInsuranceShares: string;
+		totalLockedPositions: string;
+		totalPayoutsFromInsurance: string;
+		totalProviders: string;
+		utilizationRate: string;
+		vaultCreatedAt: string;
+	};
+}
+
+export interface AnalyticsSummary {
+	success: boolean;
+	data: {
+		totalFees: string;
+		totalVolume: string;
+		totalTrades: string;
+		dailyVolume24h: string;
+		dailyTrades24h: string;
+		totalPositionsOpened: string;
+		totalPositionsLiquidated: string;
+		totalPositionsClosed: string;
+		uniqueTraders24h: string;
+	};
+}
+
+/**
+ * Fetch vault stats for a specific user
+ */
+export async function getVaultUserStats(
+	address: string
+): Promise<VaultUserStats> {
+	const { data } = await betterFetch(
+		`${BASE_URL}/analytics/vault/user/${address}`,
+		{
+			method: "GET",
+		}
+	);
+	return data as VaultUserStats;
+}
+
+/**
+ * Fetch general vault stats
+ */
+export async function getVaultStats(): Promise<VaultStats> {
+	const { data } = await betterFetch(`${BASE_URL}/analytics/vault/stats`, {
+		method: "GET",
+	});
+	return data as VaultStats;
+}
+
+/**
+ * Fetch analytics summary
+ */
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+	const { data } = await betterFetch(`${BASE_URL}/analytics/summary`, {
+		method: "GET",
+	});
+	return data as AnalyticsSummary;
 }
