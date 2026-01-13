@@ -244,12 +244,12 @@ export function PositionsTable({
 		setNewLeverage(position.leverageValue);
 		setNewTp(
 			position.takeProfitPrice && position.takeProfitPrice !== "0"
-				? formatUnits(BigInt(position.takeProfitPrice), 18)
+				? position.takeProfitPrice
 				: "",
 		);
 		setNewSl(
 			position.stopLossPrice && position.stopLossPrice !== "0"
-				? formatUnits(BigInt(position.stopLossPrice), 18)
+				? position.stopLossPrice
 				: "",
 		);
 		setModifyAction("MODIFY_POSITION");
@@ -377,11 +377,11 @@ export function PositionsTable({
 
 	const openModifyLimitDialog = (order: LimitOrder) => {
 		setSelectedLimitOrder(order);
-		setNewLimitPrice(formatUnits(BigInt(order.limitPrice), 18)); // Assuming 18 decimals for prices in subgraph
+		setNewLimitPrice(order.limitPrice); // Normalized from backend
 		setNewLimitTp(
-			order.takeProfitPrice !== "0" ? formatUnits(BigInt(order.takeProfitPrice), 18) : "",
+			order.takeProfitPrice !== "0" ? order.takeProfitPrice : "",
 		);
-		setNewLimitSl(order.stopLossPrice !== "0" ? formatUnits(BigInt(order.stopLossPrice), 18) : "");
+		setNewLimitSl(order.stopLossPrice !== "0" ? order.stopLossPrice : "");
 		setIsModifyLimitDialogOpen(true);
 	};
 
@@ -392,6 +392,7 @@ export function PositionsTable({
 
 	// Track if we've already shown the confirmation toast for this hash
 	const confirmedHashRef = useRef<string | null>(null);
+	
 
 	// Handle transaction confirmation
 	useEffect(() => {
@@ -514,21 +515,18 @@ export function PositionsTable({
 											</td>
 											<td className="p-4 text-white">{position.liquidationPrice}</td>
 											<td className="p-4 text-white">
+												
 												<div className="flex flex-col text-xs">
 													{position.takeProfitPrice && position.takeProfitPrice !== "0" ? (
 														<span className="text-green-400">
 															TP: $
-															{parseFloat(
-																formatUnits(BigInt(position.takeProfitPrice), 18),
-															).toLocaleString()}
+															{parseFloat(position.takeProfitPrice).toLocaleString()}
 														</span>
 													) : null}
 													{position.stopLossPrice && position.stopLossPrice !== "0" ? (
 														<span className="text-red-400">
 															SL: $
-															{parseFloat(
-																formatUnits(BigInt(position.stopLossPrice), 18),
-															).toLocaleString()}
+															{parseFloat(position.stopLossPrice).toLocaleString()}
 														</span>
 													) : null}
 													{(!position.takeProfitPrice || position.takeProfitPrice === "0") &&
@@ -635,10 +633,10 @@ export function PositionsTable({
 												</Badge>
 											</td>
 											<td className="p-4 text-white">
-												${parseFloat(formatUnits(BigInt(order.limitPrice), 18)).toLocaleString()}
+												${parseFloat(order.limitPrice).toLocaleString()}
 											</td>
 											<td className="p-4 text-white">
-												${(parseFloat(order.margin) / 1e6).toLocaleString()}
+												${parseFloat(order.margin).toLocaleString()}
 											</td>
 											<td className="p-4 text-white">{order.leverage}x</td>
 											<td className="p-4 text-white">
@@ -646,17 +644,13 @@ export function PositionsTable({
 													{order.takeProfitPrice !== "0" && (
 														<span className="text-green-400">
 															TP: $
-															{parseFloat(
-																formatUnits(BigInt(order.takeProfitPrice), 18),
-															).toLocaleString()}
+															{parseFloat(order.takeProfitPrice).toLocaleString()}
 														</span>
 													)}
 													{order.stopLossPrice !== "0" && (
 														<span className="text-red-400">
 															SL: $
-															{parseFloat(
-																formatUnits(BigInt(order.stopLossPrice), 18),
-															).toLocaleString()}
+															{parseFloat(order.stopLossPrice).toLocaleString()}
 														</span>
 													)}
 													{order.takeProfitPrice === "0" && order.stopLossPrice === "0" && "--"}

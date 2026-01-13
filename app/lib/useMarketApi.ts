@@ -128,6 +128,8 @@ export interface TraderPosition {
 	currentPnl: string;
 	closedAt: string | null;
 	closedAtIso?: string;
+	takeProfitPrice?: string;
+	stopLossPrice?: string;
 	realtimeData?: {
 		realtimePnl: string;
 		currentPrice: string;
@@ -150,6 +152,8 @@ export interface TraderPosition {
 		totalFeesCollected: string;
 		referralFeesCollected: string;
 		devFeesCollected: string;
+		takeProfitPrice?: string;
+		stopLossPrice?: string;
 		openedAt: string;
 		closedAt?: string;
 		exitPricePnl?: string;

@@ -97,6 +97,8 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 		lastTransactionHash: traderPos.lastUpdateTransactionHash,
 		trader: traderPos.trader,
 		tokenaddress: tokenSymbolParts[1] || "",
+		takeProfitPrice: traderPos.takeProfitPrice,
+		stopLossPrice: traderPos.stopLossPrice,
 		realtimeData: traderPos.realtimeData || {
 			realtimePnl: traderPos.currentPnl,
 			currentPrice: traderPos.entryPrice,
