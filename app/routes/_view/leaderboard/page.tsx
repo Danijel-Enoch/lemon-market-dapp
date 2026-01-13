@@ -1,6 +1,12 @@
 import { Badge } from "@app/components/ui/badge";
 import { Button } from "@app/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@app/components/ui/card";
+import { LeaderboardSearchModal } from "@app/components/ui/LeaderboardSearchModal";
+import {
+	formatAddress,
+	getTierColor,
+	getTierIcon,
+} from "@app/components/ui/LeaderboardSearchResults";
 import {
 	Select,
 	SelectContent,
@@ -9,22 +15,18 @@ import {
 	SelectValue,
 } from "@app/components/ui/select";
 import { fetchLeaderboardData } from "@app/lib/leaderboard-service";
-import {
-	Award as AwardIcon,
-	ChevronLeft,
-	ChevronRight,
-	Crown,
-	Medal,
-	RefreshCw,
-	Users,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Search, Users } from "lucide-react";
+import { useState } from "react";
 import type { MetaFunction } from "react-router";
 import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 
 export const meta: MetaFunction = () => {
 	return [
 		{ title: "Leaderboard - Lemon Markets" },
-		{ name: "description", content: "View top traders and compete for rewards" },
+		{
+			name: "description",
+			content: "View top traders and compete for rewards",
+		},
 	];
 };
 
@@ -43,40 +45,41 @@ export async function loader({ request }: { request: Request }) {
 	};
 }
 
-const getTierIcon = (tier: string) => {
-	switch (tier.toLowerCase()) {
-		case "gold":
-			return <Crown className="w-4 h-4 text-yellow-500" />;
-		case "silver":
-			return <Medal className="w-4 h-4 text-gray-400" />;
-		case "bronze":
-			return <AwardIcon className="w-4 h-4 text-orange-600" />;
-		default:
-			return <Badge className="w-4 h-4 text-gray-500" />;
-	}
-};
+// const getTierIcon = (tier: string) => {
+//   switch (tier.toLowerCase()) {
+//     case "gold":
+//       return <Crown className="w-4 h-4 text-yellow-500" />;
+//     case "silver":
+//       return <Medal className="w-4 h-4 text-gray-400" />;
+//     case "bronze":
+//       return <AwardIcon className="w-4 h-4 text-orange-600" />;
+//     default:
+//       return <Badge className="w-4 h-4 text-gray-500" />;
+//   }
+// };
 
-const getTierColor = (tier: string) => {
-	switch (tier.toLowerCase()) {
-		case "gold":
-			return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-		case "silver":
-			return "bg-gray-400/10 text-gray-500 border-gray-400/20";
-		case "bronze":
-			return "bg-orange-600/10 text-orange-600 border-orange-600/20";
-		default:
-			return "bg-gray-500/10 text-gray-500 border-gray-500/20";
-	}
-};
+// const getTierColor = (tier: string) => {
+//   switch (tier.toLowerCase()) {
+//     case "gold":
+//       return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+//     case "silver":
+//       return "bg-gray-400/10 text-gray-500 border-gray-400/20";
+//     case "bronze":
+//       return "bg-orange-600/10 text-orange-600 border-orange-600/20";
+//     default:
+//       return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+//   }
+// };
 
-const formatAddress = (address: string) => {
-	return `${address.slice(0, 6)}...${address.slice(-4)}`;
-};
+// const formatAddress = (address: string) => {
+//   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+// };
 
 export default function LeaderboardPage() {
 	const { leaderboardData, limit, page } = useLoaderData<typeof loader>();
 	const [_searchParams, setSearchParams] = useSearchParams();
 	const navigation = useNavigation();
+	const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 	const isLoading = navigation.state !== "idle";
 
 	const handleSort = (_newSortBy: string) => {
@@ -125,6 +128,12 @@ export default function LeaderboardPage() {
 						<div className="flex items-center justify-between">
 							<CardTitle>Trading Leaderboard</CardTitle>
 							<div className="flex items-center gap-2">
+								{leaderboardData.length !== 0 && (
+									<Search
+										className="w-4 h-4 text-white cursor-pointer hover:text-gray-300"
+										onClick={() => setIsSearchModalOpen(true)}
+									/>
+								)}
 								<Button
 									onClick={handleRefresh}
 									disabled={isLoading}
@@ -136,7 +145,7 @@ export default function LeaderboardPage() {
 									<span className="hidden md:inline">Refresh</span>
 								</Button>
 								<Select value={String(limit)} onValueChange={handleLimitChange}>
-									<SelectTrigger className="w-[100px] text-sm border-border">
+									<SelectTrigger className="w-25 text-sm border-border">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -155,7 +164,7 @@ export default function LeaderboardPage() {
 									>
 										<ChevronLeft className="w-4 h-4" />
 									</Button>
-									<span className="px-3 min-w-[80px] text-center">Page {page}</span>
+									<span className="px-3 min-w-20 text-center">Page {page}</span>
 									<Button
 										onClick={handleNextPage}
 										disabled={isLoading || leaderboardData.length < limit}
@@ -296,6 +305,17 @@ export default function LeaderboardPage() {
 					</CardContent>
 				</Card>
 			</div>
+			{/* <SearchModal
+        header="Search"
+        placeholder="Paste address (3+ characters)"
+        open={isSearchModalOpen}
+        onOpenChange={setIsSearchModalOpen}
+      /> */}
+			<LeaderboardSearchModal
+				open={isSearchModalOpen}
+				onOpenChange={setIsSearchModalOpen}
+				data={leaderboardData}
+			/>
 		</div>
 	);
 }

@@ -4,9 +4,9 @@ import TradingViewWidget from "@app/components/trading/TradingViewWidget";
 import { Button } from "@app/components/ui/button";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { Input } from "@app/components/ui/input";
-import { SearchModal } from "@app/components/ui/SearchModal";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { Slider } from "@app/components/ui/slider";
+import { TokenSearchModal } from "@app/components/ui/TokenSearchModal";
 import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { useAsyncCallback } from "@app/hooks/useAsyncCallback";
 import { useMarketData } from "@app/hooks/useMarketData";
@@ -107,12 +107,21 @@ const miniAppEmbed = {
 export const meta: MetaFunction = () => {
 	return [
 		{ title: "Perpetuals Trading - Lemon Markets" },
-		{ name: "description", content: "Trade perpetual futures with leverage on Lemon Markets" },
+		{
+			name: "description",
+			content: "Trade perpetual futures with leverage on Lemon Markets",
+		},
 		{ name: "fc:miniapp", content: JSON.stringify(miniAppEmbed) },
 		{ name: "fc:frame", content: JSON.stringify(miniAppEmbed) },
 		{ property: "og:title", content: "Perpetuals Trading - Lemon Markets" },
-		{ property: "og:description", content: "Trade perpetual futures with leverage" },
-		{ property: "og:image", content: "https://lemonmarkets.xyz/image/trading-icon.svg" },
+		{
+			property: "og:description",
+			content: "Trade perpetual futures with leverage",
+		},
+		{
+			property: "og:image",
+			content: "https://lemonmarkets.xyz/image/trading-icon.svg",
+		},
 	];
 };
 
@@ -1295,7 +1304,8 @@ export default function PerpContent() {
 				)}
 			</div>
 
-			<SearchModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
+			<TokenSearchModal open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} />
+			{/* <SearchModal header="Search Tokens" placeholder="Paste contract address or search by name/symbol (3+ characters)" open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen} /> */}
 		</>
 	);
 }
