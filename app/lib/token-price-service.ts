@@ -395,34 +395,31 @@ export class TokenPriceService {
 		}
 
 		let priceData: TokenPriceData | null = null;
-		let tokenSymbol = "UNKNOWN"; // Fallback symbol
+		let tokenSymbol = symbol;
 
-		// Try to get token metadata from DexScreener first to get symbol
-		try {
-			const dexScreenerData = await this.getDexScreenerTokenMetadata(tokenAddress);
-			if (dexScreenerData?.symbol) {
-				tokenSymbol = dexScreenerData.symbol;
-			}
-		} catch (_error) {}
-
-		// Fallback to CoinGecko to get symbol if not found on DexScreener
-		if (tokenSymbol === "UNKNOWN" && COINGECKO_API_KEY) {
+		// Try to get token metadata from DexScreener first to get symbol if UNKNOWN
+		if (tokenSymbol === "UNKNOWN") {
 			try {
-				const coinGeckoData = await this.searchTokenOnCoinGecko(symbol);
-				if (coinGeckoData) {
-					tokenSymbol = coinGeckoData.symbol;
+				const dexScreenerData = await this.getDexScreenerTokenMetadata(tokenAddress);
+				if (dexScreenerData?.symbol) {
+					tokenSymbol = dexScreenerData.symbol;
 				}
 			} catch (_error) {}
+
+			// Fallback to CoinGecko to get symbol if not found on DexScreener
+			if (tokenSymbol === "UNKNOWN" && COINGECKO_API_KEY) {
+				try {
+					const coinGeckoData = await this.searchTokenOnCoinGecko(tokenSymbol);
+					if (coinGeckoData) {
+						tokenSymbol = coinGeckoData.symbol;
+					}
+				} catch (_error) {}
+			}
 		}
 
-		// Use the discovered or fallback symbol to fetch price
+		// Use the discovered or fallback symbol to fetch price - CALL getTokenPrice NOT itself
 		try {
-			priceData = await this.getTokenPriceByAddress(
-				tokenAddress,
-				tokenSymbol,
-				pairAddress,
-				chainId,
-			);
+			priceData = await this.getTokenPrice(tokenSymbol, pairAddress, chainId);
 		} catch (_error) {}
 
 		// Cache the result if we have data
@@ -431,7 +428,6 @@ export class TokenPriceService {
 				data: priceData,
 				timestamp: Date.now(),
 			});
-		} else {
 		}
 
 		return priceData;
@@ -487,23 +483,25 @@ export class TokenPriceService {
 	async getMultipleTokenPrices(tokenAddresses: string[]): Promise<Map<string, TokenPriceData>> {
 		const results = new Map<string, TokenPriceData>();
 
-		// Fetch prices for each token address
-		for (const address of tokenAddresses) {
-			const priceData = await this.getTokenPriceWithAddress(address);
-			if (priceData) {
-				results.set(address, {
-					tokenAddress: address,
-					symbol: address,
-					priceUSD: priceData.data?.averagePriceUSD ?? "0",
-					priceNative: priceData.data?.averagePrice,
-					priceChange24h: "",
-					timestamp: Date.now(),
-					source: "lemon-oracle",
-					confidence: "low",
-					dexPrices: [],
-				});
-			}
-		}
+		// Fetch prices for each token address in parallel
+		await Promise.all(
+			tokenAddresses.map(async (address) => {
+				const priceData = await this.getTokenPriceWithAddress(address);
+				if (priceData) {
+					results.set(address, {
+						tokenAddress: address,
+						symbol: address,
+						priceUSD: priceData.data?.averagePriceUSD ?? "0",
+						priceNative: priceData.data?.averagePrice,
+						priceChange24h: "",
+						timestamp: Date.now(),
+						source: "lemon-oracle",
+						confidence: "low",
+						dexPrices: [],
+					});
+				}
+			}),
+		);
 
 		return results;
 	}

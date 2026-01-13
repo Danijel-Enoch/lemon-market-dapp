@@ -5,8 +5,7 @@
 import { betterFetch } from "@better-fetch/fetch";
 import { getTokenPriceService } from "./token-price-service";
 
-const BASE_URL =
-	import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz";
 
 export interface CreatePositionRequest {
 	tokenSymbol: string;
@@ -93,7 +92,7 @@ export interface CreatePositionResponse {
  * Call the position creation API
  */
 export async function createPosition(
-	params: CreatePositionRequest
+	params: CreatePositionRequest,
 ): Promise<CreatePositionResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/positions/open`, {
 		method: "POST",
@@ -124,11 +123,7 @@ export function extractTokenSymbol(pairString: string): string {
 /**
  * Format transaction hash for display
  */
-export function formatTxHash(
-	hash: string,
-	startChars = 6,
-	endChars = 4
-): string {
+export function formatTxHash(hash: string, startChars = 6, endChars = 4): string {
 	if (hash.length <= startChars + endChars) {
 		return hash;
 	}
@@ -138,14 +133,8 @@ export function formatTxHash(
 /**
  * Get Etherscan URL for transaction
  */
-export function getEtherscanUrl(
-	hash: string,
-	network: "mainnet" | "sepolia" = "mainnet"
-): string {
-	const baseUrl =
-		network === "mainnet"
-			? "https://basescan.org"
-			: "https://sepolia.basescan.org";
+export function getEtherscanUrl(hash: string, network: "mainnet" | "sepolia" = "mainnet"): string {
+	const baseUrl = network === "mainnet" ? "https://basescan.org" : "https://sepolia.basescan.org";
 	return `${baseUrl}/tx/${hash}`;
 }
 
@@ -267,9 +256,7 @@ export interface GetEnhancedPositionsResponse {
 /**
  * Fetch user positions from the API
  */
-export async function getUserPositions(
-	traderAddress: string
-): Promise<GetPositionsResponse> {
+export async function getUserPositions(traderAddress: string): Promise<GetPositionsResponse> {
 	try {
 		const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
 			method: "POST",
@@ -286,10 +273,7 @@ export async function getUserPositions(
 			success: false,
 			positions: [],
 			count: 0,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to fetch positions",
+			error: error instanceof Error ? error.message : "Failed to fetch positions",
 		};
 	}
 }
@@ -297,18 +281,14 @@ export async function getUserPositions(
 /**
  * Calculate PnL percentage
  */
-export function calculatePnlPercentage(
-	pnlRaw: string | null,
-	margin: string
-): string {
+export function calculatePnlPercentage(pnlRaw: string | null, margin: string): string {
 	try {
 		if (!pnlRaw || pnlRaw === "null") return "0.00%";
 
 		const pnl = parseFloat(pnlRaw) / 1e6; // Assuming USDC with 6 decimals
 		const marginAmount = parseFloat(margin.replace(/[$,]/g, ""));
 
-		if (marginAmount === 0 || Number.isNaN(pnl) || !Number.isFinite(pnl))
-			return "0.00%";
+		if (marginAmount === 0 || Number.isNaN(pnl) || !Number.isFinite(pnl)) return "0.00%";
 
 		const percentage = (pnl / marginAmount) * 100;
 		const sign = percentage >= 0 ? "+" : "";
@@ -342,7 +322,7 @@ export function formatPositionSize(
 	leverage: string,
 	entryPrice: string,
 	tokenSymbol: string,
-	currentPrice?: string
+	currentPrice?: string,
 ): string {
 	try {
 		const marginAmount = parseFloat(margin.replace(/[$,]/g, ""));
@@ -364,9 +344,7 @@ export function formatPositionSize(
 
 		// If current price is provided, show current worth
 		if (currentPrice) {
-			const currentPriceValue = parseFloat(
-				currentPrice.replace(/[$,]/g, "")
-			);
+			const currentPriceValue = parseFloat(currentPrice.replace(/[$,]/g, ""));
 			if (currentPriceValue > 0 && !Number.isNaN(currentPriceValue)) {
 				const currentWorth = tokenAmount * currentPriceValue;
 				return `${tokenAmount.toFixed(6)} ${tokenSymbol} ($${currentWorth.toFixed(2)})`;
@@ -388,7 +366,7 @@ export function calculatePositionCurrentValue(
 	leverage: string,
 	entryPrice: string,
 	currentPrice: string,
-	isLong: boolean
+	isLong: boolean,
 ): {
 	tokenAmount: number;
 	currentWorth: number;
@@ -420,8 +398,7 @@ export function calculatePositionCurrentValue(
 		// Calculate unrealized PnL
 		const priceChange = currentPriceValue - entryPriceValue;
 		const pnlMultiplier = isLong ? 1 : -1; // Short positions profit when price goes down
-		const unrealizedPnl =
-			(priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
+		const unrealizedPnl = (priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
 
 		// PnL percentage based on margin
 		const unrealizedPnlPercentage =
@@ -487,9 +464,7 @@ export interface ModifyPositionResponse {
 /**
  * Call the position close API
  */
-export async function closePosition(
-	params: ClosePositionRequest
-): Promise<ClosePositionResponse> {
+export async function closePosition(params: ClosePositionRequest): Promise<ClosePositionResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/positions/close`, {
 		method: "POST",
 		body: JSON.stringify(params),
@@ -502,7 +477,7 @@ export async function closePosition(
  * Call the position modify API
  */
 export async function modifyPosition(
-	params: ModifyPositionRequest
+	params: ModifyPositionRequest,
 ): Promise<ModifyPositionResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/positions/modify`, {
 		method: "POST",
@@ -516,7 +491,7 @@ export async function modifyPosition(
  * Call the position update API
  */
 export async function updatePosition(
-	params: UpdatePositionRequest
+	params: UpdatePositionRequest,
 ): Promise<ModifyPositionResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/positions/update`, {
 		method: "POST",
@@ -532,7 +507,7 @@ export async function updatePosition(
 export async function getLimitOrders(
 	trader: string,
 	limit = 10,
-	offset = 0
+	offset = 0,
 ): Promise<GetLimitOrdersResponse> {
 	try {
 		const { data } = await betterFetch(`${BASE_URL}/positions/limit-orders`, {
@@ -544,10 +519,7 @@ export async function getLimitOrders(
 	} catch (error) {
 		return {
 			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to fetch limit orders",
+			error: error instanceof Error ? error.message : "Failed to fetch limit orders",
 		};
 	}
 }
@@ -556,7 +528,7 @@ export async function getLimitOrders(
  * Call the modify limit order API
  */
 export async function modifyLimitOrder(
-	params: ModifyLimitOrderRequest
+	params: ModifyLimitOrderRequest,
 ): Promise<ModifyPositionResponse> {
 	try {
 		const { data } = await betterFetch(`${BASE_URL}/positions/modify-limit-order`, {
@@ -568,10 +540,7 @@ export async function modifyLimitOrder(
 	} catch (error) {
 		return {
 			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to modify limit order",
+			error: error instanceof Error ? error.message : "Failed to modify limit order",
 		};
 	}
 }
@@ -580,7 +549,7 @@ export async function modifyLimitOrder(
  * Call the cancel limit order API
  */
 export async function cancelLimitOrder(
-	params: CancelLimitOrderRequest
+	params: CancelLimitOrderRequest,
 ): Promise<ModifyPositionResponse> {
 	try {
 		const { data } = await betterFetch(`${BASE_URL}/positions/cancel-limit-order`, {
@@ -592,10 +561,7 @@ export async function cancelLimitOrder(
 	} catch (error) {
 		return {
 			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to cancel limit order",
+			error: error instanceof Error ? error.message : "Failed to cancel limit order",
 		};
 	}
 }
@@ -604,7 +570,7 @@ export async function cancelLimitOrder(
  * Enrich position data with real-time PnL calculations using the token price service
  */
 export async function enrichPositionsWithPrices(
-	positions: Position[]
+	positions: Position[],
 ): Promise<EnhancedPosition[]> {
 	if (!positions.length) return [];
 
@@ -614,49 +580,51 @@ export async function enrichPositionsWithPrices(
 	const uniqueSymbols = [...new Set(positions.map((pos) => pos.tokenSymbol))];
 
 	// Fetch current prices for all tokens
-	const priceMap =
-		await tokenPriceService.getMultipleTokenPrices(uniqueSymbols);
+	const priceMap = await tokenPriceService.getMultipleTokenPrices(uniqueSymbols);
 
 	// Enrich each position with real-time data
-	const enrichedPositions = await Promise.all(
-		positions.map(async (position) => {
-			const priceData = priceMap.get(position.tokenSymbol.toUpperCase());
+	const enrichedPositions = positions.map((position) => {
+		const priceData = priceMap.get(position.tokenSymbol.toUpperCase());
 
-			if (!priceData) {
-				// Return position without enhancement if no price data
-				return {
-					...position,
-					currentPrice: undefined,
-					unrealizedPnL: undefined,
-					unrealizedPnLPercentage: undefined,
-					tokenAmount: undefined,
-					currentValue: undefined,
-				} as EnhancedPosition;
-			}
-
-			// Calculate PnL using the token price service
-			const pnlCalculation = await tokenPriceService.calculatePositionPnL(
-				position.tokenSymbol,
-				position.entryPrice,
-				position.margin,
-				position.leverage,
-				position.isLong,
-				position.liquidationPrice
-			);
-
+		if (!priceData) {
+			// Return position without enhancement if no price data
 			return {
 				...position,
-				currentPrice: priceData.priceUSD,
-				unrealizedPnL: pnlCalculation?.unrealizedPnL || 0,
-				unrealizedPnLPercentage:
-					pnlCalculation?.unrealizedPnLPercentage || 0,
-				tokenAmount: pnlCalculation?.tokenAmount || 0,
-				currentValue: pnlCalculation?.currentValue || 0,
-				priceSource: priceData.source,
-				priceConfidence: priceData.confidence,
+				currentPrice: undefined,
+				unrealizedPnL: undefined,
+				unrealizedPnLPercentage: undefined,
+				tokenAmount: undefined,
+				currentValue: undefined,
 			} as EnhancedPosition;
-		})
-	);
+		}
+
+		// Calculate PnL based on the price data we already have
+		// Avoid calling calculatePositionPnL which triggers extra fetches
+		const currentPriceValue = parseFloat(priceData.priceUSD);
+		const entryPriceValue = parseFloat(position.entryPrice.replace(/[$,]/g, ""));
+		const marginValue = parseFloat(position.margin.replace(/[$,]/g, ""));
+		const leverageValue = parseInt(position.leverage, 10) || 1;
+
+		const totalExposure = marginValue * leverageValue;
+		const tokenAmount = totalExposure / entryPriceValue;
+		const currentValue = tokenAmount * currentPriceValue;
+
+		const priceChange = currentPriceValue - entryPriceValue;
+		const pnlMultiplier = position.isLong ? 1 : -1;
+		const unrealizedPnL = (priceChange / entryPriceValue) * totalExposure * pnlMultiplier;
+		const unrealizedPnLPercentage = (unrealizedPnL / marginValue) * 100;
+
+		return {
+			...position,
+			currentPrice: priceData.priceUSD,
+			unrealizedPnL: unrealizedPnL || 0,
+			unrealizedPnLPercentage: unrealizedPnLPercentage || 0,
+			tokenAmount: tokenAmount || 0,
+			currentValue: currentValue || 0,
+			priceSource: priceData.source,
+			priceConfidence: priceData.confidence,
+		} as EnhancedPosition;
+	});
 
 	return enrichedPositions;
 }
@@ -665,7 +633,7 @@ export async function enrichPositionsWithPrices(
  * Fetch user positions with enhanced real-time PnL calculations using the enhanced API
  */
 export async function getEnhancedUserPositions(
-	traderAddress: string
+	traderAddress: string,
 ): Promise<GetEnhancedPositionsResponse> {
 	try {
 		const { data } = await betterFetch(`${BASE_URL}/positions/query`, {
@@ -675,18 +643,16 @@ export async function getEnhancedUserPositions(
 		});
 		// Handle both array response and object response with positions property
 		const positions = (
-			Array.isArray(data)
-				? data
-				: (data as { positions?: Position[] } | null)?.positions || []
+			Array.isArray(data) ? data : (data as { positions?: Position[] } | null)?.positions || []
 		) as Position[];
 		const enhancedPositions = await enrichPositionsWithPrices(positions);
 		const totalUnrealizedPnL = enhancedPositions.reduce(
 			(sum, pos) => sum + (pos.unrealizedPnL || 0),
-			0
+			0,
 		);
 		const totalPortfolioValue = enhancedPositions.reduce(
 			(sum, pos) => sum + (pos.currentValue || 0),
-			0
+			0,
 		);
 		return {
 			success: true,
@@ -700,10 +666,7 @@ export async function getEnhancedUserPositions(
 			success: false,
 			positions: [],
 			count: 0,
-			error:
-				error instanceof Error
-					? error.message
-					: "Failed to fetch enhanced positions",
+			error: error instanceof Error ? error.message : "Failed to fetch enhanced positions",
 		};
 	}
 }
@@ -711,10 +674,7 @@ export async function getEnhancedUserPositions(
 /**
  * Calculate unrealized PnL based on current price
  */
-function _calculateUnrealizedPnl(
-	position: Position,
-	currentPrice: number | null
-): number | null {
+function _calculateUnrealizedPnl(position: Position, currentPrice: number | null): number | null {
 	if (!currentPrice) return null;
 
 	const entryPrice = parseFloat(position.entryPrice);
