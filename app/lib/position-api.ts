@@ -65,6 +65,19 @@ export interface CancelLimitOrderRequest {
 	userAddress: string;
 }
 
+export type UpdatePositionAction = "MODIFY_POSITION" | "UPDATE_LEVERAGE" | "UPDATE_TPSL";
+
+export interface UpdatePositionRequest {
+	action: UpdatePositionAction;
+	positionId: number;
+	marketId: string;
+	userAddress: string;
+	newMargin?: string;
+	newLeverage?: number;
+	newTpPrice?: string;
+	newSlPrice?: string;
+}
+
 export interface CreatePositionResponse {
 	success: boolean;
 	data?: {
@@ -205,6 +218,10 @@ export interface Position {
 	lastTransactionHash: string;
 	trader: string;
 	tokenaddress: string;
+	takeProfitPrice?: string;
+	stopLossPrice?: string;
+	limitPrice?: string;
+	marketId?: string;
 	realtimeData: {
 		realtimePnl: string;
 		currentPrice: string;
@@ -487,19 +504,26 @@ export async function closePosition(
 export async function modifyPosition(
 	params: ModifyPositionRequest
 ): Promise<ModifyPositionResponse> {
-	const response = await fetch("/api/position/modify", {
+	const { data } = await betterFetch(`${BASE_URL}/positions/modify`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
 		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
 	});
+	return data as ModifyPositionResponse;
+}
 
-	if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	}
-
-	return response.json();
+/**
+ * Call the position update API
+ */
+export async function updatePosition(
+	params: UpdatePositionRequest
+): Promise<ModifyPositionResponse> {
+	const { data } = await betterFetch(`${BASE_URL}/positions/update`, {
+		method: "POST",
+		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
+	});
+	return data as ModifyPositionResponse;
 }
 
 /**

@@ -14,6 +14,8 @@ import {
 	validateLeverage,
 	validateMargin,
 	type LimitOrder,
+	updatePosition,
+	type UpdatePositionAction,
 	modifyLimitOrder,
 	cancelLimitOrder,
 } from "@app/lib/position-api";
@@ -53,6 +55,9 @@ export function PositionsTable({
 	// Modify position form state
 	const [newMargin, setNewMargin] = useState("");
 	const [newLeverage, setNewLeverage] = useState(2);
+	const [newTp, setNewTp] = useState("");
+	const [newSl, setNewSl] = useState("");
+	const [modifyAction, setModifyAction] = useState<UpdatePositionAction>("MODIFY_POSITION");
 
 	// Limit Orders state
 	const {
@@ -71,11 +76,11 @@ export function PositionsTable({
 
 	// Open positions (status === "OPEN" or "OPENED")
 	const openPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() === "opened" || pos.status.toLowerCase() === "open",
+		(pos) => pos.status.toLowerCase() === "opened" || pos.status.toLowerCase() === "open" || pos.status.toLowerCase()=== "modified",
 	);
 	// Closed positions (status !== "OPEN" and "OPENED")
 	const closedPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() !== "opened" && pos.status.toLowerCase() !== "open",
+		(pos) => pos.status.toLowerCase() !== "opened" && pos.status.toLowerCase() !== "open" && pos.status.toLowerCase() !=="modified",
 	);
 
 	// Handle close position with TanStack Query mutation
@@ -131,15 +136,19 @@ export function PositionsTable({
 				throw new Error("Please connect your wallet first");
 			}
 
-			// Validate inputs
-			const marginValidation = validateMargin(newMargin);
-			if (!marginValidation.valid) {
-				throw new Error(marginValidation.error || "Invalid margin");
-			}
+			// Validate inputs based on action
+			if (modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE") {
+				const leverageValidation = validateLeverage(newLeverage);
+				if (!leverageValidation.valid) {
+					throw new Error(leverageValidation.error || "Invalid leverage");
+				}
 
-			const leverageValidation = validateLeverage(newLeverage);
-			if (!leverageValidation.valid) {
-				throw new Error(leverageValidation.error || "Invalid leverage");
+				if (modifyAction === "MODIFY_POSITION") {
+					const marginValidation = validateMargin(newMargin);
+					if (!marginValidation.valid) {
+						throw new Error(marginValidation.error || "Invalid margin");
+					}
+				}
 			}
 
 			// Show initial loading toast
@@ -147,14 +156,22 @@ export function PositionsTable({
 
 			try {
 				const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
+				// Construct marketId if not available
+				const marketId =
+					selectedPosition.marketId || `${tokenSymbol}-${selectedPosition.tokenaddress}-base`;
 
-				const result = await modifyPosition({
-					positionId: selectedPosition.positionId,
-					tokenSymbol,
-					newMargin,
-					newLeverage,
+				const result = await updatePosition({
+					action: modifyAction,
+					positionId: parseInt(selectedPosition.positionId, 10),
+					marketId,
 					userAddress: address,
-					pairAddress: tradingPairAddress,
+					newMargin: modifyAction === "MODIFY_POSITION" ? newMargin : undefined,
+					newLeverage:
+						modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE"
+							? newLeverage
+							: undefined,
+					newTpPrice: modifyAction === "UPDATE_TPSL" ? newTp : undefined,
+					newSlPrice: modifyAction === "UPDATE_TPSL" ? newSl : undefined,
 				});
 
 				if (!result.success) {
@@ -191,6 +208,8 @@ export function PositionsTable({
 				setSelectedPosition(null);
 				setNewMargin("");
 				setNewLeverage(2);
+				setNewTp("");
+				setNewSl("");
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Failed to modify position";
 				toast.error(
@@ -201,7 +220,17 @@ export function PositionsTable({
 				);
 				throw error;
 			}
-		}, [address, selectedPosition, newMargin, newLeverage, tradingPairAddress, sendTransaction]);
+		}, [
+			address,
+			selectedPosition,
+			newMargin,
+			newLeverage,
+			newTp,
+			newSl,
+			modifyAction,
+			tradingPairAddress,
+			sendTransaction,
+		]);
 
 	// Handle dialog opens
 	const openCloseDialog = (position: Position) => {
@@ -209,10 +238,21 @@ export function PositionsTable({
 		setIsCloseDialogOpen(true);
 	};
 
-	const _openModifyDialog = (position: Position) => {
+	const openModifyDialog = (position: Position) => {
 		setSelectedPosition(position);
 		setNewMargin(position.margin.replace(/[$,]/g, ""));
 		setNewLeverage(position.leverageValue);
+		setNewTp(
+			position.takeProfitPrice && position.takeProfitPrice !== "0"
+				? formatUnits(BigInt(position.takeProfitPrice), 18)
+				: "",
+		);
+		setNewSl(
+			position.stopLossPrice && position.stopLossPrice !== "0"
+				? formatUnits(BigInt(position.stopLossPrice), 18)
+				: "",
+		);
+		setModifyAction("MODIFY_POSITION");
 		setIsModifyDialogOpen(true);
 	};
 
@@ -413,6 +453,7 @@ export function PositionsTable({
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Leverage</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">PnL</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Liq. Price</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">TP/SL</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Actions</th>
 									</tr>
 								</thead>
@@ -472,6 +513,29 @@ export function PositionsTable({
 												</div>
 											</td>
 											<td className="p-4 text-white">{position.liquidationPrice}</td>
+											<td className="p-4 text-white">
+												<div className="flex flex-col text-xs">
+													{position.takeProfitPrice && position.takeProfitPrice !== "0" ? (
+														<span className="text-green-400">
+															TP: $
+															{parseFloat(
+																formatUnits(BigInt(position.takeProfitPrice), 18),
+															).toLocaleString()}
+														</span>
+													) : null}
+													{position.stopLossPrice && position.stopLossPrice !== "0" ? (
+														<span className="text-red-400">
+															SL: $
+															{parseFloat(
+																formatUnits(BigInt(position.stopLossPrice), 18),
+															).toLocaleString()}
+														</span>
+													) : null}
+													{(!position.takeProfitPrice || position.takeProfitPrice === "0") &&
+														(!position.stopLossPrice || position.stopLossPrice === "0") &&
+														"--"}
+												</div>
+											</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
 													{/* <Button
@@ -494,18 +558,17 @@ export function PositionsTable({
 														</svg>
 														PnL
 													</Button> */}
-													{/* <Button
+													<Button
 														size="sm"
 														variant="outline"
-														onClick={() =>
-															openModifyDialog(
-																position
-															)
-														}
+														onClick={(e) => {
+															e.stopPropagation();
+															openModifyDialog(position);
+														}}
 														className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
 													>
 														Modify
-													</Button> */}
+													</Button>
 													<Button
 														size="sm"
 														variant="outline"
@@ -807,55 +870,120 @@ export function PositionsTable({
 								</div>
 							</div>
 						)}
-						<div className="space-y-3">
-							<div>
-								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
-									New Margin (USDC)
-								</label>
-								<Input
-									type="number"
-									value={newMargin}
-									onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-										setNewMargin(e.target.value)
-									}
-									placeholder="Enter new margin amount"
-									className="bg-slate-800 border-slate-700 text-white"
-								/>
+						<div className="space-y-4">
+							<div className="flex bg-slate-800 p-1 rounded-md mb-2">
+								<button
+									type="button"
+									onClick={() => setModifyAction("MODIFY_POSITION")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "MODIFY_POSITION"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									Margin & Lev
+								</button>
+								<button
+									type="button"
+									onClick={() => setModifyAction("UPDATE_LEVERAGE")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "UPDATE_LEVERAGE"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									Leverage Only
+								</button>
+								<button
+									type="button"
+									onClick={() => setModifyAction("UPDATE_TPSL")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "UPDATE_TPSL"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									TP/SL
+								</button>
 							</div>
 
-							<div>
-								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
-									New Leverage (1x - 100x)
-								</label>
-								<div className="flex items-center gap-2">
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => setNewLeverage(Math.max(1, newLeverage - 1))}
-										disabled={newLeverage <= 1}
-									>
-										-
-									</Button>
-									<Input
-										type="number"
-										value={newLeverage}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setNewLeverage(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))
-										}
-										className="bg-slate-800 border-slate-700 text-white text-center"
-										min={1}
-										max={100}
-									/>
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => setNewLeverage(Math.min(100, newLeverage + 1))}
-										disabled={newLeverage >= 100}
-									>
-										+
-									</Button>
+							{(modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE") && (
+								<>
+									{modifyAction === "MODIFY_POSITION" && (
+										<div>
+											<label className="text-sm text-gray-400 mb-1 block">New Margin (USDC)</label>
+											<Input
+												type="number"
+												value={newMargin}
+												onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+													setNewMargin(e.target.value)
+												}
+												placeholder="Enter new margin amount"
+												className="bg-slate-800 border-slate-700 text-white"
+											/>
+										</div>
+									)}
+
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">
+											New Leverage (1x - 100x)
+										</label>
+										<div className="flex items-center gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setNewLeverage(Math.max(1, newLeverage - 1))}
+												disabled={newLeverage <= 1}
+											>
+												-
+											</Button>
+											<Input
+												type="number"
+												value={newLeverage}
+												onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+													setNewLeverage(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))
+												}
+												className="bg-slate-800 border-slate-700 text-white text-center"
+												min={1}
+												max={100}
+											/>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setNewLeverage(Math.min(100, newLeverage + 1))}
+												disabled={newLeverage >= 100}
+											>
+												+
+											</Button>
+										</div>
+									</div>
+								</>
+							)}
+
+							{modifyAction === "UPDATE_TPSL" && (
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">Take Profit</label>
+										<Input
+											type="number"
+											value={newTp}
+											onChange={(e) => setNewTp(e.target.value)}
+											placeholder="Price"
+											className="bg-slate-800 border-slate-700 text-white"
+										/>
+									</div>
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">Stop Loss</label>
+										<Input
+											type="number"
+											value={newSl}
+											onChange={(e) => setNewSl(e.target.value)}
+											placeholder="Price"
+											className="bg-slate-800 border-slate-700 text-white"
+										/>
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 						{modifyError && (
 							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
