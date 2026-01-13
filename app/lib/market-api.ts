@@ -9,6 +9,19 @@ export interface OpenPositionRequest {
 	leverage: number;
 	userAddress: string;
 	referrer?: string;
+	tpPrice?: string;
+	slPrice?: string;
+}
+
+export interface LimitOrderRequest {
+	marketId: string;
+	isLong: boolean;
+	margin: string;
+	leverage: number;
+	limitPrice: string;
+	userAddress: string;
+	tpPrice?: string;
+	slPrice?: string;
 }
 
 export interface SimulationResult {
@@ -32,6 +45,15 @@ export interface OpenPositionResponse {
 
 export async function openPosition(params: OpenPositionRequest): Promise<OpenPositionResponse> {
 	const { data } = await betterFetch(`${BASE_URL}/positions/open`, {
+		method: "POST",
+		body: JSON.stringify(params),
+		headers: { "Content-Type": "application/json" },
+	});
+	return data as OpenPositionResponse;
+}
+
+export async function createLimitOrder(params: LimitOrderRequest): Promise<OpenPositionResponse> {
+	const { data } = await betterFetch(`${BASE_URL}/positions/create-limit-order`, {
 		method: "POST",
 		body: JSON.stringify(params),
 		headers: { "Content-Type": "application/json" },

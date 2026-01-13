@@ -164,11 +164,10 @@ const convertToPills = (tokens: TrendingToken[]): Pill[] => {
 };
 
 export const TrendingCoinsSection: FC = () => {
-	// SSR-safe timeout implementation
+	// SSR-safe implementation - start fetching immediately on mount
 	const [isReady, setIsReady] = useState(false);
 	useEffect(() => {
-		const timer = setTimeout(() => setIsReady(true), 15_000);
-		return () => clearTimeout(timer);
+		setIsReady(true);
 	}, []);
 
 	// Fetch trending tokens from API

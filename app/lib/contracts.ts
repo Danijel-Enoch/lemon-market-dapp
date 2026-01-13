@@ -1,6 +1,8 @@
 const usdc = "0xf8d3BA4BA67B1086f6aCAfC9D26C1b0AbDb4eF40" as `0x${string}`;
-const SyntheticPerpetualContract = "0x00CD40a9C1d6299E1353AEd8161f30954429756D" as `0x${string}`;
-const lpContract = "0xD83afA02C8A0D03BBba1920eb04f1C17C06C2C33";
+const SyntheticPerpetualContract =
+	"0xb7c66b738cD9bC60d4939363427A3bef517F8B54" as `0x${string}`;
+const vaultContract = "0xf2027B2FA3D91160F154eceeEF2e6718D829DCfF";
+const lmusdc = "0x332c08a682E59937dB9F1CEaD552Dc73935ae07f" as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
@@ -968,7 +970,8 @@ const SyntheticAbi = [
 						type: "address",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
 				name: "liquidityData",
 				type: "tuple",
 			},
@@ -1052,7 +1055,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -1110,7 +1114,8 @@ const SyntheticAbi = [
 						type: "address",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.LiquidityOperationData",
 				name: "liquidityData",
 				type: "tuple",
 			},
@@ -1466,7 +1471,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.VirtualMarket",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.VirtualMarket",
 				name: "",
 				type: "tuple",
 			},
@@ -1562,7 +1568,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -1687,7 +1694,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -1793,7 +1801,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -2175,7 +2184,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -2225,7 +2235,8 @@ const SyntheticAbi = [
 						type: "uint256",
 					},
 				],
-				internalType: "struct SyntheticPerpetualWithVmarkets.OracleData",
+				internalType:
+					"struct SyntheticPerpetualWithVmarkets.OracleData",
 				name: "oracleData",
 				type: "tuple",
 			},
@@ -2425,4 +2436,11 @@ const SyntheticAbi = [
 	},
 ];
 
-export { usdc, SyntheticPerpetualContract, SyntheticAbi, ERC20Abi, lpContract };
+export {
+	usdc,
+	SyntheticPerpetualContract,
+	SyntheticAbi,
+	ERC20Abi,
+	vaultContract,
+	lmusdc,
+};

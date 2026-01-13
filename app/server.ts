@@ -3,12 +3,23 @@ import { Elysia } from "elysia";
 import { reactRouter } from "elysia-react-router";
 
 const app = new Elysia()
-	.onRequest(({ set }) => {
+	.onRequest(({ set, request }) => {
 		// Security headers
 		set.headers["X-Frame-Options"] = "SAMEORIGIN";
 		set.headers["X-XSS-Protection"] = "1; mode=block";
 		set.headers["X-Content-Type-Options"] = "nosniff";
 		set.headers["Referrer-Policy"] = "no-referrer-when-downgrade";
+
+		// Cache control
+		const url = new URL(request.url);
+		if (
+			url.pathname.startsWith("/assets/") ||
+			url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$/)
+		) {
+			set.headers["Cache-Control"] = "public, max-age=31536000, immutable";
+		} else {
+			set.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+		}
 	})
 	.get("/api/geckoterminal/*", async ({ params, request }) => {
 		const path = params["*"];
@@ -36,11 +47,22 @@ const app = new Elysia()
 if (process.env.NODE_ENV === "production") {
 	app.use(
 		await staticPlugin({
-			assets: "./build/client",
-			prefix: "/",
+			assets: "./build/client/assets",
+			prefix: "/assets",
 			alwaysStatic: true,
 			headers: {
 				"Cache-Control": "public, max-age=31536000, immutable",
+			},
+		}),
+	);
+	app.use(
+		await staticPlugin({
+			assets: "./build/client",
+			prefix: "/",
+			alwaysStatic: true,
+			// No immutable headers for root files like index.html, robots.txt, etc.
+			headers: {
+				"Cache-Control": "no-cache, no-store, must-revalidate",
 			},
 		}),
 	);

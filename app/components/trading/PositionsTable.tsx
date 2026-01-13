@@ -13,10 +13,17 @@ import {
 	type Position,
 	validateLeverage,
 	validateMargin,
+	type LimitOrder,
+	updatePosition,
+	type UpdatePositionAction,
+	modifyLimitOrder,
+	cancelLimitOrder,
 } from "@app/lib/position-api";
+import { useLimitOrders } from "@app/hooks/useLimitOrders";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
+import { formatUnits, parseUnits } from "viem";
 import { useConnection, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 
 interface PositionsTableProps {
@@ -48,14 +55,32 @@ export function PositionsTable({
 	// Modify position form state
 	const [newMargin, setNewMargin] = useState("");
 	const [newLeverage, setNewLeverage] = useState(2);
+	const [newTp, setNewTp] = useState("");
+	const [newSl, setNewSl] = useState("");
+	const [modifyAction, setModifyAction] = useState<UpdatePositionAction>("MODIFY_POSITION");
+
+	// Limit Orders state
+	const {
+		limitOrders,
+		isLoading: isLimitOrdersLoading,
+		refetch: refetchLimitOrders,
+	} = useLimitOrders();
+	const [selectedLimitOrder, setSelectedLimitOrder] = useState<LimitOrder | null>(null);
+	const [isModifyLimitDialogOpen, setIsModifyLimitDialogOpen] = useState(false);
+	const [isCancelLimitDialogOpen, setIsCancelLimitDialogOpen] = useState(false);
+
+	// Modify limit order form state
+	const [newLimitPrice, setNewLimitPrice] = useState("");
+	const [newLimitTp, setNewLimitTp] = useState("");
+	const [newLimitSl, setNewLimitSl] = useState("");
 
 	// Open positions (status === "OPEN" or "OPENED")
 	const openPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() === "opened" || pos.status.toLowerCase() === "open",
+		(pos) => pos.status.toLowerCase() === "opened" || pos.status.toLowerCase() === "open" || pos.status.toLowerCase()=== "modified",
 	);
 	// Closed positions (status !== "OPEN" and "OPENED")
 	const closedPositions = positions.filter(
-		(pos) => pos.status.toLowerCase() !== "opened" && pos.status.toLowerCase() !== "open",
+		(pos) => pos.status.toLowerCase() !== "opened" && pos.status.toLowerCase() !== "open" && pos.status.toLowerCase() !=="modified",
 	);
 
 	// Handle close position with TanStack Query mutation
@@ -111,15 +136,19 @@ export function PositionsTable({
 				throw new Error("Please connect your wallet first");
 			}
 
-			// Validate inputs
-			const marginValidation = validateMargin(newMargin);
-			if (!marginValidation.valid) {
-				throw new Error(marginValidation.error || "Invalid margin");
-			}
+			// Validate inputs based on action
+			if (modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE") {
+				const leverageValidation = validateLeverage(newLeverage);
+				if (!leverageValidation.valid) {
+					throw new Error(leverageValidation.error || "Invalid leverage");
+				}
 
-			const leverageValidation = validateLeverage(newLeverage);
-			if (!leverageValidation.valid) {
-				throw new Error(leverageValidation.error || "Invalid leverage");
+				if (modifyAction === "MODIFY_POSITION") {
+					const marginValidation = validateMargin(newMargin);
+					if (!marginValidation.valid) {
+						throw new Error(marginValidation.error || "Invalid margin");
+					}
+				}
 			}
 
 			// Show initial loading toast
@@ -127,14 +156,22 @@ export function PositionsTable({
 
 			try {
 				const tokenSymbol = extractTokenSymbol(selectedPosition.pair);
+				// Construct marketId if not available
+				const marketId =
+					selectedPosition.marketId || `${tokenSymbol}-${selectedPosition.tokenaddress}-base`;
 
-				const result = await modifyPosition({
-					positionId: selectedPosition.positionId,
-					tokenSymbol,
-					newMargin,
-					newLeverage,
+				const result = await updatePosition({
+					action: modifyAction,
+					positionId: parseInt(selectedPosition.positionId, 10),
+					marketId,
 					userAddress: address,
-					pairAddress: tradingPairAddress,
+					newMargin: modifyAction === "MODIFY_POSITION" ? newMargin : undefined,
+					newLeverage:
+						modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE"
+							? newLeverage
+							: undefined,
+					newTpPrice: modifyAction === "UPDATE_TPSL" ? newTp : undefined,
+					newSlPrice: modifyAction === "UPDATE_TPSL" ? newSl : undefined,
 				});
 
 				if (!result.success) {
@@ -171,6 +208,8 @@ export function PositionsTable({
 				setSelectedPosition(null);
 				setNewMargin("");
 				setNewLeverage(2);
+				setNewTp("");
+				setNewSl("");
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : "Failed to modify position";
 				toast.error(
@@ -181,7 +220,17 @@ export function PositionsTable({
 				);
 				throw error;
 			}
-		}, [address, selectedPosition, newMargin, newLeverage, tradingPairAddress, sendTransaction]);
+		}, [
+			address,
+			selectedPosition,
+			newMargin,
+			newLeverage,
+			newTp,
+			newSl,
+			modifyAction,
+			tradingPairAddress,
+			sendTransaction,
+		]);
 
 	// Handle dialog opens
 	const openCloseDialog = (position: Position) => {
@@ -189,10 +238,21 @@ export function PositionsTable({
 		setIsCloseDialogOpen(true);
 	};
 
-	const _openModifyDialog = (position: Position) => {
+	const openModifyDialog = (position: Position) => {
 		setSelectedPosition(position);
 		setNewMargin(position.margin.replace(/[$,]/g, ""));
 		setNewLeverage(position.leverageValue);
+		setNewTp(
+			position.takeProfitPrice && position.takeProfitPrice !== "0"
+				? position.takeProfitPrice
+				: "",
+		);
+		setNewSl(
+			position.stopLossPrice && position.stopLossPrice !== "0"
+				? position.stopLossPrice
+				: "",
+		);
+		setModifyAction("MODIFY_POSITION");
 		setIsModifyDialogOpen(true);
 	};
 
@@ -202,8 +262,137 @@ export function PositionsTable({
 		navigate(`/perp?token=${tokenSymbol}`);
 	};
 
+	const navigateToLimitChart = (order: LimitOrder) => {
+		const tokenSymbol = order.tokenSymbol.split("_")[0];
+		navigate(`/perp?token=${tokenSymbol}`);
+	};
+
+	// Handle modify limit order
+	const [{ loading: isModifyingLimit, error: modifyLimitError }, handleModifyLimitOrder] =
+		useAsyncCallback(async () => {
+			if (!address || !selectedLimitOrder) {
+				throw new Error("Please connect your wallet first");
+			}
+
+			if (!newLimitPrice || parseFloat(newLimitPrice) <= 0) {
+				throw new Error("Please enter a valid limit price");
+			}
+
+			const loadingToastId = toast.loading(`Modifying limit order...`);
+
+			try {
+				const tokenSymbolParts = selectedLimitOrder.tokenSymbol.split("_");
+				const chainName = tokenSymbolParts[3] === "8453" ? "base" : "base"; // Default to base
+				const marketId = `${tokenSymbolParts[0]}-${tokenSymbolParts[2]}-${chainName}`;
+
+				const result = await modifyLimitOrder({
+					positionId: parseInt(selectedLimitOrder.positionId, 10),
+					marketId: marketId,
+					newLimitPrice: newLimitPrice,
+					newTpPrice: newLimitTp || "",
+					newSlPrice: newLimitSl || "",
+					userAddress: address,
+				});
+
+				if (!result.success) {
+					toast.dismiss(loadingToastId);
+					throw new Error(result.error || "Failed to modify limit order");
+				}
+
+				if (!result.data) {
+					toast.dismiss(loadingToastId);
+					throw new Error("No transaction data returned from API");
+				}
+
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(0),
+					gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
+				});
+
+				toast.dismiss(loadingToastId);
+				toast.success("Modification transaction submitted!");
+				setIsModifyLimitDialogOpen(false);
+				setSelectedLimitOrder(null);
+			} catch (error) {
+				toast.dismiss(loadingToastId);
+				const errorMessage = error instanceof Error ? error.message : "Failed to modify limit order";
+				toast.error(errorMessage);
+				throw error;
+			}
+		}, [
+			address,
+			selectedLimitOrder,
+			newLimitPrice,
+			newLimitTp,
+			newLimitSl,
+			tradingPairAddress,
+			sendTransaction,
+		]);
+
+	// Handle cancel limit order
+	const [{ loading: isCancellingLimit, error: cancelLimitError }, handleCancelLimitOrder] =
+		useAsyncCallback(async () => {
+			if (!address || !selectedLimitOrder) {
+				throw new Error("Please connect your wallet first");
+			}
+
+			const loadingToastId = toast.loading(`Cancelling limit order...`);
+
+			try {
+				const result = await cancelLimitOrder({
+					positionId: parseInt(selectedLimitOrder.positionId, 10),
+					userAddress: address,
+				});
+
+				if (!result.success) {
+					toast.dismiss(loadingToastId);
+					throw new Error(result.error || "Failed to cancel limit order");
+				}
+
+				if (!result.data) {
+					toast.dismiss(loadingToastId);
+					throw new Error("No transaction data returned from API");
+				}
+
+				sendTransaction({
+					to: result.data.to as `0x${string}`,
+					data: result.data.data as `0x${string}`,
+					value: BigInt(0),
+					gas: result.data.gasEstimate ? BigInt(result.data.gasEstimate) : undefined,
+				});
+
+				toast.dismiss(loadingToastId);
+				toast.success("Cancellation transaction submitted!");
+				setIsCancelLimitDialogOpen(false);
+				setSelectedLimitOrder(null);
+			} catch (error) {
+				toast.dismiss(loadingToastId);
+				const errorMessage = error instanceof Error ? error.message : "Failed to cancel limit order";
+				toast.error(errorMessage);
+				throw error;
+			}
+		}, [address, selectedLimitOrder, sendTransaction]);
+
+	const openModifyLimitDialog = (order: LimitOrder) => {
+		setSelectedLimitOrder(order);
+		setNewLimitPrice(order.limitPrice); // Normalized from backend
+		setNewLimitTp(
+			order.takeProfitPrice !== "0" ? order.takeProfitPrice : "",
+		);
+		setNewLimitSl(order.stopLossPrice !== "0" ? order.stopLossPrice : "");
+		setIsModifyLimitDialogOpen(true);
+	};
+
+	const openCancelLimitDialog = (order: LimitOrder) => {
+		setSelectedLimitOrder(order);
+		setIsCancelLimitDialogOpen(true);
+	};
+
 	// Track if we've already shown the confirmation toast for this hash
 	const confirmedHashRef = useRef<string | null>(null);
+	
 
 	// Handle transaction confirmation
 	useEffect(() => {
@@ -218,19 +407,26 @@ export function PositionsTable({
 			// Refresh positions after confirmation
 			setTimeout(() => {
 				onRefetch();
+				refetchLimitOrders();
 			}, 2000);
 		}
-	}, [isConfirmed, hash, onRefetch]);
+	}, [isConfirmed, hash, onRefetch, refetchLimitOrders]);
 
 	return (
 		<div className="bg-card border border-gray-100/10 rounded-lg">
 			<Tabs defaultValue="open" className="w-full">
-				<TabsList className="grid w-full grid-cols-2 gap-0 mb-4">
+				<TabsList className="grid w-full grid-cols-3 gap-0 mb-4">
 					<TabsTrigger
 						value="open"
 						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
 					>
 						Open Positions ({openPositions.length})
+					</TabsTrigger>
+					<TabsTrigger
+						value="limit"
+						className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-[#4DAD31] data-[state=active]:border-[#4DAD31]"
+					>
+						Limit Orders ({limitOrders.length})
 					</TabsTrigger>
 					<TabsTrigger
 						value="history"
@@ -258,6 +454,7 @@ export function PositionsTable({
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Leverage</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">PnL</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Liq. Price</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">TP/SL</th>
 										<th className="text-left p-4 text-gray-400 text-sm font-medium">Actions</th>
 									</tr>
 								</thead>
@@ -317,6 +514,26 @@ export function PositionsTable({
 												</div>
 											</td>
 											<td className="p-4 text-white">{position.liquidationPrice}</td>
+											<td className="p-4 text-white">
+												
+												<div className="flex flex-col text-xs">
+													{position.takeProfitPrice && position.takeProfitPrice !== "0" ? (
+														<span className="text-green-400">
+															TP: $
+															{parseFloat(position.takeProfitPrice).toLocaleString()}
+														</span>
+													) : null}
+													{position.stopLossPrice && position.stopLossPrice !== "0" ? (
+														<span className="text-red-400">
+															SL: $
+															{parseFloat(position.stopLossPrice).toLocaleString()}
+														</span>
+													) : null}
+													{(!position.takeProfitPrice || position.takeProfitPrice === "0") &&
+														(!position.stopLossPrice || position.stopLossPrice === "0") &&
+														"--"}
+												</div>
+											</td>
 											<td className="p-4">
 												<div className="flex items-center gap-2">
 													{/* <Button
@@ -339,18 +556,17 @@ export function PositionsTable({
 														</svg>
 														PnL
 													</Button> */}
-													{/* <Button
+													<Button
 														size="sm"
 														variant="outline"
-														onClick={() =>
-															openModifyDialog(
-																position
-															)
-														}
+														onClick={(e) => {
+															e.stopPropagation();
+															openModifyDialog(position);
+														}}
 														className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
 													>
 														Modify
-													</Button> */}
+													</Button>
 													<Button
 														size="sm"
 														variant="outline"
@@ -361,6 +577,108 @@ export function PositionsTable({
 														className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
 													>
 														Close
+													</Button>
+												</div>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					)}
+				</TabsContent>
+
+				<TabsContent value="limit" className="mt-0">
+					{limitOrders.length === 0 ? (
+						<div className="flex flex-col items-center justify-center py-12">
+							<div className="text-gray-400 mb-2">No limit orders</div>
+							<p className="text-gray-500 text-sm">Your limit orders will appear here</p>
+						</div>
+					) : (
+						<div className="overflow-x-auto">
+							<table className="w-full">
+								<thead>
+									<tr className="border-b border-slate-800">
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Asset</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Side</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Limit Price</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Margin</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Leverage</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">TP/SL</th>
+										<th className="text-left p-4 text-gray-400 text-sm font-medium">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									{limitOrders.map((order) => (
+										<tr
+											key={order.id}
+											onClick={() => navigateToLimitChart(order)}
+											className="border-b border-slate-800/50 hover:bg-slate-800/20 cursor-pointer transition-colors"
+										>
+											<td className="p-4">
+												<span className="text-white font-medium">
+													{order.tokenSymbol.split("_")[0]}
+												</span>
+											</td>
+											<td className="p-4">
+												<Badge
+													variant={order.isLong ? "default" : "destructive"}
+													className={
+														order.isLong
+															? "bg-green-500/20 text-green-400 border-green-500/50"
+															: "bg-red-500/20 text-red-400 border-red-500/50"
+													}
+												>
+													{order.isLong ? "Long" : "Short"}
+												</Badge>
+											</td>
+											<td className="p-4 text-white">
+												${parseFloat(order.limitPrice).toLocaleString()}
+											</td>
+											<td className="p-4 text-white">
+												${parseFloat(order.margin).toLocaleString()}
+											</td>
+											<td className="p-4 text-white">{order.leverage}x</td>
+											<td className="p-4 text-white">
+												<div className="flex flex-col text-xs">
+													{order.takeProfitPrice !== "0" && (
+														<span className="text-green-400">
+															TP: $
+															{parseFloat(order.takeProfitPrice).toLocaleString()}
+														</span>
+													)}
+													{order.stopLossPrice !== "0" && (
+														<span className="text-red-400">
+															SL: $
+															{parseFloat(order.stopLossPrice).toLocaleString()}
+														</span>
+													)}
+													{order.takeProfitPrice === "0" && order.stopLossPrice === "0" && "--"}
+												</div>
+											</td>
+											<td className="p-4">
+												<div className="flex items-center gap-2">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={(e) => {
+															e.stopPropagation();
+															openModifyLimitDialog(order);
+														}}
+														className="border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white"
+													>
+														Modify
+													</Button>
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={(e) => {
+															e.stopPropagation();
+															openCancelLimitDialog(order);
+														}}
+														className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+													>
+														Cancel
 													</Button>
 												</div>
 											</td>
@@ -546,55 +864,120 @@ export function PositionsTable({
 								</div>
 							</div>
 						)}
-						<div className="space-y-3">
-							<div>
-								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
-									New Margin (USDC)
-								</label>
-								<Input
-									type="number"
-									value={newMargin}
-									onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-										setNewMargin(e.target.value)
-									}
-									placeholder="Enter new margin amount"
-									className="bg-slate-800 border-slate-700 text-white"
-								/>
+						<div className="space-y-4">
+							<div className="flex bg-slate-800 p-1 rounded-md mb-2">
+								<button
+									type="button"
+									onClick={() => setModifyAction("MODIFY_POSITION")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "MODIFY_POSITION"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									Margin & Lev
+								</button>
+								<button
+									type="button"
+									onClick={() => setModifyAction("UPDATE_LEVERAGE")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "UPDATE_LEVERAGE"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									Leverage Only
+								</button>
+								<button
+									type="button"
+									onClick={() => setModifyAction("UPDATE_TPSL")}
+									className={`flex-1 py-1.5 text-xs font-medium rounded-sm transition-all ${
+										modifyAction === "UPDATE_TPSL"
+											? "bg-slate-700 text-white shadow-sm"
+											: "text-gray-400 hover:text-gray-200"
+									}`}
+								>
+									TP/SL
+								</button>
 							</div>
 
-							<div>
-								<label className="text-sm text-gray-400 mb-1 block" htmlFor="">
-									New Leverage (1x - 100x)
-								</label>
-								<div className="flex items-center gap-2">
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => setNewLeverage(Math.max(1, newLeverage - 1))}
-										disabled={newLeverage <= 1}
-									>
-										-
-									</Button>
-									<Input
-										type="number"
-										value={newLeverage}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setNewLeverage(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))
-										}
-										className="bg-slate-800 border-slate-700 text-white text-center"
-										min={1}
-										max={100}
-									/>
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => setNewLeverage(Math.min(100, newLeverage + 1))}
-										disabled={newLeverage >= 100}
-									>
-										+
-									</Button>
+							{(modifyAction === "MODIFY_POSITION" || modifyAction === "UPDATE_LEVERAGE") && (
+								<>
+									{modifyAction === "MODIFY_POSITION" && (
+										<div>
+											<label className="text-sm text-gray-400 mb-1 block">New Margin (USDC)</label>
+											<Input
+												type="number"
+												value={newMargin}
+												onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+													setNewMargin(e.target.value)
+												}
+												placeholder="Enter new margin amount"
+												className="bg-slate-800 border-slate-700 text-white"
+											/>
+										</div>
+									)}
+
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">
+											New Leverage (1x - 100x)
+										</label>
+										<div className="flex items-center gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setNewLeverage(Math.max(1, newLeverage - 1))}
+												disabled={newLeverage <= 1}
+											>
+												-
+											</Button>
+											<Input
+												type="number"
+												value={newLeverage}
+												onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+													setNewLeverage(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))
+												}
+												className="bg-slate-800 border-slate-700 text-white text-center"
+												min={1}
+												max={100}
+											/>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setNewLeverage(Math.min(100, newLeverage + 1))}
+												disabled={newLeverage >= 100}
+											>
+												+
+											</Button>
+										</div>
+									</div>
+								</>
+							)}
+
+							{modifyAction === "UPDATE_TPSL" && (
+								<div className="grid grid-cols-2 gap-4">
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">Take Profit</label>
+										<Input
+											type="number"
+											value={newTp}
+											onChange={(e) => setNewTp(e.target.value)}
+											placeholder="Price"
+											className="bg-slate-800 border-slate-700 text-white"
+										/>
+									</div>
+									<div>
+										<label className="text-sm text-gray-400 mb-1 block">Stop Loss</label>
+										<Input
+											type="number"
+											value={newSl}
+											onChange={(e) => setNewSl(e.target.value)}
+											placeholder="Price"
+											className="bg-slate-800 border-slate-700 text-white"
+										/>
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 						{modifyError && (
 							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
@@ -615,6 +998,140 @@ export function PositionsTable({
 								className="bg-blue-600 hover:bg-blue-700"
 							>
 								{isModifyingPosition || isPending ? "Processing..." : "Modify Position"}
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+			<Dialog open={isModifyLimitDialogOpen} onOpenChange={setIsModifyLimitDialogOpen}>
+				<DialogContent className="bg-slate-900 border-slate-800 text-white">
+					<DialogHeader>
+						<DialogTitle>Modify Limit Order</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4">
+						{selectedLimitOrder && (
+							<div className="bg-slate-800 p-4 rounded">
+								<div className="grid grid-cols-2 gap-4 text-sm">
+									<div>
+										<span className="text-gray-400">Asset:</span>
+										<div className="font-medium">
+											{selectedLimitOrder.tokenSymbol.split("_")[0]}{" "}
+											{selectedLimitOrder.isLong ? "Long" : "Short"}
+										</div>
+									</div>
+									<div>
+										<span className="text-gray-400">Margin:</span>
+										<div className="font-medium">
+											${(parseFloat(selectedLimitOrder.margin) / 1e6).toLocaleString()}
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						<div className="space-y-3">
+							<div>
+								<label className="text-sm text-gray-400 mb-1 block">Limit Price</label>
+								<Input
+									type="number"
+									value={newLimitPrice}
+									onChange={(e) => setNewLimitPrice(e.target.value)}
+									className="bg-slate-800 border-slate-700 text-white"
+								/>
+							</div>
+							<div>
+								<label className="text-sm text-gray-400 mb-1 block">Take Profit Price (Optional)</label>
+								<Input
+									type="number"
+									value={newLimitTp}
+									onChange={(e) => setNewLimitTp(e.target.value)}
+									placeholder="No TP"
+									className="bg-slate-800 border-slate-700 text-white"
+								/>
+							</div>
+							<div>
+								<label className="text-sm text-gray-400 mb-1 block">Stop Loss Price (Optional)</label>
+								<Input
+									type="number"
+									value={newLimitSl}
+									onChange={(e) => setNewLimitSl(e.target.value)}
+									placeholder="No SL"
+									className="bg-slate-800 border-slate-700 text-white"
+								/>
+							</div>
+						</div>
+
+						{modifyLimitError && (
+							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
+								{(modifyLimitError as Error).message}
+							</div>
+						)}
+
+						<div className="flex gap-3 justify-end">
+							<Button
+								variant="outline"
+								onClick={() => setIsModifyLimitDialogOpen(false)}
+								disabled={isModifyingLimit || isPending}
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleModifyLimitOrder}
+								disabled={isModifyingLimit || isPending}
+								className="bg-blue-600 hover:bg-blue-700"
+							>
+								{isModifyingLimit || isPending ? "Processing..." : "Modify Order"}
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog open={isCancelLimitDialogOpen} onOpenChange={setIsCancelLimitDialogOpen}>
+				<DialogContent className="bg-slate-900 border-slate-800 text-white">
+					<DialogHeader>
+						<DialogTitle>Cancel Limit Order</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4">
+						<p className="text-gray-300">Are you sure you want to cancel this limit order?</p>
+						{selectedLimitOrder && (
+							<div className="bg-slate-800 p-4 rounded text-sm mb-4">
+								<div className="flex justify-between mb-1">
+									<span className="text-gray-400">Asset:</span>
+									<span>{selectedLimitOrder.tokenSymbol.split("_")[0]}</span>
+								</div>
+								<div className="flex justify-between mb-1">
+									<span className="text-gray-400">Limit Price:</span>
+									<span>
+										$
+										{parseFloat(
+											formatUnits(BigInt(selectedLimitOrder.limitPrice), 18),
+										).toLocaleString()}
+									</span>
+								</div>
+							</div>
+						)}
+
+						{cancelLimitError && (
+							<div className="bg-red-500/20 border border-red-500/50 text-red-400 p-3 rounded text-sm">
+								{(cancelLimitError as Error).message}
+							</div>
+						)}
+
+						<div className="flex gap-3 justify-end">
+							<Button
+								variant="outline"
+								onClick={() => setIsCancelLimitDialogOpen(false)}
+								disabled={isCancellingLimit || isPending}
+							>
+								Back
+							</Button>
+							<Button
+								onClick={handleCancelLimitOrder}
+								disabled={isCancellingLimit || isPending}
+								className="bg-red-600 hover:bg-red-700"
+							>
+								{isCancellingLimit || isPending ? "Processing..." : "Cancel Order"}
 							</Button>
 						</div>
 					</div>

@@ -13,7 +13,7 @@ import { useMarketData } from "@app/hooks/useMarketData";
 import { fetchTokensTrending } from "@app/hooks/useTrending";
 import { useUserPositions } from "@app/hooks/useUserPositions";
 import { ERC20Abi, SyntheticPerpetualContract, usdc } from "@app/lib/contracts";
-import { openPosition } from "@app/lib/market-api";
+import { createLimitOrder, openPosition } from "@app/lib/market-api";
 import { formatPrice, getForexPrice, getStockPrice } from "@app/lib/oracle";
 import {
 	extractTokenSymbol,
@@ -42,23 +42,42 @@ export async function action({ request }: ActionFunctionArgs) {
 	const formData = await request.formData();
 	const intent = formData.get("intent");
 
-	if (intent === "open-position") {
+	if (intent === "open-position" || intent === "create-limit-order") {
 		const marketId = formData.get("marketId") as string;
 		const isLong = formData.get("isLong") === "true";
 		const margin = formData.get("margin") as string;
 		const leverage = Number(formData.get("leverage"));
 		const userAddress = formData.get("userAddress") as string;
 		const referrer = formData.get("referrer") as string;
+		const tpPrice = formData.get("tpPrice") as string;
+		const slPrice = formData.get("slPrice") as string;
+		const limitPrice = formData.get("limitPrice") as string;
 
 		try {
-			const result = await openPosition({
-				marketId,
-				isLong,
-				margin,
-				leverage,
-				userAddress,
-				referrer,
-			});
+			let result;
+			if (intent === "open-position") {
+				result = await openPosition({
+					marketId,
+					isLong,
+					margin,
+					leverage,
+					userAddress,
+					referrer,
+					tpPrice: tpPrice || undefined,
+					slPrice: slPrice || undefined,
+				});
+			} else {
+				result = await createLimitOrder({
+					marketId,
+					isLong,
+					margin,
+					leverage,
+					limitPrice,
+					userAddress,
+					tpPrice: tpPrice || undefined,
+					slPrice: slPrice || undefined,
+				});
+			}
 
 			if (result.success && result.data) {
 				return { success: true, intent, transactionData: result.data };
@@ -237,6 +256,14 @@ export default function PerpContent() {
 	const [_lastTransactionHash, setLastTransactionHash] = useState<string | null>(null);
 	const [needsApproval, setNeedsApproval] = useState(false);
 	const [referrerAddress, setReferrerAddress] = useState<string>(DEFAULT_REFERRER_ADDRESS);
+	const [orderType, setOrderType] = useState<"market" | "limit">("market");
+	const [limitPrice, setLimitPrice] = useState("");
+	const [tpEnabled, setTpEnabled] = useState(false);
+	const [slEnabled, setSlEnabled] = useState(false);
+	const [tpPrice, setTpPrice] = useState("");
+	const [slPrice, setSlPrice] = useState("");
+	const [tpPercent, setTpPercent] = useState("");
+	const [slPercent, setSlPercent] = useState("");
 
 	// Compute available margin token amount from contract balance
 	const decimals =
@@ -449,7 +476,7 @@ export default function PerpContent() {
 		if (
 			fetcher.data?.success &&
 			fetcher.data.transactionData &&
-			fetcher.data.intent === "open-position"
+			(fetcher.data.intent === "open-position" || fetcher.data.intent === "create-limit-order")
 		) {
 			const { to, data, value, gasEstimate } = fetcher.data.transactionData;
 			mutate({
@@ -510,6 +537,11 @@ export default function PerpContent() {
 			return;
 		}
 
+		if (orderType === "limit" && (!limitPrice || parseFloat(limitPrice) <= 0)) {
+			toast.error("Please enter a valid limit price");
+			return;
+		}
+
 		const tokenSymbol = extractTokenSymbol(tradingPair.symbol).toUpperCase().replace(" ", "");
 		const tokenAddress = tradingPair.tokenAddress;
 		const chainName = tradingPair.chain || "base";
@@ -519,21 +551,106 @@ export default function PerpContent() {
 
 		fetcher.submit(
 			{
-				intent: "open-position",
+				intent: orderType === "market" ? "open-position" : "create-limit-order",
 				marketId,
 				isLong: isLong.toString(),
 				margin: marginValue,
 				leverage: leverage.toString(),
 				userAddress: address,
 				referrer: referrerAddress,
+				tpPrice: tpEnabled ? tpPrice : "",
+				slPrice: slEnabled ? slPrice : "",
+				limitPrice: orderType === "limit" ? limitPrice : "",
 			},
 			{ method: "post" },
 		);
 	};
 
+	// TP/SL calculation handlers
+	const handleTpPriceChange = (val: string) => {
+		setTpPrice(val);
+		if (!val || isNaN(parseFloat(val))) {
+			setTpPercent("");
+			return;
+		}
+		const entry =
+			orderType === "market"
+				? parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+				: parseFloat(limitPrice);
+		if (entry > 0) {
+			const price = parseFloat(val);
+			const pnl = isLong
+				? ((price / entry) - 1) * leverage * 100
+				: (1 - (price / entry)) * leverage * 100;
+			setTpPercent(pnl.toFixed(2));
+		}
+	};
+
+	const handleTpPercentChange = (val: string) => {
+		setTpPercent(val);
+		if (!val || isNaN(parseFloat(val))) {
+			setTpPrice("");
+			return;
+		}
+		const entry =
+			orderType === "market"
+				? parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+				: parseFloat(limitPrice);
+		if (entry > 0) {
+			const pnl = parseFloat(val);
+			const price = isLong
+				? entry * (1 + pnl / 100 / leverage)
+				: entry * (1 - pnl / 100 / leverage);
+			setTpPrice(price.toFixed(4));
+		}
+	};
+
+	const handleSlPriceChange = (val: string) => {
+		setSlPrice(val);
+		if (!val || isNaN(parseFloat(val))) {
+			setSlPercent("");
+			return;
+		}
+		const entry =
+			orderType === "market"
+				? parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+				: parseFloat(limitPrice);
+		if (entry > 0) {
+			const price = parseFloat(val);
+			const pnl = isLong
+				? ((price / entry) - 1) * leverage * 100
+				: (1 - (price / entry)) * leverage * 100;
+			setSlPercent(Math.abs(pnl).toFixed(2));
+		}
+	};
+
+	const handleSlPercentChange = (val: string) => {
+		setSlPercent(val);
+		if (!val || isNaN(parseFloat(val))) {
+			setSlPrice("");
+			return;
+		}
+		const entry =
+			orderType === "market"
+				? parseFloat(tradingPair.price.replace(/[$,]/g, ""))
+				: parseFloat(limitPrice);
+		if (entry > 0) {
+			const pnl = parseFloat(val);
+			const price = isLong
+				? entry * (1 - pnl / 100 / leverage)
+				: entry * (1 + pnl / 100 / leverage);
+			setSlPrice(price.toFixed(4));
+		}
+	};
+
 	const isCreatingPosition =
-		fetcher.state !== "idle" && fetcher.formData?.get("intent") === "open-position";
-	const transactionError = fetcher.data?.intent === "open-position" ? fetcher.data.error : null;
+		fetcher.state !== "idle" &&
+		(fetcher.formData?.get("intent") === "open-position" ||
+			fetcher.formData?.get("intent") === "create-limit-order");
+	const transactionError =
+		fetcher.data?.intent === "open-position" || fetcher.data?.intent === "create-limit-order"
+			? fetcher.data.error
+			: null;
 
 	return (
 		<>
@@ -841,11 +958,32 @@ export default function PerpContent() {
 
 				<div className="flex flex-col gap-4 border-l border-[#4D4D4D]/40">
 					<div className="flex items-center justify-between px-2">
-						<Tabs
-							value={isLong ? "long" : "short"}
-							onValueChange={(value) => setIsLong(value === "long")}
-							className="w-full"
-						>
+						<div className="flex flex-col gap-2 w-full">
+							<Tabs
+								value={orderType}
+								onValueChange={(value) => setOrderType(value as "market" | "limit")}
+								className="w-full"
+							>
+								<TabsList className="grid grid-cols-2 gap-0 w-full rounded-none border-0 h-8">
+									<TabsTrigger
+										value="market"
+										className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-white data-[state=active]:bg-[#4DAD31]/20 border-b-2 border-transparent data-[state=active]:border-[#4DAD31]"
+									>
+										Market
+									</TabsTrigger>
+									<TabsTrigger
+										value="limit"
+										className="text-[#818181] hover:text-[#bdbdbd] data-[state=active]:text-white data-[state=active]:bg-[#4DAD31]/20 border-b-2 border-transparent data-[state=active]:border-[#4DAD31]"
+									>
+										Limit
+									</TabsTrigger>
+								</TabsList>
+							</Tabs>
+							<Tabs
+								value={isLong ? "long" : "short"}
+								onValueChange={(value) => setIsLong(value === "long")}
+								className="w-full"
+							>
 							<TabsList className="grid grid-cols-2 gap-0 w-full rounded-none border-0">
 								<TabsTrigger
 									value="long"
@@ -863,6 +1001,7 @@ export default function PerpContent() {
 								</TabsTrigger>
 							</TabsList>
 						</Tabs>
+						</div>
 					</div>
 					{tradingPair.pairAddress && marketData ? (
 						<div className="flex flex-col gap-2 p-4">
@@ -947,6 +1086,28 @@ export default function PerpContent() {
 							)}
 							{!needsApproval && (
 								<>
+									{orderType === "limit" && (
+										<div className="space-y-2 mb-4">
+											<label
+												htmlFor="limit-price-input"
+												className="text-sm text-primary uppercase font-medium"
+											>
+												Limit Price
+											</label>
+											<div className="relative bg-[#071405]">
+												<Input
+													placeholder="0.00"
+													id="limit-price-input"
+													value={limitPrice}
+													onChange={(e) => setLimitPrice(e.target.value)}
+													className="bg-muted border-gray-100/10 text-foreground text-right text-2xl font-bold h-12 pr-12 focus:border-cyan-500"
+												/>
+												<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+													<span className="text-primary font-medium">USDC</span>
+												</div>
+											</div>
+										</div>
+									)}
 									<div className="space-y-2">
 										<div className="flex justify-between items-center">
 											<label
@@ -1097,6 +1258,132 @@ export default function PerpContent() {
 											</span>
 											<span className="text-foreground">2%</span>
 										</div>
+									</div>
+
+									<div className="space-y-4 pt-4 border-t border-gray-100/10">
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium text-foreground">Set TP/SL</span>
+											<button
+												type="button"
+												onClick={() => {
+													const newState = !tpEnabled && !slEnabled;
+													setTpEnabled(newState);
+													setSlEnabled(newState);
+												}}
+												className={`w-10 h-5 rounded-full transition-colors relative ${
+													tpEnabled || slEnabled ? "bg-[#4DAD31]" : "bg-gray-700"
+												}`}
+											>
+												<div
+													className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${
+														tpEnabled || slEnabled ? "translate-x-6" : "translate-x-1"
+													}`}
+												/>
+											</button>
+										</div>
+
+										{(tpEnabled || slEnabled) && (
+											<div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+												{/* Stop Loss Section */}
+												<div className="space-y-2">
+													<div className="flex justify-between items-center">
+														<span className="text-xs text-red-400 font-medium">Stop Loss</span>
+														<button
+															type="button"
+															onClick={() => {
+																setSlEnabled(false);
+																setSlPrice("");
+																setSlPercent("");
+															}}
+															className="text-[10px] text-purple-400 hover:text-purple-300"
+														>
+															Cancel
+														</button>
+													</div>
+													<div className="grid grid-cols-2 gap-2">
+														<div className="relative">
+															<Input
+																placeholder="Price"
+																value={slPrice}
+																onChange={(e) => handleSlPriceChange(e.target.value)}
+																className="bg-muted border-gray-100/10 text-xs h-9 pr-12 focus:border-red-500"
+															/>
+															<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+																Price
+															</span>
+														</div>
+														<div className="relative">
+															<Input
+																placeholder="Loss %"
+																value={slPercent}
+																onChange={(e) => handleSlPercentChange(e.target.value)}
+																className="bg-muted border-gray-100/10 text-xs h-9 pr-6 focus:border-red-500"
+															/>
+															<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+																%
+															</span>
+														</div>
+													</div>
+												</div>
+
+												{/* Take Profit Section */}
+												<div className="space-y-2">
+													<div className="flex justify-between items-center">
+														<span className="text-xs text-[#4DAD31] font-medium">
+															Take Profit{" "}
+															{tpPercent &&
+																marginValue &&
+																`(${(
+																	parseFloat(marginValue) *
+																	(parseFloat(tpPercent) / 100)
+																).toFixed(2)} USDC)`}
+														</span>
+														<button
+															type="button"
+															onClick={() => {
+																setTpEnabled(false);
+																setTpPrice("");
+																setTpPercent("");
+															}}
+															className="text-[10px] text-purple-400 hover:text-purple-300"
+														>
+															Cancel
+														</button>
+													</div>
+													<div className="grid grid-cols-2 gap-2">
+														<div className="relative">
+															<Input
+																placeholder="Price"
+																value={tpPrice}
+																onChange={(e) => handleTpPriceChange(e.target.value)}
+																className="bg-muted border-gray-100/10 text-xs h-9 pr-12 focus:border-[#4DAD31]"
+															/>
+															<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+																Price
+															</span>
+														</div>
+														<div className="relative">
+															<Input
+																placeholder="Profit %"
+																value={tpPercent}
+																onChange={(e) => handleTpPercentChange(e.target.value)}
+																className="bg-muted border-gray-100/10 text-xs h-9 pr-6 focus:border-[#4DAD31]"
+															/>
+															<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+																%
+															</span>
+														</div>
+													</div>
+												</div>
+											</div>
+										)}
+									</div>
+
+									<div className="mt-4 p-3 bg-yellow-900/10 border border-yellow-900/20 rounded-lg">
+										<p className="text-[10px] text-yellow-500/80 leading-relaxed">
+											⚠️ Disclaimer: Limit orders, Take Profit, and Stop Loss orders depend on market
+											volatility and liquidity. They may fail to execute in highly volatile markets.
+										</p>
 									</div>
 									{(approvalError || transactionError) && (
 										<div className="p-3 bg-red-900/50 border border-destructive rounded-lg">

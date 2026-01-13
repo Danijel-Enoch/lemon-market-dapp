@@ -55,15 +55,18 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 
 	// Use realtime PnL for open positions, exitPricePnl for closed
 	const pnlValue =
-		isOpen && traderPos.realtimeData ? traderPos.realtimeData.realtimePnl : traderPos.currentPnl;
+		isOpen && traderPos.realtimeData
+			? traderPos.realtimeData.realtimePnl
+			: traderPos.currentPnl;
 
-	const pnlNumber = parseFloat(pnlValue) || 0;
+	const pnlNumber = parseFloat(pnlValue.replace(/[$,]/g, "")) || 0;
 
 	// Use formatted PnL - for closed positions use exitPricePnl if available
 	const pnlFormatted =
 		isOpen && traderPos.realtimeData
 			? traderPos.realtimeData.formatted.realtimePnl
-			: traderPos.formatted.exitPricePnl || traderPos.formatted.currentPnl;
+			: traderPos.formatted.exitPricePnl ||
+				traderPos.formatted.currentPnl;
 
 	// Get PnL percentage
 	const pnlPercentage =
@@ -94,6 +97,8 @@ function transformTraderPosition(traderPos: TraderPosition): Position {
 		lastTransactionHash: traderPos.lastUpdateTransactionHash,
 		trader: traderPos.trader,
 		tokenaddress: tokenSymbolParts[1] || "",
+		takeProfitPrice: traderPos.takeProfitPrice,
+		stopLossPrice: traderPos.stopLossPrice,
 		realtimeData: traderPos.realtimeData || {
 			realtimePnl: traderPos.currentPnl,
 			currentPrice: traderPos.entryPrice,
@@ -140,15 +145,24 @@ export function useUserPositions(): UseUserPositionsResult {
 			const data = response.data;
 
 			// Transform positions to UI format
-			const transformedPositions = data.positions.map(transformTraderPosition);
+			const transformedPositions = data.positions.map(
+				transformTraderPosition
+			);
 
 			return {
 				positions: transformedPositions,
-				activePositions: data.activePositions.map(transformTraderPosition),
-				inactivePositions: data.inactivePositions.map(transformTraderPosition),
-				totalPnl: parseFloat(data.totalPnl) || 0,
-				totalVolume: parseFloat(data.totalVolume) || 0,
-				activePositionWorth: parseFloat(data.activePositionWorth) || 0,
+				activePositions: data.activePositions.map(
+					transformTraderPosition
+				),
+				inactivePositions: data.inactivePositions.map(
+					transformTraderPosition
+				),
+				totalPnl: parseFloat(data.totalPnl.replace(/[$,]/g, "")) || 0,
+				totalVolume:
+					parseFloat(data.totalVolume.replace(/[$,]/g, "")) || 0,
+				activePositionWorth:
+					parseFloat(data.activePositionWorth.replace(/[$,]/g, "")) ||
+					0,
 				summary: data.summary,
 			};
 		},
@@ -174,7 +188,9 @@ export function useUserPositions(): UseUserPositionsResult {
 					totalPortfolioValue: response.totalPortfolioValue || 0,
 				};
 			}
-			throw new Error(response.error || "Failed to fetch enhanced positions");
+			throw new Error(
+				response.error || "Failed to fetch enhanced positions"
+			);
 		},
 		enabled: !!address && isConnected && isEnhancedMode,
 		refetchInterval: 10000,
@@ -192,7 +208,9 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [isEnhancedMode, enhancedResult, fetchResult]);
 
 	const enhancedPositions = useMemo(() => {
-		return isEnhancedMode && enhancedResult ? enhancedResult.enhancedPositions : undefined;
+		return isEnhancedMode && enhancedResult
+			? enhancedResult.enhancedPositions
+			: undefined;
 	}, [isEnhancedMode, enhancedResult]);
 
 	const totalUnrealizedPnL = useMemo(() => {
@@ -204,7 +222,11 @@ export function useUserPositions(): UseUserPositionsResult {
 	}, [enhancedResult]);
 
 	// Convert error to string for compatibility
-	const error = fetchError ? fetchError.message : enhancedError ? enhancedError.message : null;
+	const error = fetchError
+		? fetchError.message
+		: enhancedError
+			? enhancedError.message
+			: null;
 	const isLoading = isEnhancedMode ? isEnhancedLoading : isBasicLoading;
 
 	const toggleEnhancedMode = useCallback(() => {
@@ -235,7 +257,8 @@ export function useUserPositions(): UseUserPositionsResult {
 		return positions.reduce((sum, position) => {
 			if (!position.pnlRaw) return sum;
 			try {
-				const pnl = parseFloat(position.pnlRaw) / 1e6;
+				const pnl =
+					parseFloat(position.pnlRaw.replace(/[$,]/g, "")) / 1e6;
 				return sum + (Number.isNaN(pnl) ? 0 : pnl);
 			} catch {
 				return sum;
@@ -260,7 +283,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		return positions.filter((position) => {
 			if (!position.pnlRaw) return false;
 			try {
-				const pnl = parseFloat(position.pnlRaw);
+				const pnl = parseFloat(position.pnlRaw.replace(/[$,]/g, ""));
 				return !Number.isNaN(pnl) && pnl > 0;
 			} catch {
 				return false;
@@ -272,7 +295,7 @@ export function useUserPositions(): UseUserPositionsResult {
 		return positions.filter((position) => {
 			if (!position.pnlRaw) return false;
 			try {
-				const pnl = parseFloat(position.pnlRaw);
+				const pnl = parseFloat(position.pnlRaw.replace(/[$,]/g, ""));
 				return !Number.isNaN(pnl) && pnl < 0;
 			} catch {
 				return false;
