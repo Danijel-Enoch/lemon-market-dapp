@@ -215,7 +215,7 @@ export default function LiquidityPage() {
 			// Convert duration from days to seconds
 			const durationInSeconds = selectedDuration.value * 24 * 60 * 60;
 
-			const response = await fetch(import.meta.env.VITE_API_BASE_URL + "/liquidity/vault/deposit-insurance", {
+			const response = await fetch(import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz"+ "/liquidity/vault/deposit-insurance", {
 				method: "POST",
 				headers: {
 					Accept: "*/*",
@@ -274,7 +274,7 @@ export default function LiquidityPage() {
 		setIsProcessing(true);
 		setApiError(null);
 		try {
-			const response = await fetch(import.meta.env.VITE_API_BASE_URL + "/liquidity/vault/withdraw-insurance", {
+			const response = await fetch(import.meta.env.VITE_API_BASE_URL || "https://api.degenoptions.xyz" + "/liquidity/vault/withdraw-insurance", {
 				method: "POST",
 				headers: {
 					Accept: "*/*",
