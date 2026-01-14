@@ -1,8 +1,8 @@
 const usdc = "0xf8d3BA4BA67B1086f6aCAfC9D26C1b0AbDb4eF40" as `0x${string}`;
 const SyntheticPerpetualContract =
-	"0xb7c66b738cD9bC60d4939363427A3bef517F8B54" as `0x${string}`;
-const vaultContract = "0xf2027B2FA3D91160F154eceeEF2e6718D829DCfF";
-const lmusdc = "0x332c08a682E59937dB9F1CEaD552Dc73935ae07f" as `0x${string}`;
+	"0xD64ECdF965a305c520b9aFe37e39106244C41A0a" as `0x${string}`;
+const vaultContract = "0xf87581eABc614326620DA4d9Df0e1A1C94B212E4";
+const lmusdc = "0x33d48643d4DEf2776f31cdeED7801Dd3d84BbD9c" as `0x${string}`;
 
 // ERC20 ABI for USDC token interactions
 const ERC20Abi = [
