@@ -1,0 +1,38 @@
+# The build stage copies the installed node_modules from the `install` layer and
+# then runs `COPY . .`. Without this file the host's node_modules lands on top of
+# it — which on macOS means darwin-arm64 binaries (lightningcss, prisma engines)
+# inside a linux image, and a ~2 GB build context on every build.
+node_modules
+**/node_modules
+
+# Build output is produced inside the image.
+build
+**/build
+dist
+**/dist
+apps/web/.react-router
+**/.react-router
+*.tsbuildinfo
+
+# Never bake credentials into an image layer.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.gitignore
+.claude
+docs
+README.md
+*.md
+!packages/**/*.md
+
+# Local tooling and editor state.
+.DS_Store
+.vscode
+.idea
+coverage
+.turbo
+.cache
+*.log

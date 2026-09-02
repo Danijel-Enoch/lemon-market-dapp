@@ -1,0 +1,159 @@
+# Dokploy deployment.
+#
+# Differences from `docker-compose.yml`, which is the local/self-hosted file:
+#
+#   * Nothing publishes a host port. Dokploy fronts everything with Traefik, and
+#     a published port would both bypass TLS and collide with other apps on the
+#     same host.
+#   * `web` joins the external `dokploy-network` so Traefik can reach it, and
+#     carries the router labels that put it on ${DOMAIN}.
+#   * Postgres stays on a private network with no ingress at all.
+#
+# Set up in Dokploy:
+#   1. Create an application of type "Docker Compose" pointing at this repo.
+#   2. Set the compose path to `docker-compose.dokploy.yml`.
+#   3. In Environment, set at minimum DOMAIN and POSTGRES_PASSWORD. Every other
+#      variable below has a working default — see `.env.example` for the full
+#      list and what each one does.
+#
+# `dokploy-network` is created by Dokploy on install. It is declared external
+# here so Compose attaches to it rather than making a second, isolated one.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lemon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a database password in Dokploy}
+      POSTGRES_DB: ${POSTGRES_DB:-lemon}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      # The app must not start migrating before Postgres accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lemon} -d ${POSTGRES_DB:-lemon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: applies pending migrations, then exits. `web` waits for it to
+  # complete successfully, so a failed migration blocks the release instead of
+  # letting a half-migrated schema serve traffic.
+  migrate:
+    build:
+      context: .
+      target: release
+    # The image's WORKDIR is apps/web; db:deploy is a root workspace script.
+    working_dir: /usr/src/app
+    command: ["bun", "run", "db:deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      target: release
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      AVANTIS_TX_BUILDER_URL: ${AVANTIS_TX_BUILDER_URL:-https://tx-builder.avantisfi.com}
+      AVANTIS_BATCHED_MARKET_URL: ${AVANTIS_BATCHED_MARKET_URL:-https://prod-api.avantisfi.com/batched-market}
+      AVANTIS_DATA_API_URL: ${AVANTIS_DATA_API_URL:-https://data.avantisfi.com}
+      AVANTIS_FEED_URL: ${AVANTIS_FEED_URL:-https://feed-v3.avantisfi.com}
+      KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
+      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
+      # Deposits stay disabled (with an explanatory message) until this is set.
+      RELAY_API_KEY: ${RELAY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - internal
+      - dokploy-network
+    healthcheck:
+      # fetch() resolves for a 404 as readily as a 200, so the status has to be
+      # asserted — otherwise a container serving nothing but error pages is
+      # reported healthy.
+      test:
+        [
+          "CMD-SHELL",
+          "bun -e \"const r = await fetch('http://localhost:3002/api/health'); process.exit(r.ok ? 0 : 1)\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      # Router name is namespaced so it cannot clash with another app's router
+      # on the shared Traefik instance.
+      - traefik.http.routers.lemon-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lemon-web.entrypoints=websecure
+      - traefik.http.routers.lemon-web.tls=true
+      - traefik.http.routers.lemon-web.tls.certresolver=letsencrypt
+      - traefik.http.services.lemon-web.loadbalancer.server.port=3002
+      # Traefik is attached to several networks; name the one to route over.
+      - traefik.docker.network=dokploy-network
+      # Plain HTTP is answered only to redirect it to HTTPS.
+      - traefik.http.routers.lemon-web-insecure.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lemon-web-insecure.entrypoints=web
+      - traefik.http.routers.lemon-web-insecure.middlewares=lemon-https
+      - traefik.http.middlewares.lemon-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.lemon-https.redirectscheme.permanent=true
+
+  # The web container mounts the API in-process, so the service above is a
+  # complete deployment on its own. Enable this only to run the API as its own
+  # scalable unit:  docker compose --profile split up
+  api:
+    profiles: ["split"]
+    build:
+      context: .
+      target: release
+    working_dir: /usr/src/app
+    command: ["bun", "run", "apps/api/src/index.ts"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      RELAY_API_KEY: ${RELAY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lemon-api.rule=Host(`${API_DOMAIN:-api.${DOMAIN}}`)
+      - traefik.http.routers.lemon-api.entrypoints=websecure
+      - traefik.http.routers.lemon-api.tls=true
+      - traefik.http.routers.lemon-api.tls.certresolver=letsencrypt
+      - traefik.http.services.lemon-api.loadbalancer.server.port=3003
+      - traefik.docker.network=dokploy-network
+
+networks:
+  # Database traffic never leaves this network.
+  internal:
+  # Created by Dokploy at install time; Traefik lives here.
+  dokploy-network:
+    external: true
+
+volumes:
+  postgres-data:

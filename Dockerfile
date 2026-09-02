@@ -30,7 +30,10 @@ RUN cd apps/web && bunx --bun react-router build
 FROM base AS release
 ENV NODE_ENV=production
 
-COPY --from=install --chown=bun:bun /usr/src/app/node_modules node_modules
+# From `build`, not `install`: the Prisma client is generated into
+# node_modules/.prisma during the build stage, and copying from `install`
+# would leave the runtime without it.
+COPY --from=build --chown=bun:bun /usr/src/app/node_modules node_modules
 COPY --from=build --chown=bun:bun /usr/src/app/package.json ./
 COPY --from=build --chown=bun:bun /usr/src/app/tsconfig.base.json ./
 COPY --from=build --chown=bun:bun /usr/src/app/apps ./apps
@@ -43,6 +46,7 @@ USER bun
 WORKDIR /usr/src/app/apps/web
 EXPOSE 3002/tcp
 
-# Serves the app and mounts the API in-process. `docker-compose.yml` overrides
-# the command for the standalone API service.
-ENTRYPOINT ["bun", "run", "./app/server.ts"]
+# Serves the app and mounts the API in-process. Declared as CMD rather than
+# ENTRYPOINT so `docker-compose.yml` can replace it outright for the migrate
+# and standalone-API services.
+CMD ["bun", "run", "./app/server.ts"]
