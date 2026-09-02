@@ -6,6 +6,7 @@ export const meta: MetaFunction = () => {
 	return [
 		{ title: "Lemon Markets - Decentralized Perpetual Trading" },
 		{ name: "description", content: "Trade perpetual futures with leverage on the blockchain" },
+		{ name: "base:app_id", content: "6a98188bcfa2c998e36b5aea" },
 	];
 };
 
