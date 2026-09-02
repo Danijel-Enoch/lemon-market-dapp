@@ -425,6 +425,57 @@ export const carryApi = {
 		),
 };
 
+// --- Points ---------------------------------------------------------------
+
+export interface PointsProfile {
+	address: string;
+	tier: string;
+	rank: number | null;
+	perpVolumeUsd: number;
+	spotVolumeUsd: number;
+	carriesOpened: number;
+	basketEntries: number;
+	perpPoints: number;
+	spotPoints: number;
+	carryPoints: number;
+	basketPoints: number;
+	total: number;
+}
+
+export interface LeaderboardRow {
+	rank: number;
+	address: string;
+	points: number;
+	tier: string;
+	spotVolumeUsd: number;
+	perpVolumeUsd: number;
+	carriesOpened: number;
+}
+
+export interface GlobalLeaderboardRow {
+	rank: number;
+	trader: string;
+	volumeUsd: number;
+	trades: number;
+	winRatePercent: number;
+	pnlUsd: number;
+}
+
+export const pointsApi = {
+	leaderboard: (limit = 100) =>
+		request<{ available: boolean; rows: LeaderboardRow[] }>("/points/leaderboard", {
+			query: { limit },
+		}),
+	global: () => request<{ rows: GlobalLeaderboardRow[] }>("/points/global"),
+	profile: (address: string) => request<PointsProfile>(`/points/${address}`),
+	record: (input: {
+		userAddress: string;
+		source: "SPOT_VOLUME" | "CARRY_OPENED" | "BASKET_ENTRY";
+		volumeUsd?: number;
+		txHash: string;
+	}) => post<{ awarded: number; duplicate: boolean }>("/points/record", input),
+};
+
 // --- Deposits -------------------------------------------------------------
 
 export const depositApi = {

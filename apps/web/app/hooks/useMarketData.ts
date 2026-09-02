@@ -1,4 +1,12 @@
-import { basketApi, carryApi, depositApi, marketsApi, perpApi, spotApi } from "@app/lib/api";
+import {
+	basketApi,
+	carryApi,
+	depositApi,
+	marketsApi,
+	perpApi,
+	pointsApi,
+	spotApi,
+} from "@app/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
 /** Pair catalog changes rarely; funding within it moves on a ~5s upstream cycle. */
@@ -116,6 +124,34 @@ export function useCarryAttention(user: string | undefined) {
 		enabled: Boolean(user),
 		refetchInterval: 30_000,
 		retry: false,
+	});
+}
+
+export function useLeaderboard(limit = 100) {
+	return useQuery({
+		queryKey: ["points-leaderboard", limit],
+		queryFn: () => pointsApi.leaderboard(limit),
+		refetchInterval: 60_000,
+	});
+}
+
+export function useGlobalLeaderboard() {
+	return useQuery({
+		queryKey: ["points-global"],
+		queryFn: () => pointsApi.global(),
+		// Avantis recomputes this on its own schedule; polling faster just
+		// re-reads the same snapshot.
+		staleTime: 5 * 60_000,
+		refetchInterval: 5 * 60_000,
+	});
+}
+
+export function usePointsProfile(address: string | undefined) {
+	return useQuery({
+		queryKey: ["points-profile", address],
+		queryFn: () => pointsApi.profile(address as string),
+		enabled: Boolean(address),
+		refetchInterval: 60_000,
 	});
 }
 

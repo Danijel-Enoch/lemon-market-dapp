@@ -3,7 +3,7 @@ import { Badge } from "@app/components/ui/badge";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { cn } from "@app/lib/utils";
 import { motion } from "framer-motion";
-import { BookOpen, Briefcase, Layers, Scale, TrendingUp } from "lucide-react";
+import { BookOpen, Briefcase, Layers, Scale, TrendingUp, Trophy } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
 	{ href: "/baskets", label: "Baskets", icon: Layers },
 	{ href: "/carry", label: "Carry", icon: Scale },
 	{ href: "/portfolio", label: "Portfolio", icon: Briefcase },
+	{ href: "/leaderboard", label: "Ranks", icon: Trophy },
 	{ href: "/docs", label: "Docs", icon: BookOpen },
 ];
 

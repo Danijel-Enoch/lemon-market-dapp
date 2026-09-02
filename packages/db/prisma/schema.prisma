@@ -166,6 +166,40 @@ model DepositIntent {
   @@index([depositAddress])
 }
 
+enum PointsSource {
+  PERP_VOLUME
+  SPOT_VOLUME
+  CARRY_OPENED
+  BASKET_ENTRY
+}
+
+/// A verified, points-earning action.
+///
+/// `txHash` is unique, which is what makes recording idempotent: the client
+/// reports a hash after its wallet confirms, and replaying the same hash — by
+/// retry, refresh, or deliberately — cannot award points twice.
+///
+/// Nothing is written here on a client's say-so. Swaps are verified against the
+/// chain first (sender, success, and the router actually called), because the
+/// app only builds calldata — the wallet submits it, so an unverified report
+/// would let anyone mint points with a POST.
+model PointsEvent {
+  id          String       @id @default(cuid())
+  userAddress String
+  source      PointsSource
+  /// Notional in USD, for volume-based sources.
+  volumeUsd   Float        @default(0)
+  points      Int
+  txHash      String?      @unique
+  /// Verification evidence: block number and the contract that was called.
+  blockNumber Int?
+  target      String?
+  createdAt   DateTime     @default(now())
+
+  @@index([userAddress, createdAt])
+  @@index([source])
+}
+
 /// Periodic funding snapshots, so carry APR can be shown as a trend rather than
 /// a single instantaneous reading that swings with open interest.
 model FundingSnapshot {

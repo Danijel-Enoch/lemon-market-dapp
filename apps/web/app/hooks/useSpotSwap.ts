@@ -1,4 +1,4 @@
-import { type SpotQuoteResult, spotApi } from "@app/lib/api";
+import { pointsApi, type SpotQuoteResult, spotApi } from "@app/lib/api";
 import { erc20Abi, MAX_UINT256 } from "@app/lib/erc20";
 import type { SpotTokenInfo } from "@lemon/core";
 import { toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
@@ -101,6 +101,19 @@ export function useSpotSwap() {
 
 				setStage("confirming");
 				await waitForTransactionReceipt(config, { hash });
+
+				// Claim points for the fill. Fire-and-forget: the swap already
+				// settled on-chain, so a points failure must not surface as a
+				// failed trade. The server re-verifies the hash anyway, and the
+				// unique constraint on it makes a retry harmless.
+				void pointsApi
+					.record({
+						userAddress: address,
+						source: "SPOT_VOLUME",
+						volumeUsd: quote.amountInUsd,
+						txHash: hash,
+					})
+					.catch(() => undefined);
 
 				setStage("idle");
 				return { txHash: hash, amountOut: quote.amountOut };

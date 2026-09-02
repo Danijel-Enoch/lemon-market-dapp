@@ -5,6 +5,7 @@ import { carryRoutes } from "./routes/carry";
 import { depositRoutes } from "./routes/deposit";
 import { marketRoutes } from "./routes/markets";
 import { perpRoutes } from "./routes/perp";
+import { pointsRoutes } from "./routes/points";
 import { spotRoutes } from "./routes/spot";
 import { CarryTransitionError } from "./services/carry";
 
@@ -57,6 +58,7 @@ export function createApiApp(prefix = "/api") {
 		.use(spotRoutes)
 		.use(basketRoutes)
 		.use(carryRoutes)
+		.use(pointsRoutes)
 		.use(depositRoutes);
 }
 

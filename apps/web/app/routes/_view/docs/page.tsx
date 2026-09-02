@@ -29,6 +29,7 @@ const SECTIONS = [
 	{ id: "spot", label: "Spot" },
 	{ id: "carry", label: "Cash & carry" },
 	{ id: "fees", label: "Fees & funding" },
+	{ id: "points", label: "Points" },
 	{ id: "risks", label: "Risks" },
 	{ id: "roadmap", label: "Roadmap" },
 	{ id: "faq", label: "FAQ" },
@@ -290,6 +291,27 @@ export default function DocsPage() {
 						costs are the pool's swap fee plus price impact, both included in the quote you are
 						shown, plus Base gas. This is also why a cash-and-carry earns or pays purely on the perp
 						leg.
+					</p>
+				</Section>
+
+				<Section id="points" title="Points">
+					<p>
+						Points accrue automatically from trading through Lemon Markets — there is nothing to
+						claim or sign up for. See the{" "}
+						<Link to="/leaderboard" className="text-lime-400 underline">
+							leaderboard
+						</Link>{" "}
+						for the current standings and the exact rates.
+					</p>
+					<p>
+						<strong className="text-gray-200">Everything is verified.</strong> Perp volume is read
+						straight from Avantis, and each spot trade is checked against its transaction on-chain —
+						it must exist, have succeeded, and have been sent by the address claiming it. Reporting
+						a transaction twice awards nothing the second time.
+					</p>
+					<p className="text-xs text-gray-600">
+						Points and tiers are cosmetic. They are not a token, carry no entitlement, and may be
+						recalculated.
 					</p>
 				</Section>
 
