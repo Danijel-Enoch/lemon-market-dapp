@@ -1,0 +1,184 @@
+// Persistence for state that cannot be reconstructed from chain or upstream APIs.
+//
+// Deliberately narrow: Avantis owns perp positions, KyberSwap owns spot limit
+// orders, and the chain owns balances. The only things stored here are the
+// multi-leg cash-and-carry strategies (which span two independent systems and
+// can half-fail), Relay deposit tracking, and cached market state.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Cached registry of Coinbase B20 tokenized stocks plus their live routability.
+model StockToken {
+  symbol           String   @id
+  ticker           String   @unique
+  name             String
+  address          String   @unique
+  decimals         Int
+  /// Resolved by symbol against the live Avantis catalog, refreshed on sync.
+  avantisPairIndex Int?
+  avantisSymbol    String?
+
+  /// Whether KyberSwap can currently route into / out of this token. This is
+  /// live market state, not configuration — most of these tokens have no
+  /// Aerodrome pool yet, and that changes without notice.
+  buyable              Boolean  @default(false)
+  sellable             Boolean  @default(false)
+  buyPriceImpactPct    Float?
+  routabilityCheckedAt DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  carryPositions CarryPosition[]
+
+  @@index([buyable])
+}
+
+enum CarryStatus {
+  /// Both legs quoted and validated, nothing signed yet.
+  VALIDATING
+  /// Spot bought; the short leg has not landed. Directionally exposed.
+  SPOT_FILLED
+  /// Both legs live and delta-neutral.
+  OPEN
+  /// Unwind started.
+  UNWINDING
+  /// Spot sold during unwind; short still open.
+  SPOT_CLOSED
+  CLOSED
+  /// One leg landed and its counterpart failed. Needs user action.
+  ORPHANED
+  FAILED
+}
+
+enum CarryLegKind {
+  SPOT
+  PERP
+}
+
+/// A delta-neutral position: long the spot token, short the matching perp.
+model CarryPosition {
+  id           String      @id @default(cuid())
+  userAddress  String
+  tokenSymbol  String
+  token        StockToken  @relation(fields: [tokenSymbol], references: [symbol])
+
+  /// Snapshotted at open for display; the authoritative index is always
+  /// re-resolved by symbol before trading, never read from here.
+  avantisPairIndex Int
+  avantisSymbol    String
+
+  status CarryStatus @default(VALIDATING)
+
+  /// Target notional for each leg. Equal notionals are what make it neutral.
+  notionalUsd       Float
+  shares            Float?
+  spotCostUsd       Float?
+  perpCollateralUsd Float
+  perpLeverage      Float
+
+  /// Economics captured at open, so the position card can show drift since.
+  entryFundingRatePct Float?
+  entryNetApyPct      Float?
+
+  /// Per-pair trade slot on Avantis, needed to close the short leg.
+  perpTradeIndex  Int?
+  /// On-chain open timestamp; close intents are bound to it and must match.
+  perpOpenTimestamp Int?
+
+  spotBuyTxHash   String?
+  perpOpenTxHash  String?
+  spotSellTxHash  String?
+  perpCloseTxHash String?
+
+  realizedPnlUsd Float?
+  /// Set when a leg fails, to explain the ORPHANED state to the user.
+  failureReason  String?
+
+  openedAt  DateTime?
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  events CarryLegEvent[]
+
+  @@index([userAddress, status])
+  @@index([status])
+}
+
+/// Append-only audit of every leg action.
+///
+/// A carry open touches two independent systems, so a crash between them leaves
+/// state that cannot be inferred afterwards. Recording each attempt is what
+/// makes an interrupted open recoverable rather than silently lost.
+model CarryLegEvent {
+  id         String        @id @default(cuid())
+  positionId String
+  position   CarryPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  leg     CarryLegKind
+  action  String
+  status  String
+  txHash  String?
+  /// Tracking id from the Avantis batched-market SSE stream, when gasless.
+  trackingId String?
+  error   String?
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([positionId, createdAt])
+}
+
+enum DepositStatus {
+  PENDING
+  DETECTED
+  COMPLETE
+  FAILED
+  REFUNDED
+}
+
+/// A Relay deposit address issued to fund an account with USDC on Base.
+model DepositIntent {
+  id             String        @id @default(cuid())
+  userAddress    String
+  requestId      String        @unique
+  depositAddress String
+  originChainId  Int
+  originCurrency String
+  originSymbol   String
+  amount         String
+  amountFormatted String?
+  status         DepositStatus @default(PENDING)
+  inTxHash       String?
+  outTxHash      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userAddress, status])
+  @@index([depositAddress])
+}
+
+/// Periodic funding snapshots, so carry APR can be shown as a trend rather than
+/// a single instantaneous reading that swings with open interest.
+model FundingSnapshot {
+  id           String   @id @default(cuid())
+  pairIndex    Int
+  symbol       String
+  /// Percent per hour. Positive = the side receives, negative = it pays.
+  longRatePct  Float
+  shortRatePct Float
+  longOi       Float
+  shortOi      Float
+  capturedAt   DateTime @default(now())
+
+  @@index([symbol, capturedAt])
+  @@index([pairIndex, capturedAt])
+}

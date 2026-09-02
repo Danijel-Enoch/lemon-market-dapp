@@ -1,0 +1,20 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDirs": [".", "./.react-router/types"],
+		"incremental": true,
+		"baseUrl": ".",
+		"paths": {
+			"@app/*": ["./app/*"],
+			"@lemon/core": ["../../packages/core/src/index.ts"],
+			"@lemon/avantis": ["../../packages/avantis/src/index.ts"],
+			"@lemon/kyber": ["../../packages/kyber/src/index.ts"],
+			"@lemon/relay": ["../../packages/relay/src/index.ts"],
+			"@lemon/registry": ["../../packages/registry/src/index.ts"],
+			"@lemon/db": ["../../packages/db/src/index.ts"],
+			"@lemon/api": ["../api/src/app.ts"]
+		}
+	},
+	"include": ["./.react-router/types/**/*", "app/**/*"],
+	"exclude": ["node_modules", "build", "dist"]
+}

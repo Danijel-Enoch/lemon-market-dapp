@@ -1,0 +1,95 @@
+# Full stack: Postgres, the API, and the web app.
+#
+# The web container mounts the API in-process, so `web` alone is a complete
+# deployment. The standalone `api` service is included for running it on its own
+# host (or scaling it separately) — enable it with the `split` profile:
+#
+#   docker compose up                    # postgres + web (API embedded)
+#   docker compose --profile split up    # postgres + web + standalone API
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lemon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lemon}
+      POSTGRES_DB: ${POSTGRES_DB:-lemon}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # The app must not start migrating before Postgres accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lemon} -d ${POSTGRES_DB:-lemon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: release
+    command: ["bun", "run", "db:deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      target: release
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3002}:3002"
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      AVANTIS_TX_BUILDER_URL: ${AVANTIS_TX_BUILDER_URL:-https://tx-builder.avantisfi.com}
+      AVANTIS_BATCHED_MARKET_URL: ${AVANTIS_BATCHED_MARKET_URL:-https://prod-api.avantisfi.com/batched-market}
+      AVANTIS_DATA_API_URL: ${AVANTIS_DATA_API_URL:-https://data.avantisfi.com}
+      AVANTIS_FEED_URL: ${AVANTIS_FEED_URL:-https://feed-v3.avantisfi.com}
+      KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
+      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
+      # Deposits stay disabled (with an explanatory message) until this is set.
+      RELAY_API_KEY: ${RELAY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bun -e \"await fetch('http://localhost:3002/api/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  api:
+    profiles: ["split"]
+    build:
+      context: .
+      target: release
+    command: ["bun", "run", "apps/api/src/index.ts"]
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-3003}:3003"
+    environment:
+      NODE_ENV: production
+      API_PORT: 3003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      RELAY_API_KEY: ${RELAY_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

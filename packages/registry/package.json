@@ -1,0 +1,19 @@
+{
+	"name": "@lemon/registry",
+	"version": "0.2.0",
+	"type": "module",
+	"private": true,
+	"main": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"viem": "^2.44.2",
+		"@lemon/core": "workspace:*",
+		"@lemon/avantis": "workspace:*",
+		"@lemon/kyber": "workspace:*"
+	}
+}

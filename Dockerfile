@@ -1,32 +1,48 @@
-FROM oven/bun:1.3.5 AS base
+FROM oven/bun:1.3.14 AS base
 WORKDIR /usr/src/app
 
+# --- dependencies ----------------------------------------------------------
+# Only the manifests are copied first so the install layer is reused whenever
+# source changes but dependencies do not.
 FROM base AS install
-RUN mkdir -p /temp/dev
-COPY package.json bun.lock /temp/dev/
-RUN --mount=type=cache,target=/root/.bun/install/cache cd /temp/dev && bun install --frozen-lockfile --optional --ignore-scripts
+COPY package.json bun.lock ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY packages/core/package.json ./packages/core/
+COPY packages/avantis/package.json ./packages/avantis/
+COPY packages/kyber/package.json ./packages/kyber/
+COPY packages/relay/package.json ./packages/relay/
+COPY packages/registry/package.json ./packages/registry/
+COPY packages/db/package.json ./packages/db/
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile --optional --ignore-scripts
 
-FROM base AS prerelease
-COPY --from=install /temp/dev/node_modules node_modules
+# --- build -----------------------------------------------------------------
+FROM base AS build
+COPY --from=install /usr/src/app/node_modules node_modules
 COPY . .
-
-# build the app
 ENV NODE_ENV=production
-RUN bun run build
+# The Prisma client is generated code and must exist before the app is bundled.
+RUN bunx prisma generate --schema packages/db/prisma/schema.prisma
+RUN cd apps/web && bunx --bun react-router build
 
+# --- runtime ---------------------------------------------------------------
 FROM base AS release
-COPY --from=install --chown=bun:bun /temp/dev/node_modules node_modules
-COPY --from=prerelease --chown=bun:bun /usr/src/app/package.json .
-COPY --from=prerelease --chown=bun:bun /usr/src/app/vite.config.js .
-COPY --from=prerelease --chown=bun:bun /usr/src/app/app app
-COPY --from=prerelease --chown=bun:bun /usr/src/app/public public
-COPY --from=prerelease --chown=bun:bun /usr/src/app/build build
-COPY --from=prerelease --chown=bun:bun /usr/src/app/tsconfig.json .
+ENV NODE_ENV=production
 
-# Fix permissions for runtime
-RUN mkdir -p .react-router && chown -R bun:bun .react-router
+COPY --from=install --chown=bun:bun /usr/src/app/node_modules node_modules
+COPY --from=build --chown=bun:bun /usr/src/app/package.json ./
+COPY --from=build --chown=bun:bun /usr/src/app/tsconfig.base.json ./
+COPY --from=build --chown=bun:bun /usr/src/app/apps ./apps
+COPY --from=build --chown=bun:bun /usr/src/app/packages ./packages
 
-# run the app
+# react-router writes generated route types here at runtime.
+RUN mkdir -p apps/web/.react-router && chown -R bun:bun apps/web/.react-router
+
 USER bun
+WORKDIR /usr/src/app/apps/web
 EXPOSE 3002/tcp
-ENTRYPOINT [ "bun", "run", "app/server.ts" ]
+
+# Serves the app and mounts the API in-process. `docker-compose.yml` overrides
+# the command for the standalone API service.
+ENTRYPOINT ["bun", "run", "./app/server.ts"]

@@ -1,0 +1,67 @@
+import { cn } from "@app/lib/utils";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+import type { ReactNode } from "react";
+
+/**
+ * Bottom sheet, the native-app pattern for entering a value without leaving the
+ * screen you are on.
+ *
+ * Used for order entry on mobile: the alternative — pushing the form below the
+ * chart — means scrolling away from the price to place a trade, which is
+ * exactly the wrong trade-off on a small screen.
+ */
+export function Sheet({
+	open,
+	onOpenChange,
+	title,
+	children,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	title: string;
+	children: ReactNode;
+}) {
+	return (
+		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+			<DialogPrimitive.Portal>
+				<DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+				<DialogPrimitive.Content
+					className={cn(
+						"fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-[#13151b] p-4",
+						// Clears the home indicator on gesture-nav phones.
+						"pb-[calc(1rem+env(safe-area-inset-bottom))]",
+						"data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+					)}
+				>
+					{/* Grab handle — signals the sheet is dismissible by drag/tap-away. */}
+					<div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" aria-hidden />
+
+					<div className="mb-3 flex items-center justify-between">
+						<DialogPrimitive.Title className="text-base font-medium">{title}</DialogPrimitive.Title>
+						<DialogPrimitive.Close className="rounded-full p-1.5 text-gray-400 hover:bg-white/5 hover:text-white">
+							<X size={18} aria-hidden />
+							<span className="sr-only">Close</span>
+						</DialogPrimitive.Close>
+					</div>
+
+					{children}
+				</DialogPrimitive.Content>
+			</DialogPrimitive.Portal>
+		</DialogPrimitive.Root>
+	);
+}
+
+/**
+ * Fixed action bar sitting above the mobile tab bar.
+ *
+ * Keeps the primary action reachable with a thumb no matter how far the page
+ * has scrolled.
+ */
+export function MobileActionBar({ children }: { children: ReactNode }) {
+	return (
+		<div className="fixed inset-x-0 bottom-[62px] z-40 border-t border-white/10 bg-[#13151b]/95 p-3 backdrop-blur-md md:hidden">
+			{children}
+		</div>
+	);
+}
