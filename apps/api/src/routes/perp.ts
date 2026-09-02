@@ -1,7 +1,9 @@
 import { validateOrder } from "@lemon/avantis";
 import type { Address } from "@lemon/core";
+import { appendAttributionSuffix } from "@lemon/core";
 import { Elysia, t } from "elysia";
 import { clients } from "../config";
+import { builderSuffix, canAttribute } from "../services/attribution";
 import { getMarket, getSymbolResolver } from "../services/markets";
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
@@ -91,9 +93,22 @@ export const perpRoutes = new Elysia({ prefix: "/perp" })
 			};
 
 			if (body.gasless === false) {
-				return { mode: "transaction" as const, tx: await clients.avantis.buildOpenTrade(params) };
+				const tx = await clients.avantis.buildOpenTrade(params);
+				return {
+					mode: "transaction" as const,
+					// Builder attribution is a calldata suffix, so it can only be
+					// attached to transactions we hand to the wallet ourselves.
+					tx: { ...tx, data: appendAttributionSuffix(tx.data, builderSuffix()) },
+					attributed: canAttribute("transaction"),
+				};
 			}
-			return { mode: "intent" as const, intent: await clients.avantis.buildOpenIntent(params) };
+			return {
+				mode: "intent" as const,
+				intent: await clients.avantis.buildOpenIntent(params),
+				// The operator builds its own calldata on this path, so a suffix
+				// added here would never reach the chain.
+				attributed: false,
+			};
 		},
 		{ body: openBody },
 	)
@@ -108,9 +123,18 @@ export const perpRoutes = new Elysia({ prefix: "/perp" })
 				collateralToCloseUsdc: body.collateralToCloseUsdc,
 			};
 			if (body.gasless === false) {
-				return { mode: "transaction" as const, tx: await clients.avantis.buildCloseTrade(params) };
+				const tx = await clients.avantis.buildCloseTrade(params);
+				return {
+					mode: "transaction" as const,
+					tx: { ...tx, data: appendAttributionSuffix(tx.data, builderSuffix()) },
+					attributed: canAttribute("transaction"),
+				};
 			}
-			return { mode: "intent" as const, intent: await clients.avantis.buildCloseIntent(params) };
+			return {
+				mode: "intent" as const,
+				intent: await clients.avantis.buildCloseIntent(params),
+				attributed: false,
+			};
 		},
 		{
 			body: t.Object({

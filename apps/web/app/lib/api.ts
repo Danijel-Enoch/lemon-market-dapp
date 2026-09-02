@@ -106,8 +106,14 @@ export interface UnsignedTxPayload {
 }
 
 export type OpenResult =
-	| { mode: "intent"; intent: IntentPayload }
-	| { mode: "transaction"; tx: UnsignedTxPayload };
+	| { mode: "intent"; intent: IntentPayload; attributed: boolean }
+	/**
+	 * `attributed` reports whether a builder-code fee will actually be
+	 * collected. It is only ever true on the direct-transaction path: gasless
+	 * intents are submitted by the Avantis operator, which builds its own
+	 * calldata, so an attribution suffix never reaches the chain.
+	 */
+	| { mode: "transaction"; tx: UnsignedTxPayload; attributed: boolean };
 
 export interface OpenPerpInput {
 	trader: string;

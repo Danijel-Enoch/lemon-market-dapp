@@ -1,5 +1,5 @@
 import type { Address, Hex, SpotQuote } from "@lemon/core";
-import { percentToBps, requestJson, UpstreamError } from "@lemon/core";
+import { percentToBps, requestJson, type SpotFeeConfig, UpstreamError } from "@lemon/core";
 import {
 	type BuildRouteData,
 	type GetRouteData,
@@ -18,6 +18,14 @@ export interface AggregatorOptions {
 	clientId?: string;
 	chainSlug?: string;
 	timeoutMs?: number;
+	/**
+	 * Integrator fee taken inside the swap.
+	 *
+	 * Applied at quote time so the amount the user is shown is already net of
+	 * it — quoting without the fee and charging it later would mean every
+	 * displayed output was optimistic.
+	 */
+	fee?: SpotFeeConfig | null;
 }
 
 export interface RouteRequest {
@@ -44,12 +52,26 @@ export class KyberAggregatorClient {
 	private readonly clientId: string;
 	private readonly chainSlug: string;
 	private readonly timeoutMs: number;
+	private readonly fee: SpotFeeConfig | null;
 
 	constructor(options: AggregatorOptions = {}) {
 		this.baseUrl = options.baseUrl ?? DEFAULT_AGGREGATOR_URL;
 		this.clientId = options.clientId ?? "lemon-markets";
 		this.chainSlug = options.chainSlug ?? BASE_CHAIN_SLUG;
 		this.timeoutMs = options.timeoutMs ?? 20_000;
+		this.fee = options.fee?.bps ? options.fee : null;
+	}
+
+	/** Fee query params, omitted entirely when no fee is configured. */
+	private feeParams() {
+		if (!this.fee) return {};
+		return {
+			feeAmount: this.fee.bps,
+			// `isInBps` is what makes feeAmount a rate rather than a raw amount.
+			isInBps: true,
+			chargeFeeBy: this.fee.chargeBy,
+			feeReceiver: this.fee.receiver,
+		};
 	}
 
 	private get headers() {
@@ -72,6 +94,7 @@ export class KyberAggregatorClient {
 						slippageTolerance: request.slippagePercent
 							? percentToBps(request.slippagePercent)
 							: undefined,
+						...this.feeParams(),
 					},
 					headers: this.headers,
 					timeoutMs: this.timeoutMs,

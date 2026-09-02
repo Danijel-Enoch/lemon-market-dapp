@@ -339,12 +339,20 @@ export default function BasketPage() {
 										<th className="px-4 py-3 font-medium">Weight</th>
 										<th className="px-4 py-3 font-medium">Perp</th>
 										<th className="px-4 py-3 font-medium">Spot</th>
-										<th
-											className="px-4 py-3 font-medium"
-											title="Annualised. Positive means the short side receives funding."
-										>
-											Funding (short, APR)
-										</th>
+										{/*
+										  Funding is a perp mechanic. A spot basket is just a
+										  batch of token purchases with no ongoing rate, so the
+										  column is dropped rather than shown as inapplicable.
+										  Carry keeps it — that is the leg it shorts.
+										*/}
+										{venue !== "spot" && (
+											<th
+												className="px-4 py-3 font-medium"
+												title="Perp funding, annualised. Positive means the short side receives funding."
+											>
+												Funding (short, APR)
+											</th>
+										)}
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-white/5">
@@ -384,14 +392,16 @@ export default function BasketPage() {
 													<span className="text-gray-600">—</span>
 												)}
 											</td>
-											<td
-												className={cn(
-													"px-4 py-3 font-mono text-xs",
-													leg.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400",
-												)}
-											>
-												{formatFundingApr(leg.fundingShortPercentPerHour)}
-											</td>
+											{venue !== "spot" && (
+												<td
+													className={cn(
+														"px-4 py-3 font-mono text-xs",
+														leg.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400",
+													)}
+												>
+													{formatFundingApr(leg.fundingShortPercentPerHour)}
+												</td>
+											)}
 										</tr>
 									))}
 								</tbody>

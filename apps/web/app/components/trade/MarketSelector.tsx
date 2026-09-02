@@ -166,7 +166,7 @@ export function MarketSelector({
 											"shrink-0 font-mono text-[11px]",
 											market.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400",
 										)}
-										title="Short-side funding, annualised"
+										title="Perp funding, short side, annualised. Spot has no funding."
 									>
 										{formatFundingApr(market.fundingShortPercentPerHour)}
 									</span>

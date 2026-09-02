@@ -171,6 +171,13 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 							</dd>
 						</div>
 						<div className="flex justify-between">
+							<dt className="text-gray-500">Holding cost</dt>
+							{/* Spot is an outright purchase: no funding, no borrow, no
+							    counterparty. Said explicitly because the perp panel one
+							    toggle away does show a funding rate. */}
+							<dd className="text-gray-400">None — spot has no funding</dd>
+						</div>
+						<div className="flex justify-between">
 							<dt className="text-gray-500">Route</dt>
 							<dd className="font-mono text-[11px] text-gray-500">
 								{okQuote?.quote.exchanges.join(", ") || "—"}

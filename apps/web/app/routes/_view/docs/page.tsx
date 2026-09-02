@@ -279,14 +279,17 @@ export default function DocsPage() {
 						growth mode, where you pay the spread instead.
 					</p>
 					<p>
-						<strong className="text-gray-200">Funding</strong> accrues hourly and is quoted per
-						hour. Read the sign carefully: a positive rate means that side{" "}
-						<em className="text-gray-300">receives</em> funding, negative means it pays. The crowded
-						side generally pays the lighter one.
+						<strong className="text-gray-200">Funding applies to perps only.</strong> It accrues
+						hourly while a position is open and is displayed annualised. Read the sign carefully: a
+						positive rate means that side <em className="text-gray-300">receives</em> funding,
+						negative means it pays. The crowded side generally pays the lighter one.
 					</p>
 					<p>
-						<strong className="text-gray-200">Spot costs</strong> are the pool's swap fee plus price
-						impact, both included in the quote you are shown, plus Base gas.
+						<strong className="text-gray-200">Spot has no funding.</strong> Buying a token is an
+						outright purchase — there is no counterparty, no borrow and no ongoing rate. Your only
+						costs are the pool's swap fee plus price impact, both included in the quote you are
+						shown, plus Base gas. This is also why a cash-and-carry earns or pays purely on the perp
+						leg.
 					</p>
 				</Section>
 

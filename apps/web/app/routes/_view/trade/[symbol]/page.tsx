@@ -123,34 +123,64 @@ export default function TradeTerminalPage() {
 					</div>
 				)}
 
-				<div className="hidden sm:block">
-					<p
-						className="text-[11px] uppercase tracking-wide text-gray-500"
-						title="Annualised. Positive means that side receives funding."
-					>
-						Funding APR L / S
-					</p>
-					<p className="font-mono text-sm">
-						<span
-							className={market.fundingLongPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"}
-						>
-							{formatFundingApr(market.fundingLongPercentPerHour)}
-						</span>
-						<span className="text-gray-600"> / </span>
-						<span
-							className={market.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"}
-						>
-							{formatFundingApr(market.fundingShortPercentPerHour)}
-						</span>
-					</p>
-				</div>
+				{/*
+				  Funding and open interest are perp mechanics — holding spot
+				  costs nothing and has no counterparty to pay. Showing them
+				  while the spot venue is selected would imply a carrying cost
+				  that does not exist, so the header swaps to the figure that
+				  does apply to a spot trade: what crossing the pool costs.
+				*/}
+				{activeVenue === "perp" ? (
+					<>
+						<div className="hidden sm:block">
+							<p
+								className="text-[11px] uppercase tracking-wide text-gray-500"
+								title="Perp funding, annualised. Positive means that side receives funding."
+							>
+								Funding APR L / S
+							</p>
+							<p className="font-mono text-sm">
+								<span
+									className={
+										market.fundingLongPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"
+									}
+								>
+									{formatFundingApr(market.fundingLongPercentPerHour)}
+								</span>
+								<span className="text-gray-600"> / </span>
+								<span
+									className={
+										market.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"
+									}
+								>
+									{formatFundingApr(market.fundingShortPercentPerHour)}
+								</span>
+							</p>
+						</div>
 
-				<div className="hidden md:block">
-					<p className="text-[11px] uppercase tracking-wide text-gray-500">Open interest</p>
-					<p className="font-mono text-sm text-gray-300">
-						{formatUsd(market.openInterest, { compact: true })}
-					</p>
-				</div>
+						<div className="hidden md:block">
+							<p className="text-[11px] uppercase tracking-wide text-gray-500">Open interest</p>
+							<p className="font-mono text-sm text-gray-300">
+								{formatUsd(market.openInterest, { compact: true })}
+							</p>
+						</div>
+					</>
+				) : (
+					<div className="hidden sm:block">
+						<p
+							className="text-[11px] uppercase tracking-wide text-gray-500"
+							title="Measured cost of crossing the pool on a $100 trade."
+						>
+							Spot impact / $100
+						</p>
+						<p className="font-mono text-sm text-amber-400">
+							{spotToken?.buyPriceImpactPercent !== null &&
+							spotToken?.buyPriceImpactPercent !== undefined
+								? formatPercent(spotToken.buyPriceImpactPercent)
+								: "—"}
+						</p>
+					</div>
+				)}
 
 				<div className="ml-auto flex items-center gap-2">
 					<MarketHoursBadge market={market} />
