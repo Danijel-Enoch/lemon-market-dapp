@@ -26,7 +26,7 @@ export function MarketHoursBadge({ market, className }: { market: Market; classN
 				"inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]",
 				market.isOpen
 					? "border-lime-500/30 bg-lime-500/10 text-lime-300"
-					: "border-gray-500/30 bg-gray-500/10 text-gray-400",
+					: "border-gray-500/30 bg-gray-500/10 text-[var(--ink-2)]",
 				className,
 			)}
 		>

@@ -2,11 +2,19 @@ import { cn } from "@app/lib/utils";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import type * as React from "react";
 
+/**
+ * Tabs.
+ *
+ * Avantis has one tab shape everywhere: a 4px-radius hairline box whose active
+ * segment is filled with the next surface up — no underline, no shadow. It
+ * scrolls horizontally on narrow screens rather than wrapping.
+ */
+
 function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
 	return (
 		<TabsPrimitive.Root
 			data-slot="tabs"
-			className={cn("flex flex-col gap-2", className)}
+			className={cn("flex flex-col gap-4", className)}
 			{...props}
 		/>
 	);
@@ -17,7 +25,7 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
 		<TabsPrimitive.List
 			data-slot="tabs-list"
 			className={cn(
-				"inline-flex h-auto w-full items-center justify-start bg-transparent p-0 text-muted-foreground overflow-x-auto flex-nowrap whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+				"inline-flex w-fit max-w-full items-stretch overflow-x-auto rounded border border-[var(--line-soft)] bg-transparent scrollbar-hide",
 				className,
 			)}
 			{...props}
@@ -30,7 +38,10 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
 		<TabsPrimitive.Trigger
 			data-slot="tabs-trigger"
 			className={cn(
-				"inline-flex flex-1 items-center justify-center whitespace-nowrap border-b-2 border-transparent bg-transparent py-4 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+				"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded px-4 py-2 t-caption font-normal text-[var(--ink-2)] transition-colors outline-none",
+				"hover:text-[var(--ink-1)] focus-visible:ring-2 focus-visible:ring-lime-500/40",
+				"disabled:pointer-events-none disabled:opacity-50",
+				"data-[state=active]:bg-[var(--surface-4)] data-[state=active]:text-[var(--ink-1)]",
 				className,
 			)}
 			{...props}

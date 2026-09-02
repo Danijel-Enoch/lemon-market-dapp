@@ -32,7 +32,7 @@ const CLASS_TINTS: Record<string, string> = {
 	commodity: "bg-orange-500/15 text-orange-300",
 	metal: "bg-yellow-500/15 text-yellow-300",
 	index: "bg-emerald-500/15 text-emerald-300",
-	unknown: "bg-white/10 text-gray-300",
+	unknown: "bg-white/10 text-[var(--ink-1)]",
 };
 
 /**
@@ -78,7 +78,7 @@ export function MarketLogo({
 				width={size}
 				height={size}
 				onError={() => setFailed(true)}
-				className={cn("shrink-0 rounded-full bg-white/5 object-cover", className)}
+				className={cn("shrink-0 rounded-full bg-[var(--surface-4)] object-cover", className)}
 				style={box}
 			/>
 		);
@@ -89,7 +89,7 @@ export function MarketLogo({
 			<span
 				aria-hidden
 				className={cn(
-					"inline-flex shrink-0 items-center justify-center rounded-full bg-white/5",
+					"inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--surface-4)]",
 					className,
 				)}
 				style={{ ...box, fontSize: size * 0.55 }}

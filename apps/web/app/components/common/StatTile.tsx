@@ -1,6 +1,13 @@
 import { cn } from "@app/lib/utils";
 import type { ReactNode } from "react";
 
+/**
+ * Readout tile.
+ *
+ * The Avantis treatment: a flat surface with no border, a quiet sentence-case
+ * label, and the figure itself set in the mono face with tabular numerals so a
+ * row of tiles never jitters as values tick.
+ */
 export function StatTile({
 	label,
 	value,
@@ -15,19 +22,19 @@ export function StatTile({
 	className?: string;
 }) {
 	return (
-		<div className={cn("rounded-lg border border-white/10 bg-white/[0.02] p-3", className)}>
-			<p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
+		<div className={cn("rounded-lg bg-[var(--surface-3)] px-4 py-3.5", className)}>
+			<p className="t-caption text-[var(--ink-2)]">{label}</p>
 			<p
 				className={cn(
-					"mt-1 font-mono text-lg",
+					"mt-1.5 font-fono text-xl leading-[1.4]",
 					tone === "positive" && "text-lime-400",
 					tone === "negative" && "text-red-400",
-					(!tone || tone === "neutral") && "text-white",
+					(!tone || tone === "neutral") && "text-[var(--ink-1)]",
 				)}
 			>
 				{value}
 			</p>
-			{hint && <p className="mt-0.5 text-[11px] text-gray-500">{hint}</p>}
+			{hint && <p className="mt-0.5 t-micro text-[var(--ink-2)]">{hint}</p>}
 		</div>
 	);
 }

@@ -3,32 +3,36 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 
+/**
+ * Button.
+ *
+ * Avantis runs flat fills on a 6px radius rather than gradients: one solid
+ * accent for the primary action, a surface fill for the secondary, and a
+ * hairline for everything quieter. Long and short keep their own semantics.
+ */
 const buttonVariants = cva(
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-lime-500/40 aria-invalid:border-destructive",
 	{
 		variants: {
 			variant: {
-				default:
-					"bg-linear-to-r from-primary/50 to-primary/60 text-white shadow-lg hover:shadow-xl hover:from-[#0d9488] hover:to-[#0e7490] transition-all duration-200",
-				destructive:
-					"bg-linear-to-r from-[#ef4444] to-[#dc2626] text-white shadow-lg hover:shadow-xl hover:from-[#dc2626] hover:to-[#b91c1c] focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 transition-all duration-200",
+				default: "bg-lime-500 text-black hover:bg-lime-400",
+				shine: "bg-lime-500 text-black hover:bg-lime-400",
+				secondary: "bg-[var(--surface-4)] text-[var(--ink-1)] hover:bg-[var(--surface-5)]",
 				outline:
-					"border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-				secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-				ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-				link: "text-primary underline-offset-4 hover:underline",
-				"trade-long": "bg-[var(--trade-long)] text-white hover:bg-[var(--trade-long)]/90 shadow-md",
-				"trade-short":
-					"bg-[var(--trade-short)] text-white hover:bg-[var(--trade-short)]/90 shadow-md",
-				shine:
-					"bg-linear-to-r from-lime-600 via-lime-700 to-green-950 text-gray-100 border border-white/20 hover:brightness-110",
+					"border border-[var(--line)] bg-transparent text-[var(--ink-1)] hover:border-[var(--ink-2)] hover:bg-[var(--surface-3)]",
+				ghost:
+					"bg-transparent text-[var(--ink-2)] hover:bg-[var(--surface-3)] hover:text-[var(--ink-1)]",
+				link: "text-lime-400 underline-offset-4 hover:underline",
+				destructive: "bg-[var(--destructive)] text-white hover:bg-[var(--destructive)]/85",
+				"trade-long": "bg-[var(--trade-long)] text-black hover:bg-[var(--trade-long)]/85",
+				"trade-short": "bg-[var(--trade-short)] text-white hover:bg-[var(--trade-short)]/85",
 				toolbar:
-					"bg-transparent text-muted-foreground hover:text-foreground data-[state=active]:border data-[state=active]:border-[var(--lime-600)] data-[state=active]:text-[var(--lime-600)]",
+					"bg-transparent text-[var(--ink-2)] hover:text-[var(--ink-1)] data-[state=active]:bg-[var(--surface-4)] data-[state=active]:text-[var(--ink-1)]",
 			},
 			size: {
 				default: "h-9 px-4 py-2 has-[>svg]:px-3",
-				sm: "h-8 rounded gap-1.5 px-3 has-[>svg]:px-2.5",
-				lg: "h-10 rounded px-6 has-[>svg]:px-4",
+				sm: "h-8 rounded px-3 text-xs has-[>svg]:px-2.5",
+				lg: "h-11 rounded-md px-6 text-base has-[>svg]:px-4",
 				icon: "size-9",
 			},
 		},

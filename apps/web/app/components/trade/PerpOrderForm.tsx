@@ -77,7 +77,7 @@ export function PerpOrderForm({
 	}
 
 	return (
-		<div className="space-y-4 rounded-xl border-white/10 bg-white/[0.02] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
+		<div className="space-y-4 rounded-lg border-[var(--line-soft)] bg-[var(--surface-3)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
 			<Tabs value={side} onValueChange={(value) => setSide(value as "long" | "short")}>
 				<TabsList className="w-full">
 					<TabsTrigger value="long" className="flex-1 data-[state=active]:text-lime-400">
@@ -132,7 +132,7 @@ export function PerpOrderForm({
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
 					<Label htmlFor="leverage">Leverage</Label>
-					<span className="font-mono text-sm text-lime-400">{leverage}x</span>
+					<span className="font-fono text-sm text-lime-400">{leverage}x</span>
 				</div>
 				<Slider
 					id="leverage"
@@ -142,7 +142,7 @@ export function PerpOrderForm({
 					value={[leverage]}
 					onValueChange={([value]) => setLeverage(value)}
 				/>
-				<div className="flex justify-between text-[11px] text-gray-600">
+				<div className="flex justify-between text-[11px] text-white/35">
 					<span>{market.minLeverage}x</span>
 					<span>{market.maxLeverage}x max</span>
 				</div>
@@ -181,20 +181,20 @@ export function PerpOrderForm({
 				/>
 			</div>
 
-			<dl className="space-y-1.5 rounded-lg border border-white/5 bg-black/20 p-3 text-xs">
+			<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
 				<div className="flex justify-between">
-					<dt className="text-gray-500">Position size</dt>
-					<dd className="font-mono">{formatUsd(notional)}</dd>
+					<dt className="text-[var(--ink-2)]">Position size</dt>
+					<dd className="font-fono">{formatUsd(notional)}</dd>
 				</div>
 				<div className="flex justify-between">
-					<dt className="text-gray-500">Minimum size</dt>
-					<dd className="font-mono text-gray-400">{formatUsd(market.minPositionUsdc)}</dd>
+					<dt className="text-[var(--ink-2)]">Minimum size</dt>
+					<dd className="font-fono text-[var(--ink-2)]">{formatUsd(market.minPositionUsdc)}</dd>
 				</div>
 				<div className="flex justify-between">
-					<dt className="text-gray-500">Funding on this side (APR)</dt>
+					<dt className="text-[var(--ink-2)]">Funding on this side (APR)</dt>
 					<dd
 						className={cn(
-							"font-mono",
+							"font-fono",
 							(side === "long"
 								? market.fundingLongPercentPerHour
 								: market.fundingShortPercentPerHour) >= 0
@@ -243,7 +243,7 @@ export function PerpOrderForm({
 						: `${side === "long" ? "Long" : "Short"} ${market.base}`}
 			</Button>
 
-			<p className="text-center text-[11px] text-gray-600">
+			<p className="text-center text-[11px] text-white/35">
 				Gasless — you sign, Avantis submits and pays the gas.
 			</p>
 		</div>

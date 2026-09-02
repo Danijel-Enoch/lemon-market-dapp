@@ -103,9 +103,14 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 	}, [data]);
 
 	return (
-		<div className={cn("rounded-xl border border-white/10 bg-white/[0.02] p-3", className)}>
+		<div
+			className={cn(
+				"rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-3",
+				className,
+			)}
+		>
 			<div className="mb-2 flex items-center justify-between">
-				<span className="text-sm font-medium text-gray-300">{symbol}</span>
+				<span className="text-sm font-medium text-[var(--ink-1)]">{symbol}</span>
 				<div className="flex gap-1">
 					{RESOLUTIONS.map((option) => (
 						<button
@@ -116,7 +121,7 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 								"rounded px-2 py-1 text-xs transition-colors",
 								option.value === resolution
 									? "bg-lime-500/15 text-lime-400"
-									: "text-gray-500 hover:text-gray-300",
+									: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
 							)}
 						>
 							{option.label}
@@ -135,7 +140,7 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 				)}
 				{!isLoading && (error || data?.candles.length === 0) && (
 					<div className="absolute inset-0 flex items-center justify-center">
-						<p className="text-sm text-gray-500">
+						<p className="text-sm text-[var(--ink-2)]">
 							{error ? "Price history unavailable." : "No price history for this range."}
 						</p>
 					</div>

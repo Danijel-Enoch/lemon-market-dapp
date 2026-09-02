@@ -1,4 +1,3 @@
-import { Header } from "@app/components/layout/Header";
 import { MiniAppProvider } from "@app/components/providers/MiniAppProvider";
 import { ToastProvider } from "@app/components/providers/ToastProvider";
 import { WalletProvider } from "@app/components/providers/WalletProvider";
@@ -17,10 +16,9 @@ export default function RootLayout() {
 			options={posthogOptions}
 		>
 			<MiniAppProvider>
-				{/* Wagmi must wrap everything that reads wallet state, including Header. */}
+				{/* Wagmi must wrap everything that reads wallet state, including the header. */}
 				<WalletProvider>
 					<ToastProvider>
-						<Header />
 						<Outlet />
 					</ToastProvider>
 				</WalletProvider>

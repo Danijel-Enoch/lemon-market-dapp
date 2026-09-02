@@ -53,7 +53,7 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 		return <EmptyPanel icon={Layers} title="Connect a wallet to see your positions" />;
 	}
 	if (isLoading) {
-		return <p className="py-6 text-center text-sm text-gray-500">Loading positions…</p>;
+		return <p className="py-6 text-center text-sm text-[var(--ink-2)]">Loading positions…</p>;
 	}
 	if (!positions.length && !orders.length) {
 		return (
@@ -71,7 +71,7 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 					{positions.map((position) => (
 						<li
 							key={`m-${position.pairIndex}-${position.index}`}
-							className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
+							className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4"
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div>
@@ -95,20 +95,22 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 							</div>
 							<dl className="mt-3 grid grid-cols-2 gap-y-2 text-xs">
 								<div>
-									<dt className="text-gray-600">Size</dt>
-									<dd className="font-mono">{formatUsd(position.notionalUsdc)}</dd>
+									<dt className="text-white/35">Size</dt>
+									<dd className="font-fono">{formatUsd(position.notionalUsdc)}</dd>
 								</div>
 								<div className="text-right">
-									<dt className="text-gray-600">Collateral</dt>
-									<dd className="font-mono text-gray-400">{formatUsd(position.collateralUsdc)}</dd>
+									<dt className="text-white/35">Collateral</dt>
+									<dd className="font-fono text-[var(--ink-2)]">
+										{formatUsd(position.collateralUsdc)}
+									</dd>
 								</div>
 								<div>
-									<dt className="text-gray-600">Entry</dt>
-									<dd className="font-mono text-gray-400">{formatUsd(position.openPrice)}</dd>
+									<dt className="text-white/35">Entry</dt>
+									<dd className="font-fono text-[var(--ink-2)]">{formatUsd(position.openPrice)}</dd>
 								</div>
 								<div className="text-right">
-									<dt className="text-gray-600">Liquidation</dt>
-									<dd className="font-mono text-amber-400/80">
+									<dt className="text-white/35">Liquidation</dt>
+									<dd className="font-fono text-amber-400/80">
 										{position.liquidationPrice ? formatUsd(position.liquidationPrice) : "—"}
 									</dd>
 								</div>
@@ -119,9 +121,9 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 			)}
 
 			{positions.length > 0 && (
-				<div className="hidden overflow-x-auto rounded-xl border border-white/10 md:block">
+				<div className="hidden overflow-x-auto rounded-lg border border-[var(--line-soft)] md:block">
 					<table className="w-full min-w-[680px] text-sm">
-						<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+						<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
 							<tr>
 								<th className="px-4 py-3 font-medium">Market</th>
 								<th className="px-4 py-3 font-medium">Side</th>
@@ -132,7 +134,7 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 								<th className="px-4 py-3" />
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-white/5">
+						<tbody className="divide-y divide-[var(--line-soft)]">
 							{positions.map((position) => (
 								<tr key={`${position.pairIndex}-${position.index}`}>
 									<td className="px-4 py-3 font-medium">{position.symbol}</td>
@@ -141,14 +143,14 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 											{position.side} {position.leverage}x
 										</span>
 									</td>
-									<td className="px-4 py-3 font-mono">{formatUsd(position.notionalUsdc)}</td>
-									<td className="px-4 py-3 font-mono text-gray-400">
+									<td className="px-4 py-3 font-fono">{formatUsd(position.notionalUsdc)}</td>
+									<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
 										{formatUsd(position.collateralUsdc)}
 									</td>
-									<td className="px-4 py-3 font-mono text-gray-400">
+									<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
 										{formatUsd(position.openPrice)}
 									</td>
-									<td className="px-4 py-3 font-mono text-amber-400/80">
+									<td className="px-4 py-3 font-fono text-amber-400/80">
 										{position.liquidationPrice ? formatUsd(position.liquidationPrice) : "—"}
 									</td>
 									<td className="px-4 py-3 text-right">
@@ -170,10 +172,10 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 
 			{orders.length > 0 && (
 				<div className="space-y-2">
-					<h3 className="text-sm font-medium text-gray-300">Resting orders</h3>
-					<div className="overflow-x-auto rounded-xl border border-white/10">
+					<h3 className="text-sm font-medium text-[var(--ink-1)]">Resting orders</h3>
+					<div className="overflow-x-auto rounded-lg border border-[var(--line-soft)]">
 						<table className="w-full min-w-[520px] text-sm">
-							<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+							<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
 								<tr>
 									<th className="px-4 py-3 font-medium">Market</th>
 									<th className="px-4 py-3 font-medium">Type</th>
@@ -183,18 +185,20 @@ export function PerpPositionsTable({ pairIndex }: { pairIndex?: number }) {
 									<th className="px-4 py-3" />
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/5">
+							<tbody className="divide-y divide-[var(--line-soft)]">
 								{orders.map((order) => (
 									<tr key={`${order.pairIndex}-${order.index}`}>
 										<td className="px-4 py-3 font-medium">{order.symbol}</td>
-										<td className="px-4 py-3 text-gray-400">{order.orderType.replace("_", "-")}</td>
+										<td className="px-4 py-3 text-[var(--ink-2)]">
+											{order.orderType.replace("_", "-")}
+										</td>
 										<td className="px-4 py-3">
 											<span className={order.side === "long" ? "text-lime-400" : "text-red-400"}>
 												{order.side}
 											</span>
 										</td>
-										<td className="px-4 py-3 font-mono">{formatUsd(order.triggerPrice)}</td>
-										<td className="px-4 py-3 font-mono text-gray-400">
+										<td className="px-4 py-3 font-fono">{formatUsd(order.triggerPrice)}</td>
+										<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
 											{formatUsd(order.collateralUsdc * order.leverage)}
 										</td>
 										<td className="px-4 py-3 text-right">

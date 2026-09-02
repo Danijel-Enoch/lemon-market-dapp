@@ -93,14 +93,14 @@ export function IndexChart({ basketId, name }: { basketId: string; name: string 
 	}, [data]);
 
 	return (
-		<div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+		<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-3">
 			<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
 				<div className="flex items-baseline gap-2">
-					<span className="text-sm font-medium text-gray-300">{name} index</span>
+					<span className="text-sm font-medium text-[var(--ink-1)]">{name} index</span>
 					{data && (
 						<span
 							className={cn(
-								"font-mono text-sm",
+								"font-fono text-sm",
 								data.changePercent >= 0 ? "text-lime-400" : "text-red-400",
 							)}
 						>
@@ -118,7 +118,7 @@ export function IndexChart({ basketId, name }: { basketId: string; name: string 
 								"rounded px-2 py-1 text-xs transition-colors",
 								option.value === resolution
 									? "bg-lime-500/15 text-lime-400"
-									: "text-gray-500 hover:text-gray-300",
+									: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
 							)}
 						>
 							{option.label}
@@ -136,12 +136,12 @@ export function IndexChart({ basketId, name }: { basketId: string; name: string 
 				)}
 				{!isLoading && (error || data?.points.length === 0) && (
 					<div className="absolute inset-0 flex items-center justify-center">
-						<p className="text-sm text-gray-500">Index history unavailable.</p>
+						<p className="text-sm text-[var(--ink-2)]">Index history unavailable.</p>
 					</div>
 				)}
 			</div>
 
-			<p className="mt-2 text-[11px] text-gray-600">
+			<p className="mt-2 text-[11px] text-white/35">
 				Equal-weighted: each constituent is rebased to 100 at the start of the window and the levels
 				averaged, so no single high-priced leg dominates.
 				{data?.missing.length ? ` Excluded (no history): ${data.missing.join(", ")}.` : ""}

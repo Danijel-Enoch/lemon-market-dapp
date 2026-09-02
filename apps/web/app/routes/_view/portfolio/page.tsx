@@ -2,6 +2,7 @@ import { CarryPositionList } from "@app/components/carry/CarryPositionList";
 import { Callout } from "@app/components/common/Callout";
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { StatTile } from "@app/components/common/StatTile";
+import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import { SpotLimitOrders } from "@app/components/spot/SpotLimitOrders";
 import { PerpPositionsTable } from "@app/components/trade/PerpPositionsTable";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
@@ -66,11 +67,11 @@ export default function PortfolioPage() {
 	const needsAttention = attention?.positions ?? [];
 
 	return (
-		<div className="space-y-8">
-			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold">Portfolio</h1>
-				<p className="text-sm text-gray-400">Everything you hold on Base.</p>
-			</header>
+		<div className="space-y-10">
+			<PageHeader
+				title="Portfolio"
+				description="Every position, balance and open order you hold on Base — perps, spot and carry in one place."
+			/>
 
 			{/* Unhedged carries are surfaced first — they are live directional risk. */}
 			{needsAttention.length > 0 && (
@@ -96,12 +97,12 @@ export default function PortfolioPage() {
 			</div>
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Perp positions</h2>
+				<SubHeading title="Perp positions" />
 				<PerpPositionsTable />
 			</section>
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Spot holdings</h2>
+				<SubHeading title="Spot holdings" />
 				{holdings.length === 0 ? (
 					<EmptyPanel icon={Briefcase} title="No tokenized stocks held">
 						<Link to="/spot" className="underline">
@@ -109,28 +110,35 @@ export default function PortfolioPage() {
 						</Link>
 					</EmptyPanel>
 				) : (
-					<div className="overflow-x-auto rounded-xl border border-white/10">
-						<table className="w-full min-w-[420px] text-sm">
-							<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+					<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
+						<table className="w-full min-w-[420px] t-label">
+							<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
 								<tr>
-									<th className="px-4 py-3 font-medium">Token</th>
-									<th className="px-4 py-3 font-medium">Shares</th>
-									<th className="px-4 py-3 font-medium">Perp</th>
-									<th className="px-4 py-3" />
+									<th className="px-3 py-2 font-normal">Token</th>
+									<th className="px-3 py-2 font-normal">Shares</th>
+									<th className="px-3 py-2 font-normal">Perp</th>
+									<th className="px-3 py-2" />
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/5">
+							<tbody className="divide-y divide-[var(--line-soft)]">
 								{holdings.map(({ token, amount }) => (
-									<tr key={token.symbol}>
-										<td className="px-4 py-3">
-											<Link to={`/spot/${token.symbol}`} className="hover:text-lime-400">
+									<tr key={token.symbol} className="transition-colors hover:bg-[var(--surface-4)]">
+										<td className="px-3 py-2.5">
+											<Link
+												to={`/spot/${token.symbol}`}
+												className="text-[var(--ink-1)] transition-colors hover:text-lime-400"
+											>
 												{token.symbol}
 											</Link>
 										</td>
-										<td className="px-4 py-3 font-mono">{formatQuantity(amount, 6)}</td>
-										<td className="px-4 py-3 text-gray-500">{token.avantisSymbol ?? "—"}</td>
-										<td className="px-4 py-3 text-right">
-											<Link to="/carry" className="text-xs text-lime-400 hover:underline">
+										<td className="px-3 py-2.5 font-fono text-[var(--ink-1)]">
+											{formatQuantity(amount, 6)}
+										</td>
+										<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
+											{token.avantisSymbol ?? "—"}
+										</td>
+										<td className="px-3 py-2.5 text-right">
+											<Link to="/carry" className="t-caption text-lime-400 hover:underline">
 												Hedge it
 											</Link>
 										</td>
@@ -143,12 +151,12 @@ export default function PortfolioPage() {
 			</section>
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Spot limit orders</h2>
+				<SubHeading title="Spot limit orders" />
 				<SpotLimitOrders />
 			</section>
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Cash &amp; carry</h2>
+				<SubHeading title="Cash & carry" />
 				<CarryPositionList />
 			</section>
 		</div>

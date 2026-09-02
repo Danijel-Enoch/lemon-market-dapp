@@ -1,5 +1,6 @@
 import { Callout } from "@app/components/common/Callout";
 import { StatTile, toneForValue } from "@app/components/common/StatTile";
+import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import { Button } from "@app/components/ui/button";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { useCarryFlow } from "@app/hooks/useCarryFlow";
@@ -24,7 +25,7 @@ export default function CarryDetailPage() {
 	const { data: spotTokens } = useSpotTokens();
 	const flow = useCarryFlow();
 
-	if (isLoading) return <Skeleton className="h-96 w-full rounded-xl" />;
+	if (isLoading) return <Skeleton className="h-96 w-full rounded-lg" />;
 	if (!data) {
 		return (
 			<Callout tone="warning" title="Position not found">
@@ -87,19 +88,20 @@ export default function CarryDetailPage() {
 		<div className="space-y-6">
 			<Link
 				to="/carry"
-				className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-lime-400"
+				className="inline-flex items-center gap-1.5 t-label text-[var(--ink-2)] transition-colors hover:text-lime-400"
 			>
 				<ArrowLeft size={14} aria-hidden /> Cash &amp; carry
 			</Link>
 
-			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold">
-					{position.tokenSymbol} <span className="text-gray-500">/</span> {position.avantisSymbol}
-				</h1>
-				<p className="text-sm text-gray-400">
-					Opened {new Date(position.createdAt).toLocaleString()}
-				</p>
-			</header>
+			<PageHeader
+				title={
+					<>
+						{position.tokenSymbol} <span className="text-[var(--ink-2)]">/</span>{" "}
+						{position.avantisSymbol}
+					</>
+				}
+				description={`Opened ${new Date(position.createdAt).toLocaleString()}`}
+			/>
 
 			{/*
 			  The whole point of tracking these positions: a half-open carry is
@@ -115,7 +117,7 @@ export default function CarryDetailPage() {
 								: `A short on ${position.avantisSymbol} is open with no spot position hedging it.`}
 						</p>
 						{position.failureReason && (
-							<p className="rounded bg-black/30 p-2 font-mono text-[11px] opacity-80">
+							<p className="rounded bg-black/30 p-2 font-fono text-[11px] opacity-80">
 								{position.failureReason}
 							</p>
 						)}
@@ -169,23 +171,23 @@ export default function CarryDetailPage() {
 			</div>
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Legs</h2>
+				<SubHeading title="Legs" />
 				<div className="space-y-2">
 					{legs.map((leg) => (
 						<div
 							key={leg.name}
-							className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4"
+							className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4"
 						>
 							<div>
 								<p className="font-medium">{leg.name}</p>
-								<p className="text-xs text-gray-500">{leg.detail}</p>
+								<p className="text-xs text-[var(--ink-2)]">{leg.detail}</p>
 							</div>
 							<div className="flex items-center gap-3 text-xs">
 								<span
 									className={
 										leg.open
 											? "rounded bg-lime-500/15 px-2 py-1 text-lime-400"
-											: "rounded bg-gray-500/15 px-2 py-1 text-gray-500"
+											: "rounded bg-gray-500/15 px-2 py-1 text-[var(--ink-2)]"
 									}
 								>
 									{leg.close ? "closed" : leg.open ? "open" : "not opened"}
@@ -195,7 +197,7 @@ export default function CarryDetailPage() {
 										href={basescanTx(leg.open)}
 										target="_blank"
 										rel="noreferrer"
-										className="inline-flex items-center gap-1 font-mono text-gray-500 hover:text-lime-400"
+										className="inline-flex items-center gap-1 font-fono text-[var(--ink-2)] hover:text-lime-400"
 									>
 										{leg.open.slice(0, 10)}…
 										<ExternalLink size={11} aria-hidden />
@@ -208,9 +210,9 @@ export default function CarryDetailPage() {
 			</section>
 
 			{isLive && (
-				<div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-					<h2 className="mb-2 font-medium">Unwind</h2>
-					<p className="mb-3 text-sm text-gray-400">
+				<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4">
+					<h2 className="mb-2 t-body font-medium text-[var(--ink-1)]">Unwind</h2>
+					<p className="mb-3 text-sm text-[var(--ink-2)]">
 						Sells the spot leg and closes the short. Both must complete — if one fails the position
 						returns here for repair rather than being left half-closed.
 					</p>

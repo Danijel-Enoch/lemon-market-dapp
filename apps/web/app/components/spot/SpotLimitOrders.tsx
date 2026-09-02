@@ -37,7 +37,7 @@ export function SpotLimitOrders() {
 
 	if (!address) return null;
 	if (isLoading) {
-		return <p className="py-4 text-center text-sm text-gray-500">Loading orders…</p>;
+		return <p className="py-4 text-center text-sm text-[var(--ink-2)]">Loading orders…</p>;
 	}
 
 	const orders = data?.orders ?? [];
@@ -50,9 +50,9 @@ export function SpotLimitOrders() {
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-xl border border-white/10">
+		<div className="overflow-x-auto rounded-lg border border-[var(--line-soft)]">
 			<table className="w-full min-w-[560px] text-sm">
-				<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+				<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
 					<tr>
 						<th className="px-4 py-3 font-medium">Selling</th>
 						<th className="px-4 py-3 font-medium">For</th>
@@ -61,7 +61,7 @@ export function SpotLimitOrders() {
 						<th className="px-4 py-3" />
 					</tr>
 				</thead>
-				<tbody className="divide-y divide-white/5">
+				<tbody className="divide-y divide-[var(--line-soft)]">
 					{orders.map((order) => {
 						const maker = decimalsFor(order.makerAsset);
 						const taker = decimalsFor(order.takerAsset);
@@ -71,16 +71,16 @@ export function SpotLimitOrders() {
 
 						return (
 							<tr key={order.id}>
-								<td className="px-4 py-3 font-mono">
+								<td className="px-4 py-3 font-fono">
 									{formatQuantity(making, 4)} {maker.symbol}
 								</td>
-								<td className="px-4 py-3 font-mono">
+								<td className="px-4 py-3 font-fono">
 									{formatQuantity(taking, 4)} {taker.symbol}
 								</td>
-								<td className="px-4 py-3 font-mono text-gray-400">
+								<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
 									{making > 0 ? `${((filled / making) * 100).toFixed(0)}%` : "0%"}
 								</td>
-								<td className="px-4 py-3 text-xs text-gray-500">
+								<td className="px-4 py-3 text-xs text-[var(--ink-2)]">
 									{new Date(order.expiredAt * 1000).toLocaleString()}
 								</td>
 								<td className="px-4 py-3 text-right">

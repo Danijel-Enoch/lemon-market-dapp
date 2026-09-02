@@ -31,11 +31,11 @@ type Venue = "perp" | "spot" | "carry";
 type Panel = "constituents" | "positions";
 
 const LEG_ICONS = {
-	pending: <Minus size={13} className="text-gray-600" aria-hidden />,
+	pending: <Minus size={13} className="text-white/35" aria-hidden />,
 	running: <Loader2 size={13} className="animate-spin text-amber-400" aria-hidden />,
 	filled: <Check size={13} className="text-lime-400" aria-hidden />,
 	failed: <X size={13} className="text-red-400" aria-hidden />,
-	skipped: <Minus size={13} className="text-gray-600" aria-hidden />,
+	skipped: <Minus size={13} className="text-white/35" aria-hidden />,
 };
 
 export default function BasketPage() {
@@ -75,7 +75,7 @@ export default function BasketPage() {
 		enabled: Boolean(id) && totalUsd > 0,
 	});
 
-	if (isLoading) return <Skeleton className="h-[560px] w-full rounded-xl" />;
+	if (isLoading) return <Skeleton className="h-[560px] w-full rounded-lg" />;
 	if (!basket) {
 		return (
 			<Callout tone="warning" title="Basket not found">
@@ -157,7 +157,7 @@ export default function BasketPage() {
 					value={total}
 					onChange={(event) => setTotal(event.target.value)}
 				/>
-				<p className="text-[11px] text-gray-600">
+				<p className="text-[11px] text-white/35">
 					Split equally across {basket.legs.length} legs
 					{plan ? ` — ${formatUsd(plan.legs[0]?.notionalUsd ?? 0)} each` : ""}.
 				</p>
@@ -167,7 +167,7 @@ export default function BasketPage() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<Label htmlFor="basket-lev">{venue === "carry" ? "Short leverage" : "Leverage"}</Label>
-						<span className="font-mono text-sm text-lime-400">{leverage}x</span>
+						<span className="font-fono text-sm text-lime-400">{leverage}x</span>
 					</div>
 					<Slider
 						id="basket-lev"
@@ -177,23 +177,23 @@ export default function BasketPage() {
 						value={[leverage]}
 						onValueChange={([value]) => setLeverage(value)}
 					/>
-					<p className="text-[11px] text-gray-600">
+					<p className="text-[11px] text-white/35">
 						Capped at {maxLeverage}x by the most constrained leg.
 					</p>
 				</div>
 			)}
 
 			{plan && (
-				<dl className="space-y-1.5 rounded-lg border border-white/5 bg-black/20 p-3 text-xs">
+				<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
 					<div className="flex justify-between">
-						<dt className="text-gray-500">Legs entered</dt>
-						<dd className="font-mono">
+						<dt className="text-[var(--ink-2)]">Legs entered</dt>
+						<dd className="font-fono">
 							{plan.tradableLegs} of {plan.legs.length}
 						</dd>
 					</div>
 					<div className="flex justify-between">
-						<dt className="text-gray-500">Deployed</dt>
-						<dd className="font-mono">{formatUsd(plan.effectiveUsd)}</dd>
+						<dt className="text-[var(--ink-2)]">Deployed</dt>
+						<dd className="font-fono">{formatUsd(plan.effectiveUsd)}</dd>
 					</div>
 				</dl>
 			)}
@@ -207,12 +207,12 @@ export default function BasketPage() {
 			{/* Per-leg progress. A basket is N separate trades, so partial
 			    outcomes are shown leg by leg rather than as one status. */}
 			{trade.progress.length > 0 && (
-				<ul className="space-y-1 rounded-lg border border-white/5 bg-black/20 p-3">
+				<ul className="space-y-1 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3">
 					{trade.progress.map((leg) => (
 						<li key={leg.ticker} className="flex items-center gap-2 text-xs">
 							{LEG_ICONS[leg.state]}
 							<span className="font-medium">{leg.ticker}</span>
-							<span className="ml-auto truncate text-gray-500">
+							<span className="ml-auto truncate text-[var(--ink-2)]">
 								{leg.state === "skipped" ? (leg.error ?? "skipped") : leg.state}
 							</span>
 						</li>
@@ -251,7 +251,7 @@ export default function BasketPage() {
 				</Callout>
 			)}
 
-			<p className="text-center text-[11px] text-gray-600">
+			<p className="text-center text-[11px] text-white/35">
 				{venue === "carry"
 					? `${(plan?.tradableLegs ?? 0) * 2} transactions — two per leg.`
 					: `${plan?.tradableLegs ?? 0} separate transactions — one per leg.`}
@@ -260,52 +260,57 @@ export default function BasketPage() {
 	);
 
 	return (
-		<div className="space-y-4 pb-28 md:pb-0">
-			{/* Header mirrors the trade terminal: selector, live level, key stats. */}
-			<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-				<BasketSelector current={basket} />
+		<div className="space-y-2 pb-28 md:pb-0">
+			{/* Header mirrors the trade terminal: selector, then a scrolling strip. */}
+			<div className="flex flex-col gap-2 md:flex-row md:items-stretch">
+				<div className="shrink-0">
+					<BasketSelector current={basket} />
+				</div>
 
-				<div>
-					<p className="text-[11px] uppercase tracking-wide text-gray-500">Index</p>
-					<p className="font-mono text-lg">
-						{index?.points.length ? index.points[index.points.length - 1].value.toFixed(2) : "—"}
-						{index?.points.length ? (
-							<span
-								className={cn(
-									"ml-2 text-sm",
-									index.changePercent >= 0 ? "text-lime-400" : "text-red-400",
-								)}
+				<div className="flex min-w-0 flex-1 items-center gap-8 overflow-x-auto rounded-lg bg-[var(--surface-3)] px-4 py-2.5 scrollbar-hide md:h-14">
+					<div className="min-w-fit">
+						<p className="mb-1 t-caption text-[var(--ink-2)]">Index</p>
+						<p className="font-fono t-label text-[var(--ink-1)]">
+							{index?.points.length ? index.points[index.points.length - 1].value.toFixed(2) : "—"}
+							{index?.points.length ? (
+								<span
+									className={cn(
+										"ml-2",
+										index.changePercent >= 0 ? "text-lime-400" : "text-red-400",
+									)}
+								>
+									{formatPercent(index.changePercent)}
+								</span>
+							) : null}
+						</p>
+					</div>
+
+					<div className="min-w-fit">
+						<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">Legs</p>
+						<p className="whitespace-nowrap font-fono t-label text-[var(--ink-1)]">
+							{basket.perpLegCount} perp · {basket.routabilityKnown ? basket.spotLegCount : "…"}{" "}
+							spot
+						</p>
+					</div>
+
+					<div className="min-w-fit">
+						<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">Max leverage</p>
+						<p className="font-fono t-label text-[var(--ink-1)]">{maxLeverage}x</p>
+					</div>
+
+					<div className="ml-auto flex min-w-fit items-center gap-2 pl-4">
+						<span className="whitespace-nowrap rounded-full border border-[var(--line-soft)] px-2.5 py-1 t-micro text-[var(--ink-2)]">
+							Equal weight
+						</span>
+						{basket.spotLegCount > 0 && (
+							<Link
+								to="/carry"
+								className="whitespace-nowrap rounded-full border border-lime-500/30 px-2.5 py-1 t-micro text-lime-400 transition-colors hover:bg-lime-500/10"
 							>
-								{formatPercent(index.changePercent)}
-							</span>
-						) : null}
-					</p>
-				</div>
-
-				<div className="hidden sm:block">
-					<p className="text-[11px] uppercase tracking-wide text-gray-500">Legs</p>
-					<p className="font-mono text-sm text-gray-300">
-						{basket.perpLegCount} perp · {basket.routabilityKnown ? basket.spotLegCount : "…"} spot
-					</p>
-				</div>
-
-				<div className="hidden md:block">
-					<p className="text-[11px] uppercase tracking-wide text-gray-500">Max leverage</p>
-					<p className="font-mono text-sm text-gray-300">{maxLeverage}x</p>
-				</div>
-
-				<div className="ml-auto flex items-center gap-2">
-					<span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase text-gray-400">
-						Equal weight
-					</span>
-					{basket.spotLegCount > 0 && (
-						<Link
-							to="/carry"
-							className="rounded-full border border-lime-500/30 px-2 py-0.5 text-[11px] text-lime-400 hover:bg-lime-500/10"
-						>
-							Carry available
-						</Link>
-					)}
+								Carry available
+							</Link>
+						)}
+					</div>
 				</div>
 			</div>
 
@@ -317,9 +322,11 @@ export default function BasketPage() {
 				</Callout>
 			)}
 
-			<div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-				<div className="space-y-4">
-					<IndexChart basketId={basket.id} name={basket.name} />
+			<div className="grid gap-2 lg:grid-cols-[1fr_301px]">
+				<div className="space-y-2">
+					<div className="overflow-hidden rounded-lg bg-[var(--surface-3)]">
+						<IndexChart basketId={basket.id} name={basket.name} />
+					</div>
 
 					<Tabs value={panel} onValueChange={(value) => setPanel(value as Panel)}>
 						<TabsList>
@@ -331,9 +338,9 @@ export default function BasketPage() {
 					{panel === "positions" ? (
 						<PerpPositionsTable />
 					) : (
-						<div className="overflow-hidden rounded-xl border border-white/10">
+						<div className="overflow-hidden rounded-lg border border-[var(--line-soft)]">
 							<table className="w-full text-sm">
-								<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+								<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
 									<tr>
 										<th className="px-4 py-3 font-medium">Constituent</th>
 										<th className="px-4 py-3 font-medium">Weight</th>
@@ -355,7 +362,7 @@ export default function BasketPage() {
 										)}
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-white/5">
+								<tbody className="divide-y divide-[var(--line-soft)]">
 									{basket.legs.map((leg) => (
 										<tr key={leg.ticker}>
 											<td className="px-4 py-3">
@@ -373,29 +380,29 @@ export default function BasketPage() {
 													{leg.ticker}
 												</Link>
 											</td>
-											<td className="px-4 py-3 font-mono text-gray-400">
+											<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
 												{(100 / basket.legs.length).toFixed(0)}%
 											</td>
 											<td className="px-4 py-3">
 												{leg.perpAvailable ? (
 													<span className="text-lime-400">✓</span>
 												) : (
-													<span className="text-gray-600">—</span>
+													<span className="text-white/35">—</span>
 												)}
 											</td>
 											<td className="px-4 py-3">
 												{leg.spotAvailable ? (
 													<span className="text-lime-400">{leg.spotSymbol}</span>
 												) : leg.spotPending ? (
-													<span className="text-gray-500">checking…</span>
+													<span className="text-[var(--ink-2)]">checking…</span>
 												) : (
-													<span className="text-gray-600">—</span>
+													<span className="text-white/35">—</span>
 												)}
 											</td>
 											{venue !== "spot" && (
 												<td
 													className={cn(
-														"px-4 py-3 font-mono text-xs",
+														"px-4 py-3 font-fono text-xs",
 														leg.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400",
 													)}
 												>
@@ -410,17 +417,13 @@ export default function BasketPage() {
 					)}
 				</div>
 
-				<aside className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
-					<div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">{orderPanel}</div>
+				<aside className="hidden lg:sticky lg:top-[72px] lg:block lg:self-start">
+					<div className="rounded-lg bg-[var(--surface-3)] p-3">{orderPanel}</div>
 				</aside>
 			</div>
 
 			<MobileActionBar>
-				<Button
-					type="button"
-					onClick={() => setSheetOpen(true)}
-					className="w-full bg-lime-500 font-semibold text-black hover:bg-lime-400"
-				>
+				<Button type="button" onClick={() => setSheetOpen(true)} className="w-full font-semibold">
 					Trade {basket.name}
 				</Button>
 			</MobileActionBar>

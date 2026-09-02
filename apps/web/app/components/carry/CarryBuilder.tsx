@@ -92,18 +92,20 @@ export function CarryBuilder() {
 								className={
 									candidate.symbol === activeSymbol
 										? "rounded-lg border border-lime-500/50 bg-lime-500/10 px-3 py-2 text-sm text-lime-300"
-										: "rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 hover:border-white/25"
+										: "rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-1)] hover:border-white/25"
 								}
 							>
 								{candidate.symbol}
-								<span className="ml-1.5 text-[11px] text-gray-500">{candidate.marketSymbol}</span>
+								<span className="ml-1.5 text-[11px] text-[var(--ink-2)]">
+									{candidate.marketSymbol}
+								</span>
 							</button>
 						))}
 					</div>
 				</div>
 
 				{candidates.unavailable.length > 0 && (
-					<p className="text-xs text-gray-600">
+					<p className="text-xs text-white/35">
 						Not available: {candidates.unavailable.map((item) => item.symbol).join(", ")} — no spot
 						buy route yet.
 					</p>
@@ -136,30 +138,30 @@ export function CarryBuilder() {
 							/>
 						</div>
 
-						<div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
+						<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4 text-sm">
 							<h3 className="mb-3 font-medium">Position structure</h3>
 							<dl className="space-y-2">
 								<div className="flex justify-between">
-									<dt className="text-gray-400">Buy {plan.tokenSymbol} spot</dt>
-									<dd className="font-mono">{formatUsd(plan.plan.spotCostUsd)}</dd>
+									<dt className="text-[var(--ink-2)]">Buy {plan.tokenSymbol} spot</dt>
+									<dd className="font-fono">{formatUsd(plan.plan.spotCostUsd)}</dd>
 								</div>
 								<div className="flex justify-between">
-									<dt className="text-gray-400">
+									<dt className="text-[var(--ink-2)]">
 										Short {plan.marketSymbol} @ {plan.plan.perpLeverage}x
 									</dt>
-									<dd className="font-mono">{formatUsd(plan.plan.perpCollateralUsd)} margin</dd>
+									<dd className="font-fono">{formatUsd(plan.plan.perpCollateralUsd)} margin</dd>
 								</div>
-								<div className="flex justify-between border-t border-white/5 pt-2">
-									<dt className="text-gray-400">Net exposure</dt>
-									<dd className="font-mono text-lime-400">$0 — delta neutral</dd>
+								<div className="flex justify-between border-t border-[var(--line-soft)] pt-2">
+									<dt className="text-[var(--ink-2)]">Net exposure</dt>
+									<dd className="font-fono text-lime-400">$0 — delta neutral</dd>
 								</div>
 								<div className="flex justify-between">
-									<dt className="text-gray-400">Funding, short side (APR)</dt>
+									<dt className="text-[var(--ink-2)]">Funding, short side (APR)</dt>
 									<dd
 										className={
 											plan.plan.netFundingPerHourPercent >= 0
-												? "font-mono text-lime-400"
-												: "font-mono text-red-400"
+												? "font-fono text-lime-400"
+												: "font-fono text-red-400"
 										}
 									>
 										{formatFundingApr(plan.plan.netFundingPerHourPercent)}
@@ -167,8 +169,8 @@ export function CarryBuilder() {
 								</div>
 								{plan.plan.breakevenHours !== null && (
 									<div className="flex justify-between">
-										<dt className="text-gray-400">Breakeven</dt>
-										<dd className="font-mono text-gray-300">
+										<dt className="text-[var(--ink-2)]">Breakeven</dt>
+										<dd className="font-fono text-[var(--ink-1)]">
 											{plan.plan.breakevenHours < 48
 												? `${Math.round(plan.plan.breakevenHours)} hours`
 												: `${Math.round(plan.plan.breakevenHours / 24)} days`}
@@ -198,7 +200,7 @@ export function CarryBuilder() {
 				)}
 			</div>
 
-			<aside className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 lg:sticky lg:top-28 lg:self-start">
+			<aside className="space-y-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4 lg:sticky lg:top-28 lg:self-start">
 				<div className="space-y-2">
 					<Label htmlFor="notional">Notional per leg (USDC)</Label>
 					<Input
@@ -217,7 +219,7 @@ export function CarryBuilder() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<Label htmlFor="carry-lev">Short leverage</Label>
-						<span className="font-mono text-sm text-lime-400">{leverage}x</span>
+						<span className="font-fono text-sm text-lime-400">{leverage}x</span>
 					</div>
 					<Slider
 						id="carry-lev"
@@ -227,7 +229,7 @@ export function CarryBuilder() {
 						value={[leverage]}
 						onValueChange={([value]) => setLeverage(value)}
 					/>
-					<p className="text-[11px] text-gray-600">
+					<p className="text-[11px] text-white/35">
 						Higher leverage frees up capital but moves the liquidation price closer.
 					</p>
 				</div>
@@ -264,7 +266,7 @@ export function CarryBuilder() {
 							: "Open cash & carry"}
 				</Button>
 
-				<p className="text-center text-[11px] text-gray-600">
+				<p className="text-center text-[11px] text-white/35">
 					Two transactions: a spot buy, then the hedging short.
 				</p>
 			</aside>

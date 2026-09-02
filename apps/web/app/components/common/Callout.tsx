@@ -4,10 +4,17 @@ import type { ReactNode } from "react";
 
 type Tone = "info" | "warning" | "danger";
 
-const TONES: Record<Tone, { wrapper: string; icon: typeof Info }> = {
-	info: { wrapper: "border-sky-500/30 bg-sky-500/5 text-sky-100", icon: Info },
-	warning: { wrapper: "border-amber-500/30 bg-amber-500/5 text-amber-100", icon: AlertTriangle },
-	danger: { wrapper: "border-red-500/40 bg-red-500/10 text-red-100", icon: ShieldAlert },
+/**
+ * Notice block.
+ *
+ * Avantis carries tone on a left rule and the icon rather than by tinting the
+ * whole panel, so a warning sits at the same visual weight as the surfaces
+ * around it and only the accent changes.
+ */
+const TONES: Record<Tone, { rule: string; icon: typeof Info; iconClass: string }> = {
+	info: { rule: "border-l-lime-400", icon: Info, iconClass: "text-lime-400" },
+	warning: { rule: "border-l-amber-400", icon: AlertTriangle, iconClass: "text-amber-400" },
+	danger: { rule: "border-l-red-400", icon: ShieldAlert, iconClass: "text-red-400" },
 };
 
 export function Callout({
@@ -21,13 +28,19 @@ export function Callout({
 	children: ReactNode;
 	className?: string;
 }) {
-	const { wrapper, icon: Icon } = TONES[tone];
+	const { rule, icon: Icon, iconClass } = TONES[tone];
 	return (
-		<div className={cn("flex gap-3 rounded-lg border p-3 text-sm", wrapper, className)}>
-			<Icon size={16} className="mt-0.5 shrink-0" aria-hidden />
+		<div
+			className={cn(
+				"flex gap-3 rounded-lg border-l-2 bg-[var(--surface-3)] px-4 py-3.5 t-label",
+				rule,
+				className,
+			)}
+		>
+			<Icon size={16} className={cn("mt-0.5 shrink-0", iconClass)} aria-hidden />
 			<div className="space-y-1">
-				{title && <p className="font-semibold">{title}</p>}
-				<div className="leading-relaxed opacity-90">{children}</div>
+				{title && <p className="font-medium text-[var(--ink-1)]">{title}</p>}
+				<div className="leading-relaxed text-[var(--ink-2)]">{children}</div>
 			</div>
 		</div>
 	);

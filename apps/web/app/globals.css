@@ -298,3 +298,338 @@ button {
     background-size: 200% 200%;
     animation: gradient-shift-reverse 3s ease infinite;
 }
+/* ============================================================================
+   AVANTIS-DERIVED DESIGN SYSTEM
+   Structure, type scale, elevation and motion extracted from avantisfi.com.
+   Every colour below is an existing Lemon token — this layer adds no new hues.
+   ============================================================================ */
+
+:root {
+    /* Surface elevation ladder. Avantis layers grey-950 → grey-500; these are
+       the equivalent rungs built from colours already in the palette above. */
+    --surface-0: #000000;
+    /* page ground (body) */
+    --surface-1: #0a0a0a;
+    /* = --card */
+    --surface-2: #0f1419;
+    /* = --background */
+    --surface-3: #1a1a1a;
+    /* = --muted */
+    --surface-4: #1a1f26;
+    /* = --popover / --trade-surface */
+    --surface-5: #2d3748;
+    /* = --secondary */
+    --surface-6: #374151;
+    /* = --secondary-hover */
+
+    --line: #333333;
+    /* = --border */
+    --line-soft: #222222;
+    /* = --border-subtle */
+
+    --ink-0: #ffffff;
+    --ink-1: #e8eaed;
+    /* = --foreground */
+    --ink-2: #94a3b8;
+    /* = --muted-foreground */
+
+    /* Avantis section rhythm */
+    --section-y: 72px;
+    --section-x: 20px;
+    --shell-max: 1440px;
+    --content-max: 1320px;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --section-y: 128px;
+        --section-x: 60px;
+    }
+}
+
+/* ---------------------------------------------------------------- type scale
+   Avantis runs a tighter scale than Tailwind's default (base is 14px, not 16).
+   Exposed as semantic classes so existing `text-*` usage keeps working. */
+
+.t-display {
+    font-size: 36px;
+    line-height: 120%;
+    letter-spacing: -0.02em;
+}
+
+.t-display-lg {
+    font-size: 36px;
+    line-height: 120%;
+    letter-spacing: -0.02em;
+}
+
+@media (min-width: 768px) {
+    .t-display {
+        font-size: 52px;
+    }
+
+    .t-display-lg {
+        font-size: 52px;
+    }
+}
+
+.t-h2 {
+    font-size: 30px;
+    line-height: 42px;
+    letter-spacing: -0.01em;
+}
+
+.t-h3 {
+    font-size: 24px;
+    line-height: 34px;
+}
+
+.t-body-lg {
+    font-size: 20px;
+    line-height: 28px;
+}
+
+.t-body {
+    font-size: 16px;
+    line-height: 20px;
+}
+
+.t-label {
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.t-caption {
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.t-micro {
+    font-size: 11px;
+    line-height: 14px;
+}
+
+/* Avantis pairs its display face with a mono for every number on screen. */
+.font-fono {
+    font-family: var(--font-roboto-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+.t-eyebrow {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ surfaces
+   Avantis' three repeating container treatments. */
+
+/* Flat panel — the stat tiles and nav blocks. */
+.surface-panel {
+    background: var(--surface-3);
+    border-radius: 8px;
+}
+
+/* Hairline-gradient card — the testimonial treatment: a 1px gradient ring that
+   fades top-to-bottom, with the card body painted inside it. */
+.surface-ring {
+    position: relative;
+    border-radius: 24px;
+    padding: 1px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.06), transparent);
+}
+
+.surface-ring>* {
+    background: var(--surface-3);
+    border-radius: 23px;
+    height: 100%;
+    width: 100%;
+}
+
+/* Fading section divider — Avantis' `from-[#24272F] to-[rgba(36,39,47,0.5)]`. */
+.rule-fade {
+    height: 1px;
+    background: linear-gradient(to right, var(--line), transparent);
+}
+
+/* ---------------------------------------------------------------- animations
+   Avantis' landing motion: a soft rise-in on scroll, slow glow breathing, and
+   a perspective lift on the product shot. */
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes glow-breathe {
+
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.85;
+        transform: scale(1.06);
+    }
+}
+
+@keyframes float-slow {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-rise-in {
+    animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-glow-breathe {
+    animation: glow-breathe 7s ease-in-out infinite;
+}
+
+.animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+}
+
+.perspective-1000 {
+    perspective: 1000px;
+}
+
+/* Avantis tilts the hero product shot back a few degrees and lifts it on hover. */
+.tilt-hero {
+    transform: rotateX(6deg) scale(0.98);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tilt-hero:hover {
+    transform: rotateX(0deg) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .animate-rise-in,
+    .animate-glow-breathe,
+    .animate-float-slow,
+    .animate-scroll-ticker,
+    .animate-scroll-ticker-reverse {
+        animation: none !important;
+    }
+
+    .tilt-hero {
+        transform: none;
+        transition: none;
+    }
+}
+
+/* Masonry columns for the community wall. */
+.masonry {
+    column-gap: 28px;
+}
+
+.masonry>* {
+    break-inside: avoid;
+    margin-bottom: 28px;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* ---------------------------------------------------------------- atmosphere
+   Hero backdrop: a slow drifting aurora over a fading technical grid. Both are
+   pure CSS so they cost nothing to paint and degrade to a flat ground when
+   motion is reduced. */
+
+@keyframes aurora-drift {
+    0% {
+        transform: translate3d(-6%, -3%, 0);
+    }
+
+    33% {
+        transform: translate3d(7%, 4%, 0);
+    }
+
+    66% {
+        transform: translate3d(-3%, 7%, 0);
+    }
+
+    100% {
+        transform: translate3d(-6%, -3%, 0);
+    }
+}
+
+/*
+   The glow is painted as a radial gradient rather than a `filter: blur()` on a
+   solid disc. A blurred layer has to be re-rasterised whenever its geometry
+   changes, so animating one is expensive enough to starve every other animation
+   on the page; a gradient is painted once and the drift is a pure transform the
+   compositor can carry on its own. `--aurora` carries the colour.
+*/
+.aurora {
+    position: absolute;
+    border-radius: 9999px;
+    background: radial-gradient(closest-side, var(--aurora, rgba(163, 230, 53, 0.22)), transparent 72%);
+    will-change: transform;
+    animation: aurora-drift 26s ease-in-out infinite;
+}
+
+.grid-floor {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+/* Sheen that sweeps a surface once on hover — used on the bento tiles. */
+@keyframes sheen {
+    from {
+        transform: translateX(-120%) skewX(-18deg);
+    }
+
+    to {
+        transform: translateX(220%) skewX(-18deg);
+    }
+}
+
+.group:hover .sheen {
+    animation: sheen 0.9s ease-out;
+}
+
+/* Hairline that brightens from the centre outward. */
+.rule-center {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--line), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .aurora,
+    .group:hover .sheen {
+        animation: none !important;
+    }
+}

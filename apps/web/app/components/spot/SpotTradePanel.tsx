@@ -90,7 +90,7 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 	}
 
 	return (
-		<div className="space-y-4 rounded-xl border-white/10 bg-white/[0.02] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
+		<div className="space-y-4 rounded-lg border-[var(--line-soft)] bg-[var(--surface-3)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
 			<Tabs value={direction} onValueChange={(value) => setDirection(value as "buy" | "sell")}>
 				<TabsList className="w-full">
 					<TabsTrigger value="buy" className="flex-1 data-[state=active]:text-lime-400">
@@ -144,10 +144,10 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 						/>
 					</div>
 
-					<dl className="space-y-1.5 rounded-lg border border-white/5 bg-black/20 p-3 text-xs">
+					<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
 						<div className="flex justify-between">
-							<dt className="text-gray-500">You receive</dt>
-							<dd className="font-mono">
+							<dt className="text-[var(--ink-2)]">You receive</dt>
+							<dd className="font-fono">
 								{isFetching && !receiveAmount
 									? "…"
 									: receiveAmount
@@ -156,30 +156,30 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 							</dd>
 						</div>
 						<div className="flex justify-between">
-							<dt className="text-gray-500">Price impact</dt>
+							<dt className="text-[var(--ink-2)]">Price impact</dt>
 							{/* Impact on these pools runs over 1% even on small size,
 							    so it is shown as a headline number, not a footnote. */}
 							<dd
 								className={cn(
-									"font-mono",
+									"font-fono",
 									(okQuote?.quote.priceImpactPercent ?? 0) < -1
 										? "text-amber-400"
-										: "text-gray-300",
+										: "text-[var(--ink-1)]",
 								)}
 							>
 								{okQuote ? formatPercent(okQuote.quote.priceImpactPercent) : "—"}
 							</dd>
 						</div>
 						<div className="flex justify-between">
-							<dt className="text-gray-500">Holding cost</dt>
+							<dt className="text-[var(--ink-2)]">Holding cost</dt>
 							{/* Spot is an outright purchase: no funding, no borrow, no
 							    counterparty. Said explicitly because the perp panel one
 							    toggle away does show a funding rate. */}
-							<dd className="text-gray-400">None — spot has no funding</dd>
+							<dd className="text-[var(--ink-2)]">None — spot has no funding</dd>
 						</div>
 						<div className="flex justify-between">
-							<dt className="text-gray-500">Route</dt>
-							<dd className="font-mono text-[11px] text-gray-500">
+							<dt className="text-[var(--ink-2)]">Route</dt>
+							<dd className="font-fono text-[11px] text-[var(--ink-2)]">
 								{okQuote?.quote.exchanges.join(", ") || "—"}
 							</dd>
 						</div>
@@ -238,9 +238,9 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 						/>
 					</div>
 
-					<dl className="flex justify-between rounded-lg border border-white/5 bg-black/20 p-3 text-xs">
-						<dt className="text-gray-500">Total</dt>
-						<dd className="font-mono">
+					<dl className="flex justify-between rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
+						<dt className="text-[var(--ink-2)]">Total</dt>
+						<dd className="font-fono">
 							{Number(limitShares) > 0 && Number(limitPrice) > 0
 								? `${(Number(limitShares) * Number(limitPrice)).toFixed(2)} USDC`
 								: "—"}

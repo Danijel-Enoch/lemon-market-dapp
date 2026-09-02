@@ -45,9 +45,9 @@ function Section({
 	children: React.ReactNode;
 }) {
 	return (
-		<section id={id} className="scroll-mt-28 space-y-3">
-			<h2 className="text-xl font-semibold">{title}</h2>
-			<div className="space-y-3 text-sm leading-relaxed text-gray-400">{children}</div>
+		<section id={id} className="scroll-mt-24 space-y-3">
+			<h2 className="t-body-lg font-medium text-[var(--ink-1)]">{title}</h2>
+			<div className="space-y-3 t-label leading-relaxed text-[var(--ink-2)]">{children}</div>
 		</section>
 	);
 }
@@ -59,8 +59,8 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 				{n}
 			</span>
 			<div>
-				<p className="font-medium text-gray-200">{title}</p>
-				<p className="mt-0.5 text-sm text-gray-400">{children}</p>
+				<p className="font-medium text-[var(--ink-1)]">{title}</p>
+				<p className="mt-0.5 text-sm text-[var(--ink-2)]">{children}</p>
 			</div>
 		</li>
 	);
@@ -116,7 +116,7 @@ const ROADMAP: { status: Status; title: string; body: string; icon: typeof Coins
 const STATUS_STYLES: Record<Status, { label: string; className: string }> = {
 	live: { label: "Live", className: "bg-lime-500/15 text-lime-400" },
 	building: { label: "Coming soon", className: "bg-amber-500/15 text-amber-400" },
-	planned: { label: "Planned", className: "bg-gray-500/15 text-gray-400" },
+	planned: { label: "Planned", className: "bg-gray-500/15 text-[var(--ink-2)]" },
 };
 
 export default function DocsPage() {
@@ -144,8 +144,8 @@ export default function DocsPage() {
 	return (
 		<div className="grid gap-8 lg:grid-cols-[220px_1fr]">
 			{/* Table of contents */}
-			<nav className="lg:sticky lg:top-28 lg:self-start" aria-label="Table of contents">
-				<p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">Contents</p>
+			<nav className="lg:sticky lg:top-[80px] lg:self-start" aria-label="Table of contents">
+				<p className="mb-2 t-caption text-[var(--ink-2)]">Contents</p>
 				<ul className="space-y-0.5">
 					{SECTIONS.map((section) => (
 						<li key={section.id}>
@@ -155,7 +155,7 @@ export default function DocsPage() {
 									"block rounded px-2 py-1.5 text-sm transition-colors",
 									active === section.id
 										? "bg-lime-500/10 font-medium text-lime-400"
-										: "text-gray-400 hover:text-gray-200",
+										: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
 								)}
 							>
 								{section.label}
@@ -167,8 +167,8 @@ export default function DocsPage() {
 
 			<div className="min-w-0 space-y-10">
 				<header className="space-y-2">
-					<h1 className="text-3xl font-semibold">Documentation</h1>
-					<p className="text-sm text-gray-400">
+					<h1 className="t-h2 font-medium text-white">Documentation</h1>
+					<p className="text-sm text-[var(--ink-2)]">
 						Everything on Lemon Markets settles in USDC on Base. Perps run on Avantis and spot
 						routes through KyberSwap.
 					</p>
@@ -205,21 +205,22 @@ export default function DocsPage() {
 						by the protocol — up to 500x on FX majors, and typically 2–10x on equities.
 					</p>
 					<p>
-						<strong className="text-gray-200">Order types.</strong> Market fills at the oracle price
-						immediately. Limit and Stop rest on-chain until triggered, escrowing their collateral;
-						cancelling refunds it. Take-profit and stop-loss can be attached to any order.
+						<strong className="text-[var(--ink-1)]">Order types.</strong> Market fills at the oracle
+						price immediately. Limit and Stop rest on-chain until triggered, escrowing their
+						collateral; cancelling refunds it. Take-profit and stop-loss can be attached to any
+						order.
 					</p>
 					<p>
-						<strong className="text-gray-200">Gasless.</strong> Orders are signed as EIP-712 intents
-						and submitted by the Avantis operator, which pays the gas. You do not need ETH on Base
-						to trade. If the operator is unavailable the app falls back to a normal transaction that
-						you pay gas for.
+						<strong className="text-[var(--ink-1)]">Gasless.</strong> Orders are signed as EIP-712
+						intents and submitted by the Avantis operator, which pays the gas. You do not need ETH
+						on Base to trade. If the operator is unavailable the app falls back to a normal
+						transaction that you pay gas for.
 					</p>
 					<p>
-						<strong className="text-gray-200">Market hours.</strong> Crypto trades 24/7. Equities
-						and FX follow real trading calendars — blue chips 24/5, longer-tail names during US
-						market hours only — and orders are rejected while a market is closed. The terminal shows
-						the session state and the next open.
+						<strong className="text-[var(--ink-1)]">Market hours.</strong> Crypto trades 24/7.
+						Equities and FX follow real trading calendars — blue chips 24/5, longer-tail names
+						during US market hours only — and orders are rejected while a market is closed. The
+						terminal shows the session state and the next open.
 					</p>
 				</Section>
 
@@ -230,15 +231,15 @@ export default function DocsPage() {
 						you can hold you can also hedge.
 					</p>
 					<p>
-						<strong className="text-gray-200">Availability is measured, not assumed.</strong>{" "}
+						<strong className="text-[var(--ink-1)]">Availability is measured, not assumed.</strong>{" "}
 						Several tokenized equities have thin or one-sided liquidity on Base. The app probes live
 						routes and shows each token as buyable, sell-only, or unavailable rather than letting an
 						order fail at signing time.
 					</p>
 					<p>
-						<strong className="text-gray-200">Limit orders</strong> are signed off-chain and cost no
-						gas. They rest in KyberSwap's orderbook until a taker fills them — on thin pools an
-						order can sit unfilled until it expires, which is normal behaviour for a limit order
+						<strong className="text-[var(--ink-1)]">Limit orders</strong> are signed off-chain and
+						cost no gas. They rest in KyberSwap's orderbook until a taker fills them — on thin pools
+						an order can sit unfilled until it expires, which is normal behaviour for a limit order
 						rather than a failure. Cancelling is also gasless and takes effect within a few minutes.
 					</p>
 					<Callout tone="info" title="Price impact is not a footnote">
@@ -254,7 +255,7 @@ export default function DocsPage() {
 						costs.
 					</p>
 					<p>
-						<strong className="text-gray-200">
+						<strong className="text-[var(--ink-1)]">
 							It only earns when funding is positive on the short side
 						</strong>
 						, which happens when longs are crowded. When shorts are crowded the position pays
@@ -275,20 +276,21 @@ export default function DocsPage() {
 
 				<Section id="fees" title="Fees &amp; funding">
 					<p>
-						<strong className="text-gray-200">Perp fees</strong> are set by Avantis: roughly 4.5bps
-						taker on crypto majors, and zero commission on real-world assets while they are in
-						growth mode, where you pay the spread instead.
+						<strong className="text-[var(--ink-1)]">Perp fees</strong> are set by Avantis: roughly
+						4.5bps taker on crypto majors, and zero commission on real-world assets while they are
+						in growth mode, where you pay the spread instead.
 					</p>
 					<p>
-						<strong className="text-gray-200">Funding applies to perps only.</strong> It accrues
-						hourly while a position is open and is displayed annualised. Read the sign carefully: a
-						positive rate means that side <em className="text-gray-300">receives</em> funding,
-						negative means it pays. The crowded side generally pays the lighter one.
+						<strong className="text-[var(--ink-1)]">Funding applies to perps only.</strong> It
+						accrues hourly while a position is open and is displayed annualised. Read the sign
+						carefully: a positive rate means that side{" "}
+						<em className="text-[var(--ink-1)]">receives</em> funding, negative means it pays. The
+						crowded side generally pays the lighter one.
 					</p>
 					<p>
-						<strong className="text-gray-200">Spot has no funding.</strong> Buying a token is an
-						outright purchase — there is no counterparty, no borrow and no ongoing rate. Your only
-						costs are the pool's swap fee plus price impact, both included in the quote you are
+						<strong className="text-[var(--ink-1)]">Spot has no funding.</strong> Buying a token is
+						an outright purchase — there is no counterparty, no borrow and no ongoing rate. Your
+						only costs are the pool's swap fee plus price impact, both included in the quote you are
 						shown, plus Base gas. This is also why a cash-and-carry earns or pays purely on the perp
 						leg.
 					</p>
@@ -304,12 +306,12 @@ export default function DocsPage() {
 						for the current standings and the exact rates.
 					</p>
 					<p>
-						<strong className="text-gray-200">Everything is verified.</strong> Perp volume is read
-						straight from Avantis, and each spot trade is checked against its transaction on-chain —
-						it must exist, have succeeded, and have been sent by the address claiming it. Reporting
-						a transaction twice awards nothing the second time.
+						<strong className="text-[var(--ink-1)]">Everything is verified.</strong> Perp volume is
+						read straight from Avantis, and each spot trade is checked against its transaction
+						on-chain — it must exist, have succeeded, and have been sent by the address claiming it.
+						Reporting a transaction twice awards nothing the second time.
 					</p>
-					<p className="text-xs text-gray-600">
+					<p className="text-xs text-white/35">
 						Points and tiers are cosmetic. They are not a token, carry no entitlement, and may be
 						recalculated.
 					</p>
@@ -329,7 +331,7 @@ export default function DocsPage() {
 						<li>Funding rates move; a carry that earns today can pay tomorrow.</li>
 						<li>Smart contract risk across Avantis, KyberSwap, Relay and the token issuers.</li>
 					</ul>
-					<p className="text-xs text-gray-600">
+					<p className="text-xs text-white/35">
 						Nothing here is investment advice. You are responsible for your own positions.
 					</p>
 				</Section>
@@ -342,12 +344,12 @@ export default function DocsPage() {
 							return (
 								<li
 									key={item.title}
-									className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4"
+									className="flex gap-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4"
 								>
-									<Icon size={18} className="mt-0.5 shrink-0 text-gray-500" aria-hidden />
+									<Icon size={18} className="mt-0.5 shrink-0 text-[var(--ink-2)]" aria-hidden />
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<p className="font-medium text-gray-200">{item.title}</p>
+											<p className="font-medium text-[var(--ink-1)]">{item.title}</p>
 											<span
 												className={cn(
 													"inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
@@ -362,7 +364,7 @@ export default function DocsPage() {
 												{status.label}
 											</span>
 										</div>
-										<p className="mt-1 text-sm text-gray-400">{item.body}</p>
+										<p className="mt-1 text-sm text-[var(--ink-2)]">{item.body}</p>
 									</div>
 								</li>
 							);
@@ -395,8 +397,8 @@ export default function DocsPage() {
 							},
 						].map((item) => (
 							<div key={item.q}>
-								<dt className="font-medium text-gray-200">{item.q}</dt>
-								<dd className="mt-1 text-sm text-gray-400">{item.a}</dd>
+								<dt className="font-medium text-[var(--ink-1)]">{item.q}</dt>
+								<dd className="mt-1 text-sm text-[var(--ink-2)]">{item.a}</dd>
 							</div>
 						))}
 					</dl>

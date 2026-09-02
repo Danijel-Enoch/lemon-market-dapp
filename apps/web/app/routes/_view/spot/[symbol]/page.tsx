@@ -15,7 +15,7 @@ export default function SpotSymbolRedirect() {
 	const { symbol } = useParams();
 	const { data, isLoading } = useSpotTokens();
 
-	if (isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
+	if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
 
 	const token = data?.tokens.find(
 		(candidate) => candidate.symbol.toLowerCase() === String(symbol).toLowerCase(),

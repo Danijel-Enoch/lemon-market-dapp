@@ -8,14 +8,14 @@ import { Link } from "react-router";
 import { useConnection } from "wagmi";
 
 const STATUS_STYLES: Record<CarryPositionRecord["status"], { label: string; className: string }> = {
-	VALIDATING: { label: "Preparing", className: "bg-gray-500/15 text-gray-400" },
+	VALIDATING: { label: "Preparing", className: "bg-gray-500/15 text-[var(--ink-2)]" },
 	SPOT_FILLED: { label: "Unhedged", className: "bg-red-500/15 text-red-400" },
 	OPEN: { label: "Open", className: "bg-lime-500/15 text-lime-400" },
 	UNWINDING: { label: "Unwinding", className: "bg-amber-500/15 text-amber-400" },
 	SPOT_CLOSED: { label: "Closing", className: "bg-amber-500/15 text-amber-400" },
-	CLOSED: { label: "Closed", className: "bg-gray-500/15 text-gray-500" },
+	CLOSED: { label: "Closed", className: "bg-gray-500/15 text-[var(--ink-2)]" },
 	ORPHANED: { label: "Needs attention", className: "bg-red-500/20 text-red-300" },
-	FAILED: { label: "Failed", className: "bg-gray-500/15 text-gray-500" },
+	FAILED: { label: "Failed", className: "bg-gray-500/15 text-[var(--ink-2)]" },
 };
 
 export function CarryPositionList() {
@@ -24,7 +24,7 @@ export function CarryPositionList() {
 
 	if (!address) return null;
 	if (isLoading) {
-		return <p className="py-6 text-center text-sm text-gray-500">Loading positions…</p>;
+		return <p className="py-6 text-center text-sm text-[var(--ink-2)]">Loading positions…</p>;
 	}
 	if (error) {
 		return (
@@ -56,19 +56,21 @@ export function CarryPositionList() {
 						key={position.id}
 						to={`/carry/${position.id}`}
 						className={cn(
-							"flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition-colors",
+							"flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 transition-colors",
 							needsAttention
 								? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
-								: "border-white/10 bg-white/[0.02] hover:border-white/25",
+								: "border-[var(--line-soft)] bg-[var(--surface-3)] hover:border-white/25",
 						)}
 					>
 						<div className="flex items-center gap-3">
 							<div>
 								<p className="font-medium">
 									{position.tokenSymbol}
-									<span className="ml-2 text-xs text-gray-500">vs {position.avantisSymbol}</span>
+									<span className="ml-2 text-xs text-[var(--ink-2)]">
+										vs {position.avantisSymbol}
+									</span>
 								</p>
-								<p className="text-xs text-gray-500">
+								<p className="text-xs text-[var(--ink-2)]">
 									{formatUsd(position.notionalUsd)} per leg · {position.perpLeverage}x short
 								</p>
 							</div>
@@ -77,10 +79,10 @@ export function CarryPositionList() {
 						<div className="flex items-center gap-4">
 							{position.entryNetApyPct !== null && (
 								<div className="text-right">
-									<p className="text-[11px] uppercase text-gray-600">Entry APY</p>
+									<p className="text-[11px] uppercase text-white/35">Entry APY</p>
 									<p
 										className={cn(
-											"font-mono text-sm",
+											"font-fono text-sm",
 											position.entryNetApyPct >= 0 ? "text-lime-400" : "text-red-400",
 										)}
 									>

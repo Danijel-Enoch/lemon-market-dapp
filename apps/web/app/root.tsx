@@ -96,7 +96,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 					<div className="absolute top-0 left-1/4 w-96 h-96 bg-[#a3e635]/10 rounded-full blur-[100px] pointer-events-none" />
 					<div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#2d3748]/20 rounded-full blur-[100px] pointer-events-none" />
 
-					<div className="max-w-lg w-full bg-[#0a0a0a] border border-[#333333] rounded-2xl p-8 shadow-2xl relative z-10">
+					<div className="max-w-lg w-full bg-[var(--surface-1)] border border-[#333333] rounded-lg p-8 shadow-2xl relative z-10">
 						<div className="flex flex-col items-center text-center space-y-6">
 							{/* Icon */}
 							<div className="w-20 h-20 rounded-full bg-[#a3e635]/10 flex items-center justify-center ring-1 ring-[#a3e635]/50 shadow-[0_0_20px_rgba(163,230,53,0.2)]">
@@ -112,7 +112,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 
 							{stack && import.meta.env.DEV && (
 								<div className="w-full text-left bg-[#050505] border border-[#222222] rounded-lg p-4 overflow-x-auto max-h-64 scrollbar-thin">
-									<pre className="text-xs text-red-400 font-mono leading-tight">{stack}</pre>
+									<pre className="text-xs text-red-400 font-fono leading-tight">{stack}</pre>
 								</div>
 							)}
 

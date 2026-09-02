@@ -72,7 +72,7 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				showCloseButton
-				className="max-w-sm w-full bg-[#0f1419]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-0 overflow-hidden"
+				className="max-w-sm w-full bg-[#0f1419]/95 backdrop-blur-xl border border-[var(--line-soft)] rounded-lg p-0 overflow-hidden"
 			>
 				<div className="absolute inset-0 bg-linear-to-br from-lime-500/5 via-transparent to-emerald-500/5 pointer-events-none" />
 
@@ -119,19 +119,19 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 							<button
 								type="button"
 								onClick={handleCopy}
-								className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200"
+								className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-4)] hover:bg-white/10 border border-[var(--line-soft)] transition-all duration-200"
 							>
-								<span className="text-sm text-gray-400 font-mono">{shortenedAddress}</span>
+								<span className="text-sm text-[var(--ink-2)] font-fono">{shortenedAddress}</span>
 								{copied ? (
 									<Check className="w-3.5 h-3.5 text-lime-400" />
 								) : (
-									<CopyIcon className="w-3.5 h-3.5 text-gray-500 group-hover:text-lime-400 transition-colors" />
+									<CopyIcon className="w-3.5 h-3.5 text-[var(--ink-2)] group-hover:text-lime-400 transition-colors" />
 								)}
 							</button>
 						</div>
 
 						{balanceData && (
-							<div className="flex items-center gap-2 text-gray-400">
+							<div className="flex items-center gap-2 text-[var(--ink-2)]">
 								<Wallet className="w-4 h-4" />
 								<span className="text-base font-medium">
 									{formatQuantity(
@@ -154,9 +154,9 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 							whileHover={{ scale: 1.02 }}
 							whileTap={{ scale: 0.98 }}
 							className={cn(
-								"w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl",
-								"bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20",
-								"text-sm font-medium text-gray-300 hover:text-white transition-all duration-200",
+								"w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
+								"bg-[var(--surface-4)] hover:bg-white/10 border border-[var(--line-soft)] hover:border-white/20",
+								"text-sm font-medium text-[var(--ink-1)] hover:text-white transition-all duration-200",
 							)}
 						>
 							<ExternalLinkIcon className="w-4 h-4" />
@@ -173,7 +173,7 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 						whileHover={{ scale: 1.02 }}
 						whileTap={{ scale: 0.98 }}
 						className={cn(
-							"w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-xl",
+							"w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
 							"bg-linear-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20",
 							"border border-red-500/20 hover:border-red-500/40",
 							"text-sm font-medium text-red-400 hover:text-red-300 transition-all duration-200",

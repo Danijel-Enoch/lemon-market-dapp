@@ -1,6 +1,7 @@
 import { CarryBuilder } from "@app/components/carry/CarryBuilder";
 import { CarryPositionList } from "@app/components/carry/CarryPositionList";
 import { Callout } from "@app/components/common/Callout";
+import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
@@ -14,14 +15,11 @@ export const meta: MetaFunction = () => [
 
 export default function CarryPage() {
 	return (
-		<div className="space-y-8">
-			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold">Cash &amp; Carry</h1>
-				<p className="text-sm text-gray-400">
-					Buy the spot token, short the matching perp. Price moves cancel, so what is left is
-					funding minus costs.
-				</p>
-			</header>
+		<div className="space-y-10">
+			<PageHeader
+				title="Cash & carry"
+				description="Buy the spot token, short the matching perp. Price moves cancel, so what is left is funding minus costs."
+			/>
 
 			<Callout tone="info" title="How this pays — and when it doesn't">
 				A carry earns only when the short side of the perp <em>receives</em> funding, which happens
@@ -32,7 +30,7 @@ export default function CarryPage() {
 			<CarryBuilder />
 
 			<section className="space-y-3">
-				<h2 className="text-lg font-medium">Your positions</h2>
+				<SubHeading title="Your positions" />
 				<CarryPositionList />
 			</section>
 		</div>

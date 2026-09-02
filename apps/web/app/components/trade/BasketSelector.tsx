@@ -21,7 +21,7 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 			<Popover.Trigger asChild>
 				<button
 					type="button"
-					className="inline-flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors hover:border-white/25"
+					className="inline-flex items-center gap-2.5 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] px-3 py-2 transition-colors hover:border-white/25"
 				>
 					<span className="flex -space-x-2">
 						{current.legs.slice(0, 3).map((leg) => (
@@ -37,7 +37,7 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 						))}
 					</span>
 					<span className="text-lg font-semibold">{current.name}</span>
-					<ChevronDown size={16} className="text-gray-500" aria-hidden />
+					<ChevronDown size={16} className="text-[var(--ink-2)]" aria-hidden />
 				</button>
 			</Popover.Trigger>
 
@@ -45,7 +45,7 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 				<Popover.Content
 					align="start"
 					sideOffset={8}
-					className="z-50 w-[min(92vw,380px)] overflow-hidden rounded-xl border border-white/10 bg-[#13151b] p-1 shadow-2xl"
+					className="z-50 w-[min(92vw,380px)] overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[#13151b] p-1 shadow-2xl"
 				>
 					<ul>
 						{(data?.baskets ?? []).map((basket) => (
@@ -57,8 +57,8 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 										navigate(`/baskets/${basket.id}`);
 									}}
 									className={cn(
-										"flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-white/5",
-										basket.id === current.id && "bg-white/5",
+										"flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--surface-4)]",
+										basket.id === current.id && "bg-[var(--surface-4)]",
 									)}
 								>
 									<span className="flex -space-x-2">
@@ -76,7 +76,7 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 									</span>
 									<span className="min-w-0 flex-1">
 										<span className="block text-sm font-medium">{basket.name}</span>
-										<span className="block text-[11px] text-gray-500">
+										<span className="block text-[11px] text-[var(--ink-2)]">
 											{basket.legs.map((leg) => leg.ticker).join(" · ")}
 										</span>
 									</span>
@@ -85,10 +85,10 @@ export function BasketSelector({ current }: { current: BasketSummary }) {
 						))}
 					</ul>
 
-					<div className="border-t border-white/10 p-2">
+					<div className="border-t border-[var(--line-soft)] p-2">
 						<Link
 							to="/trade"
-							className="block rounded px-2 py-1.5 text-xs text-gray-400 hover:text-lime-400"
+							className="block rounded px-2 py-1.5 text-xs text-[var(--ink-2)] hover:text-lime-400"
 							onClick={() => setOpen(false)}
 						>
 							Trade a single market instead →

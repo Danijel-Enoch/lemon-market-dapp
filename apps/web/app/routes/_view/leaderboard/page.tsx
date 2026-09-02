@@ -1,6 +1,7 @@
 import { Callout } from "@app/components/common/Callout";
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { StatTile } from "@app/components/common/StatTile";
+import { PageHeader } from "@app/components/site/PageHeader";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@app/components/ui/tabs";
 import { useGlobalLeaderboard, useLeaderboard, usePointsProfile } from "@app/hooks/useMarketData";
@@ -29,9 +30,9 @@ function short(address: string): string {
 /** Medal tint for the top three, neutral below. */
 function rankClass(rank: number): string {
 	if (rank === 1) return "text-amber-300";
-	if (rank === 2) return "text-gray-300";
+	if (rank === 2) return "text-[var(--ink-1)]";
 	if (rank === 3) return "text-orange-400";
-	return "text-gray-500";
+	return "text-[var(--ink-2)]";
 }
 
 export default function LeaderboardPage() {
@@ -45,14 +46,11 @@ export default function LeaderboardPage() {
 	const nextTier = profile ? pointsToNextTier(profile.total) : null;
 
 	return (
-		<div className="space-y-6">
-			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold">Leaderboard</h1>
-				<p className="text-sm text-gray-400">
-					Points accrue from trading through Lemon Markets. Every point-earning transaction is
-					verified on-chain.
-				</p>
-			</header>
+		<div className="space-y-8">
+			<PageHeader
+				title="Leaderboard"
+				description="Points accrue from trading through Lemon Markets. Every point-earning transaction is verified on-chain."
+			/>
 
 			{/* Your standing, when connected. */}
 			{address && profile && (
@@ -78,18 +76,18 @@ export default function LeaderboardPage() {
 					</div>
 
 					{nextTier && (
-						<div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-							<div className="mb-2 flex items-center justify-between text-sm">
-								<span className="text-gray-400">
+						<div className="rounded-lg bg-[var(--surface-3)] p-4">
+							<div className="mb-2 flex items-center justify-between t-label">
+								<span className="text-[var(--ink-2)]">
 									{nextTier.remaining.toLocaleString()} points to {nextTier.next.name}
 								</span>
-								<span className="font-mono text-xs text-gray-500">
+								<span className="font-fono t-caption text-[var(--ink-2)]">
 									{profile.total.toLocaleString()} / {nextTier.next.minPoints.toLocaleString()}
 								</span>
 							</div>
-							<div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+							<div className="h-1 overflow-hidden rounded-full bg-[var(--surface-5)]">
 								<div
-									className="h-full rounded-full bg-lime-500"
+									className="h-full rounded-full bg-lime-500 transition-[width] duration-700 ease-out"
 									style={{
 										width: `${Math.min(100, (profile.total / nextTier.next.minPoints) * 100)}%`,
 									}}
@@ -117,59 +115,65 @@ export default function LeaderboardPage() {
 					)}
 
 					{pointsLoading ? (
-						<Skeleton className="h-64 w-full rounded-xl" />
+						<Skeleton className="h-64 w-full" />
 					) : !points?.rows.length ? (
 						<EmptyPanel icon={Trophy} title="No points yet">
 							Trade a perp, buy spot, or open a cash-and-carry to get on the board.
 						</EmptyPanel>
 					) : (
-						<div className="overflow-x-auto rounded-xl border border-white/10">
-							<table className="w-full min-w-[640px] text-sm">
-								<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+						<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
+							<table className="w-full min-w-[640px] t-label">
+								<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
 									<tr>
-										<th className="px-4 py-3 font-medium">#</th>
-										<th className="px-4 py-3 font-medium">Trader</th>
-										<th className="px-4 py-3 font-medium">Tier</th>
-										<th className="px-4 py-3 font-medium">Perp volume</th>
-										<th className="px-4 py-3 font-medium">Spot volume</th>
-										<th className="px-4 py-3 font-medium">Carries</th>
-										<th className="px-4 py-3 text-right font-medium">Points</th>
+										<th className="px-3 py-2 font-normal">#</th>
+										<th className="px-3 py-2 font-normal">Trader</th>
+										<th className="px-3 py-2 font-normal">Tier</th>
+										<th className="px-3 py-2 font-normal">Perp volume</th>
+										<th className="px-3 py-2 font-normal">Spot volume</th>
+										<th className="px-3 py-2 font-normal">Carries</th>
+										<th className="px-3 py-2 text-right font-normal">Points</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-white/5">
+								<tbody className="divide-y divide-[var(--line-soft)]">
 									{points.rows.map((row) => {
 										const isYou = address?.toLowerCase() === row.address;
 										return (
-											<tr key={row.address} className={cn(isYou && "bg-lime-500/[0.06]")}>
-												<td className={cn("px-4 py-3 font-mono", rankClass(row.rank))}>
+											<tr
+												key={row.address}
+												className={cn(
+													"transition-colors hover:bg-[var(--surface-4)]",
+													isYou && "bg-lime-500/[0.06]",
+												)}
+											>
+												<td className={cn("px-3 py-2.5 font-fono", rankClass(row.rank))}>
 													{row.rank}
 												</td>
-												<td className="px-4 py-3">
+												<td className="px-3 py-2.5">
 													<a
 														href={basescanAddress(row.address)}
 														target="_blank"
 														rel="noreferrer"
-														className="font-mono text-xs hover:text-lime-400"
+														className="font-fono t-caption text-[var(--ink-1)] transition-colors hover:text-lime-400"
 													>
 														{short(row.address)}
 													</a>
 													{isYou && (
-														<span className="ml-2 rounded bg-lime-500/15 px-1.5 py-0.5 text-[10px] uppercase text-lime-400">
+														<span className="ml-2 rounded-sm bg-lime-500/15 px-1.5 py-0.5 t-micro uppercase text-lime-400">
 															you
 														</span>
 													)}
 												</td>
-												<td className="px-4 py-3 text-xs text-gray-400">{row.tier}</td>
-												<td className="px-4 py-3 font-mono text-xs text-gray-400">
+												<td className="px-3 py-2.5 t-caption text-[var(--ink-2)]">{row.tier}</td>
+												<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 													{formatUsd(row.perpVolumeUsd, { compact: true })}
 												</td>
-												<td className="px-4 py-3 font-mono text-xs text-gray-400">
+												<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 													{formatUsd(row.spotVolumeUsd, { compact: true })}
 												</td>
-												<td className="px-4 py-3 font-mono text-xs text-gray-400">
+												<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 													{row.carriesOpened}
 												</td>
-												<td className="px-4 py-3 text-right font-mono text-lime-400">
+												<td className="px-3 py-2.5 text-right font-fono text-lime-400">
 													{row.points.toLocaleString()}
 												</td>
 											</tr>
@@ -180,27 +184,27 @@ export default function LeaderboardPage() {
 						</div>
 					)}
 
-					<div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
-						<h2 className="mb-2 font-medium text-gray-200">How points are earned</h2>
-						<ul className="space-y-1 text-gray-400">
+					<div className="rounded-lg bg-[var(--surface-3)] p-5 t-label">
+						<h2 className="mb-3 t-body font-medium text-[var(--ink-1)]">How points are earned</h2>
+						<ul className="space-y-1.5 text-[var(--ink-2)]">
 							<li>
-								<span className="font-mono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
+								<span className="font-fono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
 								perp volume, read directly from Avantis.
 							</li>
 							<li>
-								<span className="font-mono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
+								<span className="font-fono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
 								spot volume, verified against the transaction on-chain.
 							</li>
 							<li>
-								<span className="font-mono text-lime-400">{ACTION_POINTS.carry_opened} pts</span>{" "}
+								<span className="font-fono text-lime-400">{ACTION_POINTS.carry_opened} pts</span>{" "}
 								per cash-and-carry opened — two legs across two venues.
 							</li>
 							<li>
-								<span className="font-mono text-lime-400">{ACTION_POINTS.basket_entry} pts</span>{" "}
+								<span className="font-fono text-lime-400">{ACTION_POINTS.basket_entry} pts</span>{" "}
 								per basket entry.
 							</li>
 						</ul>
-						<p className="mt-3 text-xs text-gray-600">
+						<p className="mt-4 t-caption text-white/35">
 							Tiers:{" "}
 							{TIERS.map((tier) => `${tier.name} (${tier.minPoints.toLocaleString()})`).join(" · ")}
 							. Tiers are cosmetic and confer nothing.
@@ -215,48 +219,50 @@ export default function LeaderboardPage() {
 					</Callout>
 
 					{globalLoading ? (
-						<Skeleton className="h-64 w-full rounded-xl" />
+						<Skeleton className="h-64 w-full" />
 					) : !global?.rows.length ? (
 						<EmptyPanel icon={Trophy} title="Global leaderboard unavailable" />
 					) : (
-						<div className="overflow-x-auto rounded-xl border border-white/10">
-							<table className="w-full min-w-[620px] text-sm">
-								<thead className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-gray-500">
+						<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
+							<table className="w-full min-w-[620px] t-label">
+								<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
 									<tr>
-										<th className="px-4 py-3 font-medium">#</th>
-										<th className="px-4 py-3 font-medium">Trader</th>
-										<th className="px-4 py-3 font-medium">Volume</th>
-										<th className="px-4 py-3 font-medium">Trades</th>
-										<th className="px-4 py-3 font-medium">Win rate</th>
-										<th className="px-4 py-3 text-right font-medium">PnL</th>
+										<th className="px-3 py-2 font-normal">#</th>
+										<th className="px-3 py-2 font-normal">Trader</th>
+										<th className="px-3 py-2 font-normal">Volume</th>
+										<th className="px-3 py-2 font-normal">Trades</th>
+										<th className="px-3 py-2 font-normal">Win rate</th>
+										<th className="px-3 py-2 text-right font-normal">PnL</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-white/5">
+								<tbody className="divide-y divide-[var(--line-soft)]">
 									{global.rows.map((row) => (
-										<tr key={row.trader}>
-											<td className={cn("px-4 py-3 font-mono", rankClass(row.rank))}>{row.rank}</td>
-											<td className="px-4 py-3">
+										<tr key={row.trader} className="transition-colors hover:bg-[var(--surface-4)]">
+											<td className={cn("px-3 py-2.5 font-fono", rankClass(row.rank))}>
+												{row.rank}
+											</td>
+											<td className="px-3 py-2.5">
 												<a
 													href={basescanAddress(row.trader)}
 													target="_blank"
 													rel="noreferrer"
-													className="font-mono text-xs hover:text-lime-400"
+													className="font-fono t-caption text-[var(--ink-1)] transition-colors hover:text-lime-400"
 												>
 													{short(row.trader)}
 												</a>
 											</td>
-											<td className="px-4 py-3 font-mono text-xs text-gray-400">
+											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 												{formatUsd(row.volumeUsd, { compact: true })}
 											</td>
-											<td className="px-4 py-3 font-mono text-xs text-gray-400">
+											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 												{row.trades.toLocaleString()}
 											</td>
-											<td className="px-4 py-3 font-mono text-xs text-gray-400">
+											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
 												{row.winRatePercent.toFixed(1)}%
 											</td>
 											<td
 												className={cn(
-													"px-4 py-3 text-right font-mono",
+													"px-3 py-2.5 text-right font-fono",
 													row.pnlUsd >= 0 ? "text-lime-400" : "text-red-400",
 												)}
 											>
