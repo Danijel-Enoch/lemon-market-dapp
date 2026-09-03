@@ -4,6 +4,7 @@ import { marketsApi } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
 import type { AssetClass, MarketWithEconomics } from "@lemon/core";
 import { formatFundingApr, formatUsd } from "@lemon/core";
+import { isLayer1Or2 } from "@lemon/registry";
 import * as Popover from "@radix-ui/react-popover";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronsUpDown, Search, Star } from "lucide-react";
@@ -31,6 +32,8 @@ import { useNavigate } from "react-router";
 type Filter =
 	| "all"
 	| "favourites"
+	| "spot"
+	| "layer1"
 	| "crypto"
 	| "equities"
 	| "forex"
@@ -42,6 +45,11 @@ type Filter =
 const FILTERS: { value: Filter; label: string }[] = [
 	{ value: "all", label: "All" },
 	{ value: "favourites", label: "Favorites" },
+	// Two cross-cutting filters, sitting before the asset classes because they
+	// answer questions the class list cannot: "what can I also hold?" and
+	// "which of these are chains?"
+	{ value: "spot", label: "Spot" },
+	{ value: "layer1", label: "L1 / L2" },
 	{ value: "crypto", label: "Crypto" },
 	{ value: "equities", label: "Equities" },
 	{ value: "forex", label: "Forex" },
@@ -221,6 +229,10 @@ export function MarketSelector({
 
 		const filtered = (data?.markets ?? []).filter((market) => {
 			if (filter === "favourites" && !favourites.includes(market.symbol)) return false;
+			// Markets you can also hold outright — the ones a carry can be built
+			// from, and the only ones where "Spot" in the chart tab does anything.
+			if (filter === "spot" && !spotSymbols.has(market.symbol)) return false;
+			if (filter === "layer1" && !isLayer1Or2(market.base)) return false;
 			const classes = CLASS_FOR[filter];
 			if (classes && !classes.includes(market.assetClass)) return false;
 
@@ -243,7 +255,7 @@ export function MarketSelector({
 			const delta = value(a) - value(b);
 			return sort.direction === "asc" ? delta : -delta;
 		});
-	}, [data, filter, query, favourites, sort]);
+	}, [data, filter, query, favourites, sort, spotSymbols]);
 
 	function choose(symbol: string) {
 		setOpen(false);
