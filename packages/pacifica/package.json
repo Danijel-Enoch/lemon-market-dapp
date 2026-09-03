@@ -1,0 +1,19 @@
+{
+	"name": "@lemon/pacifica",
+	"version": "0.2.0",
+	"type": "module",
+	"private": true,
+	"main": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@lemon/core": "workspace:*",
+		"@noble/curves": "^2.0.1",
+		"@scure/base": "^2.0.0"
+	}
+}
