@@ -2,6 +2,7 @@ import { PacificaPositions } from "@app/components/account/PacificaHoldings";
 import { PriceChart } from "@app/components/chart/PriceChart";
 import { Callout } from "@app/components/common/Callout";
 import { MarketHoursBadge } from "@app/components/common/MarketHours";
+import { StatInline } from "@app/components/pons/StatCard";
 import { SpotLimitOrders } from "@app/components/spot/SpotLimitOrders";
 import { SpotTradePanel } from "@app/components/spot/SpotTradePanel";
 import { MarketSelector } from "@app/components/trade/MarketSelector";
@@ -53,7 +54,7 @@ export default function TradeTerminalPage() {
 
 	if (isLoading) {
 		return (
-			<div className="grid gap-2 lg:grid-cols-[1fr_301px]">
+			<div className="grid gap-3 lg:grid-cols-[1fr_320px]">
 				<Skeleton className="h-[520px]" />
 				<Skeleton className="h-[520px]" />
 			</div>
@@ -65,7 +66,7 @@ export default function TradeTerminalPage() {
 			<Callout tone="warning" title="Market not found">
 				<p>
 					No market matches “{symbol}”.{" "}
-					<Link to="/trade" className="underline">
+					<Link to="/trade" className="font-semibold text-[var(--pon-lime)] underline">
 						Back to markets
 					</Link>
 					.
@@ -105,13 +106,13 @@ export default function TradeTerminalPage() {
 	);
 
 	return (
-		<div className="space-y-2 pb-28 md:pb-0">
+		<div className="space-y-3 pb-28 md:pb-0">
 			{/*
 			  Header: the market pill sits outside the readout strip, and the
 			  strip itself scrolls horizontally rather than wrapping — so the
 			  row keeps one height no matter how many figures it carries.
 			*/}
-			<div className="flex flex-col gap-2 md:flex-row md:items-stretch">
+			<div className="flex flex-col gap-3 md:flex-row md:items-stretch">
 				<div className="shrink-0">
 					<MarketSelector
 						current={{
@@ -123,12 +124,9 @@ export default function TradeTerminalPage() {
 					/>
 				</div>
 
-				<div className="flex min-w-0 flex-1 items-center gap-8 overflow-x-auto rounded-lg bg-[var(--surface-3)] px-4 py-2.5 scrollbar-hide md:h-14">
+				<div className="flex min-w-0 flex-1 items-center gap-7 overflow-x-auto rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4 py-3 scrollbar-hide md:h-[58px]">
 					{mark !== null && (
-						<div className="min-w-fit">
-							<p className="mb-1 t-caption text-[var(--ink-2)]">Price</p>
-							<p className="font-fono t-label text-[var(--ink-1)]">{formatUsd(mark)}</p>
-						</div>
+						<StatInline className="min-w-fit" label="Price" value={formatUsd(mark)} />
 					)}
 
 					{/*
@@ -142,23 +140,27 @@ export default function TradeTerminalPage() {
 						<>
 							<div className="min-w-fit">
 								<p
-									className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)] underline decoration-dashed underline-offset-2"
+									className="whitespace-nowrap t-micro text-[var(--pon-fg-3)] underline decoration-dashed underline-offset-2"
 									title="Perp funding, annualised. Positive means that side receives funding."
 								>
 									Net Rate (L/S)
 								</p>
-								<p className="font-fono t-label">
+								<p className="font-fono mt-0.5 text-[12.5px] font-semibold">
 									<span
 										className={
-											market.fundingLongPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"
+											market.fundingLongPercentPerHour >= 0
+												? "text-[var(--pon-up)]"
+												: "text-[var(--pon-down)]"
 										}
 									>
 										{formatFundingApr(market.fundingLongPercentPerHour)}
 									</span>
-									<span className="text-[var(--ink-2)]"> / </span>
+									<span className="text-[var(--pon-fg-3)]"> / </span>
 									<span
 										className={
-											market.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400"
+											market.fundingShortPercentPerHour >= 0
+												? "text-[var(--pon-up)]"
+												: "text-[var(--pon-down)]"
 										}
 									>
 										{formatFundingApr(market.fundingShortPercentPerHour)}
@@ -166,38 +168,33 @@ export default function TradeTerminalPage() {
 								</p>
 							</div>
 
-							<div className="min-w-fit">
-								<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">
-									Open interest
-								</p>
-								<p className="font-fono t-label text-[var(--ink-1)]">
-									{formatUsd(market.openInterest, { compact: true })}
-								</p>
-							</div>
+							<StatInline
+								className="min-w-fit whitespace-nowrap"
+								label="Open interest"
+								value={formatUsd(market.openInterest, { compact: true })}
+							/>
 
-							<div className="min-w-fit">
-								<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">
-									Available liquidity
-								</p>
-								<p className="font-fono t-label text-[var(--ink-1)]">
-									{formatUsd(market.availableOpenInterest, { compact: true })}
-								</p>
-							</div>
+							<StatInline
+								className="min-w-fit whitespace-nowrap"
+								label="Available liquidity"
+								value={formatUsd(market.availableOpenInterest, { compact: true })}
+							/>
 
-							<div className="min-w-fit">
-								<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">Max leverage</p>
-								<p className="font-fono t-label text-[var(--ink-1)]">{market.maxLeverage}x</p>
-							</div>
+							<StatInline
+								className="min-w-fit whitespace-nowrap"
+								label="Max leverage"
+								value={`${market.maxLeverage}x`}
+							/>
 						</>
 					) : (
 						<div className="min-w-fit">
 							<p
-								className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)] underline decoration-dashed underline-offset-2"
+								className="whitespace-nowrap t-micro text-[var(--pon-fg-3)] underline decoration-dashed underline-offset-2"
 								title="Measured cost of crossing the pool on a $100 trade."
 							>
 								Spot impact / $100
 							</p>
-							<p className="font-fono t-label text-amber-400">
+							<p className="font-fono mt-0.5 text-[12.5px] font-semibold text-[var(--pon-amber)]">
 								{spotToken?.buyPriceImpactPercent !== null &&
 								spotToken?.buyPriceImpactPercent !== undefined
 									? formatPercent(spotToken.buyPriceImpactPercent)
@@ -211,7 +208,7 @@ export default function TradeTerminalPage() {
 						{spotToken && (
 							<Link
 								to="/carry"
-								className="whitespace-nowrap rounded-full border border-lime-500/30 px-2.5 py-1 t-micro text-lime-400 transition-colors hover:bg-lime-500/10"
+								className="whitespace-nowrap rounded-full border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2.5 py-1 t-micro font-semibold text-[var(--pon-lime)] transition-colors hover:bg-[var(--pon-lime)]/20"
 							>
 								Carry available
 							</Link>
@@ -228,13 +225,13 @@ export default function TradeTerminalPage() {
 				</Callout>
 			)}
 
-			<div className="grid gap-2 lg:grid-cols-[1fr_301px]">
-				<div className="space-y-2">
-					<div className="overflow-hidden rounded-lg bg-[var(--surface-3)]">
+			<div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+				<div className="space-y-3">
+					<div className="overflow-hidden rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)]">
 						<PriceChart symbol={market.symbol} />
 					</div>
 
-					<div className="rounded-lg bg-[var(--surface-3)] p-3">
+					<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4">
 						<Tabs value={panel} onValueChange={(value) => setPanel(value as Panel)}>
 							<TabsList>
 								<TabsTrigger value="positions">Positions</TabsTrigger>
@@ -242,19 +239,19 @@ export default function TradeTerminalPage() {
 							</TabsList>
 						</Tabs>
 
-						<div className="mt-3">
+						<div className="mt-4">
 							{panel === "positions" ? <PacificaPositions /> : <SpotLimitOrders />}
 						</div>
 					</div>
 				</div>
 
 				{/* Desktop: order entry alongside the chart. */}
-				<aside className="hidden lg:sticky lg:top-[72px] lg:block lg:self-start">
-					<div className="flex flex-col gap-3 rounded-lg bg-[var(--surface-3)] p-3">
+				<aside className="hidden lg:sticky lg:top-[92px] lg:block lg:self-start">
+					<div className="flex flex-col gap-3.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-3.5">
 						{venueToggle}
 						{orderPanel}
 						{!spotToken && (
-							<p className="text-center t-micro text-[var(--ink-2)]">
+							<p className="text-center t-micro text-[var(--pon-fg-3)]">
 								No spot market — {market.base} has no routable token on Base.
 							</p>
 						)}

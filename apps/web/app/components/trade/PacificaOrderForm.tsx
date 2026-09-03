@@ -1,5 +1,7 @@
 import { OnboardingPanel } from "@app/components/account/OnboardingPanel";
 import { Callout } from "@app/components/common/Callout";
+import { DetailRow } from "@app/components/pons/Feed";
+import { ChipGroup } from "@app/components/pons/Segmented";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
@@ -14,6 +16,9 @@ import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 type OrderType = "market" | "limit";
+
+/** The notionals a ticket is usually written for. */
+const QUICK_SIZES = ["100", "500", "1000", "5000"] as const;
 
 /**
  * The Pacifica order ticket.
@@ -109,13 +114,13 @@ export function PacificaOrderForm({
 	}
 
 	return (
-		<div className="space-y-4 rounded-lg border-[var(--line-soft)] bg-[var(--surface-3)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
+		<div className="space-y-4 rounded-[var(--pon-r-md)] border-[var(--pon-line)] bg-[var(--pon-surface)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
 			<Tabs value={side} onValueChange={(value) => setSide(value as "long" | "short")}>
 				<TabsList className="w-full">
-					<TabsTrigger value="long" className="flex-1 data-[state=active]:text-lime-400">
+					<TabsTrigger value="long" className="flex-1 data-[state=active]:text-[var(--pon-lime)]">
 						Long
 					</TabsTrigger>
-					<TabsTrigger value="short" className="flex-1 data-[state=active]:text-red-400">
+					<TabsTrigger value="short" className="flex-1 data-[state=active]:text-[var(--pon-down)]">
 						Short
 					</TabsTrigger>
 				</TabsList>
@@ -141,6 +146,17 @@ export function PacificaOrderForm({
 					onChange={(event) => setNotionalInput(event.target.value)}
 					placeholder="100"
 				/>
+				{/*
+				  Pons offers the common sizes as chips beside the field rather than
+				  behind a stepper — most tickets are one of four numbers, and typing
+				  them is the slow path.
+				*/}
+				<ChipGroup
+					options={QUICK_SIZES}
+					value={notionalInput}
+					onChange={setNotionalInput}
+					aria-label="Quick order size"
+				/>
 			</div>
 
 			{orderType === "limit" && (
@@ -159,7 +175,7 @@ export function PacificaOrderForm({
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
 					<Label htmlFor="leverage">Leverage</Label>
-					<span className="font-fono text-sm text-lime-400">{leverage}x</span>
+					<span className="font-fono text-sm text-[var(--pon-lime)]">{leverage}x</span>
 				</div>
 				<Slider
 					id="leverage"
@@ -169,7 +185,7 @@ export function PacificaOrderForm({
 					value={[leverage]}
 					onValueChange={([value]) => setLeverage(value)}
 				/>
-				<div className="flex justify-between text-[11px] text-white/35">
+				<div className="flex justify-between t-micro text-[var(--pon-fg-4)]">
 					<span>1x</span>
 					<span>{maxLeverage}x max</span>
 				</div>
@@ -187,44 +203,27 @@ export function PacificaOrderForm({
 				</div>
 			)}
 
-			<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
-				<div className="flex justify-between">
-					<dt className="text-[var(--ink-2)]">Size</dt>
-					<dd className="font-fono">
-						{size > 0 ? `${size.toFixed(decimalsFor(lotSize))} ${market.base}` : "—"}
-					</dd>
-				</div>
-				<div className="flex justify-between">
-					<dt className="text-[var(--ink-2)]">Notional</dt>
-					<dd className="font-fono">{formatUsd(effectiveNotional)}</dd>
-				</div>
-				<div className="flex justify-between">
-					<dt className="text-[var(--ink-2)]">Margin required</dt>
-					<dd className="font-fono">{formatUsd(marginRequired)}</dd>
-				</div>
-				<div className="flex justify-between">
-					<dt className="text-[var(--ink-2)]">Available</dt>
-					<dd className="font-fono text-[var(--ink-2)]">{formatUsd(available)}</dd>
-				</div>
-				<div className="flex justify-between">
-					<dt className="text-[var(--ink-2)]">Funding on this side (APR)</dt>
-					<dd
-						className={cn(
-							"font-fono",
-							(side === "long"
-								? market.fundingLongPercentPerHour
-								: market.fundingShortPercentPerHour) >= 0
-								? "text-lime-400"
-								: "text-red-400",
-						)}
-					>
-						{formatFundingApr(
-							side === "long"
-								? market.fundingLongPercentPerHour
-								: market.fundingShortPercentPerHour,
-						)}
-					</dd>
-				</div>
+			<dl className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
+				<DetailRow
+					label="Size"
+					value={size > 0 ? `${size.toFixed(decimalsFor(lotSize))} ${market.base}` : "—"}
+				/>
+				<DetailRow label="Notional" value={formatUsd(effectiveNotional)} />
+				<DetailRow label="Margin required" value={formatUsd(marginRequired)} />
+				<DetailRow label="Available" value={formatUsd(available)} />
+				<DetailRow
+					label="Funding on this side (APR)"
+					value={formatFundingApr(
+						side === "long" ? market.fundingLongPercentPerHour : market.fundingShortPercentPerHour,
+					)}
+					tone={
+						(side === "long"
+							? market.fundingLongPercentPerHour
+							: market.fundingShortPercentPerHour) >= 0
+							? "positive"
+							: "negative"
+					}
+				/>
 			</dl>
 
 			{problems.length > 0 && notional > 0 && (
@@ -241,17 +240,18 @@ export function PacificaOrderForm({
 				type="button"
 				onClick={handleSubmit}
 				disabled={!canSubmit}
+				size="lg"
 				className={cn(
-					"w-full font-semibold",
+					"w-full rounded-[var(--pon-r-sm)] font-bold",
 					side === "long"
-						? "bg-lime-500 text-black hover:bg-lime-400"
-						: "bg-red-500 text-white hover:bg-red-400",
+						? "bg-[var(--pon-lime)] text-[var(--pon-on-lime)] hover:bg-[var(--pon-lime-2)]"
+						: "bg-[var(--pon-down)] text-white hover:bg-[var(--pon-down)]/85",
 				)}
 			>
 				{isBusy ? "Placing…" : `${side === "long" ? "Long" : "Short"} ${market.base}`}
 			</Button>
 
-			<p className="text-center text-[11px] text-white/35">
+			<p className="text-center t-micro text-[var(--pon-fg-4)]">
 				Signed by your authorised agent key — no wallet prompt, no gas.
 			</p>
 		</div>

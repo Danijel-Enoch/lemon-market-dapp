@@ -80,7 +80,7 @@ export function ScrollProgress() {
 		<motion.div
 			aria-hidden
 			style={{ scaleX: width }}
-			className="fixed inset-x-0 top-0 z-[80] h-0.5 origin-left bg-gradient-to-r from-lime-500 to-lime-300"
+			className="fixed inset-x-0 top-0 z-[80] h-0.5 origin-left bg-[var(--pon-lime)]"
 		/>
 	);
 }
@@ -349,7 +349,7 @@ export function Marquee({
 }
 
 /**
- * The blurred radial bloom the reference design parks behind hero art and section headings.
+ * The blurred radial bloom parked behind hero art and section headings.
  * Purely decorative, so it never takes pointer events or a11y presence.
  */
 export function GlowOrb({ className, breathe = true }: { className?: string; breathe?: boolean }) {
@@ -357,7 +357,7 @@ export function GlowOrb({ className, breathe = true }: { className?: string; bre
 		<div
 			aria-hidden
 			className={cn(
-				"pointer-events-none absolute rounded-full bg-lime-500/20 blur-[100px]",
+				"pointer-events-none absolute rounded-full bg-[var(--pon-lime)]/20 blur-[100px]",
 				breathe && "animate-glow-breathe",
 				className,
 			)}

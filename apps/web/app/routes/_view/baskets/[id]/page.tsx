@@ -2,6 +2,8 @@ import { PacificaPositions } from "@app/components/account/PacificaHoldings";
 import { IndexChart } from "@app/components/chart/IndexChart";
 import { Callout } from "@app/components/common/Callout";
 import { MarketLogo } from "@app/components/common/MarketLogo";
+import { DetailRow } from "@app/components/pons/Feed";
+import { StatInline } from "@app/components/pons/StatCard";
 import { BasketSelector } from "@app/components/trade/BasketSelector";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
@@ -31,11 +33,11 @@ type Venue = "perp" | "spot" | "carry";
 type Panel = "constituents" | "positions";
 
 const LEG_ICONS = {
-	pending: <Minus size={13} className="text-white/35" aria-hidden />,
-	running: <Loader2 size={13} className="animate-spin text-amber-400" aria-hidden />,
-	filled: <Check size={13} className="text-lime-400" aria-hidden />,
-	failed: <X size={13} className="text-red-400" aria-hidden />,
-	skipped: <Minus size={13} className="text-white/35" aria-hidden />,
+	pending: <Minus size={13} className="text-[var(--pon-fg-4)]" aria-hidden />,
+	running: <Loader2 size={13} className="animate-spin text-[var(--pon-amber)]" aria-hidden />,
+	filled: <Check size={13} className="text-[var(--pon-lime)]" aria-hidden />,
+	failed: <X size={13} className="text-[var(--pon-down)]" aria-hidden />,
+	skipped: <Minus size={13} className="text-[var(--pon-fg-4)]" aria-hidden />,
 };
 
 export default function BasketPage() {
@@ -75,7 +77,7 @@ export default function BasketPage() {
 		enabled: Boolean(id) && totalUsd > 0,
 	});
 
-	if (isLoading) return <Skeleton className="h-[560px] w-full rounded-lg" />;
+	if (isLoading) return <Skeleton className="h-[560px] w-full" />;
 	if (!basket) {
 		return (
 			<Callout tone="warning" title="Basket not found">
@@ -139,10 +141,13 @@ export default function BasketPage() {
 			{venue === "perp" && (
 				<Tabs value={side} onValueChange={(value) => setSide(value as "long" | "short")}>
 					<TabsList className="w-full">
-						<TabsTrigger value="long" className="flex-1 data-[state=active]:text-lime-400">
+						<TabsTrigger value="long" className="flex-1 data-[state=active]:text-[var(--pon-lime)]">
 							Long all
 						</TabsTrigger>
-						<TabsTrigger value="short" className="flex-1 data-[state=active]:text-red-400">
+						<TabsTrigger
+							value="short"
+							className="flex-1 data-[state=active]:text-[var(--pon-down)]"
+						>
 							Short all
 						</TabsTrigger>
 					</TabsList>
@@ -157,7 +162,7 @@ export default function BasketPage() {
 					value={total}
 					onChange={(event) => setTotal(event.target.value)}
 				/>
-				<p className="text-[11px] text-white/35">
+				<p className="t-micro text-[var(--pon-fg-4)]">
 					Split equally across {basket.legs.length} legs
 					{plan ? ` — ${formatUsd(plan.legs[0]?.notionalUsd ?? 0)} each` : ""}.
 				</p>
@@ -167,7 +172,9 @@ export default function BasketPage() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<Label htmlFor="basket-lev">{venue === "carry" ? "Short leverage" : "Leverage"}</Label>
-						<span className="font-fono text-sm text-lime-400">{leverage}x</span>
+						<span className="font-fono text-sm font-semibold text-[var(--pon-lime)]">
+							{leverage}x
+						</span>
 					</div>
 					<Slider
 						id="basket-lev"
@@ -177,24 +184,16 @@ export default function BasketPage() {
 						value={[leverage]}
 						onValueChange={([value]) => setLeverage(value)}
 					/>
-					<p className="text-[11px] text-white/35">
+					<p className="t-micro text-[var(--pon-fg-4)]">
 						Capped at {maxLeverage}x by the most constrained leg.
 					</p>
 				</div>
 			)}
 
 			{plan && (
-				<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
-					<div className="flex justify-between">
-						<dt className="text-[var(--ink-2)]">Legs entered</dt>
-						<dd className="font-fono">
-							{plan.tradableLegs} of {plan.legs.length}
-						</dd>
-					</div>
-					<div className="flex justify-between">
-						<dt className="text-[var(--ink-2)]">Deployed</dt>
-						<dd className="font-fono">{formatUsd(plan.effectiveUsd)}</dd>
-					</div>
+				<dl className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
+					<DetailRow label="Legs entered" value={`${plan.tradableLegs} of ${plan.legs.length}`} />
+					<DetailRow label="Deployed" value={formatUsd(plan.effectiveUsd)} />
 				</dl>
 			)}
 
@@ -207,12 +206,12 @@ export default function BasketPage() {
 			{/* Per-leg progress. A basket is N separate trades, so partial
 			    outcomes are shown leg by leg rather than as one status. */}
 			{trade.progress.length > 0 && (
-				<ul className="space-y-1 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3">
+				<ul className="space-y-1.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-3.5">
 					{trade.progress.map((leg) => (
-						<li key={leg.ticker} className="flex items-center gap-2 text-xs">
+						<li key={leg.ticker} className="flex items-center gap-2 t-caption">
 							{LEG_ICONS[leg.state]}
-							<span className="font-medium">{leg.ticker}</span>
-							<span className="ml-auto truncate text-[var(--ink-2)]">
+							<span className="font-semibold text-[var(--pon-fg)]">{leg.ticker}</span>
+							<span className="ml-auto truncate text-[var(--pon-fg-3)]">
 								{leg.state === "skipped" ? (leg.error ?? "skipped") : leg.state}
 							</span>
 						</li>
@@ -224,11 +223,12 @@ export default function BasketPage() {
 				type="button"
 				onClick={handleEnter}
 				disabled={!isConnected || trade.running || !plan?.tradableLegs}
+				size="lg"
 				className={cn(
-					"w-full font-semibold",
+					"w-full rounded-[var(--pon-r-sm)] font-bold",
 					venue === "perp" && side === "short"
-						? "bg-red-500 text-white hover:bg-red-400"
-						: "bg-lime-500 text-black hover:bg-lime-400",
+						? "bg-[var(--pon-down)] text-white hover:bg-[var(--pon-down)]/85"
+						: "bg-[var(--pon-lime)] text-[var(--pon-on-lime)] hover:bg-[var(--pon-lime-2)]",
 				)}
 			>
 				{!isConnected
@@ -244,14 +244,14 @@ export default function BasketPage() {
 				<Callout tone="info">
 					Each leg is a full cash-and-carry: buy the token, short the matching perp. That is two
 					transactions per leg, and any leg whose short fails is recorded so you can repair it from{" "}
-					<Link to="/carry" className="underline">
+					<Link to="/carry" className="font-semibold text-[var(--pon-lime)] underline">
 						Cash &amp; Carry
 					</Link>
 					.
 				</Callout>
 			)}
 
-			<p className="text-center text-[11px] text-white/35">
+			<p className="text-center t-micro text-[var(--pon-fg-4)]">
 				{/* Perp legs are placed with your agent key, so only spot legs
 				    ever reach the wallet. */}
 				{venue === "carry"
@@ -264,23 +264,23 @@ export default function BasketPage() {
 	);
 
 	return (
-		<div className="space-y-2 pb-28 md:pb-0">
+		<div className="space-y-3 pb-28 md:pb-0">
 			{/* Header mirrors the trade terminal: selector, then a scrolling strip. */}
-			<div className="flex flex-col gap-2 md:flex-row md:items-stretch">
+			<div className="flex flex-col gap-3 md:flex-row md:items-stretch">
 				<div className="shrink-0">
 					<BasketSelector current={basket} />
 				</div>
 
-				<div className="flex min-w-0 flex-1 items-center gap-8 overflow-x-auto rounded-lg bg-[var(--surface-3)] px-4 py-2.5 scrollbar-hide md:h-14">
+				<div className="flex min-w-0 flex-1 items-center gap-7 overflow-x-auto rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4 py-3 scrollbar-hide md:h-[58px]">
 					<div className="min-w-fit">
-						<p className="mb-1 t-caption text-[var(--ink-2)]">Index</p>
-						<p className="font-fono t-label text-[var(--ink-1)]">
+						<p className="t-micro text-[var(--pon-fg-3)]">Index</p>
+						<p className="font-fono mt-0.5 text-[12.5px] font-semibold text-[var(--pon-fg)]">
 							{index?.points.length ? index.points[index.points.length - 1].value.toFixed(2) : "—"}
 							{index?.points.length ? (
 								<span
 									className={cn(
 										"ml-2",
-										index.changePercent >= 0 ? "text-lime-400" : "text-red-400",
+										index.changePercent >= 0 ? "text-[var(--pon-up)]" : "text-[var(--pon-down)]",
 									)}
 								>
 									{formatPercent(index.changePercent)}
@@ -289,27 +289,26 @@ export default function BasketPage() {
 						</p>
 					</div>
 
-					<div className="min-w-fit">
-						<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">Legs</p>
-						<p className="whitespace-nowrap font-fono t-label text-[var(--ink-1)]">
-							{basket.perpLegCount} perp · {basket.routabilityKnown ? basket.spotLegCount : "…"}{" "}
-							spot
-						</p>
-					</div>
+					<StatInline
+						className="min-w-fit whitespace-nowrap"
+						label="Legs"
+						value={`${basket.perpLegCount} perp · ${basket.routabilityKnown ? basket.spotLegCount : "…"} spot`}
+					/>
 
-					<div className="min-w-fit">
-						<p className="mb-1 whitespace-nowrap t-caption text-[var(--ink-2)]">Max leverage</p>
-						<p className="font-fono t-label text-[var(--ink-1)]">{maxLeverage}x</p>
-					</div>
+					<StatInline
+						className="min-w-fit whitespace-nowrap"
+						label="Max leverage"
+						value={`${maxLeverage}x`}
+					/>
 
 					<div className="ml-auto flex min-w-fit items-center gap-2 pl-4">
-						<span className="whitespace-nowrap rounded-full border border-[var(--line-soft)] px-2.5 py-1 t-micro text-[var(--ink-2)]">
+						<span className="whitespace-nowrap rounded-full border border-[var(--pon-line)] px-2.5 py-1 t-micro text-[var(--pon-fg-3)]">
 							Equal weight
 						</span>
 						{basket.spotLegCount > 0 && (
 							<Link
 								to="/carry"
-								className="whitespace-nowrap rounded-full border border-lime-500/30 px-2.5 py-1 t-micro text-lime-400 transition-colors hover:bg-lime-500/10"
+								className="whitespace-nowrap rounded-full border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2.5 py-1 t-micro font-semibold text-[var(--pon-lime)] transition-colors hover:bg-[var(--pon-lime)]/20"
 							>
 								Carry available
 							</Link>
@@ -326,9 +325,9 @@ export default function BasketPage() {
 				</Callout>
 			)}
 
-			<div className="grid gap-2 lg:grid-cols-[1fr_301px]">
-				<div className="space-y-2">
-					<div className="overflow-hidden rounded-lg bg-[var(--surface-3)]">
+			<div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+				<div className="space-y-3">
+					<div className="overflow-hidden rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)]">
 						<IndexChart basketId={basket.id} name={basket.name} />
 					</div>
 
@@ -342,14 +341,14 @@ export default function BasketPage() {
 					{panel === "positions" ? (
 						<PacificaPositions />
 					) : (
-						<div className="overflow-hidden rounded-lg border border-[var(--line-soft)]">
-							<table className="w-full text-sm">
-								<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
+						<div className="overflow-hidden rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4 pb-2 pt-4">
+							<table className="w-full text-[13px]">
+								<thead className="border-b border-[var(--pon-line)] text-left text-[11px] uppercase tracking-[0.05em] text-[var(--pon-fg-3)]">
 									<tr>
-										<th className="px-4 py-3 font-medium">Constituent</th>
-										<th className="px-4 py-3 font-medium">Weight</th>
-										<th className="px-4 py-3 font-medium">Perp</th>
-										<th className="px-4 py-3 font-medium">Spot</th>
+										<th className="px-3 pb-2.5 font-normal">Constituent</th>
+										<th className="px-3 pb-2.5 font-normal">Weight</th>
+										<th className="px-3 pb-2.5 font-normal">Perp</th>
+										<th className="px-3 pb-2.5 font-normal">Spot</th>
 										{/*
 										  Funding is a perp mechanic. A spot basket is just a
 										  batch of token purchases with no ongoing rate, so the
@@ -358,7 +357,7 @@ export default function BasketPage() {
 										*/}
 										{venue !== "spot" && (
 											<th
-												className="px-4 py-3 font-medium"
+												className="px-3 pb-2.5 font-normal"
 												title="Perp funding, annualised. Positive means the short side receives funding."
 											>
 												Funding (short, APR)
@@ -366,13 +365,13 @@ export default function BasketPage() {
 										)}
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-[var(--line-soft)]">
+								<tbody className="divide-y divide-[var(--pon-line)]">
 									{basket.legs.map((leg) => (
-										<tr key={leg.ticker}>
-											<td className="px-4 py-3">
+										<tr key={leg.ticker} className="transition-colors hover:bg-[var(--pon-bg-2)]">
+											<td className="px-3 py-3">
 												<Link
 													to={`/trade/${leg.marketSymbol.replace("/", "-")}`}
-													className="inline-flex items-center gap-2 hover:text-lime-400"
+													className="inline-flex items-center gap-2 hover:text-[var(--pon-lime)]"
 												>
 													<MarketLogo
 														symbol={leg.marketSymbol}
@@ -384,30 +383,32 @@ export default function BasketPage() {
 													{leg.ticker}
 												</Link>
 											</td>
-											<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
+											<td className="font-fono px-3 py-3 text-[var(--pon-fg-2)]">
 												{(100 / basket.legs.length).toFixed(0)}%
 											</td>
-											<td className="px-4 py-3">
+											<td className="px-3 py-3">
 												{leg.perpAvailable ? (
-													<span className="text-lime-400">✓</span>
+													<span className="text-[var(--pon-lime)]">✓</span>
 												) : (
-													<span className="text-white/35">—</span>
+													<span className="text-[var(--pon-fg-4)]">—</span>
 												)}
 											</td>
-											<td className="px-4 py-3">
+											<td className="px-3 py-3">
 												{leg.spotAvailable ? (
-													<span className="text-lime-400">{leg.spotSymbol}</span>
+													<span className="text-[var(--pon-lime)]">{leg.spotSymbol}</span>
 												) : leg.spotPending ? (
-													<span className="text-[var(--ink-2)]">checking…</span>
+													<span className="text-[var(--pon-fg-3)]">checking…</span>
 												) : (
-													<span className="text-white/35">—</span>
+													<span className="text-[var(--pon-fg-4)]">—</span>
 												)}
 											</td>
 											{venue !== "spot" && (
 												<td
 													className={cn(
-														"px-4 py-3 font-fono text-xs",
-														leg.fundingShortPercentPerHour >= 0 ? "text-lime-400" : "text-red-400",
+														"font-fono px-3 py-3 text-xs",
+														leg.fundingShortPercentPerHour >= 0
+															? "text-[var(--pon-up)]"
+															: "text-[var(--pon-down)]",
 													)}
 												>
 													{formatFundingApr(leg.fundingShortPercentPerHour)}
@@ -421,8 +422,10 @@ export default function BasketPage() {
 					)}
 				</div>
 
-				<aside className="hidden lg:sticky lg:top-[72px] lg:block lg:self-start">
-					<div className="rounded-lg bg-[var(--surface-3)] p-3">{orderPanel}</div>
+				<aside className="hidden lg:sticky lg:top-[92px] lg:block lg:self-start">
+					<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-3.5">
+						{orderPanel}
+					</div>
 				</aside>
 			</div>
 

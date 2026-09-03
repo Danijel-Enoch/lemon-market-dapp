@@ -149,7 +149,7 @@ export function DataTable<T>({
 					<div className="flex-none w-full sm:w-auto flex items-center gap-2">
 						{showChainFilter && chainOptions.length > 0 && (
 							<Select value={chainFilter} onValueChange={onChainChange}>
-								<SelectTrigger className="w-[120px] bg-transparent border-0 border-r rounded-none hover:text-[#a3e635] focus:ring-0 shadow-none py-6">
+								<SelectTrigger className="w-[120px] bg-transparent border-0 border-r rounded-none hover:text-[var(--pon-lime)] focus:ring-0 shadow-none py-6">
 									<SelectValue placeholder="Chain" />
 								</SelectTrigger>
 								<SelectContent>
@@ -172,7 +172,7 @@ export function DataTable<T>({
 										<TabsTrigger
 											key={tab.key}
 											value={tab.key}
-											className="text-sm font-medium px-3 py-2 -mb-px hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#a3e635] data-[state=active]:text-[#a3e635] rounded-none shadow-none"
+											className="text-sm font-medium px-3 py-2 -mb-px hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[var(--pon-lime)] data-[state=active]:text-[var(--pon-lime)] rounded-none shadow-none"
 										>
 											{tab.label}
 										</TabsTrigger>
@@ -195,7 +195,7 @@ export function DataTable<T>({
 											{columns.map((col) => (
 												<th
 													key={col.key}
-													className={`px-4 py-3 text-[#BFC7C7] font-semibold text-xs uppercase tracking-wider ${
+													className={`px-4 py-3 text-[var(--pon-fg-3)] font-normal text-[11px] uppercase tracking-[0.05em] ${
 														alignmentClasses[col.headerAlign || "left"]
 													} ${col.width || ""}`}
 												>
@@ -261,7 +261,7 @@ export function DataTable<T>({
 			</div>
 
 			{footer && (
-				<div className="border-t border-[#222222] bg-[#060606] p-3 flex items-center justify-between text-sm text-[#9AA0A0] mb-16 lg:mb-10">
+				<div className="border-t border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-3 flex items-center justify-between text-[13px] text-[var(--pon-fg-3)] mb-16 lg:mb-10">
 					{footer}
 				</div>
 			)}

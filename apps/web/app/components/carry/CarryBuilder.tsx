@@ -1,5 +1,6 @@
 import { Callout } from "@app/components/common/Callout";
-import { StatTile, toneForValue } from "@app/components/common/StatTile";
+import { DetailRow } from "@app/components/pons/Feed";
+import { StatCard, toneForValue } from "@app/components/pons/StatCard";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
@@ -90,12 +91,12 @@ export function CarryBuilder() {
 								onClick={() => setSymbol(candidate.symbol)}
 								className={
 									candidate.symbol === activeSymbol
-										? "rounded-lg border border-lime-500/50 bg-lime-500/10 px-3 py-2 text-sm text-lime-300"
-										: "rounded-lg border border-[var(--line-soft)] px-3 py-2 text-sm text-[var(--ink-1)] hover:border-white/25"
+										? "rounded-full border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-3.5 py-2 text-[13px] font-semibold text-[var(--pon-lime)]"
+										: "rounded-full border border-[var(--pon-line)] px-3.5 py-2 text-[13px] text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)]"
 								}
 							>
 								{candidate.symbol}
-								<span className="ml-1.5 text-[11px] text-[var(--ink-2)]">
+								<span className="ml-1.5 t-micro text-[var(--pon-fg-3)]">
 									{candidate.marketSymbol}
 								</span>
 							</button>
@@ -104,7 +105,7 @@ export function CarryBuilder() {
 				</div>
 
 				{candidates.unavailable.length > 0 && (
-					<p className="text-xs text-white/35">
+					<p className="t-caption text-[var(--pon-fg-4)]">
 						Not available: {candidates.unavailable.map((item) => item.symbol).join(", ")} — no spot
 						buy route yet.
 					</p>
@@ -112,69 +113,59 @@ export function CarryBuilder() {
 
 				{plan && (
 					<>
-						<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-							<StatTile
+						<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+							<StatCard
 								label="Net APY"
 								value={formatPercent(plan.plan.netApyPercent)}
-								hint="after all costs"
+								delta="after all costs"
 								tone={toneForValue(plan.plan.netApyPercent)}
 							/>
-							<StatTile
+							<StatCard
 								label="Funding APY"
 								value={formatPercent(plan.plan.fundingApyPercent)}
-								hint="before costs"
+								delta="before costs"
 								tone={toneForValue(plan.plan.fundingApyPercent)}
 							/>
-							<StatTile
+							<StatCard
 								label="Capital needed"
 								value={formatUsd(plan.plan.totalCapitalUsd)}
-								hint="spot + margin"
+								delta="spot + margin"
 							/>
-							<StatTile
+							<StatCard
 								label="Round-trip cost"
 								value={formatUsd(plan.plan.roundTripCostUsd)}
-								hint="in and out"
+								delta="in and out"
 							/>
 						</div>
 
-						<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4 text-sm">
-							<h3 className="mb-3 font-medium">Position structure</h3>
-							<dl className="space-y-2">
-								<div className="flex justify-between">
-									<dt className="text-[var(--ink-2)]">Buy {plan.tokenSymbol} spot</dt>
-									<dd className="font-fono">{formatUsd(plan.plan.spotCostUsd)}</dd>
+						<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+							<h3 className="pon-section-label mb-3">Position structure</h3>
+							<dl>
+								<DetailRow
+									label={`Buy ${plan.tokenSymbol} spot`}
+									value={formatUsd(plan.plan.spotCostUsd)}
+								/>
+								<DetailRow
+									label={`Short ${plan.marketSymbol} @ ${plan.plan.perpLeverage}x`}
+									value={`${formatUsd(plan.plan.perpCollateralUsd)} margin`}
+								/>
+								<div className="mt-1.5 border-t border-[var(--pon-line)] pt-1.5">
+									<DetailRow label="Net exposure" value="$0 — delta neutral" tone="positive" />
 								</div>
-								<div className="flex justify-between">
-									<dt className="text-[var(--ink-2)]">
-										Short {plan.marketSymbol} @ {plan.plan.perpLeverage}x
-									</dt>
-									<dd className="font-fono">{formatUsd(plan.plan.perpCollateralUsd)} margin</dd>
-								</div>
-								<div className="flex justify-between border-t border-[var(--line-soft)] pt-2">
-									<dt className="text-[var(--ink-2)]">Net exposure</dt>
-									<dd className="font-fono text-lime-400">$0 — delta neutral</dd>
-								</div>
-								<div className="flex justify-between">
-									<dt className="text-[var(--ink-2)]">Funding, short side (APR)</dt>
-									<dd
-										className={
-											plan.plan.netFundingPerHourPercent >= 0
-												? "font-fono text-lime-400"
-												: "font-fono text-red-400"
-										}
-									>
-										{formatFundingApr(plan.plan.netFundingPerHourPercent)}
-									</dd>
-								</div>
+								<DetailRow
+									label="Funding, short side (APR)"
+									value={formatFundingApr(plan.plan.netFundingPerHourPercent)}
+									tone={plan.plan.netFundingPerHourPercent >= 0 ? "positive" : "negative"}
+								/>
 								{plan.plan.breakevenHours !== null && (
-									<div className="flex justify-between">
-										<dt className="text-[var(--ink-2)]">Breakeven</dt>
-										<dd className="font-fono text-[var(--ink-1)]">
-											{plan.plan.breakevenHours < 48
+									<DetailRow
+										label="Breakeven"
+										value={
+											plan.plan.breakevenHours < 48
 												? `${Math.round(plan.plan.breakevenHours)} hours`
-												: `${Math.round(plan.plan.breakevenHours / 24)} days`}
-										</dd>
-									</div>
+												: `${Math.round(plan.plan.breakevenHours / 24)} days`
+										}
+									/>
 								)}
 							</dl>
 						</div>
@@ -199,7 +190,7 @@ export function CarryBuilder() {
 				)}
 			</div>
 
-			<aside className="space-y-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4 lg:sticky lg:top-28 lg:self-start">
+			<aside className="space-y-4 rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-5 lg:sticky lg:top-[92px] lg:self-start">
 				<div className="space-y-2">
 					<Label htmlFor="notional">Notional per leg (USDC)</Label>
 					<Input
@@ -209,7 +200,7 @@ export function CarryBuilder() {
 						onChange={(event) => setNotional(event.target.value)}
 					/>
 					{selected && notionalValue < selected.minPositionUsdc && (
-						<p className="text-xs text-amber-400">
+						<p className="text-xs text-[var(--pon-amber)]">
 							Minimum {formatUsd(selected.minPositionUsdc)} for {selected.marketSymbol}.
 						</p>
 					)}
@@ -218,7 +209,9 @@ export function CarryBuilder() {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<Label htmlFor="carry-lev">Short leverage</Label>
-						<span className="font-fono text-sm text-lime-400">{leverage}x</span>
+						<span className="font-fono text-sm font-semibold text-[var(--pon-lime)]">
+							{leverage}x
+						</span>
 					</div>
 					<Slider
 						id="carry-lev"
@@ -228,7 +221,7 @@ export function CarryBuilder() {
 						value={[leverage]}
 						onValueChange={([value]) => setLeverage(value)}
 					/>
-					<p className="text-[11px] text-white/35">
+					<p className="t-micro text-[var(--pon-fg-4)]">
 						Higher leverage frees up capital but moves the liquidation price closer.
 					</p>
 				</div>
@@ -256,7 +249,8 @@ export function CarryBuilder() {
 						!plan?.buyable ||
 						(plan?.blockers.length ?? 0) > 0
 					}
-					className="w-full bg-lime-500 font-semibold text-black hover:bg-lime-400"
+					size="lg"
+					className="w-full rounded-[var(--pon-r-sm)] bg-[var(--pon-lime)] font-bold text-[var(--pon-on-lime)] hover:bg-[var(--pon-lime-2)]"
 				>
 					{!isConnected
 						? "Connect wallet"
@@ -265,7 +259,7 @@ export function CarryBuilder() {
 							: "Open cash & carry"}
 				</Button>
 
-				<p className="text-center text-[11px] text-white/35">
+				<p className="text-center t-micro text-[var(--pon-fg-4)]">
 					One wallet signature for the spot buy. The hedging short is placed for you.
 				</p>
 			</aside>

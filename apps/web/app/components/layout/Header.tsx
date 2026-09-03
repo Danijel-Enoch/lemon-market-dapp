@@ -1,3 +1,4 @@
+import { Brand } from "@app/components/pons/Brand";
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { cn } from "@app/lib/utils";
@@ -10,6 +11,7 @@ import {
 	Scale,
 	TrendingUp,
 	Trophy,
+	Wallet,
 } from "lucide-react";
 import { useId, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -17,9 +19,11 @@ import { Link, useLocation } from "react-router";
 /**
  * Application header.
  *
- * Follows the reference app-shell pattern rather than the marketing one: a dense
- * fixed bar with grouped dropdowns on the left and the wallet on the right,
- * plus a three-tab bottom bar below md.
+ * The app surface wears the same Pons nav as the marketing one — a single pill
+ * bar on the well surface — but keeps its grouped dropdowns, because the app
+ * has more destinations than a flat row can hold. Groups open as a hairline
+ * sheet on the popover surface. Below md the bar keeps only the brand and the
+ * wallet, and navigation moves to a pill tab bar at the bottom.
  */
 
 type NavLeaf = { href: string; label: string; description: string; icon: typeof TrendingUp };
@@ -35,12 +39,7 @@ const GROUPS: NavGroup[] = [
 				description: "Leverage on crypto, stocks, FX and metals",
 				icon: TrendingUp,
 			},
-			{
-				href: "/spot",
-				label: "Spot",
-				description: "Buy the real token on Base",
-				icon: Coins,
-			},
+			{ href: "/spot", label: "Spot", description: "Buy the real token on Base", icon: Coins },
 			{
 				href: "/baskets",
 				label: "Baskets",
@@ -70,6 +69,12 @@ const GROUPS: NavGroup[] = [
 
 const FLAT_LINKS: NavLeaf[] = [
 	{
+		href: "/portfolio",
+		label: "Portfolio",
+		description: "Open positions and balances",
+		icon: Wallet,
+	},
+	{
 		href: "/accounts",
 		label: "Accounts",
 		description: "Pacifica positions and wallet balances",
@@ -78,7 +83,7 @@ const FLAT_LINKS: NavLeaf[] = [
 	{ href: "/docs", label: "Docs", description: "How the app works", icon: BookOpen },
 ];
 
-/** The bottom bar mirrors the reference design's three-tab mobile shell. */
+/** The bottom bar carries the four surfaces a trader returns to. */
 const TABS: NavLeaf[] = [
 	{ href: "/trade", label: "Trade", description: "", icon: TrendingUp },
 	{ href: "/baskets", label: "Baskets", description: "", icon: Layers },
@@ -90,11 +95,6 @@ function isActive(pathname: string, href: string): boolean {
 	return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/**
- * Hover/focus dropdown. the reference design keeps the panel mounted and animates opacity
- * and scale-y from the top edge, so it reads as a sheet unrolling rather than a
- * popover appearing.
- */
 function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string }) {
 	const [open, setOpen] = useState(false);
 	const menuId = useId();
@@ -112,13 +112,15 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
 				aria-controls={menuId}
 				onClick={() => setOpen((value) => !value)}
 				className={cn(
-					"flex min-w-[82px] items-center gap-1 whitespace-nowrap rounded px-4 py-3 t-label transition-colors duration-150",
-					groupActive ? "text-lime-400" : "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
+					"flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
+					groupActive
+						? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
+						: "font-medium text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
 				)}
 			>
 				{group.label}
 				<ChevronDown
-					size={16}
+					size={14}
 					aria-hidden
 					className={cn("shrink-0 transition-transform duration-200", open && "rotate-180")}
 				/>
@@ -127,11 +129,11 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
 			<div
 				id={menuId}
 				className={cn(
-					"absolute left-0 top-full z-50 mt-1 origin-top overflow-hidden rounded-md border border-[var(--line-soft)] bg-[var(--surface-1)] shadow-lg transition-[opacity,transform] duration-200",
+					"absolute left-0 top-full z-50 mt-2 origin-top overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface-3)] transition-[opacity,transform] duration-200",
 					open ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0",
 				)}
 			>
-				<div className="w-[280px] p-1">
+				<div className="w-[290px] p-1.5">
 					{group.items.map((item) => {
 						const Icon = item.icon;
 						return (
@@ -139,16 +141,18 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
 								key={item.href}
 								to={item.href}
 								onClick={() => setOpen(false)}
-								className="group flex w-full items-center gap-3 rounded px-4 py-3 transition-colors hover:bg-[var(--surface-3)]"
+								className="group flex w-full items-center gap-3 rounded-[var(--pon-r-md)] px-3 py-2.5 transition-colors hover:bg-[var(--pon-surface-2)]"
 							>
 								<Icon
-									size={18}
+									size={17}
 									aria-hidden
-									className="mr-2 shrink-0 text-[var(--ink-2)] group-hover:text-lime-400"
+									className="shrink-0 text-[var(--pon-fg-3)] group-hover:text-[var(--pon-lime)]"
 								/>
 								<span className="flex flex-col text-left leading-tight">
-									<span className="mb-1 t-label text-[var(--ink-1)]">{item.label}</span>
-									<span className="t-caption text-[var(--ink-2)]">{item.description}</span>
+									<span className="text-[13px] font-semibold text-[var(--pon-fg)]">
+										{item.label}
+									</span>
+									<span className="mt-0.5 t-micro text-[var(--pon-fg-3)]">{item.description}</span>
 								</span>
 							</Link>
 						);
@@ -172,17 +176,14 @@ export function Header() {
 		<>
 			{/* Desktop bar. */}
 			<header
-				className="fixed inset-x-0 top-0 z-50 hidden border-b border-[var(--line-soft)] bg-black py-2 pl-4 pr-1 md:block"
+				className="fixed inset-x-0 top-0 z-50 hidden bg-[var(--pon-bg)] px-4 py-3 md:block"
 				style={safeAreaStyle}
 			>
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<Link to="/" className="flex items-center gap-2.5 py-1.5">
-							<img src="/image/logo.png" alt="Lemon Markets" width={28} height={30} />
-							<span className="text-lg font-semibold text-white">Lemon</span>
-						</Link>
+				<div className="mx-auto flex w-full max-w-[var(--shell-max)] items-center justify-between gap-4 rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
+					<div className="flex min-w-0 items-center gap-5">
+						<Brand size={26} className="pl-1.5" />
 
-						<nav className="hidden gap-2 lg:flex">
+						<nav className="hidden items-center gap-1 lg:flex">
 							{GROUPS.map((group) => (
 								<NavDropdown key={group.label} group={group} pathname={pathname} />
 							))}
@@ -191,10 +192,10 @@ export function Header() {
 									key={link.href}
 									to={link.href}
 									className={cn(
-										"rounded px-4 py-3 t-label transition-colors",
+										"rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
 										isActive(pathname, link.href)
-											? "text-lime-400"
-											: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
+											? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
+											: "font-medium text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
 									)}
 								>
 									{link.label}
@@ -203,7 +204,7 @@ export function Header() {
 						</nav>
 					</div>
 
-					<div className="flex items-center gap-2 pr-3">
+					<div className="shrink-0">
 						<ConnectWallet />
 					</div>
 				</div>
@@ -211,26 +212,19 @@ export function Header() {
 
 			{/* Mobile bar — brand and wallet only; navigation lives in the tab bar. */}
 			<header
-				className="fixed inset-x-0 top-0 z-40 flex w-full items-center gap-4 overflow-clip border-b border-[var(--line-soft)] bg-black p-4 md:hidden"
+				className="fixed inset-x-0 top-0 z-40 flex w-full items-center gap-4 overflow-clip border-b border-[var(--pon-line)] bg-[var(--pon-bg)] p-3.5 md:hidden"
 				style={safeAreaStyle}
 			>
-				<Link to="/" className="flex min-w-px flex-1 items-center gap-2">
-					<img src="/image/logo.png" alt="Lemon Markets" width={26} height={28} />
-					<span className="text-base font-semibold text-white">Lemon</span>
-				</Link>
+				<Brand size={26} className="min-w-px flex-1" />
 				<ConnectWallet />
 			</header>
 
-			{/*
-			  Mobile tab bar — the primary navigation below md. the reference design frames the
-			  tabs inside a single hairline box and fills the active one, rather
-			  than tinting an icon. Padded for the home indicator.
-			*/}
+			{/* Mobile tab bar — one pill track, the active tab filled. */}
 			<nav
-				className="fixed inset-x-0 bottom-0 z-40 bg-[var(--surface-3)] p-2 md:hidden"
-				style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+				className="fixed inset-x-0 bottom-0 z-40 bg-[var(--pon-bg)] p-2.5 md:hidden"
+				style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
 			>
-				<ul className="flex w-full items-stretch rounded border border-[var(--line-soft)]">
+				<ul className="flex w-full items-stretch rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-1">
 					{TABS.map((item) => {
 						const Icon = item.icon;
 						const active = isActive(pathname, item.href);
@@ -239,19 +233,19 @@ export function Header() {
 								<Link
 									to={item.href}
 									className={cn(
-										"flex min-h-11 w-full flex-col items-center justify-center gap-1 overflow-clip rounded px-3 py-2",
-										active ? "bg-[var(--surface-4)]" : "",
+										"flex min-h-11 w-full flex-col items-center justify-center gap-0.5 overflow-clip rounded-full px-2 py-1.5 transition-colors",
+										active ? "bg-[var(--pon-surface-2)]" : "",
 									)}
 								>
 									<Icon
 										size={16}
 										aria-hidden
-										className={active ? "text-lime-400" : "text-[var(--ink-2)] opacity-60"}
+										className={active ? "text-[var(--pon-lime)]" : "text-[var(--pon-fg-3)]"}
 									/>
 									<span
 										className={cn(
 											"whitespace-nowrap text-center t-micro",
-											active ? "text-[var(--ink-1)]" : "text-[var(--ink-2)]",
+											active ? "font-semibold text-[var(--pon-fg)]" : "text-[var(--pon-fg-3)]",
 										)}
 									>
 										{item.label}

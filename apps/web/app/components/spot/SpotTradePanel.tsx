@@ -1,4 +1,6 @@
 import { Callout } from "@app/components/common/Callout";
+import { DetailRow } from "@app/components/pons/Feed";
+import { ChipGroup } from "@app/components/pons/Segmented";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
@@ -15,6 +17,9 @@ import toast from "react-hot-toast";
 import { useConnection } from "wagmi";
 
 type Mode = "market" | "limit";
+
+/** The notionals a spot buy is usually written for. */
+const QUICK_SPEND = ["50", "100", "500", "1000"] as const;
 
 export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 	const { isConnected } = useConnection();
@@ -90,13 +95,13 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 	}
 
 	return (
-		<div className="space-y-4 rounded-lg border-[var(--line-soft)] bg-[var(--surface-3)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
+		<div className="space-y-4 rounded-[var(--pon-r-md)] border-[var(--pon-line)] bg-[var(--pon-surface)] p-4 max-md:border-0 max-md:bg-transparent max-md:p-0 md:border">
 			<Tabs value={direction} onValueChange={(value) => setDirection(value as "buy" | "sell")}>
 				<TabsList className="w-full">
-					<TabsTrigger value="buy" className="flex-1 data-[state=active]:text-lime-400">
+					<TabsTrigger value="buy" className="flex-1 data-[state=active]:text-[var(--pon-lime)]">
 						Buy
 					</TabsTrigger>
-					<TabsTrigger value="sell" className="flex-1 data-[state=active]:text-red-400">
+					<TabsTrigger value="sell" className="flex-1 data-[state=active]:text-[var(--pon-down)]">
 						Sell
 					</TabsTrigger>
 				</TabsList>
@@ -132,6 +137,16 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 							value={amount}
 							onChange={(event) => setAmount(event.target.value)}
 						/>
+						{/* Presets only on the buy side — a sell is sized in shares held,
+						    which no fixed list can guess. */}
+						{direction === "buy" && (
+							<ChipGroup
+								options={QUICK_SPEND}
+								value={amount}
+								onChange={setAmount}
+								aria-label="Quick spend amount"
+							/>
+						)}
 					</div>
 
 					<div className="space-y-2">
@@ -144,56 +159,41 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 						/>
 					</div>
 
-					<dl className="space-y-1.5 rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
-						<div className="flex justify-between">
-							<dt className="text-[var(--ink-2)]">You receive</dt>
-							<dd className="font-fono">
-								{isFetching && !receiveAmount
+					<dl className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
+						<DetailRow
+							label="You receive"
+							value={
+								isFetching && !receiveAmount
 									? "…"
 									: receiveAmount
 										? `${formatQuantity(Number(receiveAmount), 6)} ${direction === "buy" ? token.symbol : "USDC"}`
-										: "—"}
-							</dd>
-						</div>
-						<div className="flex justify-between">
-							<dt className="text-[var(--ink-2)]">Price impact</dt>
-							{/* Impact on these pools runs over 1% even on small size,
-							    so it is shown as a headline number, not a footnote. */}
-							<dd
-								className={cn(
-									"font-fono",
-									(okQuote?.quote.priceImpactPercent ?? 0) < -1
-										? "text-amber-400"
-										: "text-[var(--ink-1)]",
-								)}
-							>
-								{okQuote ? formatPercent(okQuote.quote.priceImpactPercent) : "—"}
-							</dd>
-						</div>
-						<div className="flex justify-between">
-							<dt className="text-[var(--ink-2)]">Holding cost</dt>
-							{/* Spot is an outright purchase: no funding, no borrow, no
-							    counterparty. Said explicitly because the perp panel one
-							    toggle away does show a funding rate. */}
-							<dd className="text-[var(--ink-2)]">None — spot has no funding</dd>
-						</div>
-						<div className="flex justify-between">
-							<dt className="text-[var(--ink-2)]">Route</dt>
-							<dd className="font-fono text-[11px] text-[var(--ink-2)]">
-								{okQuote?.quote.exchanges.join(", ") || "—"}
-							</dd>
-						</div>
+										: "—"
+							}
+						/>
+						{/* Impact on these pools runs over 1% even on small size, so it is
+						    shown as a headline number, not a footnote. */}
+						<DetailRow
+							label="Price impact"
+							value={okQuote ? formatPercent(okQuote.quote.priceImpactPercent) : "—"}
+							tone={(okQuote?.quote.priceImpactPercent ?? 0) < -1 ? "negative" : "neutral"}
+						/>
+						{/* Spot is an outright purchase: no funding, no borrow, no
+						    counterparty. Said explicitly because the perp panel one toggle
+						    away does show a funding rate. */}
+						<DetailRow label="Holding cost" value="None — spot has no funding" />
+						<DetailRow label="Route" value={okQuote?.quote.exchanges.join(", ") || "—"} />
 					</dl>
 
 					<Button
 						type="button"
 						onClick={handleSwap}
 						disabled={!isConnected || !routeAvailable || !okQuote || swap.isBusy}
+						size="lg"
 						className={cn(
-							"w-full font-semibold",
+							"w-full rounded-[var(--pon-r-sm)] font-bold",
 							direction === "buy"
-								? "bg-lime-500 text-black hover:bg-lime-400"
-								: "bg-red-500 text-white hover:bg-red-400",
+								? "bg-[var(--pon-lime)] text-[var(--pon-on-lime)] hover:bg-[var(--pon-lime-2)]"
+								: "bg-[var(--pon-down)] text-white hover:bg-[var(--pon-down)]/85",
 						)}
 					>
 						{!isConnected
@@ -238,13 +238,15 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 						/>
 					</div>
 
-					<dl className="flex justify-between rounded-lg border border-[var(--line-soft)] bg-black/20 p-3 text-xs">
-						<dt className="text-[var(--ink-2)]">Total</dt>
-						<dd className="font-fono">
-							{Number(limitShares) > 0 && Number(limitPrice) > 0
-								? `${(Number(limitShares) * Number(limitPrice)).toFixed(2)} USDC`
-								: "—"}
-						</dd>
+					<dl className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
+						<DetailRow
+							label="Total"
+							value={
+								Number(limitShares) > 0 && Number(limitPrice) > 0
+									? `${(Number(limitShares) * Number(limitPrice)).toFixed(2)} USDC`
+									: "—"
+							}
+						/>
 					</dl>
 
 					<Callout tone="info">
@@ -256,7 +258,8 @@ export function SpotTradePanel({ token }: { token: SpotTokenInfo }) {
 						type="button"
 						onClick={handleLimit}
 						disabled={!isConnected || limit.isBusy || !Number(limitPrice) || !Number(limitShares)}
-						className="w-full bg-lime-500 font-semibold text-black hover:bg-lime-400"
+						size="lg"
+						className="w-full rounded-[var(--pon-r-sm)] bg-[var(--pon-lime)] font-bold text-[var(--pon-on-lime)] hover:bg-[var(--pon-lime-2)]"
 					>
 						{!isConnected
 							? "Connect wallet"

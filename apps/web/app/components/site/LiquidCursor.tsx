@@ -150,7 +150,7 @@ export function LiquidCursor() {
 					<span
 						key={size}
 						data-blob
-						className="absolute left-0 top-0 rounded-full bg-lime-400"
+						className="absolute left-0 top-0 rounded-full bg-[var(--pon-lime)]"
 						style={{
 							width: size,
 							height: size,

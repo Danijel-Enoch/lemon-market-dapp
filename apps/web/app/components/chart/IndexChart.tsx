@@ -1,3 +1,4 @@
+import { TimeframeGroup } from "@app/components/pons/Segmented";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { basketApi } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
@@ -20,6 +21,16 @@ const RESOLUTIONS = [
 ] as const;
 
 type Resolution = (typeof RESOLUTIONS)[number]["value"];
+type ResolutionLabel = (typeof RESOLUTIONS)[number]["label"];
+
+/* The picker speaks in labels; the API speaks in resolution codes. */
+const RESOLUTION_LABELS = RESOLUTIONS.map((option) => option.label) as ResolutionLabel[];
+const LABEL_FOR = Object.fromEntries(
+	RESOLUTIONS.map((option) => [option.value, option.label]),
+) as Record<Resolution, ResolutionLabel>;
+const RESOLUTION_FOR = Object.fromEntries(
+	RESOLUTIONS.map((option) => [option.label, option.value]),
+) as Record<ResolutionLabel, Resolution>;
 
 /**
  * Composite index chart for a basket.
@@ -50,23 +61,24 @@ export function IndexChart({ basketId, name }: { basketId: string; name: string 
 		const chart = createChart(container, {
 			layout: {
 				background: { type: ColorType.Solid, color: "transparent" },
-				textColor: "#94a3b8",
-				fontFamily: "Roboto Mono, monospace",
+				textColor: "#64748b",
+				fontFamily: "Space Grotesk, sans-serif",
 			},
 			grid: {
 				vertLines: { color: "rgba(255,255,255,0.04)" },
 				horzLines: { color: "rgba(255,255,255,0.04)" },
 			},
-			rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
-			timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true },
+			rightPriceScale: { borderColor: "#222222" },
+			timeScale: { borderColor: "#222222", timeVisible: true },
 			height: 360,
 			autoSize: true,
 		});
 
 		const series = chart.addSeries(AreaSeries, {
 			lineColor: "#a3e635",
-			topColor: "rgba(163,230,53,0.25)",
-			bottomColor: "rgba(163,230,53,0.02)",
+			// The Pons area fade: 35% at the line, nothing at the axis.
+			topColor: "rgba(163,230,53,0.35)",
+			bottomColor: "rgba(163,230,53,0)",
 			lineWidth: 2,
 		});
 
@@ -93,55 +105,46 @@ export function IndexChart({ basketId, name }: { basketId: string; name: string 
 	}, [data]);
 
 	return (
-		<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-3">
-			<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-				<div className="flex items-baseline gap-2">
-					<span className="text-sm font-medium text-[var(--ink-1)]">{name} index</span>
+		<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4">
+			<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+				<div className="flex items-baseline gap-2.5">
+					<span className="font-display text-[15px] font-bold text-[var(--pon-fg)]">
+						{name} index
+					</span>
 					{data && (
 						<span
 							className={cn(
-								"font-fono text-sm",
-								data.changePercent >= 0 ? "text-lime-400" : "text-red-400",
+								"font-fono text-sm font-semibold",
+								data.changePercent >= 0 ? "text-[var(--pon-up)]" : "text-[var(--pon-down)]",
 							)}
 						>
 							{formatPercent(data.changePercent)}
 						</span>
 					)}
 				</div>
-				<div className="flex gap-1">
-					{RESOLUTIONS.map((option) => (
-						<button
-							key={option.value}
-							type="button"
-							onClick={() => setResolution(option.value)}
-							className={cn(
-								"rounded px-2 py-1 text-xs transition-colors",
-								option.value === resolution
-									? "bg-lime-500/15 text-lime-400"
-									: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
-							)}
-						>
-							{option.label}
-						</button>
-					))}
-				</div>
+				<TimeframeGroup
+					options={RESOLUTION_LABELS}
+					value={LABEL_FOR[resolution]}
+					onChange={(label) => setResolution(RESOLUTION_FOR[label])}
+					aria-label="Chart timeframe"
+				/>
 			</div>
 
 			<div className="relative">
 				<div ref={containerRef} className="h-[360px] w-full" />
 				{isLoading && (
 					<div className="absolute inset-0">
-						<Skeleton className="h-full w-full rounded-lg" />
+						<Skeleton className="h-full w-full" />
 					</div>
 				)}
 				{!isLoading && (error || data?.points.length === 0) && (
 					<div className="absolute inset-0 flex items-center justify-center">
-						<p className="text-sm text-[var(--ink-2)]">Index history unavailable.</p>
+						<p className="text-[13px] text-[var(--pon-fg-3)]">Index history unavailable.</p>
 					</div>
 				)}
 			</div>
 
-			<p className="mt-2 text-[11px] text-white/35">
+			<p className="mt-3 t-micro leading-relaxed text-[var(--pon-fg-4)]">
 				Equal-weighted: each constituent is rebased to 100 at the start of the window and the levels
 				averaged, so no single high-priced leg dominates.
 				{data?.missing.length ? ` Excluded (no history): ${data.missing.join(", ")}.` : ""}

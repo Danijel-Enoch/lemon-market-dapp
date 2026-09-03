@@ -1,14 +1,28 @@
 import { AccountModal } from "@app/components/ui/AccountModal";
 import { cn } from "@app/lib/utils";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { motion } from "framer-motion";
 import { UserCircle2 } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
+/**
+ * Wallet control.
+ *
+ * Pons gives the wallet the only solid lime pill in the nav — it is the one
+ * action the bar exists to offer. Once connected the fill is spent, so the
+ * chain and the address drop back to hairline pills and the accent is free to
+ * mark something else on the page.
+ */
+
+const SOLID =
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--pon-lime)] px-[18px] py-2 text-[13px] font-semibold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]";
+
+const HAIRLINE =
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[var(--pon-line-2)] px-3.5 py-2 text-[13px] font-medium text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]";
+
 export function ConnectWallet({
-	text = "Connect Wallet",
+	text = "Connect",
 	connectedNode,
 	href,
 	onClick,
@@ -21,7 +35,6 @@ export function ConnectWallet({
 } & ComponentProps<"button">) {
 	const navigate = useNavigate();
 	const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-	// verification now handled globally in AppProvider; connect button only opens modals
 
 	return (
 		<ConnectButton.Custom>
@@ -33,130 +46,91 @@ export function ConnectWallet({
 					<div
 						{...(!ready && {
 							"aria-hidden": true,
-							style: {
-								opacity: 0,
-								pointerEvents: "none",
-								userSelect: "none",
-							},
+							style: { opacity: 0, pointerEvents: "none", userSelect: "none" },
 						})}
 					>
 						{(() => {
 							if (!connected) {
 								return (
-									<motion.button
-										type="button"
-										onClick={openConnectModal}
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className={cn(
-											"w-full inline-flex items-center justify-center rounded-lg border border-[var(--line-soft)] gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											"bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
-										)}
-										// {...props}
-									>
+									<button type="button" onClick={openConnectModal} className={cn(SOLID, className)}>
 										{text}
-									</motion.button>
+									</button>
 								);
 							}
 
 							if (connectedNode) {
 								return (
-									// @ts-expect-error motion button props
-									<motion.button
+									<button
 										type="button"
-										// onClick={openConnectModal}
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className={cn(
-											"w-full inline-flex items-center justify-center rounded-lg border border-[var(--line-soft)] gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											className || "bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
-										)}
-										onClick={(e) => {
+										className={cn(SOLID, className)}
+										onClick={(event) => {
 											if (href) {
-												e.preventDefault();
+												event.preventDefault();
 												navigate(href);
 											}
-											if (onClick) {
-												onClick(e);
-											}
+											onClick?.(event);
 										}}
 										{...props}
 									>
 										{connectedNode}
-									</motion.button>
+									</button>
 								);
 							}
 
 							if (chain.unsupported) {
 								return (
-									<motion.button
-										onClick={openChainModal}
+									<button
 										type="button"
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className={cn(
-											"w-full inline-flex items-center justify-center rounded-lg border border-red-500/60 gap-2.5 px-4 md:px-6 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											"bg-linear-to-r from-red-600 via-red-700 to-red-900",
-										)}
+										onClick={openChainModal}
+										className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[var(--pon-down)] bg-[var(--pon-down)]/12 px-[18px] py-2 text-[13px] font-semibold text-[var(--pon-down)] transition-colors hover:bg-[var(--pon-down)]/20"
 									>
 										Wrong network
-									</motion.button>
+									</button>
 								);
 							}
+
 							return (
-								<div className="flex gap-2">
-									<motion.button
-										onClick={openChainModal}
+								<div className="flex items-center gap-2">
+									{/* Chain — a hairline chip carrying the network mark. */}
+									<button
 										type="button"
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className={cn(
-											"inline-flex items-center justify-center gap-2 px-2.5 md:px-4 py-2 md:py-3 text-white font-bold text-xs md:text-sm",
-											// " rounded-lg border border-white/60 ",
-											// props.className || "bg-linear-to-r from-lime-600/90 via-lime-700/90 to-lime-800/90",
-										)}
-										// {...props}
+										onClick={openChainModal}
+										className={cn(HAIRLINE, "hidden sm:inline-flex")}
 									>
 										{chain.hasIcon && (
-											<div
-												style={{
-													background: chain.iconBackground,
-													width: 16,
-													height: 16,
-													borderRadius: 999,
-													overflow: "hidden",
-												}}
+											<span
+												aria-hidden
+												className="size-4 shrink-0 overflow-hidden rounded-full"
+												style={{ background: chain.iconBackground }}
 											>
 												{chain.iconUrl && (
 													<img
-														alt={chain.name ?? "Chain icon"}
+														alt=""
 														src={chain.iconUrl}
 														width={16}
 														height={16}
+														className="block size-4"
 													/>
 												)}
-											</div>
+											</span>
 										)}
 										<span className="hidden md:inline">{chain.name}</span>
-									</motion.button>
+									</button>
 
-									<motion.button
-										onClick={() => setIsAccountModalOpen(true)}
+									{/* Address — tabular, so a truncated hash keeps its width. */}
+									<button
 										type="button"
-										whileHover={{ scale: 1.05 }}
-										whileTap={{ scale: 0.95 }}
-										className={cn(
-											"inline-flex items-center justify-center rounded-lg border border-[var(--line-soft)] gap-2.5 px-4 lg:px-6 py-2 lg:py-3 text-white font-bold text-xs md:text-sm",
-											"bg-linear-to-r from-lime-600 via-lime-700 to-[#004530]",
-										)}
-										// {...props}
+										onClick={() => setIsAccountModalOpen(true)}
+										className={cn(HAIRLINE, "font-fono")}
+										{...props}
 									>
 										<span className="hidden md:inline">{account.displayName}</span>
-										<UserCircle2 size={16} className="md:hidden text-white" />
-									</motion.button>
+										<UserCircle2 size={16} aria-hidden className="md:hidden" />
+									</button>
 								</div>
 							);
 						})()}
+
 						<AccountModal
 							open={isAccountModalOpen}
 							onOpenChange={setIsAccountModalOpen}

@@ -29,13 +29,13 @@ export function Form({
 	return (
 		<RemixForm {...props}>
 			{showMessage && error && (
-				<div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-					<p className="text-sm text-red-400">{error}</p>
+				<div className="mb-4 p-3 bg-[var(--pon-down)]/10 border border-[var(--pon-down)]/30 rounded-lg">
+					<p className="text-sm text-[var(--pon-down)]">{error}</p>
 				</div>
 			)}
 			{showMessage && success && (
 				<div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-					<p className="text-sm text-green-400">{success}</p>
+					<p className="text-sm text-[var(--pon-up)]">{success}</p>
 				</div>
 			)}
 			<fieldset disabled={isSubmitting || disabled} className={className}>

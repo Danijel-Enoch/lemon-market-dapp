@@ -1,3 +1,4 @@
+import { cn } from "@app/lib/utils";
 import { Inbox } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
@@ -15,33 +16,29 @@ interface EmptyStateProps {
 }
 
 /**
- * EmptyState - A consistent component for displaying empty data states.
- *
- * Usage:
- * ```tsx
- * <EmptyState
- *   icon={Wallet}
- *   title="No positions yet"
- *   description="Open your first position to get started."
- *   action={<Button>Start Trading</Button>}
- * />
- * ```
+ * Inline empty state — the borderless form, for when the surrounding card is
+ * already the frame. Pons marks the icon with a filled circle on the well
+ * surface rather than leaving it floating.
  */
 export function EmptyState({
 	icon: Icon = Inbox,
 	title,
 	description,
 	action,
-	className = "",
+	className,
 }: EmptyStateProps) {
 	return (
-		<div className={`flex flex-col items-center justify-center py-8 text-center ${className}`}>
-			<div className="w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-				<Icon className="w-6 h-6 text-muted-foreground opacity-60" />
+		<div className={cn("flex flex-col items-center justify-center py-10 text-center", className)}>
+			<div className="mb-4 flex size-12 items-center justify-center rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+				<Icon className="size-5 text-[var(--pon-fg-3)]" />
 			</div>
-			<h3 className="text-lg font-medium text-foreground mb-1">{title}</h3>
-			{description && <p className="text-muted-foreground text-sm max-w-md mb-4">{description}</p>}
-			{action && <div className="mt-2">{action}</div>}
+			<h3 className="text-[15px] font-semibold text-[var(--pon-fg)]">{title}</h3>
+			{description && (
+				<p className="mt-1.5 max-w-md text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">
+					{description}
+				</p>
+			)}
+			{action && <div className="mt-4">{action}</div>}
 		</div>
 	);
 }

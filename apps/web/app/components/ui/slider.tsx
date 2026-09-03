@@ -31,13 +31,13 @@ function Slider({
 			<SliderPrimitive.Track
 				data-slot="slider-track"
 				className={cn(
-					"bg-muted relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
+					"relative grow overflow-hidden rounded-full bg-[var(--pon-bg-2)] data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
 				)}
 			>
 				<SliderPrimitive.Range
 					data-slot="slider-range"
 					className={cn(
-						"bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
+						"absolute bg-[var(--pon-lime)] data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
 					)}
 				/>
 			</SliderPrimitive.Track>
@@ -46,7 +46,7 @@ function Slider({
 					data-slot="slider-thumb"
 					// biome-ignore lint/suspicious/noArrayIndexKey: thumbs order doesn't change
 					key={index}
-					className="border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+					className="block size-4 shrink-0 rounded-full border-2 border-[var(--pon-bg)] bg-[var(--pon-lime)] transition-[box-shadow] hover:ring-4 hover:ring-[var(--pon-lime)]/25 focus-visible:ring-4 focus-visible:ring-[var(--pon-lime)]/25 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
 				/>
 			))}
 		</SliderPrimitive.Root>

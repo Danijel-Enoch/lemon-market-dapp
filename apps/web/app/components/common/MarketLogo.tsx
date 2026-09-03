@@ -26,13 +26,13 @@ const COMMODITY_GLYPHS: Record<string, string> = {
 
 /** Deterministic tint so monograms are distinguishable but never random. */
 const CLASS_TINTS: Record<string, string> = {
-	crypto: "bg-amber-500/15 text-amber-300",
+	crypto: "bg-[var(--pon-amber)]/15 text-[var(--pon-amber)]",
 	equity: "bg-sky-500/15 text-sky-300",
 	fx: "bg-violet-500/15 text-violet-300",
 	commodity: "bg-orange-500/15 text-orange-300",
 	metal: "bg-yellow-500/15 text-yellow-300",
 	index: "bg-emerald-500/15 text-emerald-300",
-	unknown: "bg-white/10 text-[var(--ink-1)]",
+	unknown: "bg-white/10 text-[var(--pon-fg)]",
 };
 
 /**
@@ -78,7 +78,7 @@ export function MarketLogo({
 				width={size}
 				height={size}
 				onError={() => setFailed(true)}
-				className={cn("shrink-0 rounded-full bg-[var(--surface-4)] object-cover", className)}
+				className={cn("shrink-0 rounded-full bg-[var(--pon-surface-2)] object-cover", className)}
 				style={box}
 			/>
 		);
@@ -89,7 +89,7 @@ export function MarketLogo({
 			<span
 				aria-hidden
 				className={cn(
-					"inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--surface-4)]",
+					"inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--pon-surface-2)]",
 					className,
 				)}
 				style={{ ...box, fontSize: size * 0.55 }}

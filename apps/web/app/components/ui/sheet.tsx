@@ -28,18 +28,20 @@ export function Sheet({
 				<DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
 				<DialogPrimitive.Content
 					className={cn(
-						"fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto rounded-t-2xl border-t border-[var(--line-soft)] bg-[#13151b] p-4",
+						"fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto rounded-t-[var(--pon-r-2xl)] border-t border-[var(--pon-line)] bg-[var(--pon-surface)] p-4",
 						// Clears the home indicator on gesture-nav phones.
 						"pb-[calc(1rem+env(safe-area-inset-bottom))]",
 						"data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
 					)}
 				>
 					{/* Grab handle — signals the sheet is dismissible by drag/tap-away. */}
-					<div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" aria-hidden />
+					<div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--pon-line-2)]" aria-hidden />
 
 					<div className="mb-3 flex items-center justify-between">
-						<DialogPrimitive.Title className="text-base font-medium">{title}</DialogPrimitive.Title>
-						<DialogPrimitive.Close className="rounded-full p-1.5 text-[var(--ink-2)] hover:bg-[var(--surface-4)] hover:text-white">
+						<DialogPrimitive.Title className="font-display text-base font-bold text-[var(--pon-fg)]">
+							{title}
+						</DialogPrimitive.Title>
+						<DialogPrimitive.Close className="inline-flex size-8 items-center justify-center rounded-full border border-[var(--pon-line-2)] text-[var(--pon-fg-3)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]">
 							<X size={18} aria-hidden />
 							<span className="sr-only">Close</span>
 						</DialogPrimitive.Close>
@@ -60,7 +62,7 @@ export function Sheet({
  */
 export function MobileActionBar({ children }: { children: ReactNode }) {
 	return (
-		<div className="fixed inset-x-0 bottom-[62px] z-40 border-t border-[var(--line-soft)] bg-[var(--surface-3)]/95 p-3 backdrop-blur-md md:hidden">
+		<div className="fixed inset-x-0 bottom-[74px] z-40 border-t border-[var(--pon-line)] bg-[var(--pon-bg)]/95 p-3 backdrop-blur-md md:hidden">
 			{children}
 		</div>
 	);

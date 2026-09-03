@@ -3,18 +3,39 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 
+/**
+ * Badge.
+ *
+ * Pons splits small labels in two. Chips are pills and describe a thing you
+ * could act on — a token, an address, a filter. Tags are 8px-radius boxes and
+ * describe a state a thing is already in — "Graduated", "Perp", "20x". The
+ * default here is the tag, because that is what a badge is used for; `chip`
+ * and its variants cover the pill side.
+ */
 const badgeVariants = cva(
-	"inline-flex items-center justify-center rounded-sm border px-2 py-0.5 t-micro font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+	"inline-flex w-fit shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border font-semibold [&>svg]:size-3 [&>svg]:pointer-events-none overflow-hidden transition-colors",
 	{
 		variants: {
 			variant: {
-				default: "border-transparent bg-lime-500/10 text-lime-400 [a&]:hover:bg-lime-500/15",
+				/* Tag — a state. */
+				default:
+					"rounded-[var(--pon-r-sm)] border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10px] text-[var(--pon-lime)]",
+				neutral:
+					"rounded-[var(--pon-r-sm)] border-[var(--pon-line-2)] bg-black/55 px-2.5 py-1 text-[11px] text-[var(--pon-fg)]",
 				secondary:
-					"border-transparent bg-[var(--surface-4)] text-[var(--ink-2)] [a&]:hover:bg-[var(--surface-5)]",
-				destructive:
-					"border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+					"rounded-[var(--pon-r-sm)] border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-2.5 py-1 text-[11px] font-normal text-[var(--pon-fg-2)]",
 				outline:
-					"border-[var(--line-soft)] text-[var(--ink-2)] [a&]:hover:border-[var(--ink-2)] [a&]:hover:text-[var(--ink-1)]",
+					"rounded-[var(--pon-r-sm)] border-[var(--pon-line)] px-2.5 py-1 text-[11px] font-normal text-[var(--pon-fg-3)]",
+				destructive:
+					"rounded-[var(--pon-r-sm)] border-[var(--pon-down)] bg-[var(--pon-down)]/12 px-2 py-0.5 text-[10px] text-[var(--pon-down)]",
+				/* Chip — a thing. */
+				chip: "rounded-full border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-3 py-1.5 text-xs font-normal text-[var(--pon-fg-2)]",
+				"chip-outline":
+					"rounded-full border-[var(--pon-line)] bg-transparent px-3 py-1.5 text-xs font-normal text-[var(--pon-fg-2)]",
+				"chip-accent":
+					"rounded-full border-transparent bg-[var(--pon-lime-dim)] px-2.5 py-1 text-[10px] text-[var(--pon-lime)]",
+				"chip-solid":
+					"rounded-full border-transparent bg-[var(--pon-lime)] px-3 py-1.5 text-xs text-[var(--pon-on-lime)]",
 			},
 		},
 		defaultVariants: {
@@ -36,4 +57,62 @@ function Badge({
 	);
 }
 
-export { Badge, badgeVariants };
+/**
+ * Token chip — the pill with a colour dot Pons uses to name an asset inline,
+ * in swap fields and amount rows.
+ */
+function TokenChip({
+	symbol,
+	color = "var(--pon-lime)",
+	round = true,
+	className,
+}: {
+	symbol: string;
+	color?: string;
+	round?: boolean;
+	className?: string;
+}) {
+	return (
+		<span
+			className={cn(
+				"inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)]",
+				className,
+			)}
+		>
+			<span
+				aria-hidden
+				className={cn("size-3.5 shrink-0", round ? "rounded-full" : "rounded-[4px]")}
+				style={{ background: color }}
+			/>
+			{symbol}
+		</span>
+	);
+}
+
+/** Address chip — tabular, hairline, no fill. */
+function AddressChip({ address, className }: { address: string; className?: string }) {
+	return (
+		<span
+			className={cn(
+				"font-fono inline-flex w-fit items-center rounded-full border border-[var(--pon-line)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)]",
+				className,
+			)}
+		>
+			{address}
+		</span>
+	);
+}
+
+/** Live indicator — the pulsing lime dot Pons puts on streaming panels. */
+function LiveDot({ label = "Live", className }: { label?: string; className?: string }) {
+	return (
+		<span
+			className={cn("inline-flex items-center gap-1.5 t-micro text-[var(--pon-lime)]", className)}
+		>
+			<span aria-hidden className="animate-pon-pulse size-1.5 rounded-full bg-[var(--pon-lime)]" />
+			{label}
+		</span>
+	);
+}
+
+export { Badge, badgeVariants, TokenChip, AddressChip, LiveDot };

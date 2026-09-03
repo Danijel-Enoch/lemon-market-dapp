@@ -1,5 +1,13 @@
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { Button } from "@app/components/ui/button";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@app/components/ui/table";
 import { usePacificaAccount, useRefreshAccount } from "@app/hooks/useAccount";
 import { type PacificaOrderRow, type PacificaPositionRow, pacificaApi } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
@@ -40,7 +48,9 @@ export function PacificaPositions() {
 	const positions = data?.positions ?? [];
 
 	if (isLoading) {
-		return <p className="py-6 text-center t-label text-[var(--ink-2)]">Loading positions…</p>;
+		return (
+			<p className="py-6 text-center text-[13px] text-[var(--pon-fg-3)]">Loading positions…</p>
+		);
 	}
 
 	if (!positions.length) {
@@ -52,51 +62,51 @@ export function PacificaPositions() {
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
-			<table className="w-full min-w-[560px] t-label">
-				<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
-					<tr>
-						<th className="px-3 py-2 font-normal">Market</th>
-						<th className="px-3 py-2 font-normal">Side</th>
-						<th className="px-3 py-2 font-normal">Size</th>
-						<th className="px-3 py-2 font-normal">Entry</th>
-						<th className="px-3 py-2 font-normal">Notional</th>
-						<th className="px-3 py-2 font-normal">Margin</th>
-						<th className="px-3 py-2 font-normal">Funding</th>
-						<th className="px-3 py-2" />
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-[var(--line-soft)]">
+		<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4">
+			<Table className="min-w-[560px]">
+				<TableHeader>
+					<TableRow>
+						<TableHead>Market</TableHead>
+						<TableHead>Side</TableHead>
+						<TableHead className="text-right">Size</TableHead>
+						<TableHead className="text-right">Entry</TableHead>
+						<TableHead className="text-right">Notional</TableHead>
+						<TableHead className="text-right">Margin</TableHead>
+						<TableHead className="text-right">Funding</TableHead>
+						<TableHead className="text-right" />
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{positions.map((position: PacificaPositionRow) => (
-						<tr key={`${position.symbol}-${position.side}`} className="hover:bg-[var(--surface-4)]">
-							<td className="px-3 py-2.5 text-[var(--ink-1)]">{position.symbol}</td>
-							<td
+						<TableRow key={`${position.symbol}-${position.side}`}>
+							<TableCell className="font-semibold">{position.symbol}</TableCell>
+							<TableCell
 								className={cn(
-									"px-3 py-2.5",
-									position.side === "bid" ? "text-lime-400" : "text-red-400",
+									"font-semibold",
+									position.side === "bid" ? "text-[var(--pon-up)]" : "text-[var(--pon-down)]",
 								)}
 							>
 								{sideLabel(position.side)}
-							</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-1)]">{position.amount}</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
+							</TableCell>
+							<TableCell className="font-fono text-right">{position.amount}</TableCell>
+							<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 								{formatUsd(Number(position.entry_price))}
-							</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-1)]">
+							</TableCell>
+							<TableCell className="font-fono text-right">
 								{formatUsd(notional(position.amount, position.entry_price))}
-							</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
+							</TableCell>
+							<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 								{formatUsd(Number(position.margin))}
-							</td>
-							<td
+							</TableCell>
+							<TableCell
 								className={cn(
-									"px-3 py-2.5 font-fono",
-									Number(position.funding) >= 0 ? "text-lime-400" : "text-red-400",
+									"font-fono text-right",
+									Number(position.funding) >= 0 ? "text-[var(--pon-up)]" : "text-[var(--pon-down)]",
 								)}
 							>
 								{formatUsd(Number(position.funding))}
-							</td>
-							<td className="px-3 py-2.5 text-right">
+							</TableCell>
+							<TableCell className="text-right">
 								<Button
 									size="sm"
 									variant="outline"
@@ -105,11 +115,11 @@ export function PacificaPositions() {
 								>
 									Close
 								</Button>
-							</td>
-						</tr>
+							</TableCell>
+						</TableRow>
 					))}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }
@@ -141,40 +151,40 @@ export function PacificaOrders() {
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
-			<table className="w-full min-w-[520px] t-label">
-				<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
-					<tr>
-						<th className="px-3 py-2 font-normal">Market</th>
-						<th className="px-3 py-2 font-normal">Side</th>
-						<th className="px-3 py-2 font-normal">Price</th>
-						<th className="px-3 py-2 font-normal">Filled</th>
-						<th className="px-3 py-2 font-normal">Type</th>
-						<th className="px-3 py-2" />
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-[var(--line-soft)]">
+		<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4">
+			<Table className="min-w-[520px]">
+				<TableHeader>
+					<TableRow>
+						<TableHead>Market</TableHead>
+						<TableHead>Side</TableHead>
+						<TableHead className="text-right">Price</TableHead>
+						<TableHead className="text-right">Filled</TableHead>
+						<TableHead className="text-right">Type</TableHead>
+						<TableHead className="text-right" />
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{orders.map((order) => (
-						<tr key={order.order_id} className="hover:bg-[var(--surface-4)]">
-							<td className="px-3 py-2.5 text-[var(--ink-1)]">{order.symbol}</td>
-							<td
+						<TableRow key={order.order_id}>
+							<TableCell className="font-semibold">{order.symbol}</TableCell>
+							<TableCell
 								className={cn(
-									"px-3 py-2.5",
-									order.side === "bid" ? "text-lime-400" : "text-red-400",
+									"font-semibold",
+									order.side === "bid" ? "text-[var(--pon-up)]" : "text-[var(--pon-down)]",
 								)}
 							>
 								{sideLabel(order.side)}
-							</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-1)]">
+							</TableCell>
+							<TableCell className="font-fono text-right">
 								{formatUsd(Number(order.price))}
-							</td>
-							<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
+							</TableCell>
+							<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 								{order.filled_amount} / {order.initial_amount}
-							</td>
-							<td className="px-3 py-2.5 t-caption text-[var(--ink-2)]">
+							</TableCell>
+							<TableCell className="text-right t-caption text-[var(--pon-fg-2)]">
 								{order.reduce_only ? "Reduce only" : order.order_type}
-							</td>
-							<td className="px-3 py-2.5 text-right">
+							</TableCell>
+							<TableCell className="text-right">
 								<Button
 									size="sm"
 									variant="outline"
@@ -183,11 +193,11 @@ export function PacificaOrders() {
 								>
 									Cancel
 								</Button>
-							</td>
-						</tr>
+							</TableCell>
+						</TableRow>
 					))}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

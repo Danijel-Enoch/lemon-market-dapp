@@ -90,13 +90,15 @@ export function OnboardingPanel({ className }: { className?: string }) {
 	return (
 		<div
 			className={cn(
-				"space-y-5 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-6",
+				"space-y-5 rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6",
 				className,
 			)}
 		>
 			<div className="space-y-1.5">
-				<h2 className="t-body font-medium text-[var(--ink-1)]">Set up your account</h2>
-				<p className="t-label text-[var(--ink-2)]">
+				<h2 className="font-display text-[17px] font-bold text-[var(--pon-fg)]">
+					Set up your account
+				</h2>
+				<p className="text-[13px] leading-relaxed text-[var(--pon-fg-2)]">
 					Two signatures, once. After that you trade without signing every order.
 				</p>
 			</div>
@@ -117,16 +119,16 @@ export function OnboardingPanel({ className }: { className?: string }) {
 						<li
 							key={entry.key}
 							className={cn(
-								"flex gap-3 rounded-md px-3 py-2.5 transition-colors",
-								active && "bg-[var(--surface-4)]",
+								"flex gap-3 rounded-[var(--pon-r-md)] border px-3.5 py-3 transition-colors",
+								active ? "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)]" : "border-transparent",
 							)}
 						>
 							<span
 								className={cn(
 									"mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
-									done && "bg-lime-500 text-black",
-									active && "bg-[var(--surface-5)] text-[var(--ink-1)]",
-									!done && !active && "bg-[var(--surface-4)] text-[var(--ink-2)]",
+									done && "bg-[var(--pon-lime)] text-[var(--pon-on-lime)]",
+									active && "bg-[var(--pon-lime)]/20 text-[var(--pon-lime)]",
+									!done && !active && "bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
 								)}
 							>
 								{active && pending ? (
@@ -138,13 +140,15 @@ export function OnboardingPanel({ className }: { className?: string }) {
 							<div className="min-w-0">
 								<p
 									className={cn(
-										"t-label",
-										done || active ? "text-[var(--ink-1)]" : "text-[var(--ink-2)]",
+										"text-[13px] font-semibold",
+										done || active ? "text-[var(--pon-fg)]" : "text-[var(--pon-fg-3)]",
 									)}
 								>
 									{entry.label}
 								</p>
-								<p className="t-micro text-[var(--ink-2)]">{entry.detail}</p>
+								<p className="mt-0.5 t-micro leading-relaxed text-[var(--pon-fg-3)]">
+									{entry.detail}
+								</p>
 							</div>
 						</li>
 					);
@@ -197,7 +201,7 @@ function StepAction({
 				<Button onClick={onActivate} disabled={pending} className="w-full sm:w-auto">
 					{pending ? "Authorising…" : "Activate trading"}
 				</Button>
-				<p className="t-micro text-[var(--ink-2)]">
+				<p className="t-micro leading-relaxed text-[var(--pon-fg-3)]">
 					{/* The slow step, and the only one that waits on another network. */}
 					This one takes a few seconds — your account key signs through the NEAR MPC network.
 				</p>
@@ -259,7 +263,7 @@ export function BuilderApprovalNotice({ className }: { className?: string }) {
 						? `This app charges up to ${builderFee} of order value. Approving it takes one signature — your trading is unaffected either way.`
 						: "This app's trading fee needs your approval. It takes one signature, and your trading is unaffected either way."}
 				</p>
-				{activate.error && <p className="text-red-400">{errorMessage(activate.error)}</p>}
+				{activate.error && <p className="text-[var(--pon-down)]">{errorMessage(activate.error)}</p>}
 				<Button size="sm" disabled={activate.isPending} onClick={() => activate.mutate()}>
 					{activate.isPending ? "Approving…" : "Approve"}
 				</Button>

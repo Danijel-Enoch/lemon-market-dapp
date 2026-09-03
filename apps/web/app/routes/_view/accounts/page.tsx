@@ -5,8 +5,17 @@ import { CarryPositionList } from "@app/components/carry/CarryPositionList";
 import { Callout } from "@app/components/common/Callout";
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { StatTile } from "@app/components/common/StatTile";
+import { StatCard } from "@app/components/pons/StatCard";
 import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import { SpotLimitOrders } from "@app/components/spot/SpotLimitOrders";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@app/components/ui/table";
 import { useOnboarding, usePacificaAccount, useSessionWalletGuard } from "@app/hooks/useAccount";
 import { useCarryAttention, useSpotTokens } from "@app/hooks/useMarketData";
 import { erc20Abi } from "@app/lib/erc20";
@@ -78,6 +87,7 @@ export default function AccountsPage() {
 	return (
 		<div className="space-y-10">
 			<PageHeader
+				eyebrow="Account"
 				title="Accounts"
 				description="Your Pacifica trading account and the wallet you connected with, in one place."
 			/>
@@ -106,26 +116,26 @@ export default function AccountsPage() {
 				<section className="space-y-4">
 					<SubHeading title="Pacifica account" />
 
-					<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-						<StatTile label="Equity" value={formatUsd(equity)} />
-						<StatTile
+					<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+						<StatCard label="Equity" value={formatUsd(equity)} />
+						<StatCard
 							label="Available"
 							value={formatUsd(Number(pacifica?.account?.available_to_spend ?? 0))}
 						/>
-						<StatTile
+						<StatCard
 							label="Margin used"
 							value={formatUsd(Number(pacifica?.account?.total_margin_used ?? 0))}
 						/>
-						<StatTile
+						<StatCard
 							label="In transit"
 							value={formatUsd(pacifica?.pendingUsdc ?? 0)}
-							hint={pacifica?.pendingUsdc ? "Bridged, not yet credited" : undefined}
+							delta={pacifica?.pendingUsdc ? "Bridged, not yet credited" : undefined}
 							tone={pacifica?.pendingUsdc ? "positive" : "neutral"}
 						/>
 					</div>
 
 					{account && (
-						<p className="t-micro text-[var(--ink-2)]">
+						<p className="t-micro text-[var(--pon-fg-3)]">
 							Account <span className="font-fono">{account.pacificaAccount}</span>
 						</p>
 					)}
@@ -165,45 +175,45 @@ export default function AccountsPage() {
 								</Link>
 							</EmptyPanel>
 						) : (
-							<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
-								<table className="w-full min-w-[420px] t-label">
-									<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
-										<tr>
-											<th className="px-3 py-2 font-normal">Token</th>
-											<th className="px-3 py-2 font-normal">Shares</th>
-											<th className="px-3 py-2 font-normal">Perp</th>
-											<th className="px-3 py-2" />
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-[var(--line-soft)]">
+							<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+								<Table className="min-w-[420px]">
+									<TableHeader>
+										<TableRow>
+											<TableHead>Token</TableHead>
+											<TableHead className="text-right">Shares</TableHead>
+											<TableHead className="text-right">Perp</TableHead>
+											<TableHead className="text-right" />
+										</TableRow>
+									</TableHeader>
+									<TableBody>
 										{holdings.map(({ token, amount }) => (
-											<tr
-												key={token.symbol}
-												className="transition-colors hover:bg-[var(--surface-4)]"
-											>
-												<td className="px-3 py-2.5">
+											<TableRow key={token.symbol}>
+												<TableCell>
 													<Link
 														to={`/spot/${token.symbol}`}
-														className="text-[var(--ink-1)] transition-colors hover:text-lime-400"
+														className="font-semibold transition-colors hover:text-[var(--pon-lime)]"
 													>
 														{token.symbol}
 													</Link>
-												</td>
-												<td className="px-3 py-2.5 font-fono text-[var(--ink-1)]">
+												</TableCell>
+												<TableCell className="font-fono text-right">
 													{formatQuantity(amount, 6)}
-												</td>
-												<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
+												</TableCell>
+												<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 													{token.perpSymbol ?? "—"}
-												</td>
-												<td className="px-3 py-2.5 text-right">
-													<Link to="/carry" className="t-caption text-lime-400 hover:underline">
+												</TableCell>
+												<TableCell className="text-right">
+													<Link
+														to="/carry"
+														className="t-caption font-semibold text-[var(--pon-lime)] hover:underline"
+													>
 														Hedge it
 													</Link>
-												</td>
-											</tr>
+												</TableCell>
+											</TableRow>
 										))}
-									</tbody>
-								</table>
+									</TableBody>
+								</Table>
 							</div>
 						)}
 					</>

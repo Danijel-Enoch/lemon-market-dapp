@@ -5,9 +5,9 @@ import { Link } from "react-router";
 /**
  * The live market strip that fills the wide block in the hero stat row.
  *
- * The reference design parks a chart there; a scrolling tape of what is actually listed says
- * the same thing with real data. The track is duplicated so the CSS marquee in
- * `globals.css` can loop at -50% without a visible seam.
+ * The reference parks a chart there; a scrolling tape of what is actually
+ * listed says the same thing with real data. The track is duplicated so the CSS
+ * marquee in `globals.css` can loop at -50% without a visible seam.
  */
 export function MarketTicker({ className }: { className?: string }) {
 	const { data } = useMarkets();
@@ -15,13 +15,8 @@ export function MarketTicker({ className }: { className?: string }) {
 
 	if (markets.length === 0) {
 		return (
-			<div
-				className={cn(
-					"flex items-center justify-center rounded-lg bg-[var(--surface-3)] px-6",
-					className,
-				)}
-			>
-				<span className="t-label text-[var(--ink-2)]">Loading markets…</span>
+			<div className={cn("flex items-center justify-center bg-[var(--pon-bg-2)] px-6", className)}>
+				<span className="text-[13px] text-[var(--pon-fg-3)]">Loading markets…</span>
 			</div>
 		);
 	}
@@ -31,7 +26,7 @@ export function MarketTicker({ className }: { className?: string }) {
 	return (
 		<div
 			className={cn(
-				"relative overflow-hidden rounded-lg bg-[var(--surface-3)]",
+				"relative overflow-hidden bg-[var(--pon-bg-2)]",
 				// Fade both ends so items enter and leave the strip rather than
 				// being clipped mid-glyph.
 				"[mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]",
@@ -59,19 +54,19 @@ export function MarketTicker({ className }: { className?: string }) {
 							/>
 						) : (
 							<span
-								className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--surface-5)] text-[9px] font-medium text-[var(--ink-2)]"
+								className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--pon-surface-2)] text-[9px] font-medium text-[var(--pon-fg-3)]"
 								aria-hidden
 							>
 								{market.base.slice(0, 2)}
 							</span>
 						)}
-						<span className="whitespace-nowrap font-fono t-caption text-[var(--ink-1)] transition-colors group-hover:text-lime-400">
+						<span className="font-fono whitespace-nowrap t-caption font-semibold text-[var(--pon-fg)] transition-colors group-hover:text-[var(--pon-lime)]">
 							{market.base}
 						</span>
 						<span
 							className={cn(
-								"whitespace-nowrap font-fono t-micro",
-								market.isOpen ? "text-lime-400/80" : "text-[var(--ink-2)]",
+								"font-fono whitespace-nowrap t-micro",
+								market.isOpen ? "text-[var(--pon-lime)]" : "text-[var(--pon-fg-3)]",
 							)}
 						>
 							{market.maxLeverage}x

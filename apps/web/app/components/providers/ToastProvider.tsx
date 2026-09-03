@@ -1,49 +1,103 @@
 import { WalletProvider } from "@app/components/providers/WalletProvider";
+import { cn } from "@app/lib/utils";
+import { AlertTriangle, Check, Info } from "lucide-react";
+import type { ReactNode } from "react";
 import { type Toast, Toaster } from "react-hot-toast";
 
-interface CustomToastProps {
-	toast: Toast;
-}
+/**
+ * Toasts.
+ *
+ * Pons builds a toast from the same parts as everything else: the well surface,
+ * a hairline in the tone's colour, and a round badge holding the glyph. Tone
+ * lives on the border and the badge, never on the body fill, so a stack of
+ * mixed toasts reads as one column rather than a set of coloured slabs.
+ */
 
-export function ErrorToast({ toast }: CustomToastProps) {
+function ToastShell({
+	border,
+	badge,
+	badgeClass,
+	children,
+}: {
+	border: string;
+	badge: ReactNode;
+	badgeClass: string;
+	children: ReactNode;
+}) {
 	return (
-		<div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-			<img src="/icon-error.svg" alt="Error" className="w-5 h-5" />
-			<p className="text-sm text-red-400">{toast.message?.toString()}</p>
+		<div
+			className={cn(
+				"flex items-center gap-3 rounded-[var(--pon-r-md)] border bg-[var(--pon-bg-2)] px-3.5 py-3",
+				border,
+			)}
+		>
+			<span
+				className={cn(
+					"flex size-[26px] shrink-0 items-center justify-center rounded-full",
+					badgeClass,
+				)}
+			>
+				{badge}
+			</span>
+			<p className="text-[12.5px] font-medium text-[var(--pon-fg)]">{children}</p>
 		</div>
 	);
 }
 
-export function SuccessToast({ toast }: CustomToastProps) {
+export function ErrorToast({ toast }: { toast: Toast }) {
 	return (
-		<div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-			<p className="text-sm text-green-400">{toast.message?.toString()}</p>
-		</div>
+		<ToastShell
+			border="border-[var(--pon-down)]"
+			badgeClass="bg-[var(--pon-down)]/15 text-[var(--pon-down)]"
+			badge={<AlertTriangle size={13} aria-hidden />}
+		>
+			{toast.message?.toString()}
+		</ToastShell>
 	);
 }
 
-export function InfoToast({ toast }: CustomToastProps) {
+export function SuccessToast({ toast }: { toast: Toast }) {
 	return (
-		<div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-			<p className="text-sm text-blue-400">{toast.message?.toString()}</p>
-		</div>
+		<ToastShell
+			border="border-[var(--pon-lime)]"
+			badgeClass="bg-[var(--pon-lime-dim)] text-[var(--pon-lime)]"
+			badge={<Check size={13} aria-hidden />}
+		>
+			{toast.message?.toString()}
+		</ToastShell>
 	);
 }
 
-export function LoadingToast({ toast }: CustomToastProps) {
+export function InfoToast({ toast }: { toast: Toast }) {
 	return (
-		<div className="shadow p-3 bg-neutral-500/10 border border-neutral-500/20 rounded-lg flex items-center gap-2">
-			<div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
-			<p className="text-sm text-neutral-400">{toast.message?.toString()}</p>
-		</div>
+		<ToastShell
+			border="border-[var(--pon-line-2)]"
+			badgeClass="bg-[var(--pon-surface-2)] text-[var(--pon-fg-2)]"
+			badge={<Info size={13} aria-hidden />}
+		>
+			{toast.message?.toString()}
+		</ToastShell>
 	);
 }
 
-interface ToastProviderProps {
-	children: React.ReactNode;
+export function LoadingToast({ toast }: { toast: Toast }) {
+	return (
+		<ToastShell
+			border="border-[var(--pon-line-2)]"
+			badgeClass="bg-[var(--pon-surface-2)]"
+			badge={
+				<span
+					aria-hidden
+					className="size-3.5 animate-spin rounded-full border-2 border-[var(--pon-fg-3)] border-t-transparent"
+				/>
+			}
+		>
+			{toast.message?.toString()}
+		</ToastShell>
+	);
 }
 
-export function ToastProvider({ children }: ToastProviderProps) {
+export function ToastProvider({ children }: { children: ReactNode }) {
 	return (
 		<WalletProvider>
 			{children}
@@ -51,38 +105,10 @@ export function ToastProvider({ children }: ToastProviderProps) {
 				position="bottom-center"
 				reverseOrder={false}
 				toastOptions={{
-					// Default options for all toasts
-					style: {
-						background: "hsl(var(--background))",
-						border: "1px solid hsl(var(--border))",
-						color: "hsl(var(--foreground))",
-					},
-					// Don't show emoji icons by default
-					// theme: "dark",
 					duration: 4000,
-					className: "rounded-md border",
-					error: {
-						// Custom styles for error
-						style: {
-							background: "hsl(var(--card))",
-							border: "1px solid hsl(var(--red-600))",
-							color: "hsl(var(--error))",
-						},
-					},
-					success: {
-						style: {
-							background: "hsl(var(--card))",
-							border: "1px solid hsl(var(--green-600))",
-							color: "hsl(var(--green-400))",
-						},
-					},
-					loading: {
-						style: {
-							background: "hsl(var(--card))",
-							border: "1px solid hsl(var(--border))",
-							color: "hsl(var(--foreground))",
-						},
-					},
+					/* The rendered toast below carries the whole treatment, so the
+					   library's own chrome is stripped rather than restyled. */
+					style: { background: "transparent", boxShadow: "none", padding: 0, margin: 0 },
 				}}
 			>
 				{(toast) => {

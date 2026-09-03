@@ -81,10 +81,10 @@ export function FundingPanel() {
 	});
 
 	return (
-		<div className="space-y-4 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-5">
-			<div className="space-y-1">
-				<h3 className="t-body font-medium text-[var(--ink-1)]">Add funds</h3>
-				<p className="t-label text-[var(--ink-2)]">
+		<div className="space-y-4 rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+			<div className="space-y-1.5">
+				<h3 className="pon-section-label">Add funds</h3>
+				<p className="text-[13px] leading-relaxed text-[var(--pon-fg-2)]">
 					Send USDC from your connected wallet. It bridges to Solana and lands in your Pacifica
 					balance.
 				</p>
@@ -98,10 +98,12 @@ export function FundingPanel() {
 
 			{/* Money that has bridged but is not yet tradable. */}
 			{pending > 0 && (
-				<div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[var(--surface-4)] px-4 py-3">
+				<div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-md)] border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-4 py-3.5">
 					<div>
-						<p className="t-caption text-[var(--ink-2)]">Arrived, not yet credited</p>
-						<p className="font-fono text-lg text-[var(--ink-1)]">{formatUsd(pending)}</p>
+						<p className="t-caption text-[var(--pon-fg-2)]">Arrived, not yet credited</p>
+						<p className="font-fono text-lg font-semibold text-[var(--pon-fg)]">
+							{formatUsd(pending)}
+						</p>
 					</div>
 					<Button
 						size="sm"
@@ -139,7 +141,7 @@ export function FundingPanel() {
 			</div>
 
 			{amount !== "" && !validAmount && (
-				<p className="t-micro text-amber-400">
+				<p className="t-micro text-[var(--pon-amber)]">
 					Pacifica's minimum deposit is {MINIMUM_DEPOSIT} USDC.
 				</p>
 			)}

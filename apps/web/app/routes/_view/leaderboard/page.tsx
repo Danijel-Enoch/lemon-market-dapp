@@ -1,8 +1,18 @@
 import { Callout } from "@app/components/common/Callout";
 import { EmptyPanel } from "@app/components/common/EmptyState";
-import { StatTile } from "@app/components/common/StatTile";
+import { LabelledProgress } from "@app/components/pons/Progress";
+import { StatCard } from "@app/components/pons/StatCard";
 import { PageHeader } from "@app/components/site/PageHeader";
+import { Badge } from "@app/components/ui/badge";
 import { Skeleton } from "@app/components/ui/skeleton";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@app/components/ui/table";
 import { useLeaderboard, usePointsProfile } from "@app/hooks/useMarketData";
 import { cn } from "@app/lib/utils";
 import { basescanAddress, formatUsd } from "@lemon/core";
@@ -13,10 +23,7 @@ import { useConnection } from "wagmi";
 
 export const meta: MetaFunction = () => [
 	{ title: "Leaderboard — Lemon Markets" },
-	{
-		name: "description",
-		content: "Points earned trading on Lemon Markets.",
-	},
+	{ name: "description", content: "Points earned trading on Lemon Markets." },
 ];
 
 function short(address: string): string {
@@ -25,10 +32,10 @@ function short(address: string): string {
 
 /** Medal tint for the top three, neutral below. */
 function rankClass(rank: number): string {
-	if (rank === 1) return "text-amber-300";
-	if (rank === 2) return "text-[var(--ink-1)]";
-	if (rank === 3) return "text-orange-400";
-	return "text-[var(--ink-2)]";
+	if (rank === 1) return "text-[var(--pon-amber)]";
+	if (rank === 2) return "text-[var(--pon-fg)]";
+	if (rank === 3) return "text-[var(--pon-lime-3)]";
+	return "text-[var(--pon-fg-3)]";
 }
 
 export default function LeaderboardPage() {
@@ -42,51 +49,42 @@ export default function LeaderboardPage() {
 	return (
 		<div className="space-y-8">
 			<PageHeader
+				eyebrow="Protocol"
 				title="Leaderboard"
 				description="Points accrue from trading through Lemon Markets. Every point-earning transaction is verified on-chain."
 			/>
 
 			{/* Your standing, when connected. */}
 			{address && profile && (
-				<div className="space-y-3">
-					<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-						<StatTile
+				<div className="space-y-4">
+					<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+						<StatCard
 							label="Your points"
 							value={profile.total.toLocaleString()}
-							hint={profile.tier}
+							delta={profile.tier}
 							tone={profile.total > 0 ? "positive" : "neutral"}
 						/>
-						<StatTile label="Rank" value={profile.rank ? `#${profile.rank}` : "—"} />
-						<StatTile
+						<StatCard label="Rank" value={profile.rank ? `#${profile.rank}` : "—"} />
+						<StatCard
 							label="Perp volume"
 							value={formatUsd(profile.perpVolumeUsd, { compact: true })}
-							hint={`${profile.perpPoints.toLocaleString()} pts`}
+							delta={`${profile.perpPoints.toLocaleString()} pts`}
 						/>
-						<StatTile
+						<StatCard
 							label="Spot volume"
 							value={formatUsd(profile.spotVolumeUsd, { compact: true })}
-							hint={`${profile.spotPoints.toLocaleString()} pts`}
+							delta={`${profile.spotPoints.toLocaleString()} pts`}
 						/>
 					</div>
 
 					{nextTier && (
-						<div className="rounded-lg bg-[var(--surface-3)] p-4">
-							<div className="mb-2 flex items-center justify-between t-label">
-								<span className="text-[var(--ink-2)]">
-									{nextTier.remaining.toLocaleString()} points to {nextTier.next.name}
-								</span>
-								<span className="font-fono t-caption text-[var(--ink-2)]">
-									{profile.total.toLocaleString()} / {nextTier.next.minPoints.toLocaleString()}
-								</span>
-							</div>
-							<div className="h-1 overflow-hidden rounded-full bg-[var(--surface-5)]">
-								<div
-									className="h-full rounded-full bg-lime-500 transition-[width] duration-700 ease-out"
-									style={{
-										width: `${Math.min(100, (profile.total / nextTier.next.minPoints) * 100)}%`,
-									}}
-								/>
-							</div>
+						<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+							<LabelledProgress
+								size="lg"
+								label={`${nextTier.remaining.toLocaleString()} points to ${nextTier.next.name}`}
+								value={profile.total / nextTier.next.minPoints}
+								caption={`${profile.total.toLocaleString()} of ${nextTier.next.minPoints.toLocaleString()} points`}
+							/>
 						</div>
 					)}
 				</div>
@@ -107,90 +105,94 @@ export default function LeaderboardPage() {
 						Trade a perp, buy spot, or open a cash-and-carry to get on the board.
 					</EmptyPanel>
 				) : (
-					<div className="overflow-x-auto rounded-lg bg-[var(--surface-3)] scrollbar-hide">
-						<table className="w-full min-w-[640px] t-label">
-							<thead className="border-b border-[var(--line-soft)] text-left t-caption font-normal text-[var(--ink-2)]">
-								<tr>
-									<th className="px-3 py-2 font-normal">#</th>
-									<th className="px-3 py-2 font-normal">Trader</th>
-									<th className="px-3 py-2 font-normal">Tier</th>
-									<th className="px-3 py-2 font-normal">Perp volume</th>
-									<th className="px-3 py-2 font-normal">Spot volume</th>
-									<th className="px-3 py-2 font-normal">Carries</th>
-									<th className="px-3 py-2 text-right font-normal">Points</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-[var(--line-soft)]">
+					<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+						<div className="mb-4 flex items-center justify-between">
+							<h2 className="pon-section-label">Standings</h2>
+							<span className="t-caption text-[var(--pon-fg-3)]">{points.rows.length}</span>
+						</div>
+
+						<Table className="min-w-[640px]">
+							<TableHeader>
+								<TableRow>
+									<TableHead>#</TableHead>
+									<TableHead>Trader</TableHead>
+									<TableHead>Tier</TableHead>
+									<TableHead className="text-right">Perp volume</TableHead>
+									<TableHead className="text-right">Spot volume</TableHead>
+									<TableHead className="text-right">Carries</TableHead>
+									<TableHead className="text-right">Points</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 								{points.rows.map((row) => {
 									const isYou = address?.toLowerCase() === row.address;
 									return (
-										<tr
-											key={row.address}
-											className={cn(
-												"transition-colors hover:bg-[var(--surface-4)]",
-												isYou && "bg-lime-500/[0.06]",
-											)}
-										>
-											<td className={cn("px-3 py-2.5 font-fono", rankClass(row.rank))}>
+										<TableRow key={row.address} className={cn(isYou && "bg-[var(--pon-lime-dim)]")}>
+											<TableCell className={cn("font-fono font-semibold", rankClass(row.rank))}>
 												{row.rank}
-											</td>
-											<td className="px-3 py-2.5">
+											</TableCell>
+											<TableCell>
 												<a
 													href={basescanAddress(row.address)}
 													target="_blank"
 													rel="noreferrer"
-													className="font-fono t-caption text-[var(--ink-1)] transition-colors hover:text-lime-400"
+													className="font-fono transition-colors hover:text-[var(--pon-lime)]"
 												>
 													{short(row.address)}
 												</a>
 												{isYou && (
-													<span className="ml-2 rounded-sm bg-lime-500/15 px-1.5 py-0.5 t-micro uppercase text-lime-400">
+													<Badge variant="chip-accent" className="ml-2 uppercase">
 														you
-													</span>
+													</Badge>
 												)}
-											</td>
-											<td className="px-3 py-2.5 t-caption text-[var(--ink-2)]">{row.tier}</td>
-											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
+											</TableCell>
+											<TableCell className="text-[var(--pon-fg-2)]">{row.tier}</TableCell>
+											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 												{formatUsd(row.perpVolumeUsd, { compact: true })}
-											</td>
-											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
+											</TableCell>
+											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 												{formatUsd(row.spotVolumeUsd, { compact: true })}
-											</td>
-											<td className="px-3 py-2.5 font-fono t-caption text-[var(--ink-2)]">
+											</TableCell>
+											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 												{row.carriesOpened}
-											</td>
-											<td className="px-3 py-2.5 text-right font-fono text-lime-400">
+											</TableCell>
+											<TableCell className="font-fono text-right font-semibold text-[var(--pon-lime)]">
 												{row.points.toLocaleString()}
-											</td>
-										</tr>
+											</TableCell>
+										</TableRow>
 									);
 								})}
-							</tbody>
-						</table>
+							</TableBody>
+						</Table>
 					</div>
 				)}
 
-				<div className="rounded-lg bg-[var(--surface-3)] p-5 t-label">
-					<h2 className="mb-3 t-body font-medium text-[var(--ink-1)]">How points are earned</h2>
-					<ul className="space-y-1.5 text-[var(--ink-2)]">
+				<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+					<h2 className="pon-section-label mb-4">How points are earned</h2>
+					<ul className="space-y-2 text-[12.5px] leading-relaxed text-[var(--pon-fg-2)]">
 						<li>
-							<span className="font-fono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
-							perp volume, recorded from the orders placed through this app.
+							<span className="font-fono font-semibold text-[var(--pon-lime)]">1 pt</span> per $
+							{USD_PER_VOLUME_POINT} of perp volume, recorded from the orders placed through this
+							app.
 						</li>
 						<li>
-							<span className="font-fono text-lime-400">1 pt</span> per ${USD_PER_VOLUME_POINT} of
-							spot volume, verified against the transaction on-chain.
+							<span className="font-fono font-semibold text-[var(--pon-lime)]">1 pt</span> per $
+							{USD_PER_VOLUME_POINT} of spot volume, verified against the transaction on-chain.
 						</li>
 						<li>
-							<span className="font-fono text-lime-400">{ACTION_POINTS.carry_opened} pts</span> per
-							cash-and-carry opened — two legs across two venues.
+							<span className="font-fono font-semibold text-[var(--pon-lime)]">
+								{ACTION_POINTS.carry_opened} pts
+							</span>{" "}
+							per cash-and-carry opened — two legs across two venues.
 						</li>
 						<li>
-							<span className="font-fono text-lime-400">{ACTION_POINTS.basket_entry} pts</span> per
-							basket entry.
+							<span className="font-fono font-semibold text-[var(--pon-lime)]">
+								{ACTION_POINTS.basket_entry} pts
+							</span>{" "}
+							per basket entry.
 						</li>
 					</ul>
-					<p className="mt-4 t-caption text-white/35">
+					<p className="mt-5 border-t border-[var(--pon-line)] pt-4 t-caption text-[var(--pon-fg-4)]">
 						Tiers:{" "}
 						{TIERS.map((tier) => `${tier.name} (${tier.minPoints.toLocaleString()})`).join(" · ")}.
 						Tiers are cosmetic and confer nothing.

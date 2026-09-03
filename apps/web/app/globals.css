@@ -1,37 +1,217 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* @custom-variant dark (&:is(.dark *)); */
-#dexscreener-embed {
-    position: relative;
-    width: 100%;
-    padding-bottom: 125%;
-    background: #0a0a0a;
+/* ============================================================================
+   PONS DESIGN SYSTEM — Lemon Markets
+   Structure, type, radii, surfaces and components ported from the Pons design
+   system. Every colour is a Lemon token: the lime accent (#a3e635), the slate
+   ink ramp and the near-black surface ladder are unchanged. Pons contributes
+   the shape language — pill controls, 22px card corners, a four-rung surface
+   ladder, hairline framing and the radial accent glow — not the palette.
+   ============================================================================ */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+    /* --- surface ladder ---------------------------------------------------
+       Pons layers bg → bg-2 → surface → surface-2 → surface-3. These are the
+       equivalent rungs built from Lemon's existing near-blacks. */
+    --pon-bg: #000000;
+    /* page ground */
+    --pon-bg-2: #0a0a0a;
+    /* recessed fill: inputs, wells, inner panels */
+    --pon-surface: #0f1419;
+    /* card body */
+    --pon-surface-2: #1a1a1a;
+    /* raised chip / active segment */
+    --pon-surface-3: #1a1f26;
+    /* popovers, menus, sheets */
+
+    /* --- hairlines --------------------------------------------------------
+       line is the default frame; line-2 is the stronger edge Pons uses on
+       inputs and secondary buttons so they read as interactive. */
+    --pon-line: #222222;
+    --pon-line-2: #333333;
+
+    /* --- ink ramp --------------------------------------------------------- */
+    --pon-fg-0: #ffffff;
+    --pon-fg: #e8eaed;
+    --pon-fg-2: #94a3b8;
+    --pon-fg-3: #64748b;
+    --pon-fg-4: #475569;
+
+    /* --- accent: Lemon lime ---------------------------------------------- */
+    --pon-lime: #a3e635;
+    --pon-lime-2: #84cc16;
+    --pon-lime-3: #65a30d;
+    --pon-lime-dim: #1a2e05;
+    /* text that sits on a lime fill */
+    --pon-on-lime: #000000;
+
+    /* --- secondary + semantic -------------------------------------------- */
+    --pon-accent: #10b981;
+    --pon-accent-2: #3b82f6;
+    --pon-up: #10b981;
+    --pon-down: #ef4444;
+    --pon-amber: #f59e0b;
+    --pon-purple: #8b5cf6;
+    --pon-glow: rgba(163, 230, 53, 0.3);
+    --pon-glow-soft: rgba(163, 230, 53, 0.14);
+
+    /* --- brand gradients -------------------------------------------------- */
+    --pon-grad-lime: linear-gradient(90deg, #a3e635, #65a30d);
+    --pon-grad-deep: linear-gradient(90deg, #0a0a0a, #1a2e05);
+    --pon-grad-elevate: linear-gradient(90deg, #10b981, #a3e635);
+
+    /* --- type ------------------------------------------------------------- */
+    --font-display: "Space Grotesk", -apple-system, "Helvetica Neue", sans-serif;
+    --font-sans-stack: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono-stack: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+
+    /* --- radius ----------------------------------------------------------- */
+    --pon-r-sm: 8px;
+    --pon-r-md: 12px;
+    --pon-r-lg: 16px;
+    --pon-r-xl: 22px;
+    --pon-r-2xl: 28px;
+    --pon-r-pill: 999px;
+
+    /* --- rhythm ----------------------------------------------------------- */
+    --section-y: 72px;
+    --section-x: 20px;
+    --shell-max: 1440px;
+    --content-max: 1120px;
 }
 
-@media (min-width: 1400px) {
-    #dexscreener-embed {
-        padding-bottom: 65%;
+@media (min-width: 768px) {
+    :root {
+        --section-y: 112px;
+        --section-x: 40px;
     }
 }
 
-#dexscreener-embed iframe {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    border: 0;
-    background-color: #0a0a0a;
-    /* Darken background while preserving chart colors */
-    filter: brightness(0.8) contrast(1.15);
+/* Pons ships a light counterpart for every token. The app runs dark, but the
+   scale is defined here so a `.pon-light` subtree renders correctly. */
+.pon-light {
+    --pon-bg: #f4f6f3;
+    --pon-bg-2: #eaeee7;
+    --pon-surface: #ffffff;
+    --pon-surface-2: #f2f5ef;
+    --pon-surface-3: #ffffff;
+    --pon-line: #e2e6dd;
+    --pon-line-2: #cdd4c4;
+    --pon-fg-0: #0a0a0a;
+    --pon-fg: #16181a;
+    --pon-fg-2: #475569;
+    --pon-fg-3: #64748b;
+    --pon-fg-4: #94a3b8;
+    --pon-lime: #65a30d;
+    --pon-lime-2: #4d7c0f;
+    --pon-lime-dim: #ecfccb;
+    --pon-on-lime: #ffffff;
+    --pon-glow: rgba(101, 163, 13, 0.18);
+    --pon-glow-soft: rgba(101, 163, 13, 0.08);
 }
+
+/* ------------------------------------------------- legacy token aliases ----
+   The app addresses surfaces and ink through these names. They now resolve to
+   the Pons ladder, so every existing `var(--surface-3)` / `var(--ink-2)` call
+   site picks up the new system without being rewritten. */
+
+:root {
+    --surface-0: var(--pon-bg);
+    --surface-1: var(--pon-bg-2);
+    --surface-2: var(--pon-surface);
+    --surface-3: var(--pon-surface);
+    --surface-4: var(--pon-surface-2);
+    --surface-5: var(--pon-surface-3);
+    --surface-6: var(--pon-line-2);
+
+    --line: var(--pon-line);
+    --line-soft: var(--pon-line);
+    --line-strong: var(--pon-line-2);
+
+    --ink-0: var(--pon-fg-0);
+    --ink-1: var(--pon-fg);
+    --ink-2: var(--pon-fg-2);
+    --ink-3: var(--pon-fg-3);
+
+    /* shadcn surface tokens */
+    --radius: 0.75rem;
+
+    --font-inter: var(--font-sans-stack);
+    --font-raleway: var(--font-sans-stack);
+    --font-roboto-mono: var(--font-mono-stack);
+
+    --background: var(--pon-surface);
+    --foreground: var(--pon-fg);
+
+    --card: var(--pon-surface);
+    --card-foreground: var(--pon-fg);
+    --card-hover: var(--pon-surface-2);
+
+    --popover: var(--pon-surface-3);
+    --popover-foreground: var(--pon-fg);
+
+    --primary: var(--pon-lime);
+    --primary-foreground: var(--pon-on-lime);
+    --primary-hover: var(--pon-lime-2);
+
+    --secondary: var(--pon-surface-2);
+    --secondary-foreground: var(--pon-fg);
+    --secondary-hover: var(--pon-surface-3);
+
+    --muted: var(--pon-surface-2);
+    --muted-foreground: var(--pon-fg-2);
+
+    --accent: var(--pon-surface-2);
+    --accent-foreground: var(--pon-fg);
+
+    --destructive: var(--pon-down);
+    --destructive-foreground: #ffffff;
+
+    --success: var(--pon-up);
+    --success-foreground: #ffffff;
+
+    --warning: var(--pon-amber);
+    --warning-foreground: #000000;
+
+    --border: var(--pon-line);
+    --border-subtle: var(--pon-line);
+    --input: var(--pon-bg-2);
+    --input-focus: var(--pon-line-2);
+    --ring: var(--pon-lime);
+
+    --chart-1: var(--pon-accent-2);
+    --chart-2: var(--pon-accent);
+    --chart-3: var(--pon-amber);
+    --chart-4: var(--pon-purple);
+    --chart-5: var(--pon-down);
+
+    --sidebar: var(--pon-surface-3);
+    --sidebar-foreground: var(--pon-fg);
+    --sidebar-primary: var(--pon-lime);
+    --sidebar-primary-foreground: var(--pon-on-lime);
+    --sidebar-accent: var(--pon-surface-2);
+    --sidebar-accent-foreground: var(--pon-fg);
+    --sidebar-border: var(--pon-line);
+    --sidebar-ring: var(--pon-lime);
+
+    --trade-long: var(--pon-up);
+    --trade-short: var(--pon-down);
+    --trade-surface: var(--pon-surface-3);
+}
+
+/* --------------------------------------------------------- tailwind theme */
 
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
-    --font-sans: var(--font-raleway);
-    --font-mono: var(--font-roboto-mono);
+
+    --font-sans: var(--font-sans-stack);
+    --font-display: var(--font-display);
+    --font-mono: var(--font-mono-stack);
+
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -61,440 +241,233 @@
     --color-popover: var(--popover);
     --color-card-foreground: var(--card-foreground);
     --color-card: var(--card);
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) + 4px);
+
+    /* Pons radius scale, mapped onto Tailwind's rounded-* utilities. */
+    --radius-sm: var(--pon-r-sm);
+    --radius-md: var(--pon-r-md);
+    --radius-lg: var(--pon-r-lg);
+    --radius-xl: var(--pon-r-xl);
+    --radius-2xl: var(--pon-r-2xl);
+    --radius-3xl: var(--pon-r-2xl);
 }
 
-:root {
-    --radius: 0.5rem;
+/* ------------------------------------------------------------------ base */
 
-    --font-inter: 'Inter', sans-serif;
-    --font-raleway: 'Raleway', sans-serif;
-    --font-roboto-mono: 'Roboto Mono', monospace;
-
-    /* Modern dark theme - not too dark */
-    --background: #0f1419;
-    --foreground: #e8eaed;
-
-    /* Card and surface colors - darker for contrast */
-    --card: #0a0a0a;
-    --card-foreground: #e8eaed;
-    --card-hover: #1a1a1a;
-
-    /* Popover */
-    --popover: #1a1f26;
-    --popover-foreground: #e8eaed;
-
-    /* Primary brand color - lime/green to match homepage */
-    --primary: #a3e635;
-    --primary-foreground: #000000;
-    --primary-hover: #84cc16;
-
-    /* Secondary */
-    --secondary: #2d3748;
-    --secondary-foreground: #e8eaed;
-    --secondary-hover: #374151;
-
-    /* Muted */
-    --muted: #1a1a1a;
-    --muted-foreground: #94a3b8;
-
-    /* Accent */
-    --accent: #2d3748;
-    --accent-foreground: #e8eaed;
-
-    /* Destructive */
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
-
-    /* Success */
-    --success: #10b981;
-    --success-foreground: #ffffff;
-
-    /* Warning */
-    --warning: #f59e0b;
-    --warning-foreground: #ffffff;
-
-    /* Borders and inputs - subtle gray */
-    --border: #333333;
-    --border-subtle: #222222;
-    --input: #1a1a1a;
-    --input-focus: #2a2a2a;
-    --ring: #a3e635;
-
-    /* Chart colors */
-    --chart-1: #3b82f6;
-    --chart-2: #10b981;
-    --chart-3: #f59e0b;
-    --chart-4: #8b5cf6;
-    --chart-5: #ef4444;
-
-    /* Sidebar (if needed) */
-    --sidebar: #1a1f26;
-    --sidebar-foreground: #e8eaed;
-    --sidebar-primary: #14b8a6;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #2d374899;
-    --sidebar-accent-foreground: #e8eaed;
-    --sidebar-border: #2d374899;
-    --sidebar-ring: #14b8a6;
-
-    /* Trading Specific Colors */
-    --trade-long: #10b981;
-    /* Matching chart-2/success */
-    --trade-short: #ef4444;
-    /* Matching chart-5/destructive */
-    --trade-surface: #1a1f26;
-    /* Matching popover/sidebar - dark but distinct */
-}
-
-/* macOS-style scrollbar */
 * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+    box-sizing: border-box;
 }
 
-*::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+body {
+    font-family: var(--font-sans-stack);
+    -webkit-font-smoothing: antialiased;
 }
 
-*::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 10px;
+::selection {
+    background: var(--pon-lime);
+    color: var(--pon-on-lime);
 }
 
-*::-webkit-scrollbar-thumb {
-    background: rgba(155, 155, 155, 0.4);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-    min-height: 40px;
-    max-height: 100px;
-}
+/* ------------------------------------------------------------- type scale
+   Pons runs Space Grotesk for everything — display, UI and data — with tabular
+   figures on anything numeric. These semantic classes carry the scale so the
+   existing `t-*` call sites move to it wholesale. */
 
-*::-webkit-scrollbar-thumb:hover {
-    background: rgba(155, 155, 155, 0.7);
-    background-clip: content-box;
-}
-
-*::-webkit-scrollbar-corner {
-    background: transparent;
-}
-
-/* Custom slider styles */
-.slider {
-    -webkit-appearance: none;
-    appearance: none;
-    background: #2a2d3a;
-    outline: none;
-    border-radius: 8px;
-}
-
-.slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #4c82f7;
-    cursor: pointer;
-    border: 2px solid #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #4c82f7;
-    cursor: pointer;
-    border: 2px solid #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-button {
-    transition:
-        background-color 0.3s,
-        color 0.3s,
-        border-color 0.3s;
-    cursor: pointer;
-}
-
-@keyframes scroll-ticker {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(-50%);
-    }
-}
-
-@keyframes scroll-ticker-reverse {
-    0% {
-        transform: translateX(-50%);
-    }
-
-    100% {
-        transform: translateX(0);
-    }
-}
-
-.animate-scroll-ticker {
-    /* Allow components to override duration via --scroll-ticker-duration (in seconds)
-       Default to a slower 90s duration to prevent overly fast animations */
-    animation: scroll-ticker var(--scroll-ticker-duration, 90s) linear infinite;
-}
-
-.animate-scroll-ticker:hover {
-    animation-play-state: paused;
-}
-
-.animate-scroll-ticker-reverse {
-    animation: scroll-ticker-reverse var(--scroll-ticker-duration, 90s) linear infinite;
-}
-
-.animate-scroll-ticker-reverse:hover {
-    animation-play-state: paused;
-}
-
-@keyframes gradient-shift {
-    0% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
-
-    100% {
-        background-position: 0% 50%;
-    }
-}
-
-@keyframes gradient-shift-reverse {
-    0% {
-        background-position: 100% 50%;
-    }
-
-    50% {
-        background-position: 0% 50%;
-    }
-
-    100% {
-        background-position: 100% 50%;
-    }
-}
-
-.animate-gradient-shift {
-    background-size: 200% 200%;
-    animation: gradient-shift 4s ease infinite;
-}
-
-.animate-gradient-shift-reverse {
-    background-size: 200% 200%;
-    animation: gradient-shift-reverse 3s ease infinite;
-}
-/* ============================================================================
-   AVANTIS-DERIVED DESIGN SYSTEM
-   Structure, type scale, elevation and motion extracted from avantisfi.com.
-   Every colour below is an existing Lemon token — this layer adds no new hues.
-   ============================================================================ */
-
-:root {
-    /* Surface elevation ladder. Avantis layers grey-950 → grey-500; these are
-       the equivalent rungs built from colours already in the palette above. */
-    --surface-0: #000000;
-    /* page ground (body) */
-    --surface-1: #0a0a0a;
-    /* = --card */
-    --surface-2: #0f1419;
-    /* = --background */
-    --surface-3: #1a1a1a;
-    /* = --muted */
-    --surface-4: #1a1f26;
-    /* = --popover / --trade-surface */
-    --surface-5: #2d3748;
-    /* = --secondary */
-    --surface-6: #374151;
-    /* = --secondary-hover */
-
-    --line: #333333;
-    /* = --border */
-    --line-soft: #222222;
-    /* = --border-subtle */
-
-    --ink-0: #ffffff;
-    --ink-1: #e8eaed;
-    /* = --foreground */
-    --ink-2: #94a3b8;
-    /* = --muted-foreground */
-
-    /* Avantis section rhythm */
-    --section-y: 72px;
-    --section-x: 20px;
-    --shell-max: 1440px;
-    --content-max: 1320px;
-}
-
-@media (min-width: 768px) {
-    :root {
-        --section-y: 128px;
-        --section-x: 60px;
-    }
-}
-
-/* ---------------------------------------------------------------- type scale
-   Avantis runs a tighter scale than Tailwind's default (base is 14px, not 16).
-   Exposed as semantic classes so existing `text-*` usage keeps working. */
-
-.t-display {
-    font-size: 36px;
-    line-height: 120%;
-    letter-spacing: -0.02em;
-}
-
+.t-display,
 .t-display-lg {
-    font-size: 36px;
-    line-height: 120%;
+    font-family: var(--font-display);
+    font-size: clamp(40px, 6vw, 74px);
+    line-height: 1;
     letter-spacing: -0.02em;
 }
 
-@media (min-width: 768px) {
-    .t-display {
-        font-size: 52px;
-    }
-
-    .t-display-lg {
-        font-size: 52px;
-    }
+.t-h1 {
+    font-family: var(--font-display);
+    font-size: 34px;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
 }
 
 .t-h2 {
+    font-family: var(--font-display);
     font-size: 30px;
-    line-height: 42px;
+    line-height: 1.15;
     letter-spacing: -0.01em;
 }
 
 .t-h3 {
-    font-size: 24px;
-    line-height: 34px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+
+.t-stat {
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
 }
 
 .t-body-lg {
-    font-size: 20px;
-    line-height: 28px;
+    font-size: 17px;
+    line-height: 1.6;
 }
 
 .t-body {
-    font-size: 16px;
-    line-height: 20px;
+    font-size: 15px;
+    line-height: 1.6;
 }
 
 .t-label {
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .t-caption {
     font-size: 12px;
-    line-height: 16px;
+    line-height: 1.5;
 }
 
 .t-micro {
     font-size: 11px;
-    line-height: 14px;
+    line-height: 1.4;
 }
 
-/* Avantis pairs its display face with a mono for every number on screen. */
-.font-fono {
-    font-family: var(--font-roboto-mono);
+.t-eyebrow {
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+/* Every number on screen is tabular so a ticking row never jitters. Pons keeps
+   figures in the UI face rather than switching to a mono, so this is a numeric
+   treatment of Space Grotesk, not a family swap. */
+.font-fono,
+.tabular {
+    font-family: var(--font-sans-stack);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
 }
 
-.t-eyebrow {
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+/* ------------------------------------------------------------- surfaces */
+
+/* The default Pons container: hairline frame, 22px corners, card body. */
+.pon-card {
+    background: var(--pon-surface);
+    border: 1px solid var(--pon-line);
+    border-radius: var(--pon-r-xl);
 }
 
-/* ------------------------------------------------------------------ surfaces
-   Avantis' three repeating container treatments. */
+/* One rung down — the recessed well inside a card (inputs, amount fields). */
+.pon-well {
+    background: var(--pon-bg-2);
+    border: 1px solid var(--pon-line-2);
+    border-radius: var(--pon-r-md);
+}
 
-/* Flat panel — the stat tiles and nav blocks. */
+/* A flat inner panel: stat blocks and grouped readouts inside a card. */
+.pon-panel,
 .surface-panel {
-    background: var(--surface-3);
-    border-radius: 8px;
+    background: var(--pon-bg-2);
+    border: 1px solid var(--pon-line);
+    border-radius: var(--pon-r-md);
 }
 
-/* Hairline-gradient card — the testimonial treatment: a 1px gradient ring that
-   fades top-to-bottom, with the card body painted inside it. */
+/* Section label above a group of controls. */
+.pon-section-label {
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0.125em;
+    text-transform: uppercase;
+    color: var(--pon-fg-3);
+}
+
+/* Pons frames its accent moments with a lime hairline over a fading tint. */
+.pon-accent-frame {
+    border: 1px solid var(--pon-lime);
+    border-radius: var(--pon-r-lg);
+    background: linear-gradient(180deg, var(--pon-lime-dim), transparent);
+}
+
+/* The radial accent bloom Pons drops into hero and page headers. Paint it on a
+   `::before`-style absolute child so it never affects layout. */
+.pon-bloom {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(320px 160px at 90% 10%, var(--pon-glow), transparent 70%);
+}
+
+.pon-bloom-lg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(420px 220px at 88% 20%, var(--pon-glow), transparent 70%);
+}
+
+/* Hairline rules. */
+.rule-fade {
+    height: 1px;
+    background: linear-gradient(to right, var(--pon-line-2), transparent);
+}
+
+.rule-center {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--pon-line-2), transparent);
+}
+
+/* Legacy gradient-ring card, retuned to the Pons frame. */
 .surface-ring {
     position: relative;
-    border-radius: 24px;
+    border-radius: var(--pon-r-2xl);
     padding: 1px;
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.06), transparent);
 }
 
-.surface-ring>* {
-    background: var(--surface-3);
-    border-radius: 23px;
+.surface-ring > * {
+    background: var(--pon-surface);
+    border-radius: calc(var(--pon-r-2xl) - 1px);
     height: 100%;
     width: 100%;
 }
 
-/* Fading section divider — Avantis' `from-[#24272F] to-[rgba(36,39,47,0.5)]`. */
-.rule-fade {
-    height: 1px;
-    background: linear-gradient(to right, var(--line), transparent);
+/* ------------------------------------------------------------ animations */
+
+@keyframes ponPulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
 }
 
-/* ---------------------------------------------------------------- animations
-   Avantis' landing motion: a soft rise-in on scroll, slow glow breathing, and
-   a perspective lift on the product shot. */
+@keyframes ponRise {
+    from { transform: scaleY(0.15); opacity: 0.4; }
+    to { transform: scaleY(1); opacity: 1; }
+}
+
+.animate-pon-pulse {
+    animation: ponPulse 1.6s ease-in-out infinite;
+}
+
+.animate-pon-rise {
+    transform-origin: bottom;
+    animation: ponRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 @keyframes rise-in {
-    from {
-        opacity: 0;
-        transform: translateY(24px);
-    }
-
-    to {
-        opacity: 1;
-        transform: none;
-    }
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: none; }
 }
 
 @keyframes glow-breathe {
-
-    0%,
-    100% {
-        opacity: 0.55;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.85;
-        transform: scale(1.06);
-    }
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.06); }
 }
 
 @keyframes float-slow {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 .animate-rise-in {
@@ -509,11 +482,44 @@ button {
     animation: float-slow 6s ease-in-out infinite;
 }
 
+@keyframes scroll-ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+@keyframes scroll-ticker-reverse {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+}
+
+.animate-scroll-ticker {
+    animation: scroll-ticker var(--scroll-ticker-duration, 90s) linear infinite;
+}
+
+.animate-scroll-ticker:hover,
+.animate-scroll-ticker-reverse:hover {
+    animation-play-state: paused;
+}
+
+.animate-scroll-ticker-reverse {
+    animation: scroll-ticker-reverse var(--scroll-ticker-duration, 90s) linear infinite;
+}
+
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-shift {
+    background-size: 200% 200%;
+    animation: gradient-shift 4s ease infinite;
+}
+
 .perspective-1000 {
     perspective: 1000px;
 }
 
-/* Avantis tilts the hero product shot back a few degrees and lifts it on hover. */
 .tilt-hero {
     transform: rotateX(6deg) scale(0.98);
     transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
@@ -523,75 +529,19 @@ button {
     transform: rotateX(0deg) scale(1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-    .animate-rise-in,
-    .animate-glow-breathe,
-    .animate-float-slow,
-    .animate-scroll-ticker,
-    .animate-scroll-ticker-reverse {
-        animation: none !important;
-    }
-
-    .tilt-hero {
-        transform: none;
-        transition: none;
-    }
-}
-
-/* Masonry columns for the community wall. */
-.masonry {
-    column-gap: 28px;
-}
-
-.masonry>* {
-    break-inside: avoid;
-    margin-bottom: 28px;
-}
-
-.scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
-}
-
-/* ---------------------------------------------------------------- atmosphere
-   Hero backdrop: a slow drifting aurora over a fading technical grid. Both are
-   pure CSS so they cost nothing to paint and degrade to a flat ground when
-   motion is reduced. */
+/* ------------------------------------------------------------ atmosphere */
 
 @keyframes aurora-drift {
-    0% {
-        transform: translate3d(-6%, -3%, 0);
-    }
-
-    33% {
-        transform: translate3d(7%, 4%, 0);
-    }
-
-    66% {
-        transform: translate3d(-3%, 7%, 0);
-    }
-
-    100% {
-        transform: translate3d(-6%, -3%, 0);
-    }
+    0% { transform: translate3d(-6%, -3%, 0); }
+    33% { transform: translate3d(7%, 4%, 0); }
+    66% { transform: translate3d(-3%, 7%, 0); }
+    100% { transform: translate3d(-6%, -3%, 0); }
 }
 
-/*
-   The glow is painted as a radial gradient rather than a `filter: blur()` on a
-   solid disc. A blurred layer has to be re-rasterised whenever its geometry
-   changes, so animating one is expensive enough to starve every other animation
-   on the page; a gradient is painted once and the drift is a pure transform the
-   compositor can carry on its own. `--aurora` carries the colour.
-*/
 .aurora {
     position: absolute;
     border-radius: 9999px;
-    background: radial-gradient(closest-side, var(--aurora, rgba(163, 230, 53, 0.22)), transparent 72%);
+    background: radial-gradient(closest-side, var(--aurora, var(--pon-glow)), transparent 72%);
     will-change: transform;
     animation: aurora-drift 26s ease-in-out infinite;
 }
@@ -605,31 +555,136 @@ button {
     -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
 }
 
-/* Sheen that sweeps a surface once on hover — used on the bento tiles. */
 @keyframes sheen {
-    from {
-        transform: translateX(-120%) skewX(-18deg);
-    }
-
-    to {
-        transform: translateX(220%) skewX(-18deg);
-    }
+    from { transform: translateX(-120%) skewX(-18deg); }
+    to { transform: translateX(220%) skewX(-18deg); }
 }
 
 .group:hover .sheen {
     animation: sheen 0.9s ease-out;
 }
 
-/* Hairline that brightens from the centre outward. */
-.rule-center {
-    height: 1px;
-    background: linear-gradient(to right, transparent, var(--line), transparent);
-}
-
 @media (prefers-reduced-motion: reduce) {
-
+    .animate-rise-in,
+    .animate-glow-breathe,
+    .animate-float-slow,
+    .animate-scroll-ticker,
+    .animate-scroll-ticker-reverse,
+    .animate-pon-pulse,
+    .animate-pon-rise,
     .aurora,
     .group:hover .sheen {
         animation: none !important;
     }
+
+    .tilt-hero {
+        transform: none;
+        transition: none;
+    }
+}
+
+/* ------------------------------------------------------------- utilities */
+
+.masonry {
+    column-gap: 28px;
+}
+
+.masonry > * {
+    break-inside: avoid;
+    margin-bottom: 28px;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 155, 155, 0.4) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(155, 155, 155, 0.4);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(155, 155, 155, 0.7);
+    background-clip: content-box;
+}
+
+button {
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    cursor: pointer;
+}
+
+/* Range input, retuned to the Pons accent. */
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--pon-bg-2);
+    outline: none;
+    border-radius: var(--pon-r-pill);
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--pon-lime);
+    cursor: pointer;
+    border: 2px solid var(--pon-bg);
+}
+
+.slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--pon-lime);
+    cursor: pointer;
+    border: 2px solid var(--pon-bg);
+}
+
+/* ---------------------------------------------------------- third party */
+
+#dexscreener-embed {
+    position: relative;
+    width: 100%;
+    padding-bottom: 125%;
+    background: var(--pon-bg-2);
+}
+
+@media (min-width: 1400px) {
+    #dexscreener-embed {
+        padding-bottom: 65%;
+    }
+}
+
+#dexscreener-embed iframe {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    border: 0;
+    background-color: var(--pon-bg-2);
+    filter: brightness(0.8) contrast(1.15);
 }

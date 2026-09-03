@@ -1,5 +1,5 @@
 import { Callout } from "@app/components/common/Callout";
-import { StatTile, toneForValue } from "@app/components/common/StatTile";
+import { StatCard, toneForValue } from "@app/components/pons/StatCard";
 import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import { Button } from "@app/components/ui/button";
 import { Skeleton } from "@app/components/ui/skeleton";
@@ -25,11 +25,11 @@ export default function CarryDetailPage() {
 	const { data: spotTokens } = useSpotTokens();
 	const flow = useCarryFlow();
 
-	if (isLoading) return <Skeleton className="h-96 w-full rounded-lg" />;
+	if (isLoading) return <Skeleton className="h-96 w-full" />;
 	if (!data) {
 		return (
 			<Callout tone="warning" title="Position not found">
-				<Link to="/carry" className="underline">
+				<Link to="/carry" className="font-semibold text-[var(--pon-lime)] underline">
 					Back to cash &amp; carry
 				</Link>
 			</Callout>
@@ -88,15 +88,16 @@ export default function CarryDetailPage() {
 		<div className="space-y-6">
 			<Link
 				to="/carry"
-				className="inline-flex items-center gap-1.5 t-label text-[var(--ink-2)] transition-colors hover:text-lime-400"
+				className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--pon-line-2)] px-3.5 py-1.5 text-[13px] text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
 			>
 				<ArrowLeft size={14} aria-hidden /> Cash &amp; carry
 			</Link>
 
 			<PageHeader
+				eyebrow="Cash & carry"
 				title={
 					<>
-						{position.tokenSymbol} <span className="text-[var(--ink-2)]">/</span>{" "}
+						{position.tokenSymbol} <span className="text-[var(--pon-fg-3)]">/</span>{" "}
 						{position.perpSymbol}
 					</>
 				}
@@ -117,7 +118,7 @@ export default function CarryDetailPage() {
 								: `A short on ${position.perpSymbol} is open with no spot position hedging it.`}
 						</p>
 						{position.failureReason && (
-							<p className="rounded bg-black/30 p-2 font-fono text-[11px] opacity-80">
+							<p className="font-fono rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-2.5 t-micro text-[var(--pon-fg-2)]">
 								{position.failureReason}
 							</p>
 						)}
@@ -129,11 +130,7 @@ export default function CarryDetailPage() {
 									size="sm"
 									disabled={flow.isBusy || !token}
 									onClick={() => runRepair(option.action)}
-									className={
-										option.action === "retry_perp"
-											? "bg-lime-500 text-black hover:bg-lime-400"
-											: "bg-white/10 text-white hover:bg-white/20"
-									}
+									variant={option.action === "retry_perp" ? "default" : "secondary"}
 									title={option.description}
 								>
 									{option.label}
@@ -141,29 +138,29 @@ export default function CarryDetailPage() {
 							))}
 						</div>
 						{repairOptions[0] && (
-							<p className="text-xs opacity-75">{repairOptions[0].description}</p>
+							<p className="t-caption text-[var(--pon-fg-3)]">{repairOptions[0].description}</p>
 						)}
 					</div>
 				</Callout>
 			)}
 
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				<StatTile label="Notional per leg" value={formatUsd(position.notionalUsd)} />
-				<StatTile
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+				<StatCard label="Notional per leg" value={formatUsd(position.notionalUsd)} />
+				<StatCard
 					label="Capital deployed"
 					value={formatUsd((position.spotCostUsd ?? 0) + position.perpCollateralUsd)}
 				/>
-				<StatTile
+				<StatCard
 					label="Entry funding"
 					value={
 						position.entryFundingRatePct !== null
 							? formatFundingApr(position.entryFundingRatePct)
 							: "—"
 					}
-					hint="APR, short side"
+					delta="APR, short side"
 					tone={toneForValue(position.entryFundingRatePct ?? 0)}
 				/>
-				<StatTile
+				<StatCard
 					label="Entry net APY"
 					value={position.entryNetApyPct !== null ? formatPercent(position.entryNetApyPct) : "—"}
 					tone={toneForValue(position.entryNetApyPct ?? 0)}
@@ -176,18 +173,18 @@ export default function CarryDetailPage() {
 					{legs.map((leg) => (
 						<div
 							key={leg.name}
-							className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4"
+							className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4"
 						>
 							<div>
-								<p className="font-medium">{leg.name}</p>
-								<p className="text-xs text-[var(--ink-2)]">{leg.detail}</p>
+								<p className="text-[14px] font-semibold text-[var(--pon-fg)]">{leg.name}</p>
+								<p className="mt-0.5 t-caption text-[var(--pon-fg-3)]">{leg.detail}</p>
 							</div>
-							<div className="flex items-center gap-3 text-xs">
+							<div className="flex items-center gap-3 t-caption">
 								<span
 									className={
 										leg.open
-											? "rounded bg-lime-500/15 px-2 py-1 text-lime-400"
-											: "rounded bg-gray-500/15 px-2 py-1 text-[var(--ink-2)]"
+											? "rounded-[var(--pon-r-sm)] border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--pon-lime)]"
+											: "rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--pon-fg-3)]"
 									}
 								>
 									{leg.close ? "closed" : leg.open ? "open" : "not opened"}
@@ -197,7 +194,7 @@ export default function CarryDetailPage() {
 										href={basescanTx(leg.open)}
 										target="_blank"
 										rel="noreferrer"
-										className="inline-flex items-center gap-1 font-fono text-[var(--ink-2)] hover:text-lime-400"
+										className="font-fono inline-flex items-center gap-1 text-[var(--pon-fg-3)] transition-colors hover:text-[var(--pon-lime)]"
 									>
 										{leg.open.slice(0, 10)}…
 										<ExternalLink size={11} aria-hidden />
@@ -210,17 +207,17 @@ export default function CarryDetailPage() {
 			</section>
 
 			{isLive && (
-				<div className="rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-4">
-					<h2 className="mb-2 t-body font-medium text-[var(--ink-1)]">Unwind</h2>
-					<p className="mb-3 text-sm text-[var(--ink-2)]">
+				<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+					<h2 className="pon-section-label mb-2.5">Unwind</h2>
+					<p className="mb-4 text-[13px] leading-relaxed text-[var(--pon-fg-2)]">
 						Sells the spot leg and closes the short. Both must complete — if one fails the position
 						returns here for repair rather than being left half-closed.
 					</p>
 					<Button
 						type="button"
 						onClick={runUnwind}
+						variant="secondary"
 						disabled={flow.isBusy || !token}
-						className="bg-white/10 hover:bg-white/20"
 					>
 						{flow.isBusy ? "Unwinding…" : "Unwind position"}
 					</Button>

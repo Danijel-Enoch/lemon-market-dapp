@@ -1,3 +1,4 @@
+import { TimeframeGroup } from "@app/components/pons/Segmented";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { marketsApi } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
@@ -21,6 +22,16 @@ const RESOLUTIONS = [
 ] as const;
 
 type Resolution = (typeof RESOLUTIONS)[number]["value"];
+type ResolutionLabel = (typeof RESOLUTIONS)[number]["label"];
+
+/* The picker speaks in labels; the API speaks in resolution codes. */
+const RESOLUTION_LABELS = RESOLUTIONS.map((option) => option.label) as ResolutionLabel[];
+const LABEL_FOR = Object.fromEntries(
+	RESOLUTIONS.map((option) => [option.value, option.label]),
+) as Record<Resolution, ResolutionLabel>;
+const RESOLUTION_FOR = Object.fromEntries(
+	RESOLUTIONS.map((option) => [option.label, option.value]),
+) as Record<ResolutionLabel, Resolution>;
 
 /**
  * Candlestick chart for a market.
@@ -55,24 +66,26 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 		const chart = createChart(container, {
 			layout: {
 				background: { type: ColorType.Solid, color: "transparent" },
-				textColor: "#94a3b8",
-				fontFamily: "Roboto Mono, monospace",
+				textColor: "#64748b",
+				fontFamily: "Space Grotesk, sans-serif",
 			},
 			grid: {
 				vertLines: { color: "rgba(255,255,255,0.04)" },
 				horzLines: { color: "rgba(255,255,255,0.04)" },
 			},
-			rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
-			timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true },
+			rightPriceScale: { borderColor: "#222222" },
+			timeScale: { borderColor: "#222222", timeVisible: true },
 			crosshair: { mode: 0 },
 			height: 360,
 			autoSize: true,
 		});
 
 		const series = chart.addSeries(CandlestickSeries, {
-			upColor: "#a3e635",
+			// Pons colours a candle by direction using the same up/down pair the
+			// rest of the app reads — the lime accent stays reserved for actions.
+			upColor: "#10b981",
 			downColor: "#ef4444",
-			wickUpColor: "#a3e635",
+			wickUpColor: "#10b981",
 			wickDownColor: "#ef4444",
 			borderVisible: false,
 		});
@@ -107,29 +120,18 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 	return (
 		<div
 			className={cn(
-				"rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] p-3",
+				"rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4",
 				className,
 			)}
 		>
-			<div className="mb-2 flex items-center justify-between">
-				<span className="text-sm font-medium text-[var(--ink-1)]">{symbol}</span>
-				<div className="flex gap-1">
-					{RESOLUTIONS.map((option) => (
-						<button
-							key={option.value}
-							type="button"
-							onClick={() => setResolution(option.value)}
-							className={cn(
-								"rounded px-2 py-1 text-xs transition-colors",
-								option.value === resolution
-									? "bg-lime-500/15 text-lime-400"
-									: "text-[var(--ink-2)] hover:text-[var(--ink-1)]",
-							)}
-						>
-							{option.label}
-						</button>
-					))}
-				</div>
+			<div className="mb-3 flex items-center justify-between gap-3">
+				<span className="font-display text-[15px] font-bold text-[var(--pon-fg)]">{symbol}</span>
+				<TimeframeGroup
+					options={RESOLUTION_LABELS}
+					value={LABEL_FOR[resolution]}
+					onChange={(label) => setResolution(RESOLUTION_FOR[label])}
+					aria-label="Chart timeframe"
+				/>
 			</div>
 
 			<div className="relative">
@@ -137,12 +139,12 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 
 				{isLoading && (
 					<div className="absolute inset-0 flex items-center justify-center">
-						<Skeleton className="h-full w-full rounded-lg" />
+						<Skeleton className="h-full w-full" />
 					</div>
 				)}
 				{!isLoading && (error || data?.candles.length === 0) && (
 					<div className="absolute inset-0 flex items-center justify-center">
-						<p className="text-sm text-[var(--ink-2)]">
+						<p className="text-[13px] text-[var(--pon-fg-3)]">
 							{error ? "Price history unavailable." : "No price history for this range."}
 						</p>
 					</div>

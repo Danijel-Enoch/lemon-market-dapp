@@ -8,14 +8,38 @@ import { Link } from "react-router";
 import { useConnection } from "wagmi";
 
 const STATUS_STYLES: Record<CarryPositionRecord["status"], { label: string; className: string }> = {
-	VALIDATING: { label: "Preparing", className: "bg-gray-500/15 text-[var(--ink-2)]" },
-	SPOT_FILLED: { label: "Unhedged", className: "bg-red-500/15 text-red-400" },
-	OPEN: { label: "Open", className: "bg-lime-500/15 text-lime-400" },
-	UNWINDING: { label: "Unwinding", className: "bg-amber-500/15 text-amber-400" },
-	SPOT_CLOSED: { label: "Closing", className: "bg-amber-500/15 text-amber-400" },
-	CLOSED: { label: "Closed", className: "bg-gray-500/15 text-[var(--ink-2)]" },
-	ORPHANED: { label: "Needs attention", className: "bg-red-500/20 text-red-300" },
-	FAILED: { label: "Failed", className: "bg-gray-500/15 text-[var(--ink-2)]" },
+	VALIDATING: {
+		label: "Preparing",
+		className: "border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
+	},
+	SPOT_FILLED: {
+		label: "Unhedged",
+		className: "border-[var(--pon-down)] bg-[var(--pon-down)]/12 text-[var(--pon-down)]",
+	},
+	OPEN: {
+		label: "Open",
+		className: "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] text-[var(--pon-lime)]",
+	},
+	UNWINDING: {
+		label: "Unwinding",
+		className: "border-[var(--pon-amber)] bg-[var(--pon-amber)]/12 text-[var(--pon-amber)]",
+	},
+	SPOT_CLOSED: {
+		label: "Closing",
+		className: "border-[var(--pon-amber)] bg-[var(--pon-amber)]/12 text-[var(--pon-amber)]",
+	},
+	CLOSED: {
+		label: "Closed",
+		className: "border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
+	},
+	ORPHANED: {
+		label: "Needs attention",
+		className: "border-[var(--pon-down)] bg-[var(--pon-down)]/20 text-[var(--pon-down)]",
+	},
+	FAILED: {
+		label: "Failed",
+		className: "border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
+	},
 };
 
 export function CarryPositionList() {
@@ -24,7 +48,9 @@ export function CarryPositionList() {
 
 	if (!address) return null;
 	if (isLoading) {
-		return <p className="py-6 text-center text-sm text-[var(--ink-2)]">Loading positions…</p>;
+		return (
+			<p className="py-6 text-center text-[13px] text-[var(--pon-fg-3)]">Loading positions…</p>
+		);
 	}
 	if (error) {
 		return (
@@ -56,19 +82,21 @@ export function CarryPositionList() {
 						key={position.id}
 						to={`/carry/${position.id}`}
 						className={cn(
-							"flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 transition-colors",
+							"flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-md)] border p-4 transition-colors",
 							needsAttention
-								? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
-								: "border-[var(--line-soft)] bg-[var(--surface-3)] hover:border-white/25",
+								? "border-[var(--pon-down)] bg-[var(--pon-down)]/8 hover:bg-[var(--pon-down)]/12"
+								: "border-[var(--pon-line)] bg-[var(--pon-surface)] hover:border-[var(--pon-line-2)]",
 						)}
 					>
 						<div className="flex items-center gap-3">
 							<div>
-								<p className="font-medium">
+								<p className="text-[14px] font-semibold text-[var(--pon-fg)]">
 									{position.tokenSymbol}
-									<span className="ml-2 text-xs text-[var(--ink-2)]">vs {position.perpSymbol}</span>
+									<span className="ml-2 t-caption font-normal text-[var(--pon-fg-3)]">
+										vs {position.perpSymbol}
+									</span>
 								</p>
-								<p className="text-xs text-[var(--ink-2)]">
+								<p className="mt-0.5 t-caption text-[var(--pon-fg-3)]">
 									{formatUsd(position.notionalUsd)} per leg · {position.perpLeverage}x short
 								</p>
 							</div>
@@ -77,11 +105,15 @@ export function CarryPositionList() {
 						<div className="flex items-center gap-4">
 							{position.entryNetApyPct !== null && (
 								<div className="text-right">
-									<p className="text-[11px] uppercase text-white/35">Entry APY</p>
+									<p className="t-micro uppercase tracking-[0.08em] text-[var(--pon-fg-3)]">
+										Entry APY
+									</p>
 									<p
 										className={cn(
-											"font-fono text-sm",
-											position.entryNetApyPct >= 0 ? "text-lime-400" : "text-red-400",
+											"font-fono text-sm font-semibold",
+											position.entryNetApyPct >= 0
+												? "text-[var(--pon-up)]"
+												: "text-[var(--pon-down)]",
 										)}
 									>
 										{formatPercent(position.entryNetApyPct)}
@@ -90,7 +122,7 @@ export function CarryPositionList() {
 							)}
 							<span
 								className={cn(
-									"rounded px-2 py-1 text-[11px] font-medium uppercase",
+									"rounded-[var(--pon-r-sm)] border px-2 py-0.5 text-[10px] font-semibold uppercase",
 									status.className,
 								)}
 							>

@@ -2,13 +2,63 @@ import { cn } from "@app/lib/utils";
 import type { ReactNode } from "react";
 
 /**
- * App-surface page header.
+ * Page header.
  *
- * The reference design opens every in-app page the same way: a 30px title, one line of grey
- * supporting copy under it, and any page-level actions pinned to the right on
- * wide screens. Below md the actions drop underneath.
+ * Pons opens a page with a framed panel rather than bare text: an eyebrow in
+ * lime, a display-face title, one line of supporting copy, and a radial bloom
+ * in the top-right corner. Page-level actions sit opposite the title and drop
+ * underneath on narrow screens.
  */
 export function PageHeader({
+	eyebrow,
+	title,
+	description,
+	actions,
+	framed = true,
+	className,
+}: {
+	eyebrow?: ReactNode;
+	title: ReactNode;
+	description?: ReactNode;
+	actions?: ReactNode;
+	/** Set false for dense app surfaces where the panel would crowd the page. */
+	framed?: boolean;
+	className?: string;
+}) {
+	const content = (
+		<div className="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+			<div className="min-w-0">
+				{eyebrow && <p className="mb-2.5 t-eyebrow text-[var(--pon-lime)]">{eyebrow}</p>}
+				<h1 className="t-h1 font-bold text-[var(--pon-fg-0)]">{title}</h1>
+				{description && (
+					<p className="mt-2.5 max-w-[52ch] text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
+						{description}
+					</p>
+				)}
+			</div>
+			{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+		</div>
+	);
+
+	if (!framed) {
+		return <header className={cn("relative", className)}>{content}</header>;
+	}
+
+	return (
+		<header
+			className={cn(
+				"relative overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-[30px] py-[34px]",
+				className,
+			)}
+		>
+			<div aria-hidden className="pon-bloom" />
+			{content}
+		</header>
+	);
+}
+
+/** Section heading inside a page — one step down from the page title. */
+export function SubHeading({
 	title,
 	description,
 	actions,
@@ -20,34 +70,17 @@ export function PageHeader({
 	className?: string;
 }) {
 	return (
-		<header
-			className={cn("flex flex-col gap-4 md:flex-row md:items-start md:justify-between", className)}
-		>
-			<div className="space-y-2">
-				<h1 className="t-h2 font-medium text-white">{title}</h1>
-				{description && (
-					<p className="max-w-2xl t-label leading-relaxed text-[var(--ink-2)]">{description}</p>
-				)}
+		<div className={cn("flex items-start justify-between gap-3", className)}>
+			<div className="min-w-0">
+				<h2 className="font-display text-[17px] font-bold text-[var(--pon-fg)]">{title}</h2>
+				{description && <p className="mt-1 t-caption text-[var(--pon-fg-3)]">{description}</p>}
 			</div>
-			{actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-		</header>
+			{actions && <div className="shrink-0">{actions}</div>}
+		</div>
 	);
 }
 
-/** Section heading inside an app page — one step down from the page title. */
-export function SubHeading({
-	title,
-	actions,
-	className,
-}: {
-	title: ReactNode;
-	actions?: ReactNode;
-	className?: string;
-}) {
-	return (
-		<div className={cn("flex items-center justify-between gap-3", className)}>
-			<h2 className="t-body-lg font-medium text-[var(--ink-1)]">{title}</h2>
-			{actions}
-		</div>
-	);
+/** The spaced uppercase micro-label Pons puts above a group of controls. */
+export function SectionLabel({ className, children }: { className?: string; children: ReactNode }) {
+	return <div className={cn("pon-section-label", className)}>{children}</div>;
 }

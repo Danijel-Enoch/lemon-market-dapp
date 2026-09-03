@@ -1,5 +1,13 @@
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { Button } from "@app/components/ui/button";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@app/components/ui/table";
 import { useSpotLimitOrders } from "@app/hooks/useMarketData";
 import { useSpotLimitOrder } from "@app/hooks/useSpotLimitOrder";
 import { formatQuantity, fromBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
@@ -37,7 +45,7 @@ export function SpotLimitOrders() {
 
 	if (!address) return null;
 	if (isLoading) {
-		return <p className="py-4 text-center text-sm text-[var(--ink-2)]">Loading orders…</p>;
+		return <p className="py-4 text-center text-[13px] text-[var(--pon-fg-3)]">Loading orders…</p>;
 	}
 
 	const orders = data?.orders ?? [];
@@ -50,18 +58,18 @@ export function SpotLimitOrders() {
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-lg border border-[var(--line-soft)]">
-			<table className="w-full min-w-[560px] text-sm">
-				<thead className="border-b border-[var(--line-soft)] text-left t-caption text-[var(--ink-2)]">
-					<tr>
-						<th className="px-4 py-3 font-medium">Selling</th>
-						<th className="px-4 py-3 font-medium">For</th>
-						<th className="px-4 py-3 font-medium">Filled</th>
-						<th className="px-4 py-3 font-medium">Expires</th>
-						<th className="px-4 py-3" />
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-[var(--line-soft)]">
+		<div className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4">
+			<Table className="min-w-[560px]">
+				<TableHeader>
+					<TableRow>
+						<TableHead>Selling</TableHead>
+						<TableHead>For</TableHead>
+						<TableHead className="text-right">Filled</TableHead>
+						<TableHead className="text-right">Expires</TableHead>
+						<TableHead className="text-right" />
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{orders.map((order) => {
 						const maker = decimalsFor(order.makerAsset);
 						const taker = decimalsFor(order.takerAsset);
@@ -70,20 +78,20 @@ export function SpotLimitOrders() {
 						const filled = Number(fromBaseUnits(order.filledMakingAmount || "0", maker.decimals));
 
 						return (
-							<tr key={order.id}>
-								<td className="px-4 py-3 font-fono">
+							<TableRow key={order.id}>
+								<TableCell className="font-fono">
 									{formatQuantity(making, 4)} {maker.symbol}
-								</td>
-								<td className="px-4 py-3 font-fono">
+								</TableCell>
+								<TableCell className="font-fono">
 									{formatQuantity(taking, 4)} {taker.symbol}
-								</td>
-								<td className="px-4 py-3 font-fono text-[var(--ink-2)]">
+								</TableCell>
+								<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 									{making > 0 ? `${((filled / making) * 100).toFixed(0)}%` : "0%"}
-								</td>
-								<td className="px-4 py-3 text-xs text-[var(--ink-2)]">
+								</TableCell>
+								<TableCell className="text-right t-caption text-[var(--pon-fg-3)]">
 									{new Date(order.expiredAt * 1000).toLocaleString()}
-								</td>
-								<td className="px-4 py-3 text-right">
+								</TableCell>
+								<TableCell className="text-right">
 									<Button
 										size="sm"
 										variant="outline"
@@ -92,12 +100,12 @@ export function SpotLimitOrders() {
 									>
 										Cancel
 									</Button>
-								</td>
-							</tr>
+								</TableCell>
+							</TableRow>
 						);
 					})}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

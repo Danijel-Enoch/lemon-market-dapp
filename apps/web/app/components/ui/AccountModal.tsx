@@ -72,14 +72,14 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				showCloseButton
-				className="max-w-sm w-full bg-[#0f1419]/95 backdrop-blur-xl border border-[var(--line-soft)] rounded-lg p-0 overflow-hidden"
+				className="max-w-sm w-full bg-[#0f1419]/95 backdrop-blur-xl border border-[var(--pon-line)] rounded-lg p-0 overflow-hidden"
 			>
-				<div className="absolute inset-0 bg-linear-to-br from-lime-500/5 via-transparent to-emerald-500/5 pointer-events-none" />
+				<div className="absolute inset-0 pon-bloom" />
 
 				<div className="relative p-6">
 					<div className="flex flex-col items-center gap-4">
 						<div className="relative">
-							<div className="w-20 h-20 rounded-full bg-linear-to-br from-lime-500/20 to-emerald-500/20 border-2 border-lime-500/30 flex items-center justify-center shadow-lg shadow-lime-500/10 overflow-hidden">
+							<div className="w-20 h-20 rounded-full bg-linear-to-br from-lime-500/20 to-emerald-500/20 border-2 border-[var(--pon-lime)] flex items-center justify-center shadow-lg shadow-lime-500/10 overflow-hidden">
 								{account?.ensAvatar ? (
 									<img
 										src={account.ensAvatar}
@@ -93,7 +93,7 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 										className="w-full h-full rounded-full object-cover"
 									/>
 								) : (
-									<span className="text-2xl font-bold text-lime-400">
+									<span className="text-2xl font-bold text-[var(--pon-lime)]">
 										{account?.displayName?.[0]?.toUpperCase() ?? "?"}
 									</span>
 								)}
@@ -119,19 +119,19 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 							<button
 								type="button"
 								onClick={handleCopy}
-								className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-4)] hover:bg-white/10 border border-[var(--line-soft)] transition-all duration-200"
+								className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--pon-surface-2)] hover:bg-white/10 border border-[var(--pon-line)] transition-all duration-200"
 							>
-								<span className="text-sm text-[var(--ink-2)] font-fono">{shortenedAddress}</span>
+								<span className="text-sm text-[var(--pon-fg-2)] font-fono">{shortenedAddress}</span>
 								{copied ? (
-									<Check className="w-3.5 h-3.5 text-lime-400" />
+									<Check className="w-3.5 h-3.5 text-[var(--pon-lime)]" />
 								) : (
-									<CopyIcon className="w-3.5 h-3.5 text-[var(--ink-2)] group-hover:text-lime-400 transition-colors" />
+									<CopyIcon className="w-3.5 h-3.5 text-[var(--pon-fg-2)] group-hover:text-[var(--pon-lime)] transition-colors" />
 								)}
 							</button>
 						</div>
 
 						{balanceData && (
-							<div className="flex items-center gap-2 text-[var(--ink-2)]">
+							<div className="flex items-center gap-2 text-[var(--pon-fg-2)]">
 								<Wallet className="w-4 h-4" />
 								<span className="text-base font-medium">
 									{formatQuantity(
@@ -155,8 +155,8 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 							whileTap={{ scale: 0.98 }}
 							className={cn(
 								"w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
-								"bg-[var(--surface-4)] hover:bg-white/10 border border-[var(--line-soft)] hover:border-white/20",
-								"text-sm font-medium text-[var(--ink-1)] hover:text-white transition-all duration-200",
+								"bg-[var(--pon-surface-2)] hover:bg-white/10 border border-[var(--pon-line)] hover:border-white/20",
+								"text-sm font-medium text-[var(--pon-fg)] hover:text-white transition-all duration-200",
 							)}
 						>
 							<ExternalLinkIcon className="w-4 h-4" />
@@ -174,9 +174,9 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 						whileTap={{ scale: 0.98 }}
 						className={cn(
 							"w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
-							"bg-linear-to-r from-red-500/10 to-red-600/10 hover:from-red-500/20 hover:to-red-600/20",
-							"border border-red-500/20 hover:border-red-500/40",
-							"text-sm font-medium text-red-400 hover:text-red-300 transition-all duration-200",
+							"bg-[var(--pon-down)]/10 hover:bg-[var(--pon-down)]/20",
+							"border border-[var(--pon-down)]/30 hover:border-red-500/40",
+							"text-sm font-medium text-[var(--pon-down)] hover:text-red-300 transition-all duration-200",
 						)}
 					>
 						<LogOut className="w-4 h-4" />

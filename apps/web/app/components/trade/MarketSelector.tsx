@@ -12,19 +12,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 /**
- * Market picker, built to the reference pair-menu specification.
+ * Market picker.
  *
- * The structure is theirs verbatim: a search pill, a horizontally scrolling
- * filter row that opens on "All" and toggles back to it when the active chip is
- * pressed again, a sticky-header table on desktop, and a stacked row list below
- * lg. Column titles, the empty state and the sort affordances are reproduced as
- * written.
+ * The structure is the reference pair menu: a search well, a horizontally
+ * scrolling filter row that opens on "All" and toggles back to it when the
+ * active chip is pressed again, a sticky-header table on desktop, and a stacked
+ * row list below lg.
  *
- * Two of their seven columns are dropped rather than faked. the reference design serves
+ * Dressed in Pons: the trigger and the panel are hairline-framed cards, filters
+ * are Pons chips that invert to a lime fill when selected, and every figure is
+ * tabular.
+ *
+ * Two of the reference's seven columns are dropped rather than faked. It serves
  * 24H CHANGE and 24H VOLUME from its own indexer; Lemon's market feed exposes
  * neither, and a column of dashes is worse than a column that carries real
- * information. NET RATE and MAX LEVERAGE take those slots — both are already
- * part of the reference trade vocabulary, and both come off data we actually have.
+ * information. NET RATE and MAX LEVERAGE take those slots — both come off data
+ * we actually have.
  */
 
 /* ------------------------------------------------------------------ filters */
@@ -41,7 +44,7 @@ type Filter =
 	| "commodities"
 	| "indices";
 
-/** Chip order and labels as the reference design lists them. */
+/** Chip order and labels, as the reference lists them. */
 const FILTERS: { value: Filter; label: string }[] = [
 	{ value: "all", label: "All" },
 	{ value: "favourites", label: "Favorites" },
@@ -106,24 +109,24 @@ type SortKey = "netRate" | "leverage" | "oi";
 
 /* ------------------------------------------------------------------- pieces */
 
-/** Long/short split, the same read as the reference design's MARKET SENTIMENT column. */
+/** Long/short split — the MARKET SENTIMENT read. */
 function Sentiment({ market }: { market: MarketWithEconomics }) {
 	const total = market.longOpenInterest + market.shortOpenInterest;
 
 	// Pacifica publishes total open interest without a side breakdown. Drawing a
 	// bar from no data would read as balanced positioning rather than absence.
-	if (total <= 0) return <span className="t-micro text-[var(--ink-2)]">—</span>;
+	if (total <= 0) return <span className="t-micro text-[var(--pon-fg-3)]">—</span>;
 
 	const longPercent = (market.longOpenInterest / total) * 100;
 	return (
 		<div className="flex items-center gap-2">
-			<div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--trade-short)]/40">
+			<div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--pon-down)]/50">
 				<div
-					className="h-full rounded-full bg-[var(--trade-long)]"
+					className="h-full rounded-full bg-[var(--pon-up)]"
 					style={{ width: `${longPercent}%` }}
 				/>
 			</div>
-			<span className="font-fono t-micro text-[var(--ink-2)]">{longPercent.toFixed(0)}%</span>
+			<span className="font-fono t-micro text-[var(--pon-fg-3)]">{longPercent.toFixed(0)}%</span>
 		</div>
 	);
 }
@@ -133,14 +136,14 @@ function Incentives({ market, hasSpot }: { market: MarketWithEconomics; hasSpot:
 	if (hasSpot) tags.push("Spot");
 	if (market.closeOnly) tags.push("Close only");
 
-	if (tags.length === 0) return <span className="t-micro text-[var(--ink-2)]">—</span>;
+	if (tags.length === 0) return <span className="t-micro text-[var(--pon-fg-3)]">—</span>;
 
 	return (
 		<span className="flex flex-wrap gap-1">
 			{tags.map((tag) => (
 				<span
 					key={tag}
-					className="rounded-sm bg-lime-500/10 px-1.5 py-px t-micro font-medium text-lime-400"
+					className="rounded-[var(--pon-r-sm)] border border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10px] font-semibold text-[var(--pon-lime)]"
 				>
 					{tag}
 				</span>
@@ -149,7 +152,7 @@ function Incentives({ market, hasSpot }: { market: MarketWithEconomics; hasSpot:
 	);
 }
 
-/** Sortable column button — the reference design pairs the title with a direction glyph. */
+/** Sortable column button — the title paired with a direction glyph. */
 function SortHeader({
 	label,
 	active,
@@ -168,10 +171,13 @@ function SortHeader({
 		<button
 			type="button"
 			onClick={onClick}
-			className={cn("flex h-fit items-center p-0 text-xs text-[var(--ink-2)]", className)}
+			className={cn(
+				"flex h-fit items-center p-0 text-[11px] uppercase tracking-[0.05em] text-[var(--pon-fg-3)] transition-colors hover:text-[var(--pon-fg)]",
+				className,
+			)}
 		>
 			{label}
-			<Icon className={cn("ml-2 size-4", active && "text-white")} aria-hidden />
+			<Icon className={cn("ml-1.5 size-3.5", active && "text-[var(--pon-lime)]")} aria-hidden />
 		</button>
 	);
 }
@@ -237,7 +243,7 @@ export function MarketSelector({
 			if (classes && !classes.includes(market.assetClass)) return false;
 
 			if (!term) return true;
-			// The reference design matches the display pair, the base and the quote.
+			// Match the display pair, the base and the quote.
 			return (
 				market.symbol.toLowerCase().includes(term) ||
 				market.base.toLowerCase().includes(term) ||
@@ -284,7 +290,7 @@ export function MarketSelector({
 			<Popover.Trigger asChild>
 				<button
 					type="button"
-					className="my-1 flex min-w-[176px] items-center justify-between gap-3 rounded bg-[var(--surface-3)] px-3 py-1.5 transition-colors hover:bg-[var(--surface-4)]"
+					className="flex min-w-[190px] items-center justify-between gap-3 rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-3.5 py-2.5 transition-colors hover:border-[var(--pon-line-2)] md:h-[58px]"
 				>
 					<span className="flex w-fit items-center gap-3">
 						<MarketLogo
@@ -295,13 +301,13 @@ export function MarketSelector({
 							size={28}
 						/>
 						<span className="flex flex-col items-start leading-none">
-							<span className="t-body font-medium leading-5 text-[var(--ink-1)]">
+							<span className="font-display text-[15px] font-bold leading-5 text-[var(--pon-fg)]">
 								{current.symbol.replace("/", "")}
 							</span>
-							<span className="t-caption text-[var(--ink-2)]">{current.base}</span>
+							<span className="mt-0.5 t-micro text-[var(--pon-fg-3)]">{current.base}</span>
 						</span>
 					</span>
-					<ChevronDown size={16} className="shrink-0 text-[var(--ink-2)]" aria-hidden />
+					<ChevronDown size={16} className="shrink-0 text-[var(--pon-fg-2)]" aria-hidden />
 				</button>
 			</Popover.Trigger>
 
@@ -309,19 +315,22 @@ export function MarketSelector({
 				<Popover.Content
 					align="start"
 					sideOffset={6}
-					className="z-50 w-[min(96vw,1040px)] overflow-hidden rounded-lg border border-[var(--line-soft)] bg-[var(--surface-3)] shadow-2xl"
+					className="z-50 w-[min(96vw,1040px)] overflow-hidden rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)]"
 				>
 					{/* Search pill. */}
-					<div className="mx-4 mt-4 flex items-center gap-3 rounded-3xl bg-[var(--surface-4)] px-4 py-1.5">
-						<Search size={16} className="shrink-0 text-[var(--ink-2)]" aria-hidden />
+					<div className="mx-4 mt-4 flex items-center gap-2.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3.5 py-3 transition-colors focus-within:border-[var(--pon-lime)]">
+						<Search size={15} className="shrink-0 text-[var(--pon-fg-3)]" aria-hidden />
 						<input
 							ref={searchRef}
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
-							placeholder="Search"
+							placeholder="Search markets"
 							aria-label="Search markets"
-							className="w-full bg-transparent py-1.5 text-sm text-[var(--ink-1)] outline-none placeholder:text-[var(--ink-2)]"
+							className="w-full bg-transparent text-sm text-[var(--pon-fg)] outline-none placeholder:text-[var(--pon-fg-3)]"
 						/>
+						<span className="shrink-0 rounded-[6px] border border-[var(--pon-line)] px-1.5 py-0.5 t-micro text-[var(--pon-fg-3)]">
+							⌘K
+						</span>
 					</div>
 
 					{/* Filter chips — one scrolling row, never wrapping. */}
@@ -332,10 +341,10 @@ export function MarketSelector({
 								type="button"
 								onClick={() => pick(chip.value)}
 								className={cn(
-									"mr-2 rounded-full px-3 py-1.5 t-caption transition-colors",
+									"mr-1.5 rounded-full border px-3.5 py-1.5 text-xs transition-colors",
 									filter === chip.value
-										? "bg-black text-white"
-										: "bg-[var(--surface-4)] text-[var(--ink-2)] hover:text-[var(--ink-1)]",
+										? "border-[var(--pon-lime)] bg-[var(--pon-lime)] font-semibold text-[var(--pon-on-lime)]"
+										: "border-[var(--pon-line)] bg-transparent text-[var(--pon-fg-2)] hover:border-[var(--pon-fg-3)]",
 								)}
 							>
 								{chip.label}
@@ -344,12 +353,10 @@ export function MarketSelector({
 					</div>
 
 					{rows.length === 0 ? (
-						<div className="m-auto mt-10 flex flex-col items-center gap-4 pb-10 text-sm text-[var(--ink-2)]">
-							<Search width={30} height={30} className="text-[var(--surface-6)]" aria-hidden />
-							<div className="flex flex-col items-center">
-								<p>No results.</p>
-								<p>Try something else</p>
-							</div>
+						<div className="m-auto mt-10 flex flex-col items-center gap-3 pb-12 text-center">
+							<Search size={22} className="text-[var(--pon-fg-3)]" aria-hidden />
+							<p className="text-[15px] font-semibold text-[var(--pon-fg)]">No results.</p>
+							<p className="text-[12.5px] text-[var(--pon-fg-3)]">Try something else.</p>
 						</div>
 					) : (
 						<>
@@ -359,21 +366,21 @@ export function MarketSelector({
 								style={{ height: 388 }}
 							>
 								<table className="min-w-full">
-									<thead className="sticky -top-[0.5px] z-10 w-full border-y border-[var(--line-soft)] bg-[var(--surface-3)] p-0">
+									<thead className="sticky -top-[0.5px] z-10 w-full border-y border-[var(--pon-line)] bg-[var(--pon-surface)] p-0">
 										<tr className="w-full p-0">
 											<th
-												className="h-fit px-3 py-2 text-left text-xs font-medium text-[var(--ink-2)]"
+												className="h-fit px-3 pb-2.5 pt-1 text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[var(--pon-fg-3)]"
 												style={{ width: 256 }}
 											>
 												PAIR
 											</th>
 											<th
-												className="h-fit px-3 py-2 text-left text-xs font-medium text-[var(--ink-2)]"
+												className="h-fit px-3 pb-2.5 pt-1 text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[var(--pon-fg-3)]"
 												style={{ width: 148 }}
 											>
 												PRICE
 											</th>
-											<th className="h-fit px-3 py-2 text-left" style={{ width: 132 }}>
+											<th className="h-fit px-3 pb-2.5 pt-1 text-left" style={{ width: 132 }}>
 												<SortHeader
 													label="NET RATE"
 													active={sort.key === "netRate"}
@@ -381,7 +388,7 @@ export function MarketSelector({
 													onClick={() => sortBy("netRate")}
 												/>
 											</th>
-											<th className="h-fit px-3 py-2 text-left" style={{ width: 130 }}>
+											<th className="h-fit px-3 pb-2.5 pt-1 text-left" style={{ width: 130 }}>
 												<SortHeader
 													label="MAX LEVERAGE"
 													active={sort.key === "leverage"}
@@ -389,7 +396,7 @@ export function MarketSelector({
 													onClick={() => sortBy("leverage")}
 												/>
 											</th>
-											<th className="h-fit px-3 py-2 text-left" style={{ width: 147 }}>
+											<th className="h-fit px-3 pb-2.5 pt-1 text-left" style={{ width: 147 }}>
 												<SortHeader
 													label="OPEN INTEREST"
 													active={sort.key === "oi"}
@@ -398,13 +405,13 @@ export function MarketSelector({
 												/>
 											</th>
 											<th
-												className="h-fit px-3 py-2 text-left text-xs font-medium text-[var(--ink-2)]"
+												className="h-fit px-3 pb-2.5 pt-1 text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[var(--pon-fg-3)]"
 												style={{ width: 162 }}
 											>
 												MARKET SENTIMENT
 											</th>
 											<th
-												className="h-fit px-3 py-2 text-left text-xs font-medium text-[var(--ink-2)]"
+												className="h-fit px-3 pb-2.5 pt-1 text-left text-[11px] font-normal uppercase tracking-[0.05em] text-[var(--pon-fg-3)]"
 												style={{ width: 170 }}
 											>
 												INCENTIVES
@@ -420,8 +427,8 @@ export function MarketSelector({
 													key={market.symbol}
 													onClick={() => choose(market.symbol)}
 													className={cn(
-														"cursor-pointer border-b border-[var(--line-soft)] transition-colors hover:bg-[var(--surface-4)]",
-														market.symbol === current.symbol && "bg-[var(--surface-4)]",
+														"cursor-pointer border-b border-[var(--pon-line)] transition-colors hover:bg-[var(--pon-bg-2)]",
+														market.symbol === current.symbol && "bg-[var(--pon-lime-dim)]",
 													)}
 												>
 													<td className="px-3 py-2.5">
@@ -438,8 +445,8 @@ export function MarketSelector({
 																	size={16}
 																	className={cn(
 																		starred
-																			? "fill-[#FFD700] text-[#FFD700]"
-																			: "fill-[var(--surface-6)] text-[var(--surface-6)]",
+																			? "fill-[var(--pon-lime)] text-[var(--pon-lime)]"
+																			: "fill-[var(--pon-line-2)] text-[var(--pon-line-2)]",
 																	)}
 																	aria-hidden
 																/>
@@ -452,16 +459,16 @@ export function MarketSelector({
 																size={24}
 															/>
 															<span className="min-w-0">
-																<span className="block truncate text-sm text-[var(--ink-1)]">
+																<span className="block truncate text-[13px] font-semibold text-[var(--pon-fg)]">
 																	{market.symbol.replace("/", "")}
 																</span>
-																<span className="block truncate t-micro text-[var(--ink-2)]">
+																<span className="block truncate t-micro text-[var(--pon-fg-3)]">
 																	{market.base}
 																</span>
 															</span>
 														</span>
 													</td>
-													<td className="px-3 py-2.5 font-fono text-sm text-[var(--ink-1)]">
+													<td className="px-3 py-2.5 font-fono text-sm text-[var(--pon-fg)]">
 														{price !== null ? formatUsd(price) : "-"}
 													</td>
 													<td className="px-3 py-2.5">
@@ -470,24 +477,24 @@ export function MarketSelector({
 																className={cn(
 																	"font-fono text-sm",
 																	market.fundingShortPercentPerHour >= 0
-																		? "text-lime-400"
-																		: "text-red-400",
+																		? "text-[var(--pon-up)]"
+																		: "text-[var(--pon-down)]",
 																)}
 															>
 																{formatFundingApr(market.fundingShortPercentPerHour)}
 															</span>
 														) : (
-															<span className="text-[11px] font-medium leading-[14px] text-[var(--destructive)]">
+															<span className="t-micro font-semibold text-[var(--pon-down)]">
 																Market Closed
 															</span>
 														)}
 													</td>
 													<td className="px-3 py-2.5">
-														<span className="rounded-md bg-[var(--surface-5)] px-2 py-[2px] font-fono text-sm text-[var(--ink-1)]">
+														<span className="font-fono rounded-full border border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-2.5 py-0.5 text-xs text-[var(--pon-fg)]">
 															{market.maxLeverage}x
 														</span>
 													</td>
-													<td className="px-3 py-2.5 font-fono text-sm text-[var(--ink-1)]">
+													<td className="px-3 py-2.5 font-fono text-sm text-[var(--pon-fg)]">
 														{formatUsd(market.openInterest, { compact: true })}
 													</td>
 													<td className="px-3 py-2.5">
@@ -511,7 +518,7 @@ export function MarketSelector({
 									return (
 										<div
 											key={market.symbol}
-											className="relative flex w-full items-center justify-between border-t border-[var(--line-soft)] p-2"
+											className="relative flex w-full items-center justify-between border-t border-[var(--pon-line)] px-4 py-3"
 										>
 											{/* Sits under the content so the star stays clickable. */}
 											<button
@@ -533,8 +540,8 @@ export function MarketSelector({
 														size={16}
 														className={cn(
 															starred
-																? "fill-[#FFD700] text-[#FFD700]"
-																: "fill-[var(--surface-6)] text-[var(--surface-6)]",
+																? "fill-[var(--pon-lime)] text-[var(--pon-lime)]"
+																: "fill-[var(--pon-line-2)] text-[var(--pon-line-2)]",
 														)}
 														aria-hidden
 													/>
@@ -546,29 +553,29 @@ export function MarketSelector({
 													logoUrl={market.logoUrl}
 													size={24}
 												/>
-												<span className="text-sm text-[var(--ink-1)]">
+												<span className="text-[13px] font-semibold text-[var(--pon-fg)]">
 													{market.symbol.replace("/", "")}
 												</span>
 												{!market.isOpen ? (
-													<p className="text-[11px] font-medium leading-[14px] text-[var(--destructive)]">
+													<p className="t-micro font-semibold text-[var(--pon-down)]">
 														Market Closed
 													</p>
 												) : (
-													<div className="rounded-md bg-[var(--surface-5)] px-2 py-[2px] t-caption text-[var(--ink-1)]">
+													<div className="font-fono rounded-full border border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-2.5 py-0.5 t-micro text-[var(--pon-fg)]">
 														{market.maxLeverage}x
 													</div>
 												)}
 											</div>
 											<div className="pointer-events-none relative z-10 flex flex-col items-end">
-												<span className="font-fono text-sm text-[var(--ink-1)]">
+												<span className="font-fono text-sm text-[var(--pon-fg)]">
 													{price !== null ? formatUsd(price) : "-"}
 												</span>
 												<span
 													className={cn(
 														"font-fono t-micro",
 														market.fundingShortPercentPerHour >= 0
-															? "text-lime-400"
-															: "text-red-400",
+															? "text-[var(--pon-up)]"
+															: "text-[var(--pon-down)]",
 													)}
 												>
 													{formatFundingApr(market.fundingShortPercentPerHour)}

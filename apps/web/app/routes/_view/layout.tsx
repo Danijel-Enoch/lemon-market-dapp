@@ -4,14 +4,15 @@ import { Outlet } from "react-router";
 /**
  * Application shell.
  *
- * The reference design runs its app surfaces edge to edge under a 56px fixed bar, with the
- * mobile tab bar reserving space at the bottom — no centred marketing gutter.
+ * The Pons nav floats as a pill rather than sitting in a bar, so the shell
+ * reserves its full height as padding rather than relying on a fixed bar
+ * height. The bottom tab bar reserves space below it on mobile.
  */
 export default function ViewLayout() {
 	return (
-		<div className="min-h-screen bg-black pt-[57px] md:pt-[56px]">
+		<div className="min-h-screen bg-[var(--pon-bg)] pt-[64px] md:pt-[78px]">
 			<Header />
-			<main className="mx-auto w-full max-w-[var(--shell-max)] px-4 pb-24 pt-6 sm:pb-12 md:px-6">
+			<main className="mx-auto w-full max-w-[var(--shell-max)] px-4 pb-28 pt-5 sm:pb-14 md:px-6 md:pt-6">
 				<Outlet />
 			</main>
 		</div>
