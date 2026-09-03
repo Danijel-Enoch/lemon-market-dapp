@@ -3,8 +3,8 @@ import { StatCard, toneForValue } from "@app/components/pons/StatCard";
 import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
 import { Button } from "@app/components/ui/button";
 import { Skeleton } from "@app/components/ui/skeleton";
-import { useCarryFlow } from "@app/hooks/useCarryFlow";
-import { useCarryPosition, useSpotTokens } from "@app/hooks/useMarketData";
+import { useBasisFlow } from "@app/hooks/useBasisFlow";
+import { useBasisMarket, useBasisPosition } from "@app/hooks/useMarketData";
 import {
 	basescanTx,
 	formatFundingApr,
@@ -16,36 +16,40 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Link, type MetaFunction, useParams } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Carry position — Lemon Markets" }];
+export const meta: MetaFunction = () => [{ title: "Position — Lemon" }];
 
-export default function CarryDetailPage() {
+export default function PositionDetailPage() {
 	const { id } = useParams();
 	const queryClient = useQueryClient();
-	const { data, isLoading } = useCarryPosition(id);
-	const { data: spotTokens } = useSpotTokens();
-	const flow = useCarryFlow();
+	const { data, isLoading } = useBasisPosition(id);
+	const flow = useBasisFlow();
+
+	// The spot leg's address and decimals are needed to sell it back. Resolved
+	// from the market rather than stored on the position: an address snapshotted
+	// at open would keep pointing at a token the registry has since corrected.
+	const { data: market } = useBasisMarket(data?.position.tokenSymbol);
 
 	if (isLoading) return <Skeleton className="h-96 w-full" />;
 	if (!data) {
 		return (
 			<Callout tone="warning" title="Position not found">
-				<Link to="/carry" className="font-semibold text-[var(--pon-lime)] underline">
-					Back to cash &amp; carry
+				<Link to="/portfolio" className="font-semibold text-[var(--pon-lime)] underline">
+					Back to portfolio
 				</Link>
 			</Callout>
 		);
 	}
 
 	const { position, repairOptions } = data;
-	const token = spotTokens?.tokens.find((candidate) => candidate.symbol === position.tokenSymbol);
+	const token = market?.spot;
 
 	// Both statuses mean at least one leg is live without its counterpart.
 	const unhedged = position.status === "ORPHANED" || position.status === "SPOT_FILLED";
 	const isLive = position.status === "OPEN";
 
 	function refresh() {
-		queryClient.invalidateQueries({ queryKey: ["carry-position", id] });
-		queryClient.invalidateQueries({ queryKey: ["carry-positions"] });
+		queryClient.invalidateQueries({ queryKey: ["basis-position", id] });
+		queryClient.invalidateQueries({ queryKey: ["basis-positions"] });
 	}
 
 	async function runRepair(action: string) {
@@ -74,7 +78,7 @@ export default function CarryDetailPage() {
 			name: `Spot — ${position.tokenSymbol}`,
 			open: position.spotBuyTxHash,
 			close: position.spotSellTxHash,
-			detail: position.shares ? `${formatQuantity(position.shares, 6)} shares` : "—",
+			detail: position.shares ? `${formatQuantity(position.shares, 6)} units` : "—",
 		},
 		{
 			name: `Short — ${position.perpSymbol}`,
@@ -87,14 +91,14 @@ export default function CarryDetailPage() {
 	return (
 		<div className="space-y-6">
 			<Link
-				to="/carry"
+				to="/portfolio"
 				className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--pon-line-2)] px-3.5 py-1.5 text-[13px] text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
 			>
-				<ArrowLeft size={14} aria-hidden /> Cash &amp; carry
+				<ArrowLeft size={14} aria-hidden /> Portfolio
 			</Link>
 
 			<PageHeader
-				eyebrow="Cash & carry"
+				eyebrow="Basis position"
 				title={
 					<>
 						{position.tokenSymbol} <span className="text-[var(--pon-fg-3)]">/</span>{" "}
@@ -105,7 +109,7 @@ export default function CarryDetailPage() {
 			/>
 
 			{/*
-			  The whole point of tracking these positions: a half-open carry is
+			  The whole point of tracking these positions: a half-open one is
 			  directional exposure the user did not choose. It gets the loudest
 			  treatment on the page, with the concrete exposure named.
 			*/}
@@ -207,7 +211,7 @@ export default function CarryDetailPage() {
 			</section>
 
 			{isLive && (
-				<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+				<div className="rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
 					<h2 className="pon-section-label mb-2.5">Unwind</h2>
 					<p className="mb-4 text-[13px] leading-relaxed text-[var(--pon-fg-2)]">
 						Sells the spot leg and closes the short. Both must complete — if one fails the position

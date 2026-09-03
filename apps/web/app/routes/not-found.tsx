@@ -1,12 +1,23 @@
-import { Footer } from "@app/components/site/Footer";
-import { SiteHeader } from "@app/components/site/SiteHeader";
+import { Brand } from "@app/components/pons/Brand";
 import { Link } from "react-router";
 
+/**
+ * 404.
+ *
+ * Rendered outside the app shell, so it carries its own minimal chrome — the
+ * brand and nothing else. The marketing header and footer this used to use went
+ * with the landing page, and reinstating a nav here would advertise
+ * destinations that no longer exist.
+ */
 export default function NotFound() {
 	return (
 		<main className="overflow-x-hidden bg-[var(--pon-bg)] text-[var(--pon-fg)]">
 			<div className="mx-auto max-w-[var(--shell-max)]">
-				<SiteHeader />
+				<header className="px-5 py-6 sm:px-8">
+					<Link to="/">
+						<Brand size={26} />
+					</Link>
+				</header>
 
 				<section className="flex min-h-[64vh] w-full items-center justify-center px-5 py-[var(--section-y)] sm:px-8">
 					<div className="relative w-full max-w-[var(--content-max)]">
@@ -38,8 +49,6 @@ export default function NotFound() {
 						</div>
 					</div>
 				</section>
-
-				<Footer />
 			</div>
 		</main>
 	);

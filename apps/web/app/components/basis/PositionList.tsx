@@ -1,13 +1,21 @@
 import { EmptyPanel } from "@app/components/common/EmptyState";
-import { useCarryPositions } from "@app/hooks/useMarketData";
-import type { CarryPositionRecord } from "@app/lib/api";
+import { useBasisPositions } from "@app/hooks/useMarketData";
+import type { BasisPositionRecord } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
 import { formatPercent, formatUsd } from "@lemon/core";
 import { Scale } from "lucide-react";
 import { Link } from "react-router";
 import { useConnection } from "wagmi";
 
-const STATUS_STYLES: Record<CarryPositionRecord["status"], { label: string; className: string }> = {
+/**
+ * Status styling.
+ *
+ * `SPOT_FILLED` is coloured as an alarm rather than as progress on purpose: it
+ * means the spot leg landed and the hedge has not, so the user is holding
+ * directional exposure they did not ask for. Rendering it as a neutral "in
+ * progress" step is how that state goes unnoticed.
+ */
+const STATUS_STYLES: Record<BasisPositionRecord["status"], { label: string; className: string }> = {
 	VALIDATING: {
 		label: "Preparing",
 		className: "border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
@@ -42,9 +50,9 @@ const STATUS_STYLES: Record<CarryPositionRecord["status"], { label: string; clas
 	},
 };
 
-export function CarryPositionList() {
+export function PositionList() {
 	const { address } = useConnection();
-	const { data, isLoading, error } = useCarryPositions(address);
+	const { data, isLoading, error } = useBasisPositions(address);
 
 	if (!address) return null;
 	if (isLoading) {
@@ -55,8 +63,8 @@ export function CarryPositionList() {
 	if (error) {
 		return (
 			<EmptyPanel icon={Scale} title="Position history unavailable">
-				Cash-and-carry positions need a configured database. Set DATABASE_URL and run the migrations
-				to enable them.
+				Basis positions need a configured database. Set DATABASE_URL and run the migrations to
+				enable them.
 			</EmptyPanel>
 		);
 	}
@@ -64,8 +72,8 @@ export function CarryPositionList() {
 	const positions = data?.positions ?? [];
 	if (!positions.length) {
 		return (
-			<EmptyPanel icon={Scale} title="No carry positions yet">
-				Build one above to hold spot and short the matching perp in a single flow.
+			<EmptyPanel icon={Scale} title="No positions yet">
+				Pick a market from the board to hold spot and short the matching perp in a single flow.
 			</EmptyPanel>
 		);
 	}
@@ -80,7 +88,7 @@ export function CarryPositionList() {
 				return (
 					<Link
 						key={position.id}
-						to={`/carry/${position.id}`}
+						to={`/portfolio/${position.id}`}
 						className={cn(
 							"flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-md)] border p-4 transition-colors",
 							needsAttention
@@ -88,18 +96,16 @@ export function CarryPositionList() {
 								: "border-[var(--pon-line)] bg-[var(--pon-surface)] hover:border-[var(--pon-line-2)]",
 						)}
 					>
-						<div className="flex items-center gap-3">
-							<div>
-								<p className="text-[14px] font-semibold text-[var(--pon-fg)]">
-									{position.tokenSymbol}
-									<span className="ml-2 t-caption font-normal text-[var(--pon-fg-3)]">
-										vs {position.perpSymbol}
-									</span>
-								</p>
-								<p className="mt-0.5 t-caption text-[var(--pon-fg-3)]">
-									{formatUsd(position.notionalUsd)} per leg · {position.perpLeverage}x short
-								</p>
-							</div>
+						<div>
+							<p className="text-[14px] font-semibold text-[var(--pon-fg)]">
+								{position.tokenSymbol}
+								<span className="ml-2 t-caption font-normal text-[var(--pon-fg-3)]">
+									vs {position.perpSymbol}
+								</span>
+							</p>
+							<p className="mt-0.5 t-caption text-[var(--pon-fg-3)]">
+								{formatUsd(position.notionalUsd)} per leg · {position.perpLeverage}x short
+							</p>
 						</div>
 
 						<div className="flex items-center gap-4">

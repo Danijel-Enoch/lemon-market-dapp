@@ -1,34 +1,33 @@
 import { BASE_CHAIN_ID, USDC_ADDRESS } from "@lemon/core";
 import type { User } from "@lemon/db";
 import { isDatabaseConfigured, prisma } from "@lemon/db";
-import type { Side } from "@lemon/pacifica";
 import { MissingRelayApiKeyError, SOLANA_CHAIN_ID, SOLANA_USDC_MINT } from "@lemon/relay";
 import { Elysia, t } from "elysia";
-import { clients, config } from "../config";
+import { clients } from "../config";
 import { AuthError, readSession, SESSION_COOKIE } from "../services/auth";
-import { builderCodeFor } from "../services/builder";
-import { getMarkets, resolvePacificaSymbol } from "../services/markets";
-import { tradingIdentity } from "../services/pacifica-account";
 import {
 	creditDeposit,
 	depositUnavailableReason,
 	pendingBalance,
 	withdraw,
 } from "../services/pacifica-deposit";
-import { recordPerpVolume } from "../services/points";
 
 /**
- * Trading, on the user's Pacifica account.
+ * The user's Pacifica account: reading it, and funding it.
  *
- * Every route here is session-scoped: the account traded is the one the session
+ * Every route here is session-scoped: the account read is the one the session
  * owns, never one named in the request. That is deliberate — an account
  * parameter would make the authorisation check a matter of remembering to write
- * it, and forgetting once would let anyone trade anyone's account.
+ * it, and forgetting once would let anyone touch anyone's account.
+ *
+ * Deliberately no discretionary order endpoints. Pacifica nets positions per
+ * symbol, so a standalone long in a symbol the user already holds a basis
+ * position in would cancel that position's short leg — silently converting a
+ * delta-neutral position into an unhedged spot holding, with the database still
+ * describing it as OPEN and hedged. The only path that places perp orders is
+ * the basis lifecycle, which sizes every order against the position it belongs
+ * to.
  */
-
-const symbolSchema = t.String({ minLength: 1, maxLength: 32 });
-const amountSchema = t.String({ pattern: "^[0-9]+(\\.[0-9]+)?$" });
-const sideSchema = t.Union([t.Literal("bid"), t.Literal("ask")]);
 
 /**
  * Resolve the session, or refuse.
@@ -38,45 +37,8 @@ const sideSchema = t.Union([t.Literal("bid"), t.Literal("ask")]);
  */
 async function requireUser(token: unknown): Promise<User> {
 	const session = await readSession(typeof token === "string" ? token : undefined);
-	if (!session) throw new AuthError("Sign in to trade.");
+	if (!session) throw new AuthError("Sign in to view your account.");
 	return session.user;
-}
-
-/**
- * Display symbol to the identifier Pacifica accepts.
- *
- * The rest of the app speaks "BTC/USD"; Pacifica speaks "BTC". Resolving
- * against the live catalog rather than string-slicing means a market whose
- * naming does not follow the pattern still works.
- */
-async function pacificaSymbol(symbol: string): Promise<string> {
-	const resolved = await resolvePacificaSymbol(symbol);
-	if (!resolved) throw new AuthError(`Unknown market: ${symbol}`, 404);
-	return resolved;
-}
-
-/**
- * Award points for a filled order, priced at the live mark.
- *
- * Failures here are swallowed: the order has already been placed, and losing
- * points is a far smaller problem than reporting a successful trade as an
- * error because the points write failed.
- */
-async function creditVolume(
-	userAddress: string,
-	symbol: string,
-	amount: string,
-	orderId: number,
-): Promise<void> {
-	try {
-		const markets = await getMarkets();
-		const market = markets.find((candidate) => candidate.pacifica.pacificaSymbol === symbol);
-		const price = market?.pacifica.markPrice ?? 0;
-		const volumeUsd = Number(amount) * price;
-		if (volumeUsd > 0) await recordPerpVolume({ userAddress, volumeUsd, orderId });
-	} catch {
-		// Deliberately silent, per the note above.
-	}
 }
 
 export const pacificaRoutes = new Elysia({ prefix: "/pacifica" })
@@ -105,136 +67,6 @@ export const pacificaRoutes = new Elysia({ prefix: "/pacifica" })
 
 		return { activated: true, account, positions, orders, pendingUsdc };
 	})
-
-	.post(
-		"/orders/market",
-		async ({ body, cookie }) => {
-			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
-			const identity = tradingIdentity(user);
-
-			const symbol = await pacificaSymbol(body.symbol);
-			const receipt = await clients.pacifica.createMarketOrder(identity.sign, {
-				account: identity.account,
-				agentWallet: identity.agentWallet,
-				symbol,
-				side: body.side as Side,
-				amount: body.amount,
-				slippagePercent: body.slippagePercent ?? "0.5",
-				reduceOnly: body.reduceOnly ?? false,
-				builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
-			});
-
-			// Points are awarded from the order this process just placed, not
-			// from anything the client reports afterwards.
-			await creditVolume(user.address, symbol, body.amount, receipt.order_id);
-			return receipt;
-		},
-		{
-			body: t.Object({
-				symbol: symbolSchema,
-				side: sideSchema,
-				amount: amountSchema,
-				slippagePercent: t.Optional(amountSchema),
-				reduceOnly: t.Optional(t.Boolean()),
-			}),
-		},
-	)
-
-	.post(
-		"/orders/limit",
-		async ({ body, cookie }) => {
-			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
-			const identity = tradingIdentity(user);
-
-			return clients.pacifica.createLimitOrder(identity.sign, {
-				account: identity.account,
-				agentWallet: identity.agentWallet,
-				symbol: await pacificaSymbol(body.symbol),
-				side: body.side as Side,
-				amount: body.amount,
-				price: body.price,
-				tif: body.tif ?? "GTC",
-				reduceOnly: body.reduceOnly ?? false,
-				builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
-			});
-		},
-		{
-			body: t.Object({
-				symbol: symbolSchema,
-				side: sideSchema,
-				amount: amountSchema,
-				price: amountSchema,
-				tif: t.Optional(t.Union([t.Literal("GTC"), t.Literal("IOC"), t.Literal("ALO")])),
-				reduceOnly: t.Optional(t.Boolean()),
-			}),
-		},
-	)
-
-	.post(
-		"/orders/cancel",
-		async ({ body, cookie }) => {
-			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
-			const identity = tradingIdentity(user);
-
-			return clients.pacifica.cancelOrder(identity.sign, {
-				account: identity.account,
-				agentWallet: identity.agentWallet,
-				symbol: await pacificaSymbol(body.symbol),
-				orderId: body.orderId,
-			});
-		},
-		{ body: t.Object({ symbol: symbolSchema, orderId: t.Number() }) },
-	)
-
-	/**
-	 * Close a position at market.
-	 *
-	 * The size comes from the position itself rather than from the request: a
-	 * client-supplied amount that disagreed with the live position would either
-	 * leave a remainder or flip the user to the other side, and both are worse
-	 * than a round trip.
-	 */
-	.post(
-		"/positions/close",
-		async ({ body, cookie, status }) => {
-			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
-			const identity = tradingIdentity(user);
-			const symbol = await pacificaSymbol(body.symbol);
-
-			const positions = await clients.pacifica.positions(identity.account);
-			const position = positions.find((candidate) => candidate.symbol === symbol);
-			if (!position) return status(404, { error: `No open position in ${body.symbol}.` });
-
-			return clients.pacifica.createMarketOrder(identity.sign, {
-				account: identity.account,
-				agentWallet: identity.agentWallet,
-				symbol,
-				// Reduce-only on the opposite side: a long is closed by selling.
-				side: position.side === "bid" ? "ask" : "bid",
-				amount: position.amount,
-				slippagePercent: body.slippagePercent ?? "1",
-				reduceOnly: true,
-				builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
-			});
-		},
-		{ body: t.Object({ symbol: symbolSchema, slippagePercent: t.Optional(amountSchema) }) },
-	)
-
-	.post(
-		"/leverage",
-		async ({ body, cookie }) => {
-			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
-			const identity = tradingIdentity(user);
-
-			return clients.pacifica.updateLeverage(identity.sign, {
-				account: identity.account,
-				agentWallet: identity.agentWallet,
-				symbol: await pacificaSymbol(body.symbol),
-				leverage: body.leverage,
-			});
-		},
-		{ body: t.Object({ symbol: symbolSchema, leverage: t.Number({ minimum: 1, maximum: 100 }) }) },
-	)
 
 	/* ------------------------------------------------------------- bridging */
 

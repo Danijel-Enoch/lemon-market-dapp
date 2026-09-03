@@ -93,3 +93,28 @@ export function appendAttributionSuffix(data: Hex, suffix: Hex | null): Hex {
 	if (!suffix || suffix === "0x") return data;
 	return `${data}${suffix.slice(2)}` as Hex;
 }
+
+/**
+ * Venue taker fees, as a percent of notional per fill.
+ *
+ * Both legs of a basis position cross the spread as takers, and both are
+ * charged the same rate, so a round trip costs four fills:
+ * `2 legs x 2 (entry + exit) x 0.1% = 0.4%` of notional before any slippage.
+ *
+ * That figure is the whole reason a basis position has a minimum holding
+ * period. At 8% annualised funding, 0.4% takes roughly eighteen days to earn
+ * back — so a plan that omits it advertises a yield the position cannot
+ * actually deliver. Kept here as one constant rather than duplicated across the
+ * planner and the board, because the two disagreeing would mean the ranked APY
+ * and the quoted APY are computed from different costs.
+ */
+export const VENUE_FEES = {
+	/** KyberSwap route, taken inside the swap. */
+	spotTakerPercent: 0.1,
+	/** Pacifica market order. */
+	perpTakerPercent: 0.1,
+} as const;
+
+/** Every fee paid opening and closing both legs, as a percent of notional. */
+export const ROUND_TRIP_FEE_PERCENT =
+	2 * (VENUE_FEES.spotTakerPercent + VENUE_FEES.perpTakerPercent);

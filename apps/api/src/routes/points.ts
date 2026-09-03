@@ -32,9 +32,10 @@ export const pointsRoutes = new Elysia({ prefix: "/points" })
 	 * Claim points for a transaction.
 	 *
 	 * The hash is verified on-chain before anything is awarded — it must exist,
-	 * have succeeded, and have been sent by the claiming address. Perp volume is
-	 * deliberately not claimable here: it is read from the reference design directly, so
-	 * there is nothing for a client to assert.
+	 * have succeeded, and have been sent by the claiming address. Only the spot
+	 * leg produces a chain transaction, which is why it is the only claimable
+	 * source: the short leg is an API call this server made itself, so there is
+	 * nothing for a client to assert about it.
 	 */
 	.post(
 		"/record",
@@ -56,11 +57,7 @@ export const pointsRoutes = new Elysia({ prefix: "/points" })
 		{
 			body: t.Object({
 				userAddress: addressSchema,
-				source: t.Union([
-					t.Literal("SPOT_VOLUME"),
-					t.Literal("CARRY_OPENED"),
-					t.Literal("BASKET_ENTRY"),
-				]),
+				source: t.Literal("SPOT_VOLUME"),
 				volumeUsd: t.Optional(t.Number({ minimum: 0 })),
 				txHash: t.String({ pattern: "^0x[a-fA-F0-9]{64}$" }),
 			}),

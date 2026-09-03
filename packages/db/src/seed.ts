@@ -1,5 +1,5 @@
 /**
- * Seed the stock-token registry.
+ * Seed the spot-asset registry.
  *
  * Verifies `symbol()` and `decimals()` against Base mainnet rather than
  * trusting the checked-in table. These tokens are 8-decimal, not the 18 that
@@ -76,7 +76,7 @@ async function main() {
 
 		const market = findMarketByTicker(markets, token.ticker);
 
-		await prisma.stockToken.upsert({
+		await prisma.spotAsset.upsert({
 			where: { symbol: token.symbol },
 			create: {
 				symbol: token.symbol,
@@ -99,7 +99,7 @@ async function main() {
 	console.log(
 		`\nSeeded ${SPOT_TOKENS.length} tokens; ${verified} verified on chain, ${mismatched} corrected.`,
 	);
-	console.log("Routability is probed separately at runtime — see /api/spot/tokens.");
+	console.log("Routability is probed separately at runtime — see /api/basis.");
 }
 
 main()

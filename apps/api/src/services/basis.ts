@@ -1,24 +1,25 @@
 import { formatUsd, toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
-import type { CarryPosition, CarryStatus, User } from "@lemon/db";
+import type { BasisPosition, BasisStatus, User } from "@lemon/db";
 import { prisma } from "@lemon/db";
 import {
 	ALLOWED_TRANSITIONS,
-	type CarryEvent,
-	type CarryPlan,
+	type BasisEvent,
+	type BasisPlan,
+	defaultCosts,
 	nextStatus,
-	planCarry,
+	planBasis,
 	repairActionsFor,
 } from "@lemon/registry";
 import { clients, config } from "../config";
+import { getBasisMarket } from "./basis-markets";
 import { builderCodeFor } from "./builder";
 import { getMarket } from "./markets";
 import { tradingIdentity } from "./pacifica-account";
-import { findSeedToken, getSpotToken } from "./spot";
 
 /**
- * Cash-and-carry lifecycle.
+ * Basis position lifecycle.
  *
- * A carry spans two independent systems — a KyberSwap swap on-chain and a
+ * A position spans two independent systems — a KyberSwap swap on-chain and a
  * Pacifica order off it — with no shared transaction. Either leg can
  * land while the other fails, and when that happens the user is holding a
  * one-sided, directional position they did not ask for.
@@ -29,90 +30,99 @@ import { findSeedToken, getSpotToken } from "./spot";
  * treating an orphan as failed would silently abandon real money on-chain.
  */
 
-export class CarryTransitionError extends Error {
-	constructor(from: CarryStatus, to: CarryStatus) {
-		super(`Illegal carry transition ${from} -> ${to}`);
-		this.name = "CarryTransitionError";
+export class BasisTransitionError extends Error {
+	constructor(from: BasisStatus, to: BasisStatus) {
+		super(`Illegal position transition ${from} -> ${to}`);
+		this.name = "BasisTransitionError";
 	}
 }
 
 /**
  * A leg could not be executed.
  *
- * Distinct from `CarryTransitionError`, which means the state machine was asked
+ * Distinct from `BasisTransitionError`, which means the state machine was asked
  * for something impossible. This one means the machine was right and the venue
  * refused — a different problem, with a different owner, and worth telling
  * apart in a log.
  */
-export class CarryLegError extends Error {
+export class BasisLegError extends Error {
 	constructor(message: string) {
 		super(message);
-		this.name = "CarryLegError";
+		this.name = "BasisLegError";
 	}
 }
 
-function assertTransition(from: CarryStatus, to: CarryStatus) {
-	if (!ALLOWED_TRANSITIONS[from].includes(to)) throw new CarryTransitionError(from, to);
+function assertTransition(from: BasisStatus, to: BasisStatus) {
+	if (!ALLOWED_TRANSITIONS[from].includes(to)) throw new BasisTransitionError(from, to);
 }
 
 /**
  * Apply an event through the pure state machine, then persist.
  *
- * The transition rules live in `@lemon/registry/carry-machine` so they can be
+ * The transition rules live in `@lemon/registry/basis-machine` so they can be
  * tested without a database — particularly the orphan branch, where getting the
  * rule wrong would mark a position closed while funds sit unhedged on-chain.
  */
-async function applyEvent(id: string, event: CarryEvent, data: Record<string, unknown> = {}) {
-	const current = await prisma.carryPosition.findUnique({ where: { id } });
+async function applyEvent(id: string, event: BasisEvent, data: Record<string, unknown> = {}) {
+	const current = await prisma.basisPosition.findUnique({ where: { id } });
 	if (!current) return null;
 
 	const target = nextStatus(current.status, event);
-	if (!target) throw new CarryTransitionError(current.status, current.status);
+	if (!target) throw new BasisTransitionError(current.status, current.status);
 
-	return prisma.carryPosition.update({ where: { id }, data: { status: target, ...data } });
+	return prisma.basisPosition.update({ where: { id }, data: { status: target, ...data } });
 }
 
 export interface PlanRequest {
+	/** Market id, either leg's symbol, or the underlying ticker. */
 	symbol: string;
 	notionalUsd: number;
 	perpLeverage: number;
 }
 
 export interface PlanResponse {
+	marketId: string;
 	symbol: string;
 	tokenSymbol: string;
 	marketSymbol: string;
-	plan: CarryPlan;
+	plan: BasisPlan;
 	buyable: boolean;
 	blockers: string[];
 }
 
 /**
- * Price a carry without committing to it.
+ * Price a position without committing to it.
  *
- * Quotes both legs for real — a live KyberSwap route for the spot side and live
- * funding for the perp side — because a plan built from stale or assumed
- * numbers is exactly how a "delta-neutral yield" position turns out to be
- * neither.
+ * Quotes both legs for real — a live KyberSwap route at the requested size for
+ * the spot side, live funding for the perp side — because a plan built from
+ * stale or assumed numbers is exactly how a "delta-neutral yield" position
+ * turns out to be neither.
+ *
+ * Deliberately re-quotes rather than reusing the board's figures. The board is
+ * priced at a fixed reference notional so its rows stay comparable; slippage is
+ * not linear in size, so a $200k entry into a thin pool can cost several times
+ * what the $10k row implied. Ranking off one number and committing off another
+ * is the point.
  */
 export async function buildPlan(request: PlanRequest): Promise<PlanResponse | null> {
-	const token = await getSpotToken(request.symbol);
-	const seed = findSeedToken(request.symbol);
-	if (!token || !seed || !token.perpSymbol) return null;
+	const basis = await getBasisMarket(request.symbol);
+	if (!basis) return null;
 
-	const market = await getMarket(token.perpSymbol);
+	const market = await getMarket(basis.perp.symbol);
 	if (!market) return null;
 
-	const blockers: string[] = [];
+	const blockers = [...basis.blockers];
 
-	// Quote the actual spot entry so price impact is measured, not guessed.
+	// Quote the real entry size so price impact is measured, not extrapolated.
 	const quote = await clients.kyber.getRoute({
 		tokenIn: USDC_ADDRESS,
-		tokenOut: seed.address,
+		tokenOut: basis.spot.address,
 		amountIn: toBaseUnits(request.notionalUsd, USDC_DECIMALS).toString(),
 	});
 	if (!quote.ok) {
-		blockers.push(`${token.symbol} has no buy route right now, so the spot leg cannot be opened.`);
+		blockers.push(
+			`${basis.spot.symbol} has no buy route at ${formatUsd(request.notionalUsd)}, so the spot leg cannot be opened.`,
+		);
 	}
 
 	// Pacifica reports one hourly funding rate; the shared market splits it by
@@ -120,44 +130,34 @@ export async function buildPlan(request: PlanRequest): Promise<PlanResponse | nu
 	const hasFunding =
 		Number.isFinite(market.fundingLongPercentPerHour) &&
 		Number.isFinite(market.fundingShortPercentPerHour);
-	const economics = hasFunding
-		? {
-				fundingRate: {
-					long: market.fundingLongPercentPerHour,
-					short: market.fundingShortPercentPerHour,
-				},
-				// Pacifica charges from the account's fee level rather than
-				// publishing a per-market rate, so the perp leg contributes no
-				// modelled fee here. The spot leg's real cost still applies.
-				openFeePercent: market.openFeePercent,
-				closeFeePercent: market.closeFeePercent,
-				spreadPercent: market.spreadPercent,
-			}
-		: null;
-	if (!economics) blockers.push("Funding rates are unavailable for this market.");
+	if (!hasFunding) blockers.push("Funding rates are unavailable for this market.");
 
 	const impact = quote.ok ? quote.quote.priceImpactPercent : 0;
-	const plan = planCarry({
+	const plan = planBasis({
 		notionalUsd: request.notionalUsd,
 		perpLeverage: request.perpLeverage,
-		funding: economics?.fundingRate ?? { long: 0, short: 0 },
-		costs: {
-			openFeePercent: economics?.openFeePercent ?? 0,
-			closeFeePercent: economics?.closeFeePercent ?? 0,
-			spreadPercent: economics?.spreadPercent ?? 0,
+		funding: hasFunding
+			? { long: market.fundingLongPercentPerHour, short: market.fundingShortPercentPerHour }
+			: { long: 0, short: 0 },
+		costs: defaultCosts({
+			// Pacifica publishes no per-market fee — it charges from the
+			// account's fee level — so the venue's own spread field is the only
+			// per-market component to add on top of the flat taker rate.
+			spreadPercent: market.spreadPercent,
 			spotBuyImpactPercent: impact,
 			// Exit impact is unknowable ahead of time; the entry measurement is
 			// the best available estimate and is labelled as such in the UI.
 			spotSellImpactPercent: impact,
 			gasUsd: quote.ok ? quote.quote.gasUsd * 2 : 0,
-		},
+		}),
 		market,
 	});
 
 	return {
-		symbol: token.symbol,
-		tokenSymbol: token.symbol,
-		marketSymbol: market.symbol,
+		marketId: basis.id,
+		symbol: basis.spot.symbol,
+		tokenSymbol: basis.spot.symbol,
+		marketSymbol: basis.perp.symbol,
 		plan,
 		buyable: quote.ok,
 		blockers,
@@ -169,7 +169,7 @@ export async function createPosition(params: {
 	symbol: string;
 	notionalUsd: number;
 	perpLeverage: number;
-}): Promise<CarryPosition | null> {
+}): Promise<BasisPosition | null> {
 	const planned = await buildPlan({
 		symbol: params.symbol,
 		notionalUsd: params.notionalUsd,
@@ -177,7 +177,7 @@ export async function createPosition(params: {
 	});
 	if (!planned) return null;
 
-	return prisma.carryPosition.create({
+	return prisma.basisPosition.create({
 		data: {
 			userAddress: params.userAddress.toLowerCase(),
 			tokenSymbol: planned.tokenSymbol,
@@ -202,7 +202,7 @@ export function recordEvent(params: {
 	error?: string;
 	payload?: unknown;
 }) {
-	return prisma.carryLegEvent.create({
+	return prisma.basisLegEvent.create({
 		data: {
 			positionId: params.positionId,
 			leg: params.leg,
@@ -216,11 +216,11 @@ export function recordEvent(params: {
 	});
 }
 
-async function transition(id: string, to: CarryStatus, data: Record<string, unknown> = {}) {
-	const current = await prisma.carryPosition.findUnique({ where: { id } });
+async function transition(id: string, to: BasisStatus, data: Record<string, unknown> = {}) {
+	const current = await prisma.basisPosition.findUnique({ where: { id } });
 	if (!current) return null;
 	assertTransition(current.status, to);
-	return prisma.carryPosition.update({
+	return prisma.basisPosition.update({
 		where: { id },
 		data: { status: to, ...data },
 	});
@@ -250,7 +250,7 @@ export async function markSpotFilled(
  *
  * The order is placed here rather than by the browser. On the reference design this leg was
  * a wallet signature and an on-chain confirmation, which is what made a
- * half-open carry so easy to end up with: the spot buy landed, the user closed
+ * half-open position so easy to end up with: the spot buy landed, the user closed
  * the tab, and the hedge never happened. Signing server-side with the agent key
  * collapses that window to a single request.
  *
@@ -259,22 +259,22 @@ export async function markSpotFilled(
  * plan was built from.
  */
 export async function openPerpLeg(id: string, user: User) {
-	const position = await prisma.carryPosition.findUnique({ where: { id } });
+	const position = await prisma.basisPosition.findUnique({ where: { id } });
 	if (!position) return null;
 
 	const market = await getMarket(position.perpSymbol);
-	if (!market) throw new CarryLegError(`No perp market for ${position.perpSymbol}.`);
+	if (!market) throw new BasisLegError(`No perp market for ${position.perpSymbol}.`);
 
 	const price = market.pacifica.markPrice;
 	if (!price || price <= 0) {
-		throw new CarryLegError(`No live price for ${position.perpSymbol}; refusing to hedge.`);
+		throw new BasisLegError(`No live price for ${position.perpSymbol}; refusing to hedge.`);
 	}
 
 	const lot = market.pacifica.lotSize;
 	const size =
 		lot > 0 ? Math.floor(position.notionalUsd / price / lot) * lot : position.notionalUsd / price;
 	if (size <= 0) {
-		throw new CarryLegError(
+		throw new BasisLegError(
 			`${formatUsd(position.notionalUsd)} is below one lot of ${position.perpSymbol}.`,
 		);
 	}
@@ -312,7 +312,7 @@ export async function openPerpLeg(id: string, user: User) {
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Short leg failed";
 		await markLegFailed(id, { leg: "PERP", error: message });
-		throw new CarryLegError(message);
+		throw new BasisLegError(message);
 	}
 }
 
@@ -324,11 +324,11 @@ export async function openPerpLeg(id: string, user: User) {
  * the stored size would leave a remainder short.
  */
 export async function closePerpLeg(id: string, user: User) {
-	const position = await prisma.carryPosition.findUnique({ where: { id } });
+	const position = await prisma.basisPosition.findUnique({ where: { id } });
 	if (!position) return null;
 
 	const market = await getMarket(position.perpSymbol);
-	if (!market) throw new CarryLegError(`No perp market for ${position.perpSymbol}.`);
+	if (!market) throw new BasisLegError(`No perp market for ${position.perpSymbol}.`);
 
 	const identity = tradingIdentity(user);
 	const open = await clients.pacifica.positions(identity.account);
@@ -357,7 +357,7 @@ export async function closePerpLeg(id: string, user: User) {
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Closing the short failed";
 		await markLegFailed(id, { leg: "PERP", error: message });
-		throw new CarryLegError(message);
+		throw new BasisLegError(message);
 	}
 }
 
@@ -375,7 +375,7 @@ function decimalsFor(increment: number): number {
  * repair or unwind it. Only a failure with nothing on-chain is terminal.
  */
 export async function markLegFailed(id: string, params: { leg: "SPOT" | "PERP"; error: string }) {
-	const current = await prisma.carryPosition.findUnique({ where: { id } });
+	const current = await prisma.basisPosition.findUnique({ where: { id } });
 	if (!current) return null;
 
 	await recordEvent({
@@ -444,7 +444,7 @@ export interface RepairOption {
 	description: string;
 }
 
-export function repairOptions(position: CarryPosition): RepairOption[] {
+export function repairOptions(position: BasisPosition): RepairOption[] {
 	const actions = repairActionsFor({
 		spotOpened: Boolean(position.spotBuyTxHash),
 		spotClosed: Boolean(position.spotSellTxHash),
@@ -483,7 +483,7 @@ export function repairOptions(position: CarryPosition): RepairOption[] {
 }
 
 export function listPositions(userAddress: string) {
-	return prisma.carryPosition.findMany({
+	return prisma.basisPosition.findMany({
 		where: { userAddress: userAddress.toLowerCase() },
 		orderBy: { createdAt: "desc" },
 		include: { events: { orderBy: { createdAt: "asc" } } },
@@ -491,7 +491,7 @@ export function listPositions(userAddress: string) {
 }
 
 export function getPosition(id: string) {
-	return prisma.carryPosition.findUnique({
+	return prisma.basisPosition.findUnique({
 		where: { id },
 		include: { events: { orderBy: { createdAt: "asc" } } },
 	});
@@ -499,7 +499,7 @@ export function getPosition(id: string) {
 
 /** Positions needing user attention, surfaced prominently rather than buried. */
 export function listOrphaned(userAddress: string) {
-	return prisma.carryPosition.findMany({
+	return prisma.basisPosition.findMany({
 		where: { userAddress: userAddress.toLowerCase(), status: "ORPHANED" },
 		orderBy: { updatedAt: "desc" },
 	});

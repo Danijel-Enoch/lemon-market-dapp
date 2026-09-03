@@ -1,6 +1,5 @@
 import { pointsApi, type SpotQuoteResult, spotApi } from "@app/lib/api";
 import { erc20Abi, MAX_UINT256 } from "@app/lib/erc20";
-import type { SpotTokenInfo } from "@lemon/core";
 import { toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
 import {
 	readContract,
@@ -13,13 +12,26 @@ import { useConfig, useConnection } from "wagmi";
 
 export type SwapStage = "idle" | "quoting" | "approving" | "building" | "signing" | "confirming";
 
+/**
+ * The spot leg, as much of it as a swap needs.
+ *
+ * Deliberately narrower than a full market row: this hook is handed the `spot`
+ * half of a `BasisMarket`, and taking the whole market would let a caller pass
+ * a stale row whose perp side no longer matches the leg being bought.
+ */
+export interface SpotLegToken {
+	symbol: string;
+	address: string;
+	decimals: number;
+}
+
 export interface SwapOutcome {
 	txHash: `0x${string}`;
 	amountOut: string;
 }
 
 /**
- * Market buy/sell of a tokenized stock through the KyberSwap aggregator.
+ * Market buy/sell of the spot leg through the KyberSwap aggregator.
  *
  * Quote and build are two separate upstream calls and the `routeSummary` from
  * the first must reach the second untouched — it is a server-signed payload, so
@@ -33,7 +45,7 @@ export function useSpotSwap() {
 
 	const swap = useCallback(
 		async (params: {
-			token: SpotTokenInfo;
+			token: SpotLegToken;
 			direction: "buy" | "sell";
 			amount: string;
 			slippagePercent?: number;

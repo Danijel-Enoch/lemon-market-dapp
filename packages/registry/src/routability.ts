@@ -1,14 +1,21 @@
 import type { TokenRoutability } from "@lemon/core";
-import { toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
+import { fromBaseUnits, toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
 import type { KyberAggregatorClient, QuoteResult } from "@lemon/kyber";
+import { REFERENCE_NOTIONAL_USD } from "./basis";
 import { SPOT_TOKENS, type StockTokenSeed } from "./tokens";
 
 /**
- * Notional used to probe whether a token is tradable. Small enough not to be
- * rejected for depth, large enough that a dust-only pool does not read as
- * liquid.
+ * Notional used to probe whether a token is tradable, and at what cost.
+ *
+ * Tied to the size the board quotes at, not chosen independently. The probe's
+ * measured price impact is what prices every row, so probing smaller than the
+ * quote would understate slippage on exactly the thin pools where it matters
+ * most — see `REFERENCE_NOTIONAL_USD`.
+ *
+ * It also makes routability mean something useful: a pool that cannot absorb
+ * the size we quote is not a tradable market, however much dust sits in it.
  */
-const PROBE_USD = 100;
+const PROBE_USD = REFERENCE_NOTIONAL_USD;
 
 type ProbeOutcome =
 	| { kind: "route"; quote: Extract<QuoteResult, { ok: true }>["quote"] }
@@ -82,10 +89,43 @@ export async function probeToken(
 		buyable: buy.kind === "route",
 		sellable: sell.kind === "route",
 		buyPriceImpactPercent: buy.kind === "route" ? buy.quote.priceImpactPercent : null,
+		spotPriceUsd:
+			buy.kind === "route"
+				? priceFromProbe(buy.quote.amountOut, token.decimals, buy.quote.priceImpactPercent)
+				: null,
 		// Only claim we know the answer when at least one leg got a real reply.
 		probeFailed: buy.kind === "error" && sell.kind === "error",
 		checkedAt: Date.now(),
 	};
+}
+
+/**
+ * The spot price implied by the probe, with the probe's own cost removed.
+ *
+ * The raw fill price — `PROBE_USD / units` — is *not* the spot price. It is the
+ * spot price plus whatever the $100 trade paid in impact, and quoting it as the
+ * spot leg makes every market appear to trade at a discount to its perp by
+ * exactly the pool's slippage. That artifact is uniform enough across liquid
+ * markets to look like a real basis, which is what makes it dangerous: the
+ * board would show a consistent ~1% "spread" that is really just the cost of
+ * measuring it.
+ *
+ * Backing the reported impact out recovers the pre-trade price, which is what
+ * a perp mark is comparable to. The impact itself is kept separately and
+ * charged to the position as a cost — it is real money, it is simply not part
+ * of the spread.
+ */
+function priceFromProbe(amountOut: string, decimals: number, impactPercent: number): number | null {
+	const units = Number(fromBaseUnits(amountOut, decimals));
+	if (!Number.isFinite(units) || units <= 0) return null;
+
+	// Impact is reported as a negative percentage of value lost. A pool broken
+	// enough to report impact at or beyond -100% cannot be un-adjusted into
+	// anything meaningful, so it produces no price rather than a nonsense one.
+	const retained = 1 + (Number.isFinite(impactPercent) ? impactPercent : 0) / 100;
+	if (retained <= 0) return null;
+
+	return (PROBE_USD * retained) / units;
 }
 
 /**

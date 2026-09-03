@@ -1,6 +1,6 @@
 import { TimeframeGroup } from "@app/components/pons/Segmented";
 import { Skeleton } from "@app/components/ui/skeleton";
-import { marketsApi } from "@app/lib/api";
+import { basisApi } from "@app/lib/api";
 import { cn } from "@app/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -34,26 +34,39 @@ const RESOLUTION_FOR = Object.fromEntries(
 ) as Record<ResolutionLabel, Resolution>;
 
 /**
- * Candlestick chart for a market.
+ * Candlestick chart for a basis market's perp leg.
  *
- * Data comes from Pacifica via our API, which maps the app's TradingView-style
- * resolution codes onto Pacifica's interval names.
+ * Deliberately the perp mark and not the spread. There is no historical price
+ * series for a tokenized equity on Base, so a basis chart would have to be
+ * reconstructed from our own snapshots — a line that would look authoritative
+ * and be mostly invented. The live spread is shown as a number beside the
+ * chart instead, where its provenance is legible.
  *
- * Pyth symbol server-side. Equity and FX series have real gaps — markets close
- * overnight and at weekends — so the time scale is left to lightweight-charts'
- * default handling rather than forced to a continuous axis, which would
- * misrepresent a weekend as a flat price.
+ * Equity series have real gaps — the underlying market closes overnight and at
+ * weekends even though both legs here keep trading — so the time scale is left
+ * to lightweight-charts' default handling rather than forced to a continuous
+ * axis, which would misrepresent a weekend as a flat price.
  */
-export function PriceChart({ symbol, className }: { symbol: string; className?: string }) {
+export function PriceChart({
+	marketId,
+	symbol,
+	className,
+}: {
+	/** Basis market id, e.g. "NVDA". */
+	marketId: string;
+	/** Display symbol for the perp leg, shown as the series label. */
+	symbol: string;
+	className?: string;
+}) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
 	const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 	const [resolution, setResolution] = useState<Resolution>("60");
 
 	const { data, isLoading, error } = useQuery({
-		queryKey: ["candles", symbol, resolution],
-		queryFn: () => marketsApi.candles(symbol, resolution),
-		enabled: Boolean(symbol),
+		queryKey: ["basis-candles", marketId, resolution],
+		queryFn: () => basisApi.candles(marketId, resolution),
+		enabled: Boolean(marketId),
 		refetchInterval: 60_000,
 	});
 
@@ -125,7 +138,12 @@ export function PriceChart({ symbol, className }: { symbol: string; className?: 
 			)}
 		>
 			<div className="mb-3 flex items-center justify-between gap-3">
-				<span className="font-display text-[15px] font-bold text-[var(--pon-fg)]">{symbol}</span>
+				<div className="min-w-0">
+					<span className="font-display text-[15px] font-bold text-[var(--pon-fg)]">{symbol}</span>
+					{/* Naming the series is not decoration: a chart on a basis market
+					    page is naturally read as the basis unless it says otherwise. */}
+					<span className="ml-2 t-micro text-[var(--pon-fg-3)]">perp mark</span>
+				</div>
 				<TimeframeGroup
 					options={RESOLUTION_LABELS}
 					value={LABEL_FOR[resolution]}

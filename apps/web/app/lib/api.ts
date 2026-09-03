@@ -1,4 +1,4 @@
-import type { Candle, MarketWithEconomics, SpotQuote, SpotTokenInfo } from "@lemon/core";
+import type { BasisMarket, Candle, SpotQuote } from "@lemon/core";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -52,201 +52,51 @@ async function request<T>(
 const post = <T>(path: string, body: unknown) =>
 	request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
-// --- Markets --------------------------------------------------------------
+// --- Basis markets --------------------------------------------------------
 
-/**
- * The Pacifica half of a market.
- *
- * Order sizes are in base units of the asset and must sit on the venue's lot
- * grid, so a form that only knows a USD notional cannot build a valid order —
- * these are the fields that make one possible.
- */
-export interface PacificaMarketMeta {
-	/** What Pacifica calls this market on the wire, e.g. "BTC". */
-	pacificaSymbol: string;
-	/** Price increment. Limit prices off this grid are rejected. */
-	tickSize: number;
-	/** Quantity increment. */
-	lotSize: number;
-	/** Minimum order value, in USD. */
-	minOrderSize: number;
-	maxLeverage: number;
-	markPrice: number | null;
-}
-
-/** A market as the terminal sees it: shared economics plus venue specifics. */
-export type TradableMarket = MarketWithEconomics & { pacifica?: PacificaMarketMeta };
-
-export const marketsApi = {
-	list: (assetClass?: "equity" | "fx") =>
-		request<{ markets: TradableMarket[]; count: number }>("/markets", {
-			query: { assetClass },
-		}),
-	/** Symbols contain "/", which is not URL-path safe — send them as "NVDA-USD". */
-	get: (symbol: string) =>
-		request<TradableMarket>(`/markets/${encodeURIComponent(symbol.replace("/", "-"))}`),
-	candles: (symbol: string, resolution: string) =>
-		request<{ symbol: string; resolution: string; candles: Candle[] }>(
-			`/markets/${encodeURIComponent(symbol.replace("/", "-"))}/candles`,
-			{ query: { resolution } },
-		),
-	prices: () =>
-		request<{ prices: Record<string, { price: number; at: number }> }>("/markets/prices"),
-};
-
-// --- Spot -----------------------------------------------------------------
-
-export type SpotQuoteResult =
-	| { ok: true; symbol: string; direction: "buy" | "sell"; quote: SpotQuote; tokenDecimals: number }
-	| { ok: false; reason: "no_route"; message: string; symbol: string };
-
-export interface LimitOrderRecord {
-	id: number;
-	makerAsset: string;
-	takerAsset: string;
-	makingAmount: string;
-	takingAmount: string;
-	filledMakingAmount: string;
-	status: string;
-	expiredAt: number;
-	createdAt: number;
-}
-
-export const spotApi = {
-	tokens: () =>
-		request<{ tokens: SpotTokenInfo[]; count: number; routabilityKnown: boolean }>("/spot/tokens"),
-	token: (symbol: string) => request<SpotTokenInfo>(`/spot/tokens/${symbol}`),
-	quote: (input: {
-		symbol: string;
-		direction: "buy" | "sell";
-		amount: string;
-		slippagePercent?: number;
-	}) => request<SpotQuoteResult>("/spot/quote", { query: input }),
-	build: (input: {
-		routeSummary: unknown;
-		sender: string;
-		recipient?: string;
-		slippagePercent?: number;
-		permit?: string;
-	}) =>
-		post<{ data: `0x${string}`; routerAddress: `0x${string}`; amountOut: string; gasUsd: string }>(
-			"/spot/build",
-			input,
-		),
-	limitContract: () => request<{ address: `0x${string}` }>("/spot/limit/contract"),
-	limitOrders: (maker: string, status: "active" | "filled" | "cancelled" = "active") =>
-		request<{ orders: LimitOrderRecord[] }>("/spot/limit/orders", { query: { maker, status } }),
-	requiredAllowance: (input: { maker: string; symbol: string; additionalAmount?: string }) =>
-		request<{
-			makerAsset: `0x${string}`;
-			spender: `0x${string}`;
-			activeMakingAmount: string;
-			requiredAllowance: string;
-		}>("/spot/limit/required-allowance", { query: input }),
-	limitSignMessage: (input: {
-		maker: string;
-		symbol: string;
-		direction: "buy" | "sell";
-		shares: string;
-		limitPrice: string;
-		expiredAt: number;
-	}) =>
-		post<{
-			input: Record<string, unknown>;
-			signMessage: {
-				domain: Record<string, unknown>;
-				types: Record<string, { name: string; type: string }[]>;
-				message: Record<string, unknown> & { salt: string };
-				primaryType?: string;
-			};
-		}>("/spot/limit/sign-message", input),
-	submitLimitOrder: (input: { input: unknown; salt: string; signature: string }) =>
-		post<{ id: number }>("/spot/limit/orders", input),
-	cancelLimitSign: (input: { maker: string; orderIds: number[] }) =>
-		post<{
-			domain: Record<string, unknown>;
-			types: Record<string, { name: string; type: string }[]>;
-			message: Record<string, unknown>;
-			primaryType?: string;
-		}>("/spot/limit/cancel-sign", input),
-	cancelLimit: (input: { maker: string; orderIds: number[]; signature: string }) =>
-		post<unknown>("/spot/limit/cancel", input),
-};
-
-// --- Baskets --------------------------------------------------------------
-
-export interface BasketLegStatus {
-	marketSymbol: string;
+/** A spot leg the registry holds but no perp hedges yet. */
+export interface UnpairedSpotAsset {
+	symbol: string;
 	ticker: string;
-	pairIndex: number | null;
-	logoUrl: string | null;
-	maxLeverage: number;
-	minPositionUsdc: number;
-	isOpen: boolean;
-	perpAvailable: boolean;
-	spotAvailable: boolean;
-	spotPending: boolean;
-	spotSymbol: string | null;
-	fundingShortPercentPerHour: number;
+	name: string;
 }
 
-export interface BasketSummary {
-	id: string;
-	name: string;
-	description: string;
-	assetClass: "crypto" | "equity";
-	legs: BasketLegStatus[];
-	perpLegCount: number;
-	spotLegCount: number;
-	legsMatch: boolean;
-	perpOnlyTickers: string[];
+/** The board, ranked by net yield after costs. */
+export interface BasisMarketList {
+	markets: BasisMarket[];
+	/** Listed the moment a matching perp exists; the pairing runs per request. */
+	unpaired: UnpairedSpotAsset[];
+	count: number;
+	/** How many of them can actually be entered right now. */
+	tradable: number;
+	/** False while the first liquidity probe is still running. */
 	routabilityKnown: boolean;
 }
 
-export interface BasketPlanLeg {
-	marketSymbol: string;
-	ticker: string;
-	spotSymbol: string | null;
-	notionalUsd: number;
-	collateralUsd: number;
-	tradable: boolean;
-	reason: string | null;
+/**
+ * OHLCV for the market chart.
+ *
+ * `series` is always `perp_mark` today and is sent explicitly rather than
+ * implied, because the obvious assumption — that a basis market's chart shows
+ * the basis — is the wrong one. No venue publishes a historical price series
+ * for a tokenized equity on Base, so there is nothing to difference the perp
+ * against.
+ */
+export interface BasisCandles {
+	marketId: string;
+	series: "perp_mark";
+	symbol: string;
+	resolution: string;
+	candles: Candle[];
+	spotPriceUsd: number | null;
+	basisPercent: number | null;
 }
 
-export interface BasketPlan {
-	basketId: string;
-	venue: "perp" | "spot";
-	totalUsd: number;
-	leverage: number;
-	legs: BasketPlanLeg[];
-	tradableLegs: number;
-	effectiveUsd: number;
-	warnings: string[];
-}
-
-export const basketApi = {
-	list: () => request<{ baskets: BasketSummary[] }>("/baskets"),
-	get: (id: string) => request<BasketSummary>(`/baskets/${id}`),
-	candles: (id: string, resolution: string) =>
-		request<{
-			basketId: string;
-			resolution: string;
-			points: { time: number; value: number }[];
-			changePercent: number;
-			included: string[];
-			missing: string[];
-		}>(`/baskets/${id}/candles`, { query: { resolution } }),
-	plan: (id: string, input: { venue: "perp" | "spot"; totalUsd: number; leverage?: number }) =>
-		post<BasketPlan>(`/baskets/${id}/plan`, input),
-};
-
-// --- Cash & carry ---------------------------------------------------------
-
-export interface CarryPlanResponse {
+export interface BasisPlanResponse {
+	marketId: string;
 	symbol: string;
 	tokenSymbol: string;
 	marketSymbol: string;
-	pairIndex: number;
 	buyable: boolean;
 	blockers: string[];
 	plan: {
@@ -256,8 +106,10 @@ export interface CarryPlanResponse {
 		perpLeverage: number;
 		totalCapitalUsd: number;
 		netFundingPerHourPercent: number;
+		fundingAprPercent: number;
 		fundingApyPercent: number;
 		roundTripCostUsd: number;
+		roundTripCostPercent: number;
 		breakevenHours: number | null;
 		netApyPercent: number;
 		hasPositiveFunding: boolean;
@@ -266,7 +118,7 @@ export interface CarryPlanResponse {
 	};
 }
 
-export interface CarryPositionRecord {
+export interface BasisPositionRecord {
 	id: string;
 	userAddress: string;
 	tokenSymbol: string;
@@ -291,6 +143,7 @@ export interface CarryPositionRecord {
 	perpOpenTxHash: string | null;
 	spotSellTxHash: string | null;
 	perpCloseTxHash: string | null;
+	realizedPnlUsd: number | null;
 	failureReason: string | null;
 	openedAt: string | null;
 	closedAt: string | null;
@@ -303,52 +156,86 @@ export interface RepairOption {
 	description: string;
 }
 
-export const carryApi = {
-	candidates: () =>
-		request<{
-			candidates: {
-				symbol: string;
-				name: string;
-				marketSymbol: string;
-				maxLeverage: number;
-				minPositionUsdc: number;
-				isOpen: boolean;
-			}[];
-			unavailable: { symbol: string; reason: string }[];
-		}>("/carry/candidates"),
+/**
+ * Market ids contain no "/" — they are the underlying ticker — but the API also
+ * accepts either leg's symbol, and a perp symbol does. Encoding covers both.
+ */
+const marketPath = (id: string) => encodeURIComponent(id.replace("/", "-"));
+
+export const basisApi = {
+	markets: (assetClass?: "equity" | "crypto") =>
+		request<BasisMarketList>("/basis/markets", { query: { assetClass } }),
+	market: (id: string) => request<BasisMarket>(`/basis/markets/${marketPath(id)}`),
+	candles: (id: string, resolution: string) =>
+		request<BasisCandles>(`/basis/markets/${marketPath(id)}/candles`, { query: { resolution } }),
+
+	/** Price a position at real size. Re-quotes both legs; does not commit. */
 	plan: (input: { symbol: string; notionalUsd: number; perpLeverage: number }) =>
-		post<CarryPlanResponse>("/carry/plan", input),
-	list: (user: string) =>
-		request<{ positions: CarryPositionRecord[] }>("/carry", { query: { user } }),
-	get: (id: string) =>
-		request<{ position: CarryPositionRecord; repairOptions: RepairOption[] }>(`/carry/${id}`),
+		post<BasisPlanResponse>("/basis/plan", input),
+
+	positions: (user: string) =>
+		request<{ positions: BasisPositionRecord[] }>("/basis/positions", { query: { user } }),
+	position: (id: string) =>
+		request<{ position: BasisPositionRecord; repairOptions: RepairOption[] }>(
+			`/basis/positions/${id}`,
+		),
 	create: (input: {
 		userAddress: string;
 		symbol: string;
 		notionalUsd: number;
 		perpLeverage: number;
-	}) => post<CarryPositionRecord>("/carry", input),
+	}) => post<BasisPositionRecord>("/basis/positions", input),
+
 	spotFilled: (id: string, input: { txHash: string; shares: number; spotCostUsd: number }) =>
-		post<CarryPositionRecord>(`/carry/${id}/spot-filled`, input),
+		post<BasisPositionRecord>(`/basis/positions/${id}/spot-filled`, input),
 	/**
 	 * Open the hedge. The server places it with the session's agent key, so
 	 * there is no wallet prompt and nothing to report back afterwards.
 	 */
-	openPerp: (id: string) => post<CarryPositionRecord>(`/carry/${id}/open-perp`, {}),
-	closePerp: (id: string) => post<CarryPositionRecord>(`/carry/${id}/close-perp`, {}),
+	openPerp: (id: string) => post<BasisPositionRecord>(`/basis/positions/${id}/open-perp`, {}),
+	closePerp: (id: string) => post<BasisPositionRecord>(`/basis/positions/${id}/close-perp`, {}),
 	legFailed: (id: string, input: { leg: "SPOT" | "PERP"; error: string }) =>
-		post<{ position: CarryPositionRecord; repairOptions: RepairOption[] }>(
-			`/carry/${id}/leg-failed`,
+		post<{ position: BasisPositionRecord; repairOptions: RepairOption[] }>(
+			`/basis/positions/${id}/leg-failed`,
 			input,
 		),
-	unwind: (id: string) => post<CarryPositionRecord>(`/carry/${id}/unwind`, {}),
+	unwind: (id: string) => post<BasisPositionRecord>(`/basis/positions/${id}/unwind`, {}),
 	spotClosed: (id: string, input: { txHash: string; proceedsUsd: number }) =>
-		post<CarryPositionRecord>(`/carry/${id}/spot-closed`, input),
+		post<BasisPositionRecord>(`/basis/positions/${id}/spot-closed`, input),
 	closed: (id: string, input: { txHash?: string; trackingId?: string; realizedPnlUsd?: number }) =>
-		post<CarryPositionRecord>(`/carry/${id}/closed`, input),
+		post<BasisPositionRecord>(`/basis/positions/${id}/closed`, input),
 	needsAttention: (user: string) =>
-		request<{ positions: { position: CarryPositionRecord; repairOptions: RepairOption[] }[] }>(
-			`/carry/attention/${user}`,
+		request<{ positions: { position: BasisPositionRecord; repairOptions: RepairOption[] }[] }>(
+			`/basis/positions/attention/${user}`,
+		),
+};
+
+// --- Spot execution -------------------------------------------------------
+//
+// The spot leg only. There is no spot trading surface any more — these exist
+// so the browser can execute and settle the long half of a basis position.
+
+export type SpotQuoteResult =
+	| { ok: true; symbol: string; direction: "buy" | "sell"; quote: SpotQuote; tokenDecimals: number }
+	| { ok: false; reason: "no_route"; message: string; symbol: string };
+
+export const spotApi = {
+	quote: (input: {
+		symbol: string;
+		direction: "buy" | "sell";
+		amount: string;
+		slippagePercent?: number;
+	}) => request<SpotQuoteResult>("/spot/quote", { query: input }),
+	build: (input: {
+		routeSummary: unknown;
+		sender: string;
+		recipient?: string;
+		slippagePercent?: number;
+		permit?: string;
+	}) =>
+		post<{ data: `0x${string}`; routerAddress: `0x${string}`; amountOut: string; gasUsd: string }>(
+			"/spot/build",
+			input,
 		),
 };
 
@@ -358,14 +245,10 @@ export interface PointsProfile {
 	address: string;
 	tier: string;
 	rank: number | null;
-	perpVolumeUsd: number;
 	spotVolumeUsd: number;
-	carriesOpened: number;
-	basketEntries: number;
-	perpPoints: number;
-	spotPoints: number;
-	carryPoints: number;
-	basketPoints: number;
+	positionsOpened: number;
+	volumePoints: number;
+	positionPoints: number;
 	total: number;
 }
 
@@ -375,8 +258,7 @@ export interface LeaderboardRow {
 	points: number;
 	tier: string;
 	spotVolumeUsd: number;
-	perpVolumeUsd: number;
-	carriesOpened: number;
+	positionsOpened: number;
 }
 
 export interface GlobalLeaderboardRow {
@@ -397,7 +279,7 @@ export const pointsApi = {
 	profile: (address: string) => request<PointsProfile>(`/points/${address}`),
 	record: (input: {
 		userAddress: string;
-		source: "SPOT_VOLUME" | "CARRY_OPENED" | "BASKET_ENTRY";
+		source: "SPOT_VOLUME";
 		volumeUsd?: number;
 		txHash: string;
 	}) => post<{ awarded: number; duplicate: boolean }>("/points/record", input),
@@ -503,7 +385,12 @@ export const authApi = {
 	signOut: () => post<{ ok: true }>("/auth/sign-out", {}),
 };
 
-// --- Pacifica trading -----------------------------------------------------
+// --- Pacifica account -----------------------------------------------------
+//
+// Reading and funding only. The venue has no discretionary order endpoints
+// here on purpose: Pacifica nets positions per symbol, so a standalone order in
+// a symbol the user holds a basis position in would cancel that position's
+// short leg while the app went on describing it as hedged.
 
 export interface PacificaAccountInfo {
 	account_equity: string;
@@ -552,27 +439,6 @@ export interface PacificaAccountState {
 
 export const pacificaApi = {
 	account: () => request<PacificaAccountState>("/pacifica/account"),
-	marketOrder: (input: {
-		symbol: string;
-		side: "bid" | "ask";
-		amount: string;
-		slippagePercent?: string;
-		reduceOnly?: boolean;
-	}) => post<{ order_id: number }>("/pacifica/orders/market", input),
-	limitOrder: (input: {
-		symbol: string;
-		side: "bid" | "ask";
-		amount: string;
-		price: string;
-		tif?: "GTC" | "IOC" | "ALO";
-		reduceOnly?: boolean;
-	}) => post<{ order_id: number }>("/pacifica/orders/limit", input),
-	cancelOrder: (input: { symbol: string; orderId: number }) =>
-		post<{ success: boolean }>("/pacifica/orders/cancel", input),
-	closePosition: (input: { symbol: string; slippagePercent?: string }) =>
-		post<{ order_id: number }>("/pacifica/positions/close", input),
-	setLeverage: (input: { symbol: string; leverage: number }) =>
-		post<{ success: boolean }>("/pacifica/leverage", input),
 	depositStatus: () =>
 		request<{ available: boolean; reason: string | null; pendingUsdc: number }>(
 			"/pacifica/deposit/status",

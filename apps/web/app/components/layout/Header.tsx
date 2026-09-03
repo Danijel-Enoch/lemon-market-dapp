@@ -2,165 +2,37 @@ import { Brand } from "@app/components/pons/Brand";
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { cn } from "@app/lib/utils";
-import {
-	BookOpen,
-	Briefcase,
-	ChevronDown,
-	Coins,
-	Layers,
-	Scale,
-	TrendingUp,
-	Trophy,
-	Wallet,
-} from "lucide-react";
-import { useId, useState } from "react";
+import { BookOpen, Briefcase, Scale, Trophy, Wallet } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 /**
  * Application header.
  *
- * The app surface wears the same Pons nav as the marketing one — a single pill
- * bar on the well surface — but keeps its grouped dropdowns, because the app
- * has more destinations than a flat row can hold. Groups open as a hairline
- * sheet on the popover surface. Below md the bar keeps only the brand and the
- * wallet, and navigation moves to a pill tab bar at the bottom.
+ * The app has five destinations now, which is few enough for a flat row — the
+ * grouped dropdowns this replaced existed to hold perps, spot and baskets, and
+ * a dropdown wrapping a single link is worse than no dropdown. Below md the bar
+ * keeps only the brand and the wallet, and navigation moves to a pill tab bar
+ * at the bottom.
  */
 
-type NavLeaf = { href: string; label: string; description: string; icon: typeof TrendingUp };
-type NavGroup = { label: string; items: NavLeaf[] };
+type NavLeaf = { href: string; label: string; icon: typeof Scale };
 
-const GROUPS: NavGroup[] = [
-	{
-		label: "Trade",
-		items: [
-			{
-				href: "/trade",
-				label: "Perps",
-				description: "Leverage on crypto, stocks, FX and metals",
-				icon: TrendingUp,
-			},
-			{ href: "/spot", label: "Spot", description: "Buy the real token on Base", icon: Coins },
-			{
-				href: "/baskets",
-				label: "Baskets",
-				description: "Many correlated markets at one weight",
-				icon: Layers,
-			},
-		],
-	},
-	{
-		label: "Earn",
-		items: [
-			{
-				href: "/carry",
-				label: "Cash & carry",
-				description: "Delta-neutral positions that collect funding",
-				icon: Scale,
-			},
-			{
-				href: "/leaderboard",
-				label: "Leaderboard",
-				description: "Points scored from verified onchain activity",
-				icon: Trophy,
-			},
-		],
-	},
+const LINKS: NavLeaf[] = [
+	{ href: "/", label: "Markets", icon: Scale },
+	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
+	{ href: "/accounts", label: "Accounts", icon: Briefcase },
+	{ href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+	{ href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
-const FLAT_LINKS: NavLeaf[] = [
-	{
-		href: "/portfolio",
-		label: "Portfolio",
-		description: "Open positions and balances",
-		icon: Wallet,
-	},
-	{
-		href: "/accounts",
-		label: "Accounts",
-		description: "Pacifica positions and wallet balances",
-		icon: Briefcase,
-	},
-	{ href: "/docs", label: "Docs", description: "How the app works", icon: BookOpen },
-];
-
-/** The bottom bar carries the four surfaces a trader returns to. */
-const TABS: NavLeaf[] = [
-	{ href: "/trade", label: "Trade", description: "", icon: TrendingUp },
-	{ href: "/baskets", label: "Baskets", description: "", icon: Layers },
-	{ href: "/carry", label: "Carry", description: "", icon: Scale },
-	{ href: "/accounts", label: "Accounts", description: "", icon: Briefcase },
-];
+/** The bottom bar drops Docs — it is a read, not a destination mid-session. */
+const TABS: NavLeaf[] = LINKS.filter((link) => link.href !== "/docs");
 
 function isActive(pathname: string, href: string): boolean {
+	// The board is an exact match only. Prefix-matching "/" would mark it
+	// active on every page in the app.
+	if (href === "/") return pathname === "/" || pathname.startsWith("/markets");
 	return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string }) {
-	const [open, setOpen] = useState(false);
-	const menuId = useId();
-	const groupActive = group.items.some((item) => isActive(pathname, item.href));
-
-	return (
-		<div
-			className="relative inline-block text-left"
-			onMouseEnter={() => setOpen(true)}
-			onMouseLeave={() => setOpen(false)}
-		>
-			<button
-				type="button"
-				aria-expanded={open}
-				aria-controls={menuId}
-				onClick={() => setOpen((value) => !value)}
-				className={cn(
-					"flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
-					groupActive
-						? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
-						: "font-medium text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
-				)}
-			>
-				{group.label}
-				<ChevronDown
-					size={14}
-					aria-hidden
-					className={cn("shrink-0 transition-transform duration-200", open && "rotate-180")}
-				/>
-			</button>
-
-			<div
-				id={menuId}
-				className={cn(
-					"absolute left-0 top-full z-50 mt-2 origin-top overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface-3)] transition-[opacity,transform] duration-200",
-					open ? "scale-y-100 opacity-100" : "pointer-events-none scale-y-95 opacity-0",
-				)}
-			>
-				<div className="w-[290px] p-1.5">
-					{group.items.map((item) => {
-						const Icon = item.icon;
-						return (
-							<Link
-								key={item.href}
-								to={item.href}
-								onClick={() => setOpen(false)}
-								className="group flex w-full items-center gap-3 rounded-[var(--pon-r-md)] px-3 py-2.5 transition-colors hover:bg-[var(--pon-surface-2)]"
-							>
-								<Icon
-									size={17}
-									aria-hidden
-									className="shrink-0 text-[var(--pon-fg-3)] group-hover:text-[var(--pon-lime)]"
-								/>
-								<span className="flex flex-col text-left leading-tight">
-									<span className="text-[13px] font-semibold text-[var(--pon-fg)]">
-										{item.label}
-									</span>
-									<span className="mt-0.5 t-micro text-[var(--pon-fg-3)]">{item.description}</span>
-								</span>
-							</Link>
-						);
-					})}
-				</div>
-			</div>
-		</div>
-	);
 }
 
 export function Header() {
@@ -183,11 +55,8 @@ export function Header() {
 					<div className="flex min-w-0 items-center gap-5">
 						<Brand size={26} className="pl-1.5" />
 
-						<nav className="hidden items-center gap-1 lg:flex">
-							{GROUPS.map((group) => (
-								<NavDropdown key={group.label} group={group} pathname={pathname} />
-							))}
-							{FLAT_LINKS.map((link) => (
+						<nav className="hidden items-center gap-1 md:flex">
+							{LINKS.map((link) => (
 								<Link
 									key={link.href}
 									to={link.href}

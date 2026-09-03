@@ -66,14 +66,14 @@ export default function LeaderboardPage() {
 						/>
 						<StatCard label="Rank" value={profile.rank ? `#${profile.rank}` : "—"} />
 						<StatCard
-							label="Perp volume"
-							value={formatUsd(profile.perpVolumeUsd, { compact: true })}
-							delta={`${profile.perpPoints.toLocaleString()} pts`}
-						/>
-						<StatCard
 							label="Spot volume"
 							value={formatUsd(profile.spotVolumeUsd, { compact: true })}
-							delta={`${profile.spotPoints.toLocaleString()} pts`}
+							delta={`${profile.volumePoints.toLocaleString()} pts`}
+						/>
+						<StatCard
+							label="Positions opened"
+							value={profile.positionsOpened.toLocaleString()}
+							delta={`${profile.positionPoints.toLocaleString()} pts`}
 						/>
 					</div>
 
@@ -102,7 +102,7 @@ export default function LeaderboardPage() {
 					<Skeleton className="h-64 w-full" />
 				) : !points?.rows.length ? (
 					<EmptyPanel icon={Trophy} title="No points yet">
-						Trade a perp, buy spot, or open a cash-and-carry to get on the board.
+						Open a basis position to get on the board.
 					</EmptyPanel>
 				) : (
 					<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
@@ -117,9 +117,8 @@ export default function LeaderboardPage() {
 									<TableHead>#</TableHead>
 									<TableHead>Trader</TableHead>
 									<TableHead>Tier</TableHead>
-									<TableHead className="text-right">Perp volume</TableHead>
 									<TableHead className="text-right">Spot volume</TableHead>
-									<TableHead className="text-right">Carries</TableHead>
+									<TableHead className="text-right">Positions</TableHead>
 									<TableHead className="text-right">Points</TableHead>
 								</TableRow>
 							</TableHeader>
@@ -148,13 +147,10 @@ export default function LeaderboardPage() {
 											</TableCell>
 											<TableCell className="text-[var(--pon-fg-2)]">{row.tier}</TableCell>
 											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
-												{formatUsd(row.perpVolumeUsd, { compact: true })}
-											</TableCell>
-											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
 												{formatUsd(row.spotVolumeUsd, { compact: true })}
 											</TableCell>
 											<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
-												{row.carriesOpened}
+												{row.positionsOpened}
 											</TableCell>
 											<TableCell className="font-fono text-right font-semibold text-[var(--pon-lime)]">
 												{row.points.toLocaleString()}
@@ -172,24 +168,15 @@ export default function LeaderboardPage() {
 					<ul className="space-y-2 text-[12.5px] leading-relaxed text-[var(--pon-fg-2)]">
 						<li>
 							<span className="font-fono font-semibold text-[var(--pon-lime)]">1 pt</span> per $
-							{USD_PER_VOLUME_POINT} of perp volume, recorded from the orders placed through this
-							app.
-						</li>
-						<li>
-							<span className="font-fono font-semibold text-[var(--pon-lime)]">1 pt</span> per $
-							{USD_PER_VOLUME_POINT} of spot volume, verified against the transaction on-chain.
+							{USD_PER_VOLUME_POINT} of spot volume, verified against the transaction on-chain. Only
+							the spot leg touches the chain, so it is the only volume a client can claim.
 						</li>
 						<li>
 							<span className="font-fono font-semibold text-[var(--pon-lime)]">
-								{ACTION_POINTS.carry_opened} pts
+								{ACTION_POINTS.basis_opened} pts
 							</span>{" "}
-							per cash-and-carry opened — two legs across two venues.
-						</li>
-						<li>
-							<span className="font-fono font-semibold text-[var(--pon-lime)]">
-								{ACTION_POINTS.basket_entry} pts
-							</span>{" "}
-							per basket entry.
+							per basis position opened — counted from our own records of both legs, never from a
+							client report.
 						</li>
 					</ul>
 					<p className="mt-5 border-t border-[var(--pon-line)] pt-4 t-caption text-[var(--pon-fg-4)]">

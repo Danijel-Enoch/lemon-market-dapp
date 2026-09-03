@@ -1,37 +1,29 @@
 import { Callout } from "@app/components/common/Callout";
 import { cn } from "@app/lib/utils";
-import {
-	ArrowLeftRight,
-	Bot,
-	Check,
-	Circle,
-	Coins,
-	Layers,
-	Scale,
-	TrendingUp,
-	Wallet,
-} from "lucide-react";
+import { ROUND_TRIP_FEE_PERCENT, VENUE_FEES } from "@lemon/core";
+import { REFERENCE_LEVERAGE, REFERENCE_NOTIONAL_USD } from "@lemon/registry";
 import { useEffect, useState } from "react";
 import { Link, type MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
-	{ title: "Docs — Lemon Markets" },
+	{ title: "Docs — Lemon" },
 	{
 		name: "description",
 		content:
-			"How to deposit, trade perps and spot, and run delta-neutral cash-and-carry on Lemon Markets.",
+			"How basis markets work here: the two legs, what the yield is made of, what it costs, and the API behind the board.",
 	},
 ];
 
 const SECTIONS = [
 	{ id: "getting-started", label: "Getting started" },
-	{ id: "trading", label: "Trading" },
-	{ id: "spot", label: "Spot" },
-	{ id: "carry", label: "Cash & carry" },
+	{ id: "how-it-works", label: "How a basis works" },
+	{ id: "markets", label: "The markets" },
+	{ id: "numbers", label: "Reading the numbers" },
 	{ id: "fees", label: "Fees & funding" },
+	{ id: "execution", label: "Execution" },
+	{ id: "api", label: "API" },
 	{ id: "points", label: "Points" },
 	{ id: "risks", label: "Risks" },
-	{ id: "roadmap", label: "Roadmap" },
 	{ id: "faq", label: "FAQ" },
 ] as const;
 
@@ -74,67 +66,19 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 	);
 }
 
-type Status = "live" | "building" | "planned";
+function Endpoint({ method, path, children }: { method: string; path: string; children: string }) {
+	return (
+		<li className="border-b border-[var(--pon-line)] py-2.5 last:border-b-0">
+			<p className="font-fono text-[12.5px] text-[var(--pon-fg)]">
+				<span className="mr-2 text-[var(--pon-lime)]">{method}</span>
+				{path}
+			</p>
+			<p className="mt-1 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">{children}</p>
+		</li>
+	);
+}
 
-const ROADMAP: { status: Status; title: string; body: string; icon: typeof Coins }[] = [
-	{
-		status: "live",
-		title: "Perps on every Pacifica market",
-		body: "Crypto, tokenized equities, FX, commodities and metals — 90+ markets, gasless order signing, market/limit/stop orders with TP and SL.",
-		icon: TrendingUp,
-	},
-	{
-		status: "live",
-		title: "Spot via KyberSwap",
-		body: "Market and limit orders on every Base token that has a matching Pacifica market.",
-		icon: Coins,
-	},
-	{
-		status: "live",
-		title: "Cash & carry",
-		body: "Delta-neutral positions across both legs with honest funding maths and recovery for half-filled opens.",
-		icon: Scale,
-	},
-	{
-		status: "planned",
-		title: "Cross-chain deposits",
-		body: "Fund from any supported chain with a Relay deposit address — a plain transfer rather than a bridging UI. The integration is built; the surface is not enabled yet.",
-		icon: ArrowLeftRight,
-	},
-	{
-		status: "building",
-		title: "Leveraged spot via Morpho and Aave",
-		body: "Borrow against a spot position to lever it up, using Morpho and Aave markets on Base. Lets you hold real tokens with leverage instead of synthetic exposure, and pairs with carry for higher capital efficiency.",
-		icon: Layers,
-	},
-	{
-		status: "building",
-		title: "AI trading agent",
-		body: "Describe a position in plain language and have it built, sized and risk-checked for you — including scanning every market for the best live carry rather than checking them one at a time.",
-		icon: Bot,
-	},
-	{
-		status: "planned",
-		title: "Portfolio margin and auto-rebalancing",
-		body: "Keep carry positions delta-neutral automatically as prices drift, and net margin across positions.",
-		icon: Wallet,
-	},
-];
-
-const STATUS_STYLES: Record<Status, { label: string; className: string }> = {
-	live: {
-		label: "Live",
-		className: "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] text-[var(--pon-lime)]",
-	},
-	building: {
-		label: "Coming soon",
-		className: "border-[var(--pon-amber)] bg-[var(--pon-amber)]/10 text-[var(--pon-amber)]",
-	},
-	planned: {
-		label: "Planned",
-		className: "border-[var(--pon-line-2)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
-	},
-};
+const strong = "font-semibold text-[var(--pon-fg)]";
 
 export default function DocsPage() {
 	const [active, setActive] = useState<string>(SECTIONS[0].id);
@@ -159,7 +103,7 @@ export default function DocsPage() {
 	}, []);
 
 	return (
-		<div className="overflow-hidden rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-bg)]">
+		<div className="overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg)]">
 			{/*
 			  Pons opens its docs with a full-width band tinted by the accent and
 			  fading to nothing, so the reading column below starts on a clean
@@ -168,13 +112,13 @@ export default function DocsPage() {
 			<header className="border-b border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-lime-dim)] to-transparent px-7 py-9 sm:px-10">
 				<p className="t-eyebrow text-[var(--pon-lime)]">Protocol</p>
 				<h1 className="font-display mt-3 text-[clamp(28px,4vw,38px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
-					Everything about Lemon Markets,
+					One product, documented
 					<br />
-					in one place.
+					without the flattering parts.
 				</h1>
 				<p className="mt-3 max-w-[52ch] text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
-					Everything on Lemon Markets settles in USDC. Perps run on Pacifica and spot routes through
-					KyberSwap.
+					Lemon lists one thing: spot-versus-perp basis markets on Base. The spot leg routes through
+					KyberSwap, the perp leg through Pacifica, and everything settles in USDC.
 				</p>
 			</header>
 
@@ -208,148 +152,208 @@ export default function DocsPage() {
 					<Section id="getting-started" title="Getting started">
 						<ol className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4">
 							<Step n={1} title="Connect a wallet">
-								Any Base-compatible wallet works. The app only ever asks you to sign — it never
-								takes custody.
+								Any Base-compatible wallet. Signing in also derives the Solana wallet that holds
+								your Pacifica account — the app never takes custody of either.
 							</Step>
-							<Step n={2} title="Fund with USDC on Base">
-								Send USDC to your wallet on Base. Bridging from another chain is on the roadmap
-								below.
+							<Step n={2} title="Fund both sides">
+								The spot leg is bought from your own wallet, so it needs USDC on Base. The short leg
+								needs margin on Pacifica, funded from the{" "}
+								<Link to="/accounts" className="font-semibold text-[var(--pon-lime)] underline">
+									accounts
+								</Link>{" "}
+								page. A position cannot open with only one side funded.
 							</Step>
-							<Step n={3} title="Approve USDC once">
-								The first perp order asks for a one-time approval so the protocol can pull
-								collateral. Spot approves the router the first time you swap a given token.
+							<Step n={3} title="Activate trading">
+								One signature authorises an agent key to place and cancel orders on your Pacifica
+								account. It cannot withdraw — withdrawals require the account key, which the agent
+								key is not.
 							</Step>
-							<Step n={4} title="Trade">
-								Open the{" "}
-								<Link to="/trade" className="font-semibold text-[var(--pon-lime)] underline">
-									terminal
-								</Link>
-								, pick a market from the selector, and switch between Perp and Spot in the order
-								panel.
+							<Step n={4} title="Pick a market">
+								The{" "}
+								<Link to="/" className="font-semibold text-[var(--pon-lime)] underline">
+									board
+								</Link>{" "}
+								ranks every pair by net yield after costs. Open one, size it, and the app places
+								both legs.
 							</Step>
 						</ol>
 					</Section>
 
-					<Section id="trading" title="Trading">
+					<Section id="how-it-works" title="How a basis works">
 						<p>
-							Perps are provided by Pacifica. Every listed market is available: crypto, tokenized US
-							equities, FX majors, commodities and metals. Leverage caps are per-market and enforced
-							by the protocol — up to 500x on FX majors, and typically 2–10x on equities.
+							A basis position holds two offsetting legs at equal notional:{" "}
+							<span className={strong}>long the spot token</span> on Base and{" "}
+							<span className={strong}>short the matching perp</span> on Pacifica. Because the sizes
+							match, a move in the underlying gains on one leg exactly what it loses on the other.
+							What is left over is funding, minus what it cost to get in and out.
 						</p>
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Order types.</strong> Market
-							fills at the oracle price immediately. Limit and Stop rest on-chain until triggered,
-							escrowing their collateral; cancelling refunds it. Take-profit and stop-loss can be
-							attached to any order.
+							That is the whole trade. It is not a yield product and there is no counterparty paying
+							you a rate — you are being paid by whichever side of the perp is crowded, for as long
+							as it stays crowded.
 						</p>
-						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Gasless.</strong> Orders are
-							signed as EIP-712 agent key you authorise once, so no wallet prompt and no gas are
-							needed on Base to trade. If the operator is unavailable the app falls back to a normal
-							transaction that you pay gas for.
-						</p>
-						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Market hours.</strong> Crypto
-							trades 24/7. Equities and FX follow real trading calendars — blue chips 24/5,
-							longer-tail names during US market hours only — and orders are rejected while a market
-							is closed. The terminal shows the session state and the next open.
-						</p>
-					</Section>
-
-					<Section id="spot" title="Spot">
-						<p>
-							Spot buys and sells real tokens on Base, routed through the KyberSwap aggregator. The
-							tradable set is deliberately limited to underlyings that Pacifica also lists, so
-							anything you can hold you can also hedge.
-						</p>
-						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">
-								Availability is measured, not assumed.
-							</strong>{" "}
-							Several tokenized equities have thin or one-sided liquidity on Base. The app probes
-							live routes and shows each token as buyable, sell-only, or unavailable rather than
-							letting an order fail at signing time.
-						</p>
-						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Limit orders</strong> are
-							signed off-chain and cost no gas. They rest in KyberSwap's orderbook until a taker
-							fills them — on thin pools an order can sit unfilled until it expires, which is normal
-							behaviour for a limit order rather than a failure. Cancelling is also gasless and
-							takes effect within a few minutes.
-						</p>
-						<Callout tone="info" title="Price impact is not a footnote">
-							Tokenized-equity pools on Base are shallow. A $100 trade can move the price over 1%.
-							The quoted impact is shown on the order panel before you sign.
+						<Callout tone="warning" title="It only earns when the short side receives funding">
+							Funding flips. When longs are crowded the short side receives and the position earns;
+							when shorts are crowded the position pays to exist. Every quote on this site shows the
+							real sign rather than an absolute value.
 						</Callout>
 					</Section>
 
-					<Section id="carry" title="Cash &amp; carry">
+					<Section id="markets" title="The markets">
 						<p>
-							A cash-and-carry buys the spot token and shorts the matching perp at equal notional.
-							Because the legs offset, price movement cancels out and what remains is funding minus
-							costs.
+							A basis market exists only where both legs do. That means a Base ERC-20 the aggregator
+							can actually route into, paired with a Pacifica perp on the{" "}
+							<span className={strong}>same underlying</span> — matched by ticker, never by a stored
+							venue index, because indexes move between protocol versions and a stale one points at
+							a different company rather than at nothing.
 						</p>
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">
-								It only earns when funding is positive on the short side
-							</strong>
-							, which happens when longs are crowded. When shorts are crowded the position pays
-							funding instead. The builder shows the real sign, the round-trip cost, and how long
-							you would have to hold to break even — before you commit.
+							In practice that is the Coinbase B20 tokenized equities on Base — Apple, Nvidia,
+							Tesla, Alphabet and the rest — plus the Base tokens with a listed perp: BTC through
+							cbBTC, ETH through WETH, AERO, and others.
 						</p>
 						<p>
-							Opening is two transactions: the spot buy, then the hedging short. If the second fails
-							you are left holding unhedged spot, so the position is recorded as needing attention
-							and offers to either complete the short or sell the spot back out. It is never
-							silently abandoned.
+							<span className={strong}>Same asset, not the same ticker.</span> A plain symbol match
+							against a Base token list is dangerous: it returns an unrelated Base-native token for
+							FARTCOIN, a governance token for DOGE, and a different issuer's tokenized stock for
+							STRK. Pairing any of them would hedge against the wrong asset while looking perfectly
+							healthy, so the registry is curated by hand and those are excluded.
 						</p>
-						<Callout tone="warning" title="Equity carries have a weekend gap">
-							Spot tokens trade 24/7 but equity perps close nights and weekends. While the perp is
-							shut you can sell the spot leg but cannot close the short, which breaks the hedge.
+					</Section>
+
+					<Section id="numbers" title="Reading the numbers">
+						<p>
+							<span className={strong}>Net APY</span> is the number the board ranks on and the one
+							to decide with. It is funding, annualised, on the capital you actually deploy, minus
+							the full round trip amortised over a year.
+						</p>
+						<p>
+							<span className={strong}>Funding APR</span> is the gross number before any cost. It is
+							what most venues advertise, and the two disagree often enough to matter — a market can
+							pay the best funding on the board and still be the worst trade on it once a thin
+							pool's slippage is priced in.
+						</p>
+						<p>
+							<span className={strong}>Spread</span> is the perp mark against the price a real spot
+							route would fill at, not against an oracle mid. On a shallow pool those differ by more
+							than the entire funding edge. When either leg is unpriced the spread shows as a dash
+							rather than as 0.00%, because an unquoted market is unknown, not fairly priced.
+						</p>
+						<p>
+							<span className={strong}>Breakeven</span> is how long funding must hold at its current
+							rate to cover the round trip. It is a straight-line estimate at today's rate, not a
+							forecast.
+						</p>
+						<Callout tone="info" title="Board figures are quoted at a fixed size">
+							Every row is priced at ${REFERENCE_NOTIONAL_USD.toLocaleString()} per leg at{" "}
+							{REFERENCE_LEVERAGE}x so the rows are comparable. Slippage is not linear in size, so
+							the ticket re-quotes both legs at whatever you actually type — a market that looks
+							good at ${REFERENCE_NOTIONAL_USD.toLocaleString()} can be uneconomic at ten times
+							that.
 						</Callout>
 					</Section>
 
 					<Section id="fees" title="Fees &amp; funding">
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Perp fees</strong> are set by
-							Pacifica: roughly 4.5bps taker on crypto majors, and zero commission on real-world
-							assets while they are in growth mode, where you pay the spread instead.
+							<span className={strong}>{VENUE_FEES.spotTakerPercent}% on the spot leg</span> and{" "}
+							<span className={strong}>{VENUE_FEES.perpTakerPercent}% on the perp leg</span>, per
+							fill. A position crosses both legs on the way in and both again on the way out, so a
+							round trip is four fills:{" "}
+							<span className="font-fono text-[var(--pon-fg)]">
+								2 × ({VENUE_FEES.spotTakerPercent}% + {VENUE_FEES.perpTakerPercent}%) ={" "}
+								{ROUND_TRIP_FEE_PERCENT.toFixed(1)}%
+							</span>{" "}
+							of notional, before any slippage.
 						</p>
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">
-								Funding applies to perps only.
-							</strong>{" "}
-							It accrues hourly while a position is open and is displayed annualised. Read the sign
-							carefully: a positive rate means that side{" "}
-							<em className="text-[var(--pon-fg)]">receives</em> funding, negative means it pays.
-							The crowded side generally pays the lighter one.
+							That fixed {ROUND_TRIP_FEE_PERCENT.toFixed(1)}% is why a basis position has a minimum
+							sensible holding period. At 8% annualised funding it takes roughly eighteen days to
+							earn the round trip back; below about {ROUND_TRIP_FEE_PERCENT.toFixed(1)}% annualised
+							funding, a position cannot clear its own costs in a year at all — which is a real
+							market condition, and the board shows those markets with a negative net APY rather
+							than hiding them.
 						</p>
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">Spot has no funding.</strong>{" "}
-							Buying a token is an outright purchase — there is no counterparty, no borrow and no
-							ongoing rate. Your only costs are the pool's swap fee plus price impact, both included
-							in the quote you are shown, plus Base gas. This is also why a cash-and-carry earns or
-							pays purely on the perp leg.
+							<span className={strong}>Slippage is measured, not assumed.</span> Both the entry and
+							the exit are charged price impact. The exit figure is an estimate — the entry
+							measurement is the best available proxy — and it is labelled as such rather than
+							quietly omitted, which would understate the cost of every thin market on the board.
+						</p>
+						<p>
+							<span className={strong}>Funding accrues hourly</span> on the perp leg only. Spot has
+							no funding: buying a token outright has no counterparty and no ongoing rate, which is
+							exactly why the position's whole return comes from the short side.
+						</p>
+					</Section>
+
+					<Section id="execution" title="Execution">
+						<p>
+							Opening is two legs across two systems with no shared transaction. The spot buy goes
+							first, deliberately: it is the slower and more failure-prone leg, so discovering a
+							failure before any perp exposure exists is cheaper than the reverse.
+						</p>
+						<p>
+							The short leg is then placed <span className={strong}>server-side</span> with your
+							agent key — one request, no wallet prompt. A browser-signed hedge would leave you
+							unhedged for as long as it took to confirm, or forever if the tab closed in between.
+						</p>
+						<p>
+							<span className={strong}>Nothing is silently abandoned.</span> Each leg's outcome is
+							persisted before the next is attempted. If one lands and the other fails, the position
+							is recorded as needing attention with the exact exposure named, and offers to either
+							complete the missing leg or unwind the one that landed.
+						</p>
+						<Callout tone="info" title="Perp positions are netted per symbol">
+							Pacifica nets positions by symbol, so a separate order in a symbol you already hold a
+							basis in would cancel that position's hedge. That is why there is no discretionary
+							order surface here, and why the Pacifica holdings table is read-only — closing happens
+							from the position, which closes both legs together.
+						</Callout>
+					</Section>
+
+					<Section id="api" title="API">
+						<p>
+							The board is served from a public JSON API. No key is needed for market data; anything
+							that touches a position requires a session cookie.
+						</p>
+						<ul className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4">
+							<Endpoint method="GET" path="/api/basis/markets">
+								Every pair, ranked by net yield. Untradable markets are included with a `blockers`
+								array explaining why, rather than being filtered out.
+							</Endpoint>
+							<Endpoint method="GET" path="/api/basis/markets/:id">
+								One market, by ticker (NVDA) or either leg's symbol (NVDAc, NVDA-USD).
+							</Endpoint>
+							<Endpoint method="GET" path="/api/basis/markets/:id/candles">
+								OHLCV for the perp mark. Not the spread — no venue publishes a price history for a
+								tokenized equity on Base, so there is nothing to difference against.
+							</Endpoint>
+							<Endpoint method="POST" path="/api/basis/plan">
+								Price a position at real size. Re-quotes both legs live; commits to nothing.
+							</Endpoint>
+							<Endpoint method="GET" path="/api/basis/positions?user=0x…">
+								Positions for an address, with the legs that make each one up.
+							</Endpoint>
+						</ul>
+						<p className="t-caption text-[var(--pon-fg-4)]">
+							Rates and liquidity are read live from upstream on every request behind a short cache,
+							so treat a response as a quote with a shelf life rather than as a stored value.
 						</p>
 					</Section>
 
 					<Section id="points" title="Points">
 						<p>
-							Points accrue automatically from trading through Lemon Markets — there is nothing to
-							claim or sign up for. See the{" "}
+							Points accrue automatically — there is nothing to claim. See the{" "}
 							<Link to="/leaderboard" className="font-semibold text-[var(--pon-lime)] underline">
 								leaderboard
 							</Link>{" "}
-							for the current standings and the exact rates.
+							for the current standings and exact rates.
 						</p>
 						<p>
-							<strong className="font-semibold text-[var(--pon-fg)]">
-								Everything is verified.
-							</strong>{" "}
-							Perp volume is recorded from the orders this app places, and each spot trade is
-							checked against its transaction on-chain — it must exist, have succeeded, and have
-							been sent by the address claiming it. Reporting a transaction twice awards nothing the
-							second time.
+							<span className={strong}>Everything is verified.</span> Spot volume is checked against
+							its transaction on-chain — it must exist, have succeeded, and have been sent by the
+							address claiming it. Positions opened are counted from our own records of both legs,
+							never from a client report, so there is nothing to forge with a POST.
 						</p>
 						<p className="t-caption text-[var(--pon-fg-4)]">
 							Points and tiers are cosmetic. They are not a token, carry no entitlement, and may be
@@ -359,65 +363,34 @@ export default function DocsPage() {
 
 					<Section id="risks" title="Risks">
 						<ul className="list-inside list-disc space-y-1.5">
-							<li>Leverage can liquidate your position. Watch the liquidation price.</li>
 							<li>
-								Thin spot liquidity means slippage on entry and exit, and exit impact may be worse
-								than entry.
+								<span className={strong}>The hedge can be liquidated.</span> The short leg is
+								leveraged; if the underlying rallies far enough the perp liquidates and you are left
+								long spot with no hedge. Higher leverage frees capital and moves that point closer.
 							</li>
 							<li>
-								Tokenized equities are issued by third parties and may carry transfer restrictions
-								or be unavailable in your jurisdiction.
+								<span className={strong}>Funding flips.</span> A position that earns today can pay
+								tomorrow, and nothing guarantees it stays positive long enough to clear the round
+								trip.
 							</li>
-							<li>Funding rates move; a carry that earns today can pay tomorrow.</li>
-							<li>Smart contract risk across Pacifica, KyberSwap, Relay and the token issuers.</li>
+							<li>
+								<span className={strong}>Thin spot liquidity.</span> Exit impact can be worse than
+								entry, and a market that was routable when you opened may not be when you close.
+							</li>
+							<li>
+								<span className={strong}>Overnight and weekend drift on equities.</span> Both legs
+								keep trading, but the market that prices the underlying does not — so the spread can
+								widen on thin flow and reprice at the open.
+							</li>
+							<li>
+								<span className={strong}>Issuer and contract risk</span> across Pacifica, KyberSwap,
+								the NEAR MPC network and the token issuers. Tokenized equities are issued by third
+								parties and may carry transfer restrictions or be unavailable in your jurisdiction.
+							</li>
 						</ul>
 						<p className="t-caption text-[var(--pon-fg-4)]">
 							Nothing here is investment advice. You are responsible for your own positions.
 						</p>
-					</Section>
-
-					<Section id="roadmap" title="Roadmap">
-						<ul className="space-y-3">
-							{ROADMAP.map((item) => {
-								const Icon = item.icon;
-								const status = STATUS_STYLES[item.status];
-								return (
-									<li
-										key={item.title}
-										className="flex gap-3.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4"
-									>
-										<Icon
-											size={18}
-											className="mt-0.5 shrink-0 text-[var(--pon-fg-3)]"
-											aria-hidden
-										/>
-										<div className="min-w-0 flex-1">
-											<div className="flex flex-wrap items-center gap-2">
-												<p className="text-[13.5px] font-semibold text-[var(--pon-fg)]">
-													{item.title}
-												</p>
-												<span
-													className={cn(
-														"inline-flex items-center gap-1 rounded-[var(--pon-r-sm)] border px-2 py-0.5 text-[10px] font-semibold uppercase",
-														status.className,
-													)}
-												>
-													{item.status === "live" ? (
-														<Check size={10} aria-hidden />
-													) : (
-														<Circle size={8} aria-hidden />
-													)}
-													{status.label}
-												</span>
-											</div>
-											<p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">
-												{item.body}
-											</p>
-										</div>
-									</li>
-								);
-							})}
-						</ul>
 					</Section>
 
 					<Section id="faq" title="FAQ">
@@ -425,23 +398,27 @@ export default function DocsPage() {
 							{[
 								{
 									q: "Do I need ETH on Base for gas?",
-									a: "Not for perp orders — those are signed server-side with the agent key you authorise at sign-in. Spot swaps and approvals are ordinary transactions, so those need a small amount of ETH.",
+									a: "Yes, a small amount. The spot leg is an ordinary transaction from your wallet, so it and its one-time token approval cost gas. The short leg does not — it is signed server-side with your agent key.",
 								},
 								{
-									q: "Why can I sell a token but not buy it?",
-									a: "Liquidity on Base can be one-sided. The app probes both directions live and shows exactly which are available rather than failing at signing time.",
+									q: "Why does a market show a negative net APY?",
+									a: "Either funding is negative on the short side, meaning the position would pay to exist, or funding is positive but too thin to cover the 0.4% round trip over a year. Both are real market conditions rather than errors, and both are shown rather than hidden.",
 								},
 								{
-									q: "Why is my cash-and-carry showing a negative APY?",
-									a: "Funding is currently negative on the short side of that market, meaning the position would pay to exist. That is a real market condition, not an error — carries only earn when longs are crowded.",
+									q: "Why is a market listed but not enterable?",
+									a: "Almost always the spot leg: several tokenized equities have no Aerodrome pool, or a one-sided one. The board keeps them visible with the reason, because a symbol that silently vanishes is indistinguishable from one that was never listed.",
 								},
 								{
-									q: "What happens if one leg of a carry fails?",
-									a: "The position is flagged as needing attention and shows exactly what you are holding unhedged, with actions to complete the missing leg or unwind the one that landed.",
+									q: "What happens if one leg fails?",
+									a: "The position is flagged as needing attention and names exactly what you are holding unhedged, with actions to complete the missing leg or unwind the one that landed. It is never marked closed while real exposure is live.",
+								},
+								{
+									q: "Why can't I close the perp from the accounts page?",
+									a: "Pacifica nets positions per symbol, so closing one there would flatten the hedge while the position record still described it as hedged. Unwinding from the position closes both legs together and records what happened.",
 								},
 								{
 									q: "Are my funds custodied?",
-									a: "No. Everything is signed from your wallet and settles on-chain. The app never holds your assets.",
+									a: "The spot leg is yours outright, in your own wallet. The perp leg sits in a Pacifica account controlled by a wallet derived through NEAR chain signatures — the private key exists nowhere, and the agent key the app holds can trade but cannot withdraw.",
 								},
 							].map((item) => (
 								<div

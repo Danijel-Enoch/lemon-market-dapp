@@ -1,11 +1,10 @@
-import { useSpotSwap } from "@app/hooks/useSpotSwap";
-import { type CarryPositionRecord, carryApi } from "@app/lib/api";
-import type { SpotTokenInfo } from "@lemon/core";
+import { type SpotLegToken, useSpotSwap } from "@app/hooks/useSpotSwap";
+import { type BasisPositionRecord, basisApi } from "@app/lib/api";
 import { fromBaseUnits } from "@lemon/core";
 import { useCallback, useState } from "react";
 import { useConnection } from "wagmi";
 
-export type CarryStep =
+export type BasisStep =
 	| "idle"
 	| "creating"
 	| "buying_spot"
@@ -14,18 +13,18 @@ export type CarryStep =
 	| "closing_short"
 	| "done";
 
-export interface CarryFlowState {
-	step: CarryStep;
+export interface BasisFlowState {
+	step: BasisStep;
 	positionId: string | null;
 	/** Set when one leg landed and its counterpart failed. */
 	orphaned: boolean;
 	error: string | null;
 }
 
-const INITIAL: CarryFlowState = { step: "idle", positionId: null, orphaned: false, error: null };
+const INITIAL: BasisFlowState = { step: "idle", positionId: null, orphaned: false, error: null };
 
 /**
- * Drives a cash-and-carry open and unwind across its two legs.
+ * Drives a basis position's open and unwind across its two legs.
  *
  * The legs execute against separate systems with no shared transaction, so the
  * server is told the outcome of each one *before* the next is attempted. If the
@@ -41,25 +40,25 @@ const INITIAL: CarryFlowState = { step: "idle", positionId: null, orphaned: fals
  * by polling the chain for the trade slot, which is what made the unhedged
  * window wide enough to matter; the agent key closes it to a single request.
  */
-export function useCarryFlow() {
+export function useBasisFlow() {
 	const { address } = useConnection();
 	const spot = useSpotSwap();
-	const [state, setState] = useState<CarryFlowState>(INITIAL);
+	const [state, setState] = useState<BasisFlowState>(INITIAL);
 
 	const reset = useCallback(() => setState(INITIAL), []);
 
 	const open = useCallback(
 		async (params: {
-			token: SpotTokenInfo;
+			token: SpotLegToken;
 			marketSymbol: string;
 			notionalUsd: number;
 			perpLeverage: number;
 			slippagePercent?: number;
-		}): Promise<CarryPositionRecord | null> => {
+		}): Promise<BasisPositionRecord | null> => {
 			if (!address) throw new Error("Connect a wallet first.");
 			setState({ ...INITIAL, step: "creating" });
 
-			const position = await carryApi.create({
+			const position = await basisApi.create({
 				userAddress: address,
 				symbol: params.token.symbol,
 				notionalUsd: params.notionalUsd,
@@ -80,7 +79,7 @@ export function useCarryFlow() {
 				if (!outcome) throw new Error("Spot buy did not complete.");
 
 				shares = Number(fromBaseUnits(outcome.amountOut, params.token.decimals));
-				await carryApi.spotFilled(position.id, {
+				await basisApi.spotFilled(position.id, {
 					txHash: outcome.txHash,
 					shares,
 					spotCostUsd: params.notionalUsd,
@@ -88,7 +87,7 @@ export function useCarryFlow() {
 			} catch (cause) {
 				// Nothing landed on-chain, so this is terminal rather than orphaned.
 				const message = cause instanceof Error ? cause.message : "Spot buy failed";
-				await carryApi.legFailed(position.id, { leg: "SPOT", error: message });
+				await basisApi.legFailed(position.id, { leg: "SPOT", error: message });
 				setState((prev) => ({ ...prev, step: "idle", error: message }));
 				throw cause;
 			}
@@ -97,7 +96,7 @@ export function useCarryFlow() {
 			// From here the user holds unhedged spot until this succeeds.
 			setState((prev) => ({ ...prev, step: "opening_short" }));
 			try {
-				const updated = await carryApi.openPerp(position.id);
+				const updated = await basisApi.openPerp(position.id);
 				setState((prev) => ({ ...prev, step: "done" }));
 				return updated;
 			} catch (cause) {
@@ -112,10 +111,10 @@ export function useCarryFlow() {
 	);
 
 	/** Complete the missing short on an orphaned position. */
-	const repairShort = useCallback(async (position: CarryPositionRecord) => {
+	const repairShort = useCallback(async (position: BasisPositionRecord) => {
 		setState({ ...INITIAL, positionId: position.id, step: "opening_short" });
 		try {
-			const updated = await carryApi.openPerp(position.id);
+			const updated = await basisApi.openPerp(position.id);
 			setState((prev) => ({ ...prev, step: "done", orphaned: false }));
 			return updated;
 		} catch (cause) {
@@ -126,9 +125,9 @@ export function useCarryFlow() {
 	}, []);
 
 	const unwind = useCallback(
-		async (position: CarryPositionRecord, token: SpotTokenInfo) => {
+		async (position: BasisPositionRecord, token: SpotLegToken) => {
 			setState({ ...INITIAL, positionId: position.id, step: "selling_spot" });
-			await carryApi.unwind(position.id);
+			await basisApi.unwind(position.id);
 
 			// --- Leg 1: sell the spot back to USDC ---------------------------
 			if (position.shares && !position.spotSellTxHash) {
@@ -139,13 +138,13 @@ export function useCarryFlow() {
 						amount: String(position.shares),
 					});
 					if (!outcome) throw new Error("Spot sell did not complete.");
-					await carryApi.spotClosed(position.id, {
+					await basisApi.spotClosed(position.id, {
 						txHash: outcome.txHash,
 						proceedsUsd: 0,
 					});
 				} catch (cause) {
 					const message = cause instanceof Error ? cause.message : "Spot sell failed";
-					await carryApi.legFailed(position.id, { leg: "SPOT", error: message });
+					await basisApi.legFailed(position.id, { leg: "SPOT", error: message });
 					setState((prev) => ({ ...prev, step: "idle", orphaned: true, error: message }));
 					throw cause;
 				}
@@ -154,7 +153,7 @@ export function useCarryFlow() {
 			// --- Leg 2: close the short --------------------------------------
 			setState((prev) => ({ ...prev, step: "closing_short" }));
 			try {
-				const closed = await carryApi.closePerp(position.id);
+				const closed = await basisApi.closePerp(position.id);
 				setState((prev) => ({ ...prev, step: "done" }));
 				return closed;
 			} catch (cause) {
@@ -168,7 +167,7 @@ export function useCarryFlow() {
 
 	/** Sell the spot leg of an orphan and close the position out. */
 	const unwindSpotOnly = useCallback(
-		async (position: CarryPositionRecord, token: SpotTokenInfo) => {
+		async (position: BasisPositionRecord, token: SpotLegToken) => {
 			setState({ ...INITIAL, positionId: position.id, step: "selling_spot" });
 			try {
 				const outcome = await spot.swap({
@@ -177,8 +176,8 @@ export function useCarryFlow() {
 					amount: String(position.shares ?? 0),
 				});
 				if (!outcome) throw new Error("Spot sell did not complete.");
-				await carryApi.spotClosed(position.id, { txHash: outcome.txHash, proceedsUsd: 0 });
-				const closed = await carryApi.closed(position.id, {});
+				await basisApi.spotClosed(position.id, { txHash: outcome.txHash, proceedsUsd: 0 });
+				const closed = await basisApi.closed(position.id, {});
 				setState((prev) => ({ ...prev, step: "done", orphaned: false }));
 				return closed;
 			} catch (cause) {

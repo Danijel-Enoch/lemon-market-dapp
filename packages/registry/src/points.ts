@@ -6,28 +6,25 @@
  * through query code where a change silently re-ranks everyone.
  */
 
-export type PointsSource = "perp_volume" | "spot_volume" | "carry_opened" | "basket_entry";
+export type PointsSource = "spot_volume" | "basis_opened";
 
 /** USD of volume that earns one point. */
 export const USD_PER_VOLUME_POINT = 10;
 
-/** Flat awards for actions worth more than their notional suggests. */
-export const ACTION_POINTS: Record<"carry_opened" | "basket_entry", number> = {
-	// A carry is two legs across two venues and is the app's flagship flow, so
-	// it is worth more than the same notional traded outright.
-	carry_opened: 250,
-	basket_entry: 100,
-};
+/** Flat award for opening a basis position, on top of its spot volume. */
+export const ACTION_POINTS = {
+	// A basis position is two legs across two venues and is the only thing the
+	// platform sells, so it is worth more than the same notional swapped
+	// outright.
+	basis_opened: 250,
+} as const;
 
 export interface PointsBreakdown {
-	perpVolumeUsd: number;
+	/** Notional bought on the spot leg, which is also the position's notional. */
 	spotVolumeUsd: number;
-	carriesOpened: number;
-	basketEntries: number;
-	perpPoints: number;
-	spotPoints: number;
-	carryPoints: number;
-	basketPoints: number;
+	positionsOpened: number;
+	volumePoints: number;
+	positionPoints: number;
 	total: number;
 }
 
@@ -37,26 +34,18 @@ export function volumePoints(volumeUsd: number): number {
 }
 
 export function computePoints(input: {
-	perpVolumeUsd: number;
 	spotVolumeUsd: number;
-	carriesOpened: number;
-	basketEntries: number;
+	positionsOpened: number;
 }): PointsBreakdown {
-	const perpPoints = volumePoints(input.perpVolumeUsd);
-	const spotPoints = volumePoints(input.spotVolumeUsd);
-	const carryPoints = Math.max(0, input.carriesOpened) * ACTION_POINTS.carry_opened;
-	const basketPoints = Math.max(0, input.basketEntries) * ACTION_POINTS.basket_entry;
+	const volume = volumePoints(input.spotVolumeUsd);
+	const positionPoints = Math.max(0, input.positionsOpened) * ACTION_POINTS.basis_opened;
 
 	return {
-		perpVolumeUsd: input.perpVolumeUsd,
 		spotVolumeUsd: input.spotVolumeUsd,
-		carriesOpened: input.carriesOpened,
-		basketEntries: input.basketEntries,
-		perpPoints,
-		spotPoints,
-		carryPoints,
-		basketPoints,
-		total: perpPoints + spotPoints + carryPoints + basketPoints,
+		positionsOpened: input.positionsOpened,
+		volumePoints: volume,
+		positionPoints,
+		total: volume + positionPoints,
 	};
 }
 

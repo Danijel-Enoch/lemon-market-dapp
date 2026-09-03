@@ -2,15 +2,14 @@ import { UpstreamError } from "@lemon/core";
 import { PacificaError } from "@lemon/pacifica";
 import { Elysia } from "elysia";
 import { authRoutes } from "./routes/auth";
-import { basketRoutes } from "./routes/baskets";
-import { carryRoutes } from "./routes/carry";
+import { basisRoutes } from "./routes/basis";
 import { depositRoutes } from "./routes/deposit";
 import { marketRoutes } from "./routes/markets";
 import { pacificaRoutes } from "./routes/pacifica";
 import { pointsRoutes } from "./routes/points";
 import { spotRoutes } from "./routes/spot";
 import { AuthError, AuthUnavailableError } from "./services/auth";
-import { CarryLegError, CarryTransitionError } from "./services/carry";
+import { BasisLegError, BasisTransitionError } from "./services/basis";
 import { DepositUnavailableError } from "./services/pacifica-deposit";
 
 /**
@@ -39,14 +38,14 @@ export function createApiApp(prefix = "/api") {
 				return { error: error.message };
 			}
 
-			if (error instanceof CarryTransitionError) {
+			if (error instanceof BasisTransitionError) {
 				set.status = 409;
 				return { error: error.message };
 			}
 
 			// A leg the venue refused. 422 rather than 409: the request was
 			// legal, the execution was not possible.
-			if (error instanceof CarryLegError) {
+			if (error instanceof BasisLegError) {
 				set.status = 422;
 				return { error: error.message };
 			}
@@ -90,8 +89,7 @@ export function createApiApp(prefix = "/api") {
 		.use(marketRoutes)
 		.use(pacificaRoutes)
 		.use(spotRoutes)
-		.use(basketRoutes)
-		.use(carryRoutes)
+		.use(basisRoutes)
 		.use(pointsRoutes)
 		.use(depositRoutes);
 }

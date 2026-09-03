@@ -62,6 +62,7 @@ export async function getSpotTokens(force = false): Promise<SpotTokenList> {
 				buyable: probe?.buyable ?? false,
 				sellable: probe?.sellable ?? false,
 				buyPriceImpactPercent: probe?.buyPriceImpactPercent ?? null,
+				spotPriceUsd: probe?.spotPriceUsd ?? null,
 				// A failed probe is reported as such rather than as "no liquidity".
 				probeFailed: probe?.probeFailed ?? false,
 				routabilityCheckedAt: probe?.checkedAt ?? null,

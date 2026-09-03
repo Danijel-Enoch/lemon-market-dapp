@@ -1,13 +1,12 @@
 import { FundingPanel } from "@app/components/account/FundingPanel";
 import { BuilderApprovalNotice, OnboardingPanel } from "@app/components/account/OnboardingPanel";
 import { PacificaOrders, PacificaPositions } from "@app/components/account/PacificaHoldings";
-import { CarryPositionList } from "@app/components/carry/CarryPositionList";
+import { PositionList } from "@app/components/basis/PositionList";
 import { Callout } from "@app/components/common/Callout";
 import { EmptyPanel } from "@app/components/common/EmptyState";
 import { StatTile } from "@app/components/common/StatTile";
 import { StatCard } from "@app/components/pons/StatCard";
 import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
-import { SpotLimitOrders } from "@app/components/spot/SpotLimitOrders";
 import {
 	Table,
 	TableBody,
@@ -17,7 +16,7 @@ import {
 	TableRow,
 } from "@app/components/ui/table";
 import { useOnboarding, usePacificaAccount, useSessionWalletGuard } from "@app/hooks/useAccount";
-import { useCarryAttention, useSpotTokens } from "@app/hooks/useMarketData";
+import { useBasisAttention, useBasisMarkets } from "@app/hooks/useMarketData";
 import { erc20Abi } from "@app/lib/erc20";
 import { formatQuantity, formatUsd, fromBaseUnits, USDC_ADDRESS } from "@lemon/core";
 import { Briefcase, Wallet } from "lucide-react";
@@ -25,7 +24,7 @@ import { Link, type MetaFunction } from "react-router";
 import { useConnection, useReadContract, useReadContracts } from "wagmi";
 
 export const meta: MetaFunction = () => [
-	{ title: "Accounts — Lemon Markets" },
+	{ title: "Accounts — Lemon" },
 	{ name: "description", content: "Your Pacifica trading account and connected wallet." },
 ];
 
@@ -34,9 +33,10 @@ export const meta: MetaFunction = () => [
  *
  * Two accounts, side by side and never merged:
  *
- *   * **Pacifica** — where positions live. Funded through this page; the wallet
- *     that holds it is derived and managed by the app.
- *   * **Connected wallet** — what the user holds themselves, on Base.
+ *   * **Pacifica** — where the short legs live. Funded through this page; the
+ *     wallet that holds it is derived and managed by the app.
+ *   * **Connected wallet** — what the user holds themselves, on Base, which is
+ *     where the long legs sit.
  *
  * The derived EVM and Solana wallets sitting between the two are deliberately
  * absent. They are an implementation detail of custody, and showing them would
@@ -46,8 +46,8 @@ export default function AccountsPage() {
 	const { address, isConnected } = useConnection();
 	const { step, account } = useOnboarding();
 	const { data: pacifica } = usePacificaAccount();
-	const { data: spotTokens } = useSpotTokens();
-	const { data: attention } = useCarryAttention(address);
+	const { data: board } = useBasisMarkets();
+	const { data: attention } = useBasisAttention(address);
 
 	// A session that outlives a wallet switch would show one wallet's balances
 	// beside another's positions.
@@ -61,22 +61,24 @@ export default function AccountsPage() {
 		query: { enabled: Boolean(address) },
 	});
 
-	// One multicall for every stock-token balance, rather than 13 round trips.
+	const markets = board?.markets ?? [];
+
+	// One multicall for every spot leg's balance, rather than a round trip each.
 	const { data: tokenBalances } = useReadContracts({
-		contracts: (spotTokens?.tokens ?? []).map((token) => ({
-			address: token.address,
+		contracts: markets.map((market) => ({
+			address: market.spot.address,
 			abi: erc20Abi,
 			functionName: "balanceOf" as const,
 			args: address ? [address] : undefined,
 		})),
-		query: { enabled: Boolean(address) && Boolean(spotTokens?.tokens.length) },
+		query: { enabled: Boolean(address) && markets.length > 0 },
 	});
 
-	const holdings = (spotTokens?.tokens ?? [])
-		.map((token, index) => {
+	const holdings = markets
+		.map((market, index) => {
 			const raw = tokenBalances?.[index]?.result as bigint | undefined;
-			const amount = raw ? Number(fromBaseUnits(raw, token.decimals)) : 0;
-			return { token, amount };
+			const amount = raw ? Number(fromBaseUnits(raw, market.spot.decimals)) : 0;
+			return { market, amount };
 		})
 		.filter((holding) => holding.amount > 0);
 
@@ -89,16 +91,19 @@ export default function AccountsPage() {
 			<PageHeader
 				eyebrow="Account"
 				title="Accounts"
-				description="Your Pacifica trading account and the wallet you connected with, in one place."
+				description="Your Pacifica trading account and the wallet you connected with, in one place. Both legs of a basis position need funding — the spot leg from your wallet, the short leg from Pacifica."
 			/>
 
-			{/* Unhedged carries are live directional risk; they come first. */}
+			{/* Unhedged positions are live directional risk; they come first. */}
 			{needsAttention.length > 0 && (
-				<Callout tone="danger" title={`${needsAttention.length} position needs attention`}>
+				<Callout
+					tone="danger"
+					title={`${needsAttention.length} position${needsAttention.length === 1 ? "" : "s"} need attention`}
+				>
 					<ul className="space-y-1">
 						{needsAttention.map(({ position }) => (
 							<li key={position.id}>
-								<Link to={`/carry/${position.id}`} className="underline">
+								<Link to={`/portfolio/${position.id}`} className="underline">
 									{position.tokenSymbol} / {position.perpSymbol}
 								</Link>{" "}
 								is only half-open and is not hedged.
@@ -114,7 +119,10 @@ export default function AccountsPage() {
 				<OnboardingPanel />
 			) : (
 				<section className="space-y-4">
-					<SubHeading title="Pacifica account" />
+					<SubHeading
+						title="Pacifica account"
+						description="Margin for the short leg of every position."
+					/>
 
 					<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 						<StatCard label="Equity" value={formatUsd(equity)} />
@@ -143,7 +151,10 @@ export default function AccountsPage() {
 					<FundingPanel />
 
 					<div className="space-y-3">
-						<SubHeading title="Positions" />
+						<SubHeading
+							title="Short legs"
+							description="Every open perp here is one half of a basis position. Close them from the position, not individually."
+						/>
 						<PacificaPositions />
 					</div>
 
@@ -155,7 +166,7 @@ export default function AccountsPage() {
 			)}
 
 			<section className="space-y-4">
-				<SubHeading title="Connected wallet" />
+				<SubHeading title="Connected wallet" description="Where the spot legs are held." />
 
 				{!isConnected ? (
 					<EmptyPanel icon={Wallet} title="No wallet connected">
@@ -165,49 +176,49 @@ export default function AccountsPage() {
 					<>
 						<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 							<StatTile label="USDC on Base" value={formatUsd(walletUsdc)} />
-							<StatTile label="Stock holdings" value={holdings.length} />
+							<StatTile label="Spot holdings" value={holdings.length} />
 						</div>
 
 						{holdings.length === 0 ? (
-							<EmptyPanel icon={Briefcase} title="No tokenized stocks held">
-								<Link to="/spot" className="underline">
-									Browse spot markets
+							<EmptyPanel icon={Briefcase} title="No spot legs held">
+								<Link to="/" className="underline">
+									Browse basis markets
 								</Link>
 							</EmptyPanel>
 						) : (
-							<div className="rounded-[var(--pon-r-xl)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
+							<div className="rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-6">
 								<Table className="min-w-[420px]">
 									<TableHeader>
 										<TableRow>
 											<TableHead>Token</TableHead>
-											<TableHead className="text-right">Shares</TableHead>
-											<TableHead className="text-right">Perp</TableHead>
+											<TableHead className="text-right">Units</TableHead>
+											<TableHead className="text-right">Hedged by</TableHead>
 											<TableHead className="text-right" />
 										</TableRow>
 									</TableHeader>
 									<TableBody>
-										{holdings.map(({ token, amount }) => (
-											<TableRow key={token.symbol}>
+										{holdings.map(({ market, amount }) => (
+											<TableRow key={market.id}>
 												<TableCell>
 													<Link
-														to={`/spot/${token.symbol}`}
+														to={`/markets/${market.id}`}
 														className="font-semibold transition-colors hover:text-[var(--pon-lime)]"
 													>
-														{token.symbol}
+														{market.spot.symbol}
 													</Link>
 												</TableCell>
 												<TableCell className="font-fono text-right">
 													{formatQuantity(amount, 6)}
 												</TableCell>
 												<TableCell className="font-fono text-right text-[var(--pon-fg-2)]">
-													{token.perpSymbol ?? "—"}
+													{market.perp.symbol}
 												</TableCell>
 												<TableCell className="text-right">
 													<Link
-														to="/carry"
+														to={`/markets/${market.id}`}
 														className="t-caption font-semibold text-[var(--pon-lime)] hover:underline"
 													>
-														Hedge it
+														Open a position
 													</Link>
 												</TableCell>
 											</TableRow>
@@ -221,13 +232,18 @@ export default function AccountsPage() {
 			</section>
 
 			<section className="space-y-3">
-				<SubHeading title="Spot limit orders" />
-				<SpotLimitOrders />
-			</section>
-
-			<section className="space-y-3">
-				<SubHeading title="Cash & carry" />
-				<CarryPositionList />
+				<SubHeading
+					title="Basis positions"
+					actions={
+						<Link
+							to="/portfolio"
+							className="t-caption font-semibold text-[var(--pon-lime)] hover:underline"
+						>
+							Full portfolio
+						</Link>
+					}
+				/>
+				<PositionList />
 			</section>
 		</div>
 	);

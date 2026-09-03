@@ -1,5 +1,5 @@
 /**
- * The cash-and-carry state machine, as pure functions.
+ * The basis-position state machine, as pure functions.
  *
  * Kept free of database and network calls so the transitions — especially the
  * orphan branch, where one leg is live and the other is not — can be tested
@@ -8,7 +8,7 @@
  * reachable-but-unrecoverable.
  */
 
-export type CarryStatus =
+export type BasisStatus =
 	| "VALIDATING"
 	| "SPOT_FILLED"
 	| "OPEN"
@@ -18,7 +18,7 @@ export type CarryStatus =
 	| "ORPHANED"
 	| "FAILED";
 
-export type CarryEvent =
+export type BasisEvent =
 	| { type: "spot_filled" }
 	| { type: "perp_opened" }
 	| { type: "leg_failed"; leg: "SPOT" | "PERP" }
@@ -26,7 +26,7 @@ export type CarryEvent =
 	| { type: "spot_closed" }
 	| { type: "closed" };
 
-export const ALLOWED_TRANSITIONS: Record<CarryStatus, CarryStatus[]> = {
+export const ALLOWED_TRANSITIONS: Record<BasisStatus, BasisStatus[]> = {
 	VALIDATING: ["SPOT_FILLED", "FAILED"],
 	SPOT_FILLED: ["OPEN", "ORPHANED", "UNWINDING"],
 	OPEN: ["UNWINDING"],
@@ -39,9 +39,9 @@ export const ALLOWED_TRANSITIONS: Record<CarryStatus, CarryStatus[]> = {
 	FAILED: [],
 };
 
-export const TERMINAL_STATUSES: readonly CarryStatus[] = ["CLOSED", "FAILED"];
+export const TERMINAL_STATUSES: readonly BasisStatus[] = ["CLOSED", "FAILED"];
 
-export function canTransition(from: CarryStatus, to: CarryStatus): boolean {
+export function canTransition(from: BasisStatus, to: BasisStatus): boolean {
 	return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
@@ -52,8 +52,8 @@ export function canTransition(from: CarryStatus, to: CarryStatus): boolean {
  * leg has landed, failure means ORPHANED — treating it as FAILED would mark the
  * position closed while real funds sit unhedged on-chain.
  */
-export function nextStatus(current: CarryStatus, event: CarryEvent): CarryStatus | null {
-	let target: CarryStatus;
+export function nextStatus(current: BasisStatus, event: BasisEvent): BasisStatus | null {
+	let target: BasisStatus;
 
 	switch (event.type) {
 		case "spot_filled":

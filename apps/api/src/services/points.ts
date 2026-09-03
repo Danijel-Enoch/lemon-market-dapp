@@ -70,19 +70,14 @@ export interface RecordResult {
  */
 export async function recordEvent(params: {
 	userAddress: string;
-	source: "SPOT_VOLUME" | "CARRY_OPENED" | "BASKET_ENTRY";
+	source: "SPOT_VOLUME";
 	volumeUsd?: number;
 	txHash: string;
 }): Promise<RecordResult> {
 	const verification = await verifyTransaction(params.txHash, params.userAddress);
 	if (!verification.ok) return { awarded: 0, duplicate: false, reason: verification.reason };
 
-	const points =
-		params.source === "SPOT_VOLUME"
-			? volumePoints(params.volumeUsd ?? 0)
-			: params.source === "CARRY_OPENED"
-				? 250
-				: 100;
+	const points = volumePoints(params.volumeUsd ?? 0);
 
 	try {
 		await prisma.pointsEvent.create({
@@ -106,40 +101,6 @@ export async function recordEvent(params: {
 	}
 }
 
-/**
- * Record perp volume from an order this server placed.
- *
- * Not verified against a chain transaction, because there is no chain
- * transaction: a Pacifica order is an API call this process made itself with
- * the user's agent key. That makes it a stronger source than reading volume
- * back from a venue's own history endpoint — but it does mean the caller must
- * be the order path, never a client report.
- *
- * The order id doubles as the idempotency key: `txHash` is unique, so a retried
- * or replayed record cannot award points twice.
- */
-export async function recordPerpVolume(params: {
-	userAddress: string;
-	volumeUsd: number;
-	orderId: number | string;
-}): Promise<void> {
-	if (!isDatabaseConfigured() || params.volumeUsd <= 0) return;
-
-	await prisma.pointsEvent
-		.create({
-			data: {
-				userAddress: params.userAddress.toLowerCase(),
-				source: "PERP_VOLUME",
-				volumeUsd: params.volumeUsd,
-				points: volumePoints(params.volumeUsd),
-				txHash: `pacifica:${params.orderId}`,
-			},
-		})
-		// A duplicate order id is the idempotent case, not an error worth
-		// failing an already-placed order over.
-		.catch(() => undefined);
-}
-
 export interface PointsProfile extends PointsBreakdown {
 	address: string;
 	tier: string;
@@ -149,7 +110,7 @@ export interface PointsProfile extends PointsBreakdown {
 export async function getProfile(address: string): Promise<PointsProfile> {
 	const key = address.toLowerCase();
 
-	const [events, carries] = await Promise.all([
+	const [events, positionsOpened] = await Promise.all([
 		isDatabaseConfigured()
 			? prisma.pointsEvent.groupBy({
 					by: ["source"],
@@ -159,7 +120,7 @@ export async function getProfile(address: string): Promise<PointsProfile> {
 				})
 			: Promise.resolve([]),
 		isDatabaseConfigured()
-			? prisma.carryPosition.count({
+			? prisma.basisPosition.count({
 					where: { userAddress: key, status: { in: ["OPEN", "UNWINDING", "CLOSED"] } },
 				})
 			: Promise.resolve(0),
@@ -167,15 +128,8 @@ export async function getProfile(address: string): Promise<PointsProfile> {
 
 	const bySource = new Map(events.map((row) => [row.source, row]));
 	const spotVolumeUsd = bySource.get("SPOT_VOLUME")?._sum.volumeUsd ?? 0;
-	const perpVolumeUsd = bySource.get("PERP_VOLUME")?._sum.volumeUsd ?? 0;
-	const basketEntries = bySource.get("BASKET_ENTRY")?._count._all ?? 0;
 
-	const breakdown = computePoints({
-		perpVolumeUsd,
-		spotVolumeUsd,
-		carriesOpened: carries,
-		basketEntries,
-	});
+	const breakdown = computePoints({ spotVolumeUsd, positionsOpened });
 
 	return { ...breakdown, address: key, tier: tierFor(breakdown.total).name, rank: null };
 }
@@ -186,8 +140,7 @@ export interface LeaderboardRow {
 	points: number;
 	tier: string;
 	spotVolumeUsd: number;
-	perpVolumeUsd: number;
-	carriesOpened: number;
+	positionsOpened: number;
 }
 
 /**
@@ -199,12 +152,12 @@ export interface LeaderboardRow {
 export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 	if (!isDatabaseConfigured()) return [];
 
-	const [eventAddresses, carryAddresses] = await Promise.all([
+	const [eventAddresses, positionAddresses] = await Promise.all([
 		prisma.pointsEvent.groupBy({
 			by: ["userAddress", "source"],
 			_sum: { volumeUsd: true, points: true },
 		}),
-		prisma.carryPosition.groupBy({
+		prisma.basisPosition.groupBy({
 			by: ["userAddress"],
 			where: { status: { in: ["OPEN", "UNWINDING", "CLOSED"] } },
 			_count: { _all: true },
@@ -213,39 +166,28 @@ export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 
 	const addresses = new Set([
 		...eventAddresses.map((row) => row.userAddress),
-		...carryAddresses.map((row) => row.userAddress),
+		...positionAddresses.map((row) => row.userAddress),
 	]);
 
-	const volumeBy = new Map<string, { spot: number; perp: number }>();
+	const volumeBy = new Map<string, number>();
 	for (const row of eventAddresses) {
-		const entry = volumeBy.get(row.userAddress) ?? { spot: 0, perp: 0 };
-		if (row.source === "SPOT_VOLUME") entry.spot += row._sum.volumeUsd ?? 0;
-		if (row.source === "PERP_VOLUME") entry.perp += row._sum.volumeUsd ?? 0;
-		volumeBy.set(row.userAddress, entry);
+		if (row.source !== "SPOT_VOLUME") continue;
+		volumeBy.set(row.userAddress, (volumeBy.get(row.userAddress) ?? 0) + (row._sum.volumeUsd ?? 0));
 	}
-	const carryBy = new Map(carryAddresses.map((row) => [row.userAddress, row._count._all]));
+	const positionsBy = new Map(positionAddresses.map((row) => [row.userAddress, row._count._all]));
 
-	const rows = await Promise.all(
-		Array.from(addresses).map(async (address) => {
-			const perpVolumeUsd = volumeBy.get(address)?.perp ?? 0;
-			const spotVolumeUsd = volumeBy.get(address)?.spot ?? 0;
-			const carriesOpened = carryBy.get(address) ?? 0;
-			const breakdown = computePoints({
-				perpVolumeUsd,
-				spotVolumeUsd,
-				carriesOpened,
-				basketEntries: 0,
-			});
-			return {
-				address,
-				points: breakdown.total,
-				tier: tierFor(breakdown.total).name,
-				spotVolumeUsd,
-				perpVolumeUsd,
-				carriesOpened,
-			};
-		}),
-	);
+	const rows = Array.from(addresses).map((address) => {
+		const spotVolumeUsd = volumeBy.get(address) ?? 0;
+		const positionsOpened = positionsBy.get(address) ?? 0;
+		const breakdown = computePoints({ spotVolumeUsd, positionsOpened });
+		return {
+			address,
+			points: breakdown.total,
+			tier: tierFor(breakdown.total).name,
+			spotVolumeUsd,
+			positionsOpened,
+		};
+	});
 
 	return rows
 		.sort((a, b) => b.points - a.points)

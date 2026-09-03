@@ -81,6 +81,14 @@ export interface TokenRoutability {
 	/** Price impact of the probe trade, as a negative percentage. */
 	buyPriceImpactPercent: number | null;
 	/**
+	 * Executable spot price in USD, derived from the buy probe.
+	 *
+	 * Taken from a real route rather than an oracle: the basis is the gap
+	 * between what the perp marks and what the spot leg would actually fill at,
+	 * and an oracle mid would quote a spread that cannot be traded.
+	 */
+	spotPriceUsd: number | null;
+	/**
 	 * The probe itself failed (rate limit, network) rather than the aggregator
 	 * reporting no pool.
 	 *
@@ -98,6 +106,7 @@ export interface SpotTokenInfo extends StockToken {
 	buyable: boolean;
 	sellable: boolean;
 	buyPriceImpactPercent: number | null;
+	spotPriceUsd: number | null;
 	/** The probe errored rather than the aggregator reporting no pool. */
 	probeFailed: boolean;
 	routabilityCheckedAt: number | null;
@@ -146,7 +155,7 @@ export interface UnsignedTx {
 	chainId: number;
 }
 
-export type CarryStatus =
+export type BasisStatus =
 	| "validating"
 	| "spot_filled"
 	| "open"
@@ -156,4 +165,4 @@ export type CarryStatus =
 	| "orphaned"
 	| "failed";
 
-export type CarryLeg = "spot" | "perp";
+export type BasisLeg = "spot" | "perp";

@@ -29,49 +29,25 @@ describe("volume points", () => {
 });
 
 describe("total points", () => {
-	test("sums every source", () => {
-		const result = computePoints({
-			perpVolumeUsd: 1_000,
-			spotVolumeUsd: 500,
-			carriesOpened: 2,
-			basketEntries: 1,
-		});
+	test("sums both sources", () => {
+		const result = computePoints({ spotVolumeUsd: 500, positionsOpened: 2 });
 
-		expect(result.perpPoints).toBe(100);
-		expect(result.spotPoints).toBe(50);
-		expect(result.carryPoints).toBe(2 * ACTION_POINTS.carry_opened);
-		expect(result.basketPoints).toBe(ACTION_POINTS.basket_entry);
-		expect(result.total).toBe(
-			result.perpPoints + result.spotPoints + result.carryPoints + result.basketPoints,
-		);
+		expect(result.volumePoints).toBe(50);
+		expect(result.positionPoints).toBe(2 * ACTION_POINTS.basis_opened);
+		expect(result.total).toBe(result.volumePoints + result.positionPoints);
 	});
 
 	test("negative counts cannot subtract points", () => {
 		// Guards against a bad DB read producing a negative and gaming the board.
-		const result = computePoints({
-			perpVolumeUsd: 0,
-			spotVolumeUsd: 0,
-			carriesOpened: -5,
-			basketEntries: -3,
-		});
+		const result = computePoints({ spotVolumeUsd: 0, positionsOpened: -5 });
 		expect(result.total).toBe(0);
 	});
 
-	test("a carry is worth more than the same notional traded outright", () => {
-		// The flagship flow should not be out-earned by a single small swap.
-		const carry = computePoints({
-			perpVolumeUsd: 0,
-			spotVolumeUsd: 0,
-			carriesOpened: 1,
-			basketEntries: 0,
-		});
-		const swap = computePoints({
-			perpVolumeUsd: 0,
-			spotVolumeUsd: 100,
-			carriesOpened: 0,
-			basketEntries: 0,
-		});
-		expect(carry.total).toBeGreaterThan(swap.total);
+	test("a position is worth more than the same notional swapped outright", () => {
+		// The only product on the platform should not be out-earned by a swap.
+		const position = computePoints({ spotVolumeUsd: 0, positionsOpened: 1 });
+		const swap = computePoints({ spotVolumeUsd: 100, positionsOpened: 0 });
+		expect(position.total).toBeGreaterThan(swap.total);
 	});
 });
 

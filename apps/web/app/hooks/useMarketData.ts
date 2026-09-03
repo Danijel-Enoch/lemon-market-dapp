@@ -1,109 +1,63 @@
-import { basketApi, carryApi, depositApi, marketsApi, pointsApi, spotApi } from "@app/lib/api";
+import { basisApi, depositApi, pointsApi } from "@app/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
-/** Pair catalog changes rarely; funding within it moves on a ~5s upstream cycle. */
-export function useMarkets(assetClass?: "equity" | "fx") {
+/**
+ * The basis board.
+ *
+ * Two clocks are folded into one poll here. Funding and marks move on a ~5s
+ * upstream cycle, but the liquidity probe behind every row is cached server-side
+ * for five minutes — so polling faster than 30s buys fresher funding and the
+ * same stale routability. While the first probe is still running the board
+ * polls hard, because every row reads as unenterable until it lands.
+ */
+export function useBasisMarkets(assetClass?: "equity" | "crypto") {
 	return useQuery({
-		queryKey: ["markets", assetClass ?? "all"],
-		queryFn: () => marketsApi.list(assetClass),
-		refetchInterval: 30_000,
+		queryKey: ["basis-markets", assetClass ?? "all"],
+		queryFn: () => basisApi.markets(assetClass),
+		refetchInterval: (query) =>
+			query.state.data && query.state.data.routabilityKnown === false ? 3_000 : 30_000,
 		staleTime: 15_000,
 	});
 }
 
-export function useMarket(symbol: string | undefined) {
+export function useBasisMarket(id: string | undefined) {
 	return useQuery({
-		queryKey: ["market", symbol],
-		queryFn: () => marketsApi.get(symbol as string),
-		enabled: Boolean(symbol),
+		queryKey: ["basis-market", id],
+		queryFn: () => basisApi.market(id as string),
+		enabled: Boolean(id),
 		refetchInterval: 15_000,
 	});
 }
 
-/**
- * Routability probes are expensive upstream (two KyberSwap calls per token), so
- * the server caches them for 5 minutes. Polling faster than that here would
- * just return the same cached answer.
- */
-export function useSpotTokens() {
+export function useBasisPositions(user: string | undefined) {
 	return useQuery({
-		queryKey: ["spot-tokens"],
-		queryFn: () => spotApi.tokens(),
-		// Poll quickly while the first routability probe is still running, then
-		// settle back — the server caches results for 5 minutes, so anything
-		// faster than that afterwards just re-reads the same cache.
-		refetchInterval: (query) =>
-			query.state.data && query.state.data.routabilityKnown === false ? 3_000 : 60_000,
-		staleTime: 30_000,
-	});
-}
-
-export function useSpotLimitOrders(
-	maker: string | undefined,
-	status: "active" | "filled" | "cancelled" = "active",
-) {
-	return useQuery({
-		queryKey: ["spot-limit-orders", maker, status],
-		queryFn: () => spotApi.limitOrders(maker as string, status),
-		enabled: Boolean(maker),
-		refetchInterval: 20_000,
-	});
-}
-
-export function useBaskets() {
-	return useQuery({
-		queryKey: ["baskets"],
-		queryFn: () => basketApi.list(),
-		refetchInterval: 60_000,
-	});
-}
-
-export function useBasket(id: string | undefined) {
-	return useQuery({
-		queryKey: ["basket", id],
-		queryFn: () => basketApi.get(id as string),
-		enabled: Boolean(id),
-		refetchInterval: 30_000,
-	});
-}
-
-export function useCarryCandidates() {
-	return useQuery({
-		queryKey: ["carry-candidates"],
-		queryFn: () => carryApi.candidates(),
-		refetchInterval: 60_000,
-	});
-}
-
-export function useCarryPositions(user: string | undefined) {
-	return useQuery({
-		queryKey: ["carry-positions", user],
-		queryFn: () => carryApi.list(user as string),
+		queryKey: ["basis-positions", user],
+		queryFn: () => basisApi.positions(user as string),
 		enabled: Boolean(user),
 		refetchInterval: 20_000,
 	});
 }
 
-export function useCarryPosition(id: string | undefined) {
+export function useBasisPosition(id: string | undefined) {
 	return useQuery({
-		queryKey: ["carry-position", id],
-		queryFn: () => carryApi.get(id as string),
+		queryKey: ["basis-position", id],
+		queryFn: () => basisApi.position(id as string),
 		enabled: Boolean(id),
 		refetchInterval: 15_000,
 	});
 }
 
 /**
- * Half-open carry positions.
+ * Half-open positions.
  *
- * Polled independently of the carry list so the warning can appear anywhere in
- * the app — an unhedged leg is directional exposure the user did not choose,
+ * Polled independently of the position list so the warning can appear anywhere
+ * in the app — an unhedged leg is directional exposure the user did not choose,
  * and it should not wait to be discovered on a page they may not visit.
  */
-export function useCarryAttention(user: string | undefined) {
+export function useBasisAttention(user: string | undefined) {
 	return useQuery({
-		queryKey: ["carry-attention", user],
-		queryFn: () => carryApi.needsAttention(user as string),
+		queryKey: ["basis-attention", user],
+		queryFn: () => basisApi.needsAttention(user as string),
 		enabled: Boolean(user),
 		refetchInterval: 30_000,
 		retry: false,
@@ -115,17 +69,6 @@ export function useLeaderboard(limit = 100) {
 		queryKey: ["points-leaderboard", limit],
 		queryFn: () => pointsApi.leaderboard(limit),
 		refetchInterval: 60_000,
-	});
-}
-
-export function useGlobalLeaderboard() {
-	return useQuery({
-		queryKey: ["points-global"],
-		queryFn: () => pointsApi.global(),
-		// The reference design recomputes this on its own schedule; polling faster just
-		// re-reads the same snapshot.
-		staleTime: 5 * 60_000,
-		refetchInterval: 5 * 60_000,
 	});
 }
 

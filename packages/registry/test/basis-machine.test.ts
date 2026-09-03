@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
 	ALLOWED_TRANSITIONS,
-	type CarryStatus,
+	type BasisStatus,
 	canTransition,
 	isUnhedged,
 	nextStatus,
 	repairActionsFor,
 	TERMINAL_STATUSES,
-} from "../src/carry-machine";
+} from "../src/basis-machine";
 
-const ALL_STATUSES = Object.keys(ALLOWED_TRANSITIONS) as CarryStatus[];
+const ALL_STATUSES = Object.keys(ALLOWED_TRANSITIONS) as BasisStatus[];
 
 describe("carry state machine", () => {
 	test("happy path: validating -> spot filled -> open", () => {
@@ -33,7 +33,7 @@ describe("carry state machine", () => {
 		// FAILED would imply nothing happened while real funds sit on-chain.
 		const status = nextStatus("SPOT_FILLED", { type: "leg_failed", leg: "PERP" });
 		expect(status).toBe("ORPHANED");
-		expect(TERMINAL_STATUSES).not.toContain(status as CarryStatus);
+		expect(TERMINAL_STATUSES).not.toContain(status as BasisStatus);
 	});
 
 	test("an orphan is always recoverable in both directions", () => {
@@ -67,7 +67,7 @@ describe("carry state machine", () => {
 
 	test("every non-terminal state can still reach a terminal state", () => {
 		// Guards against adding a state that traps a position forever.
-		const reachable = new Set<CarryStatus>(TERMINAL_STATUSES);
+		const reachable = new Set<BasisStatus>(TERMINAL_STATUSES);
 		let changed = true;
 		while (changed) {
 			changed = false;

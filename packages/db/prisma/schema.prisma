@@ -2,8 +2,8 @@
 //
 // Deliberately narrow: Pacifica owns perp positions, KyberSwap owns spot limit
 // orders, and the chain owns balances. The only things stored here are the
-// multi-leg cash-and-carry strategies (which span two independent systems and
-// can half-fail), Relay deposit tracking, and cached market state.
+// multi-leg basis positions (which span two independent systems and can
+// half-fail), Relay deposit tracking, and cached market state.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,8 +14,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Cached registry of Coinbase B20 tokenized stocks plus their live routability.
-model StockToken {
+/// Cached registry of spot legs — Coinbase B20 tokenized stocks and the Base
+/// ERC-20s that match a listed perp — plus their live routability.
+model SpotAsset {
   symbol           String   @id
   ticker           String   @unique
   name             String
@@ -23,7 +24,7 @@ model StockToken {
   decimals         Int
   /// The perp market that hedges this token, resolved by ticker against the
   /// live catalog and refreshed on sync. Null means nothing lists a match, so
-  /// the token cannot be carried.
+  /// the token has no basis market.
   perpSymbol String?
 
   /// Whether KyberSwap can currently route into / out of this token. This is
@@ -32,16 +33,19 @@ model StockToken {
   buyable              Boolean  @default(false)
   sellable             Boolean  @default(false)
   buyPriceImpactPct    Float?
+  /// Executable USD price from the last buy probe, which is what the basis is
+  /// measured against.
+  spotPriceUsd         Float?
   routabilityCheckedAt DateTime?
 
   updatedAt DateTime @updatedAt
 
-  carryPositions CarryPosition[]
+  positions BasisPosition[]
 
   @@index([buyable])
 }
 
-enum CarryStatus {
+enum BasisStatus {
   /// Both legs quoted and validated, nothing signed yet.
   VALIDATING
   /// Spot bought; the short leg has not landed. Directionally exposed.
@@ -58,23 +62,23 @@ enum CarryStatus {
   FAILED
 }
 
-enum CarryLegKind {
+enum BasisLeg {
   SPOT
   PERP
 }
 
-/// A delta-neutral position: long the spot token, short the matching perp.
-model CarryPosition {
+/// A delta-neutral basis position: long the spot token, short the matching perp.
+model BasisPosition {
   id           String      @id @default(cuid())
   userAddress  String
   tokenSymbol  String
-  token        StockToken  @relation(fields: [tokenSymbol], references: [symbol])
+  token        SpotAsset   @relation(fields: [tokenSymbol], references: [symbol])
 
   /// Snapshotted at open for display. The market is always re-resolved by
   /// symbol before trading, never read from here.
   perpSymbol String
 
-  status CarryStatus @default(VALIDATING)
+  status BasisStatus @default(VALIDATING)
 
   /// Target notional for each leg. Equal notionals are what make it neutral.
   notionalUsd       Float
@@ -101,7 +105,7 @@ model CarryPosition {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  events CarryLegEvent[]
+  events BasisLegEvent[]
 
   @@index([userAddress, status])
   @@index([status])
@@ -109,15 +113,15 @@ model CarryPosition {
 
 /// Append-only audit of every leg action.
 ///
-/// A carry open touches two independent systems, so a crash between them leaves
+/// Opening a position touches two independent systems, so a crash between them leaves
 /// state that cannot be inferred afterwards. Recording each attempt is what
 /// makes an interrupted open recoverable rather than silently lost.
-model CarryLegEvent {
+model BasisLegEvent {
   id         String        @id @default(cuid())
   positionId String
-  position   CarryPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position   BasisPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
-  leg     CarryLegKind
+  leg     BasisLeg
   action  String
   status  String
   txHash  String?
@@ -162,11 +166,11 @@ model DepositIntent {
   @@index([depositAddress])
 }
 
+/// Only the spot leg produces a chain transaction, so it is the only thing a
+/// client can claim. Positions opened are counted from `BasisPosition` rows
+/// directly, which cannot be forged by a POST.
 enum PointsSource {
-  PERP_VOLUME
   SPOT_VOLUME
-  CARRY_OPENED
-  BASKET_ENTRY
 }
 
 /// A verified, points-earning action.
@@ -196,8 +200,8 @@ model PointsEvent {
   @@index([source])
 }
 
-/// Periodic funding snapshots, so carry APR can be shown as a trend rather than
-/// a single instantaneous reading that swings with open interest.
+/// Periodic funding snapshots, so a market's APR can be shown as a trend rather
+/// than a single instantaneous reading that swings with open interest.
 model FundingSnapshot {
   id           String   @id @default(cuid())
   pairIndex    Int
