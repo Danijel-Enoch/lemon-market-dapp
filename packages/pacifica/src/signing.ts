@@ -43,7 +43,9 @@ export type OperationType =
 	| "bind_agent_wallet"
 	| "create_api_key"
 	| "revoke_api_key"
-	| "list_api_keys";
+	| "list_api_keys"
+	| "approve_builder_code"
+	| "revoke_builder_code";
 
 export interface SignatureHeader {
 	timestamp: number;

@@ -70,9 +70,9 @@ const GROUPS: NavGroup[] = [
 
 const FLAT_LINKS: NavLeaf[] = [
 	{
-		href: "/portfolio",
-		label: "Portfolio",
-		description: "Open positions and balances",
+		href: "/accounts",
+		label: "Accounts",
+		description: "Pacifica positions and wallet balances",
 		icon: Briefcase,
 	},
 	{ href: "/docs", label: "Docs", description: "How the app works", icon: BookOpen },
@@ -83,7 +83,7 @@ const TABS: NavLeaf[] = [
 	{ href: "/trade", label: "Trade", description: "", icon: TrendingUp },
 	{ href: "/baskets", label: "Baskets", description: "", icon: Layers },
 	{ href: "/carry", label: "Carry", description: "", icon: Scale },
-	{ href: "/portfolio", label: "Portfolio", description: "", icon: Briefcase },
+	{ href: "/accounts", label: "Accounts", description: "", icon: Briefcase },
 ];
 
 function isActive(pathname: string, href: string): boolean {

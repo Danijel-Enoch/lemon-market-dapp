@@ -15,6 +15,7 @@
 		"typecheck": "bun run --filter '*' typecheck",
 		"lint": "biome check --write",
 		"db:generate": "bun run --filter '@lemon/db' generate",
+		"db:push": "bun run --filter '@lemon/db' push",
 		"db:migrate": "bun run --filter '@lemon/db' migrate",
 		"db:deploy": "bun run --filter '@lemon/db' deploy",
 		"db:seed": "bun run --filter '@lemon/db' seed",

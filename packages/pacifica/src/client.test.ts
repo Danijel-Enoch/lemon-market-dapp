@@ -153,6 +153,122 @@ describe("signed mutations", () => {
 		expect(verifyMessage(message, body.signature, agent.publicKey)).toBe(true);
 	});
 
+	/**
+	 * Builder attribution rides inside the signed payload, not beside it.
+	 *
+	 * If `builder_code` were added to the request after signing, Pacifica would
+	 * rebuild a different canonical message and reject the signature — so this
+	 * asserts the code is part of what was signed, not merely present on the wire.
+	 */
+	test("a builder code is signed over, not appended after the fact", async () => {
+		const { impl, calls } = stubFetch(ok({ order_id: 7 }));
+
+		await new PacificaClient({ fetchImpl: impl }).createMarketOrder(localSigner(agent.secretKey), {
+			account: account.publicKey,
+			agentWallet: agent.publicKey,
+			symbol: "BTC",
+			side: "bid",
+			amount: "0.1",
+			slippagePercent: "0.5",
+			builderCode: "lemon01",
+		});
+
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body.builder_code).toBe("lemon01");
+
+		const message = canonicalMessage(
+			{
+				timestamp: body.timestamp,
+				expiry_window: body.expiry_window,
+				type: "create_market_order",
+			},
+			{
+				symbol: "BTC",
+				side: "bid",
+				amount: "0.1",
+				slippage_percent: "0.5",
+				reduce_only: false,
+				builder_code: "lemon01",
+			},
+		);
+		expect(verifyMessage(message, body.signature, agent.publicKey)).toBe(true);
+	});
+
+	test("no builder code means no builder_code field at all", async () => {
+		const { impl, calls } = stubFetch(ok({ order_id: 8 }));
+
+		await new PacificaClient({ fetchImpl: impl }).createMarketOrder(localSigner(agent.secretKey), {
+			account: account.publicKey,
+			symbol: "BTC",
+			side: "bid",
+			amount: "0.1",
+			slippagePercent: "0.5",
+		});
+
+		// Absent, not null or empty: an unrecognised code is a rejected order.
+		expect("builder_code" in JSON.parse(String(calls[0].init?.body))).toBe(false);
+	});
+
+	test("a limit order carries its builder code too", async () => {
+		const { impl, calls } = stubFetch(ok({ order_id: 9 }));
+
+		await new PacificaClient({ fetchImpl: impl }).createLimitOrder(localSigner(agent.secretKey), {
+			account: account.publicKey,
+			agentWallet: agent.publicKey,
+			symbol: "SOL",
+			side: "ask",
+			amount: "1",
+			price: "100",
+			builderCode: "lemon01",
+		});
+
+		expect(JSON.parse(String(calls[0].init?.body)).builder_code).toBe("lemon01");
+	});
+
+	/**
+	 * Approving a builder code is signed by the account key, so no agent wallet
+	 * appears on it — an agent key belongs to the builder's own server, and
+	 * letting it approve the builder's fee would make consent a formality.
+	 */
+	test("approving a builder code carries the code, the ceiling and no agent", async () => {
+		const { impl, calls } = stubFetch(ok({ success: true }));
+
+		await new PacificaClient({ fetchImpl: impl }).approveBuilderCode(
+			localSigner(account.secretKey),
+			{ account: account.publicKey, builderCode: "lemon01", maxFeeRate: "0.001" },
+		);
+
+		expect(calls[0].url).toBe("https://api.pacifica.fi/api/v1/account/builder_codes/approve");
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body.builder_code).toBe("lemon01");
+		expect(body.max_fee_rate).toBe("0.001");
+		expect(body.agent_wallet).toBeNull();
+
+		const message = canonicalMessage(
+			{
+				timestamp: body.timestamp,
+				expiry_window: body.expiry_window,
+				type: "approve_builder_code",
+			},
+			{ builder_code: "lemon01", max_fee_rate: "0.001" },
+		);
+		expect(verifyMessage(message, body.signature, account.publicKey)).toBe(true);
+	});
+
+	test("revoking sends only the code", async () => {
+		const { impl, calls } = stubFetch(ok({ success: true }));
+
+		await new PacificaClient({ fetchImpl: impl }).revokeBuilderCode(
+			localSigner(account.secretKey),
+			{ account: account.publicKey, builderCode: "lemon01" },
+		);
+
+		expect(calls[0].url).toBe("https://api.pacifica.fi/api/v1/account/builder_codes/revoke");
+		const body = JSON.parse(String(calls[0].init?.body));
+		expect(body.builder_code).toBe("lemon01");
+		expect(body.max_fee_rate).toBeUndefined();
+	});
+
 	test("limit order defaults to GTC and omits an absent client id", async () => {
 		const { impl, calls } = stubFetch(ok({ order_id: 1 }));
 		await new PacificaClient({ fetchImpl: impl }).createLimitOrder(localSigner(account.secretKey), {

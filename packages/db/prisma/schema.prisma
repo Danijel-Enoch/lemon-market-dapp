@@ -216,3 +216,156 @@ model FundingSnapshot {
   @@index([symbol, capturedAt])
   @@index([pairIndex, capturedAt])
 }
+
+// ---------------------------------------------------------------------------
+// Accounts
+//
+// Sign-in binds a connected wallet to a pair of NEAR-derived wallets and a
+// Pacifica account. None of that is reconstructible from chain state: the
+// derived addresses come from a path, and the Pacifica agent key exists only
+// here, so this is the one record whose loss locks a user out of their own
+// positions.
+// ---------------------------------------------------------------------------
+
+/// A signed-in user, keyed by the wallet they connect with.
+model User {
+  id String @id @default(cuid())
+
+  /// The connected wallet, lowercased. This is the user's identity everywhere
+  /// in the app; the derived addresses below are infrastructure they never see.
+  address String @unique
+
+  /// NEAR chain-signature derivation path. Written once at first sign-in and
+  /// never recomputed — the format is versioned precisely so that a change to
+  /// the derivation scheme cannot silently repoint an existing user at empty
+  /// wallets. See `@lemon/near-mpc`'s `derivationPath`.
+  derivationPath String @unique
+
+  /// Ed25519 address the path controls. Also the Pacifica account id.
+  solanaAddress String @unique
+  /// secp256k1 address the same path controls, held for future EVM use.
+  derivedEvmAddress String
+
+  /// Agent wallet authorised to trade for `solanaAddress`.
+  ///
+  /// Binding it is the only operation that needs the account key itself, so it
+  /// is the only one that costs an MPC round trip. Ordinary orders are signed
+  /// locally with this key, which is what keeps trading fast.
+  pacificaAgentPublicKey String?
+  /// The agent's secret key, sealed with AUTH_SECRET (AES-256-GCM). Ciphertext
+  /// alone is not enough to trade; the database and the secret must both leak.
+  pacificaAgentSecret String?
+  pacificaBoundAt     DateTime?
+
+  /// The builder code this user approved, and the fee ceiling they set.
+  ///
+  /// Both are recorded because an approval is only good for the exact pair.
+  /// Pacifica rejects an order whose builder fee exceeds the approved ceiling
+  /// rather than filling it unattributed, so raising the configured rate past
+  /// what a user approved would stop them trading. Storing what they agreed to
+  /// is what lets the app notice the mismatch and ask again instead.
+  pacificaBuilderCode       String?
+  pacificaBuilderMaxFeeRate String?
+  pacificaBuilderApprovedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  deposits PacificaDeposit[]
+}
+
+/// A browser session, established by a wallet signature.
+model Session {
+  id String @id @default(cuid())
+
+  /// SHA-256 of the bearer token. The token itself is never stored, so a
+  /// database leak cannot be replayed as a live session.
+  tokenHash String @unique
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// A one-time challenge, issued before each signature the app asks for.
+///
+/// Single-use and short-lived: without this a captured signature would be a
+/// permanent credential, replayable by anyone who saw it once.
+model SignInNonce {
+  nonce String @id
+
+  /// Lowercased wallet the challenge was issued to.
+  address String
+  /// Which step the challenge is for — a sign-in signature must not be
+  /// replayable as a Pacifica activation, or vice versa.
+  purpose String
+
+  /// The exact text the wallet was asked to sign.
+  ///
+  /// Stored rather than reconstructed at verification time. The message embeds
+  /// a timestamp, and rebuilding it means reproducing that timestamp to the
+  /// millisecond — a signature that fails to verify because two clocks
+  /// disagree is indistinguishable from an attack.
+  message String
+
+  /// Sealed state the challenge carries between the two requests it spans.
+  ///
+  /// Pacifica activation generates an agent key when the challenge is issued,
+  /// because the key has to be named in the text the user signs. Parking it
+  /// here rather than on the user keeps an unbound key from overwriting the
+  /// working one if activation is abandoned half way.
+  payload String?
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([address, purpose])
+  @@index([expiresAt])
+}
+
+enum PacificaDepositStatus {
+  /// Relay is moving USDC from the connected wallet's chain to Solana.
+  BRIDGING
+  /// USDC has landed at the derived Solana wallet but is not yet Pacifica's.
+  BRIDGED
+  /// The on-chain deposit instruction has been submitted.
+  CREDITING
+  CREDITED
+  FAILED
+}
+
+/// Funding a Pacifica account, tracked across the two steps it takes.
+///
+/// Bridging and crediting are separate transactions on separate chains, and the
+/// gap between them is where money can sit looking lost: it has left the
+/// connected wallet but is not yet a Pacifica balance. Recording the transition
+/// is what lets the accounts page explain that state instead of showing zero.
+model PacificaDeposit {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amountUsdc Float
+
+  /// Relay's id for the bridge leg, when the funds came from another chain.
+  relayRequestId String?
+  /// The Pacifica `deposit` instruction, once broadcast. Unique, so a retried
+  /// credit cannot be recorded twice.
+  solanaTxSignature String? @unique
+
+  status        PacificaDepositStatus @default(BRIDGING)
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+}

@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { PublicKey } from "@solana/web3.js";
 import { PacificaClient } from "./client";
+import {
+	associatedTokenAddress,
+	PACIFICA_CENTRAL_STATE,
+	PACIFICA_PROGRAM_ID,
+	PACIFICA_VAULT,
+	USDC_MINT,
+} from "./deposit";
 
 /**
  * Read-only smoke tests against the real Pacifica API.
@@ -72,5 +80,65 @@ suite("pacifica live API", () => {
 		} catch (error) {
 			expect((error as Error).name).toBe("PacificaError");
 		}
+	}, 30_000);
+});
+
+/**
+ * On-chain checks for the deposit path.
+ *
+ * The program, state and vault addresses are hard-coded constants copied from
+ * Pacifica's SDK, and a wrong one means a deposit that either fails or lands
+ * somewhere unrecoverable. These confirm them against mainnet.
+ */
+suite("pacifica solana custody program", () => {
+	const rpcUrl = process.env.SOLANA_RPC_URL?.trim() || "https://api.mainnet-beta.solana.com";
+
+	async function accountInfo(address: string) {
+		const response = await fetch(rpcUrl, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "getAccountInfo",
+				params: [address, { encoding: "jsonParsed" }],
+			}),
+		});
+		const body = (await response.json()) as {
+			result?: {
+				value?: {
+					executable?: boolean;
+					owner?: string;
+					data?: { parsed?: { info?: { mint?: string; owner?: string } } };
+				} | null;
+			};
+		};
+		return body.result?.value;
+	}
+
+	test("the custody program is deployed and executable", async () => {
+		const account = await accountInfo(PACIFICA_PROGRAM_ID.toBase58());
+		expect(account?.executable).toBe(true);
+	}, 30_000);
+
+	test("central state is owned by the custody program", async () => {
+		const account = await accountInfo(PACIFICA_CENTRAL_STATE.toBase58());
+		expect(account?.owner).toBe(PACIFICA_PROGRAM_ID.toBase58());
+	}, 30_000);
+
+	/**
+	 * The vault is the central state's USDC associated token account, so
+	 * deriving it independently proves the ATA seeds this package uses are the
+	 * canonical ones — the same derivation the depositor's account relies on.
+	 */
+	test("the vault is the ATA this package derives for the state authority", async () => {
+		const account = await accountInfo(PACIFICA_VAULT.toBase58());
+		expect(account?.data?.parsed?.info?.mint).toBe(USDC_MINT.toBase58());
+
+		const authority = account?.data?.parsed?.info?.owner as string;
+		expect(authority).toBe(PACIFICA_CENTRAL_STATE.toBase58());
+		expect(associatedTokenAddress(new PublicKey(authority), USDC_MINT).toBase58()).toBe(
+			PACIFICA_VAULT.toBase58(),
+		);
 	}, 30_000);
 });

@@ -1,11 +1,11 @@
+import { PacificaPositions } from "@app/components/account/PacificaHoldings";
 import { PriceChart } from "@app/components/chart/PriceChart";
 import { Callout } from "@app/components/common/Callout";
 import { MarketHoursBadge } from "@app/components/common/MarketHours";
 import { SpotLimitOrders } from "@app/components/spot/SpotLimitOrders";
 import { SpotTradePanel } from "@app/components/spot/SpotTradePanel";
 import { MarketSelector } from "@app/components/trade/MarketSelector";
-import { PerpOrderForm } from "@app/components/trade/PerpOrderForm";
-import { PerpPositionsTable } from "@app/components/trade/PerpPositionsTable";
+import { PacificaOrderForm } from "@app/components/trade/PacificaOrderForm";
 import { Button } from "@app/components/ui/button";
 import { MobileActionBar, Sheet } from "@app/components/ui/sheet";
 import { Skeleton } from "@app/components/ui/skeleton";
@@ -88,7 +88,7 @@ export default function TradeTerminalPage() {
 		activeVenue === "spot" && spotToken ? (
 			<SpotTradePanel token={spotToken} />
 		) : (
-			<PerpOrderForm market={market} onSubmitted={refresh} />
+			<PacificaOrderForm market={market} onSubmitted={refresh} />
 		);
 
 	const venueToggle = (
@@ -243,7 +243,7 @@ export default function TradeTerminalPage() {
 						</Tabs>
 
 						<div className="mt-3">
-							{panel === "positions" ? <PerpPositionsTable /> : <SpotLimitOrders />}
+							{panel === "positions" ? <PacificaPositions /> : <SpotLimitOrders />}
 						</div>
 					</div>
 				</div>

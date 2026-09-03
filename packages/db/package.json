@@ -9,11 +9,12 @@
 	},
 	"scripts": {
 		"generate": "prisma generate",
-		"migrate": "prisma migrate dev",
-		"deploy": "prisma migrate deploy",
-		"seed": "bun run ./src/seed.ts",
-		"studio": "prisma studio",
-		"typecheck": "tsc --noEmit"
+		"migrate": "bun --env-file=../../.env ../../node_modules/.bin/prisma migrate dev",
+		"deploy": "bun --env-file=../../.env ../../node_modules/.bin/prisma migrate deploy",
+		"seed": "bun --env-file=../../.env run ./src/seed.ts",
+		"studio": "bun --env-file=../../.env ../../node_modules/.bin/prisma studio",
+		"typecheck": "tsc --noEmit",
+		"push": "bun --env-file=../../.env ../../node_modules/.bin/prisma db push"
 	},
 	"dependencies": {
 		"@lemon/core": "workspace:*",

@@ -9,8 +9,10 @@ import {
 } from "@lemon/avantis";
 import { BASE_CHAIN_ID, isValidBps, MAX_SPOT_FEE_BPS, type SpotFeeConfig } from "@lemon/core";
 import { KyberAggregatorClient, KyberLimitOrderClient } from "@lemon/kyber";
+import { NearMpcClient, type NearNetwork } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
 import { RelayClient } from "@lemon/relay";
+import { parseBuilderConfig } from "./services/builder";
 
 function env(name: string, fallback: string): string {
 	return process.env[name]?.trim() || fallback;
@@ -56,6 +58,33 @@ export const config = {
 	kyberBaseUrl: env("KYBER_BASE_URL", "https://aggregator-api.kyberswap.com"),
 	kyberClientId: env("KYBER_CLIENT_ID", "lemon-markets"),
 	pacificaApiUrl: env("PACIFICA_API_URL", PACIFICA_MAINNET),
+	solanaRpcUrl: env("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
+
+	/**
+	 * NEAR chain signatures, which hold every user's derived wallet.
+	 *
+	 * `accountId` is part of the derivation input, so changing it after users
+	 * exist repoints all of them at fresh, empty addresses. It is configuration
+	 * in the sense that a deployment picks it once — not in the sense that it
+	 * can be edited later.
+	 */
+	near: {
+		network: (optionalEnv("NEAR_NETWORK") === "testnet" ? "testnet" : "mainnet") as NearNetwork,
+		accountId: optionalEnv("NEAR_ACCOUNT_ID"),
+		privateKey: optionalEnv("NEAR_PRIVATE_KEY"),
+		rpcUrl: optionalEnv("NEAR_RPC_URL"),
+		contractId: optionalEnv("NEAR_MPC_CONTRACT_ID"),
+	},
+
+	/**
+	 * Solana keypair that pays fees for deposits, base58 encoded.
+	 *
+	 * A derived wallet holds USDC but never SOL, so it cannot pay for the
+	 * transaction that credits its own Pacifica balance. This account covers
+	 * that fee and the rent for a first-time token account; it is never an
+	 * authority over user funds, only a fee payer.
+	 */
+	solanaFeePayerSecret: optionalEnv("SOLANA_FEE_PAYER_SECRET"),
 	relayApiUrl: env("RELAY_API_URL", "https://api.relay.link"),
 	relayApiKey: process.env.RELAY_API_KEY?.trim() || undefined,
 	databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
@@ -71,6 +100,19 @@ export const config = {
 	fees: {
 		spot: readSpotFee(),
 		builderCode: optionalEnv("AVANTIS_BUILDER_CODE"),
+		/**
+		 * Pacifica builder attribution, or null when unconfigured.
+		 *
+		 * The ceiling deliberately sits above the rate actually charged.
+		 * Pacifica rejects an order whose builder fee exceeds what the user
+		 * approved, so a rate raised past an approved ceiling stops those users
+		 * trading until they approve again. Headroom is what keeps a fee change
+		 * from becoming an outage.
+		 */
+		pacificaBuilder: parseBuilderConfig(
+			optionalEnv("PACIFICA_BUILDER_CODE"),
+			optionalEnv("PACIFICA_BUILDER_MAX_FEE_RATE"),
+		),
 	},
 };
 
@@ -98,6 +140,22 @@ export const clients = {
 		clientId: config.kyberClientId,
 	}),
 	relay: new RelayClient({ baseUrl: config.relayApiUrl, apiKey: config.relayApiKey }),
+
+	/**
+	 * Null when NEAR is unconfigured. Accounts then report themselves
+	 * unavailable rather than failing per-request, matching how the Relay and
+	 * database-backed features degrade.
+	 */
+	nearMpc:
+		config.near.accountId && config.near.privateKey
+			? new NearMpcClient({
+					network: config.near.network,
+					accountId: config.near.accountId,
+					privateKey: config.near.privateKey,
+					rpcUrl: config.near.rpcUrl,
+					contractId: config.near.contractId,
+				})
+			: null,
 };
 
 export type Clients = typeof clients;

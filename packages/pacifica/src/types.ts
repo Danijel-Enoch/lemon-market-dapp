@@ -117,6 +117,15 @@ export interface PacificaOpenOrder {
 	updated_at: number;
 }
 
+/** `GET /api/v1/account/builder_codes/approvals` */
+export interface PacificaBuilderApproval {
+	builder_code: string;
+	description?: string;
+	/** The ceiling the user set, as a decimal fraction. "0.001" is 0.1%. */
+	max_fee_rate: string;
+	updated_at: number;
+}
+
 export interface PacificaBridgeAsset {
 	symbol: string;
 	minimum_deposit: string;

@@ -2,6 +2,17 @@ import type { Address } from "@lemon/core";
 import { BASE_CHAIN_ID, requestJson, USDC_ADDRESS, ZERO_ADDRESS } from "@lemon/core";
 
 export const DEFAULT_RELAY_URL = "https://api.relay.link";
+
+/**
+ * Relay's identifier for Solana mainnet.
+ *
+ * Relay numbers non-EVM chains in the same space as EVM chain ids, so this is
+ * not an EVM chain id and must never be handed to a wallet or an RPC.
+ */
+export const SOLANA_CHAIN_ID = 792703809;
+
+/** USDC's SPL mint, which is what Relay calls the currency on Solana. */
+export const SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 export const TESTNET_RELAY_URL = "https://api.testnets.relay.link";
 
 export interface RelayChain {
@@ -103,7 +114,12 @@ export class RelayClient {
 	}
 
 	/**
-	 * Request a deposit address that bridges into USDC on Base.
+	 * Request a deposit address that bridges into USDC.
+	 *
+	 * Defaults to USDC on Base, which is where the app's spot and perp venues
+	 * settle. `destinationChainId` opens the same machinery up to Solana, for
+	 * funding a Pacifica account — the recipient there is a base58 address, not
+	 * an EVM one, which is why this takes a plain string.
 	 *
 	 * `refundTo` defaults to the origin chain's native-currency zero address,
 	 * which is Relay's opt-in for automatic refunds back to whoever sent the
@@ -111,11 +127,23 @@ export class RelayClient {
 	 * a failed bridge would strand the deposit.
 	 */
 	async createDepositAddress(params: {
-		recipient: Address;
+		recipient: Address | string;
+		/**
+		 * Who is sending, on the origin chain. Defaults to the recipient, which
+		 * is right for a same-VM bridge and wrong for a cross-VM one — an EVM
+		 * wallet funding a Solana address is not its own sender.
+		 */
+		sender?: Address | string;
 		originChainId: number;
 		originCurrency: string;
 		amount: string;
+		destinationChainId?: number;
 		destinationCurrency?: string;
+		/**
+		 * Where a failed bridge sends the funds back to. Must be an address on
+		 * the *origin* chain — defaulting it to the recipient would be wrong the
+		 * moment the two chains differ.
+		 */
 		refundTo?: string;
 		strict?: boolean;
 	}): Promise<DepositQuote> {
@@ -126,10 +154,10 @@ export class RelayClient {
 			headers: this.headers,
 			timeoutMs: this.timeoutMs,
 			body: {
-				user: params.recipient,
+				user: params.sender ?? params.recipient,
 				recipient: params.recipient,
 				originChainId: params.originChainId,
-				destinationChainId: BASE_CHAIN_ID,
+				destinationChainId: params.destinationChainId ?? BASE_CHAIN_ID,
 				originCurrency: params.originCurrency,
 				destinationCurrency: params.destinationCurrency ?? USDC_ADDRESS,
 				amount: params.amount,

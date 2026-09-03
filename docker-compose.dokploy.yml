@@ -73,9 +73,39 @@ services:
       AVANTIS_FEED_URL: ${AVANTIS_FEED_URL:-https://feed-v3.avantisfi.com}
       KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      CHAIN_ID: ${CHAIN_ID:-8453}
+      PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
       # Deposits stay disabled (with an explanatory message) until this is set.
       RELAY_API_KEY: ${RELAY_API_KEY:-}
+
+      # Accounts: sign-in, derived wallets, Pacifica trading. All three are
+      # required together — without them the app still serves market data and
+      # the connected-wallet view, and /api/auth/status names what is missing.
+      #
+      # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
+      # users exist repoints every one of them at fresh, empty wallets.
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
+      NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
+      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
+      NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
+
+      # Crediting a deposit is signed by the user's derived Solana wallet, which
+      # holds USDC and no SOL, so a funded fee payer is needed to cover it.
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+      SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
+
+      # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
+      # is approved by each user during onboarding; the Avantis code is an
+      # on-chain calldata suffix used by carry and baskets.
+      SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
+      SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
+      SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
+      PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
+      PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
+      AVANTIS_BUILDER_CODE: ${AVANTIS_BUILDER_CODE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +162,39 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      CHAIN_ID: ${CHAIN_ID:-8453}
+      PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
+      RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
+      # Deposits stay disabled (with an explanatory message) until this is set.
       RELAY_API_KEY: ${RELAY_API_KEY:-}
+
+      # Accounts: sign-in, derived wallets, Pacifica trading. All three are
+      # required together — without them the app still serves market data and
+      # the connected-wallet view, and /api/auth/status names what is missing.
+      #
+      # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
+      # users exist repoints every one of them at fresh, empty wallets.
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
+      NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
+      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
+      NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
+
+      # Crediting a deposit is signed by the user's derived Solana wallet, which
+      # holds USDC and no SOL, so a funded fee payer is needed to cover it.
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+      SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
+
+      # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
+      # is approved by each user during onboarding; the Avantis code is an
+      # on-chain calldata suffix used by carry and baskets.
+      SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
+      SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
+      SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
+      PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
+      PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
+      AVANTIS_BUILDER_CODE: ${AVANTIS_BUILDER_CODE:-}
     depends_on:
       postgres:
         condition: service_healthy

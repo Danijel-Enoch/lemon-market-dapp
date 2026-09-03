@@ -8,6 +8,7 @@ import {
 import {
 	type PacificaAccountInfo,
 	type PacificaBridgeAsset,
+	type PacificaBuilderApproval,
 	type PacificaCandle,
 	type PacificaEnvelope,
 	PacificaError,
@@ -167,6 +168,18 @@ export class PacificaClient {
 		return this.get<PacificaOpenOrder[]>("/orders", { account });
 	}
 
+	/**
+	 * Builder codes this account has approved, and the fee ceiling it set.
+	 *
+	 * Worth reading before attaching a code: Pacifica *rejects* an order whose
+	 * builder fee exceeds the user's approved `max_fee_rate`, rather than
+	 * dropping the attribution and filling anyway. An unapproved code therefore
+	 * breaks trading rather than merely forgoing a fee.
+	 */
+	builderCodeApprovals(account: string): Promise<PacificaBuilderApproval[]> {
+		return this.get<PacificaBuilderApproval[]>("/account/builder_codes/approvals", { account });
+	}
+
 	/* ------------------------------------------------------- signed mutations */
 
 	/** Shared shape for every signed call: build the body, then POST it. */
@@ -199,6 +212,44 @@ export class PacificaClient {
 		});
 	}
 
+	/**
+	 * Let a builder charge a fee on this account's orders.
+	 *
+	 * `maxFeeRate` is the user's ceiling, as a decimal fraction — "0.001" is
+	 * 0.1%. It must be at least the builder's registered rate or every attributed
+	 * order is rejected, so it is set with headroom rather than exactly.
+	 *
+	 * Signed by the account key, not an agent: an agent key belongs to the
+	 * builder's own server, and letting it approve the builder's fee would make
+	 * the user's consent a formality.
+	 */
+	approveBuilderCode(
+		sign: Signer,
+		params: { account: string; builderCode: string; maxFeeRate: string },
+	): Promise<{ success: boolean }> {
+		return this.signed<{ success: boolean }>(
+			"/account/builder_codes/approve",
+			sign,
+			"approve_builder_code",
+			params.account,
+			{ builder_code: params.builderCode, max_fee_rate: params.maxFeeRate },
+		);
+	}
+
+	/** Withdraw a builder's permission to charge this account. */
+	revokeBuilderCode(
+		sign: Signer,
+		params: { account: string; builderCode: string },
+	): Promise<{ success: boolean }> {
+		return this.signed<{ success: boolean }>(
+			"/account/builder_codes/revoke",
+			sign,
+			"revoke_builder_code",
+			params.account,
+			{ builder_code: params.builderCode },
+		);
+	}
+
 	createMarketOrder(
 		sign: Signer,
 		params: {
@@ -207,10 +258,21 @@ export class PacificaClient {
 			symbol: string;
 			side: Side;
 			amount: string;
-			/** Fractional bound on acceptable slippage, e.g. "0.01" for 1%. */
+			/**
+			 * Maximum slippage, as a percentage: "0.5" means 0.5%, not 50% and
+			 * not 0.005. Pacifica reads this figure literally, so a caller that
+			 * passes a fraction asks for a hundredth of what they intended and
+			 * watches orders fail to fill.
+			 */
 			slippagePercent: string;
 			reduceOnly?: boolean;
 			clientOrderId?: string;
+			/**
+			 * Builder code to attribute the order to. Only send one the account
+			 * has approved — an unapproved code is a rejected order, not an
+			 * unattributed fill.
+			 */
+			builderCode?: string;
 		},
 	): Promise<PacificaOrderReceipt> {
 		return this.signed<PacificaOrderReceipt>(
@@ -225,6 +287,7 @@ export class PacificaClient {
 				slippage_percent: params.slippagePercent,
 				reduce_only: params.reduceOnly ?? false,
 				...(params.clientOrderId ? { client_order_id: params.clientOrderId } : {}),
+				...(params.builderCode ? { builder_code: params.builderCode } : {}),
 			},
 			params.agentWallet,
 		);
@@ -242,6 +305,8 @@ export class PacificaClient {
 			tif?: TimeInForce;
 			reduceOnly?: boolean;
 			clientOrderId?: string;
+			/** See `createMarketOrder`: approved codes only. */
+			builderCode?: string;
 		},
 	): Promise<PacificaOrderReceipt> {
 		return this.signed<PacificaOrderReceipt>(
@@ -257,6 +322,7 @@ export class PacificaClient {
 				tif: params.tif ?? "GTC",
 				reduce_only: params.reduceOnly ?? false,
 				...(params.clientOrderId ? { client_order_id: params.clientOrderId } : {}),
+				...(params.builderCode ? { builder_code: params.builderCode } : {}),
 			},
 			params.agentWallet,
 		);

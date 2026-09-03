@@ -14,7 +14,7 @@ const PRODUCT_LINKS = [
 ];
 
 const RESOURCE_LINKS = [
-	{ label: "Portfolio", to: "/portfolio" },
+	{ label: "Accounts", to: "/accounts" },
 	{ label: "Leaderboard", to: "/leaderboard" },
 	{ label: "Docs", to: "/docs" },
 ];

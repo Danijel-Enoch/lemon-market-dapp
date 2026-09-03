@@ -13,6 +13,8 @@ COPY packages/avantis/package.json ./packages/avantis/
 COPY packages/kyber/package.json ./packages/kyber/
 COPY packages/relay/package.json ./packages/relay/
 COPY packages/registry/package.json ./packages/registry/
+COPY packages/pacifica/package.json ./packages/pacifica/
+COPY packages/near-mpc/package.json ./packages/near-mpc/
 COPY packages/db/package.json ./packages/db/
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile --optional --ignore-scripts

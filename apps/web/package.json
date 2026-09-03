@@ -4,9 +4,9 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "bun run --watch ./app/server.ts",
+		"dev": "bun --env-file=../../.env run --watch ./app/server.ts",
 		"build": "bun --bun react-router build",
-		"start": "NODE_ENV=production bun ./app/server.ts",
+		"start": "NODE_ENV=production bun --env-file=../../.env ./app/server.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

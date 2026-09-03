@@ -60,14 +60,37 @@ const post = <T>(path: string, body: unknown) =>
 
 // --- Markets --------------------------------------------------------------
 
+/**
+ * The Pacifica half of a market.
+ *
+ * Order sizes are in base units of the asset and must sit on the venue's lot
+ * grid, so a form that only knows a USD notional cannot build a valid order —
+ * these are the fields that make one possible.
+ */
+export interface PacificaMarketMeta {
+	/** What Pacifica calls this market on the wire, e.g. "BTC". */
+	pacificaSymbol: string;
+	/** Price increment. Limit prices off this grid are rejected. */
+	tickSize: number;
+	/** Quantity increment. */
+	lotSize: number;
+	/** Minimum order value, in USD. */
+	minOrderSize: number;
+	maxLeverage: number;
+	markPrice: number | null;
+}
+
+/** A market as the terminal sees it: shared economics plus venue specifics. */
+export type TradableMarket = MarketWithEconomics & { pacifica?: PacificaMarketMeta };
+
 export const marketsApi = {
 	list: (assetClass?: "equity" | "fx") =>
-		request<{ markets: MarketWithEconomics[]; count: number }>("/markets", {
+		request<{ markets: TradableMarket[]; count: number }>("/markets", {
 			query: { assetClass },
 		}),
 	/** Symbols contain "/", which is not URL-path safe — send them as "NVDA-USD". */
 	get: (symbol: string) =>
-		request<MarketWithEconomics>(`/markets/${encodeURIComponent(symbol.replace("/", "-"))}`),
+		request<TradableMarket>(`/markets/${encodeURIComponent(symbol.replace("/", "-"))}`),
 	candles: (symbol: string, resolution: string) =>
 		request<{ symbol: string; resolution: string; candles: Candle[] }>(
 			`/markets/${encodeURIComponent(symbol.replace("/", "-"))}/candles`,
@@ -513,4 +536,160 @@ export const depositApi = {
 		}>(`/deposit/status/${requestId}`),
 	history: (user: string) =>
 		request<{ deposits: Record<string, unknown>[] }>("/deposit/history", { query: { user } }),
+};
+
+// --- Accounts -------------------------------------------------------------
+
+/**
+ * What the app knows about a signed-in user.
+ *
+ * Deliberately small. The derived EVM and Solana wallets that hold the funds
+ * are never sent to the browser — the Pacifica account is the only address a
+ * user has any reason to see, and showing the others would invite deposits that
+ * land outside Pacifica.
+ */
+export interface AccountSummary {
+	/** The connected wallet, lowercased. */
+	address: string;
+	/** Where positions live. Shown so a user can verify it on-chain. */
+	pacificaAccount: string;
+	/** True once an agent key is bound — the gate on placing orders. */
+	tradingEnabled: boolean;
+	activatedAt: string | null;
+	/**
+	 * True when this app charges a builder fee the user has not approved.
+	 *
+	 * Their orders still fill — they are simply not attributed — so this is a
+	 * prompt, never a block. It happens to anyone who set up their account
+	 * before the fee existed, or before it last changed.
+	 */
+	builderApprovalRequired: boolean;
+	/** The fee as a percentage, e.g. "0.1%". Null when none is charged. */
+	builderFee: string | null;
+}
+
+export interface SessionState {
+	available: boolean;
+	reason: string | null;
+	account: AccountSummary | null;
+	/**
+	 * The builder fee this deployment charges, as a percentage, or null.
+	 *
+	 * Present whether or not anyone is signed in, so onboarding can name the fee
+	 * up front rather than only once an account exists.
+	 */
+	builderFee: string | null;
+}
+
+export interface Challenge {
+	nonce: string;
+	message: string;
+	expiresAt: string;
+}
+
+export const authApi = {
+	session: () => request<SessionState>("/auth/session"),
+	signInChallenge: (address: string) => post<Challenge>("/auth/sign-in/challenge", { address }),
+	signIn: (input: { address: string; nonce: string; signature: string }) =>
+		post<{ account: AccountSummary; expiresAt: string }>("/auth/sign-in", input),
+	pacificaChallenge: () =>
+		post<Challenge & { agentPublicKey: string }>("/auth/pacifica/challenge", {}),
+	activatePacifica: (input: { nonce: string; signature: string; agentPublicKey: string }) =>
+		post<{ account: AccountSummary }>("/auth/pacifica/activate", input),
+	signOut: () => post<{ ok: true }>("/auth/sign-out", {}),
+};
+
+// --- Pacifica trading -----------------------------------------------------
+
+export interface PacificaAccountInfo {
+	account_equity: string;
+	available_to_spend: string;
+	available_to_withdraw: string;
+	balance: string;
+	total_margin_used: string;
+	positions_count: number;
+	orders_count: number;
+}
+
+export interface PacificaPositionRow {
+	symbol: string;
+	side: "bid" | "ask";
+	amount: string;
+	entry_price: string;
+	margin: string;
+	funding: string;
+	isolated: boolean;
+	created_at: number;
+}
+
+export interface PacificaOrderRow {
+	order_id: number;
+	symbol: string;
+	side: "bid" | "ask";
+	price: string;
+	initial_amount: string;
+	filled_amount: string;
+	order_type: string;
+	reduce_only: boolean;
+	created_at: number;
+}
+
+export interface PacificaAccountState {
+	activated: boolean;
+	account: PacificaAccountInfo | null;
+	positions: PacificaPositionRow[];
+	orders: PacificaOrderRow[];
+	/**
+	 * USDC that has reached the derived wallet but is not yet a Pacifica
+	 * balance. Money in transit between the two halves of a deposit.
+	 */
+	pendingUsdc: number;
+}
+
+export const pacificaApi = {
+	account: () => request<PacificaAccountState>("/pacifica/account"),
+	marketOrder: (input: {
+		symbol: string;
+		side: "bid" | "ask";
+		amount: string;
+		slippagePercent?: string;
+		reduceOnly?: boolean;
+	}) => post<{ order_id: number }>("/pacifica/orders/market", input),
+	limitOrder: (input: {
+		symbol: string;
+		side: "bid" | "ask";
+		amount: string;
+		price: string;
+		tif?: "GTC" | "IOC" | "ALO";
+		reduceOnly?: boolean;
+	}) => post<{ order_id: number }>("/pacifica/orders/limit", input),
+	cancelOrder: (input: { symbol: string; orderId: number }) =>
+		post<{ success: boolean }>("/pacifica/orders/cancel", input),
+	closePosition: (input: { symbol: string; slippagePercent?: string }) =>
+		post<{ order_id: number }>("/pacifica/positions/close", input),
+	setLeverage: (input: { symbol: string; leverage: number }) =>
+		post<{ success: boolean }>("/pacifica/leverage", input),
+	depositStatus: () =>
+		request<{ available: boolean; reason: string | null; pendingUsdc: number }>(
+			"/pacifica/deposit/status",
+		),
+	/**
+	 * Start funding. Returns an address to send USDC to; the recipient behind it
+	 * is the user's derived Solana wallet, which the browser never learns.
+	 */
+	fundAddress: (input: { amount: string; originChainId?: number; originCurrency?: string }) =>
+		post<{
+			requestId: string;
+			depositAddress: string;
+			amount: string;
+			amountFormatted: string;
+			destinationAmountFormatted: string;
+		}>("/pacifica/fund/address", input),
+	fundStatus: (requestId: string) =>
+		request<{ status: string; isComplete: boolean; isFailed: boolean }>(
+			`/pacifica/fund/status/${requestId}`,
+		),
+	credit: (amount: number) =>
+		post<{ signature: string; amount: number }>("/pacifica/deposit", { amount }),
+	withdraw: (amount: number) => post<{ ok: true }>("/pacifica/withdraw", { amount }),
 };

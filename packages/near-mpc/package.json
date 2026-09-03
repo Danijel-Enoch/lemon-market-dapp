@@ -1,12 +1,11 @@
 {
-	"name": "@lemon/pacifica",
+	"name": "@lemon/near-mpc",
 	"version": "0.2.0",
 	"type": "module",
 	"private": true,
 	"main": "./src/index.ts",
 	"exports": {
-		".": "./src/index.ts",
-		"./deposit": "./src/deposit.ts"
+		".": "./src/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -17,6 +16,6 @@
 		"@noble/curves": "^2.0.1",
 		"@noble/hashes": "^2.0.0",
 		"@scure/base": "^2.0.0",
-		"@solana/web3.js": "^1.98.4"
+		"near-api-js": "^7.3.1"
 	}
 }
