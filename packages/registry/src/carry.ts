@@ -3,7 +3,7 @@ import type { Market } from "@lemon/core";
 const HOURS_PER_YEAR = 24 * 365;
 
 /**
- * Per-side funding rates from the Avantis data service (`GET /v2/trading`),
+ * Per-side funding rates from the reference data service (`GET /v2/trading`),
  * expressed as **percent per hour**.
  *
  * Sign convention, quoting the protocol docs directly: *"A positive rate means

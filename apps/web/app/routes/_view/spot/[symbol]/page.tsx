@@ -21,7 +21,7 @@ export default function SpotSymbolRedirect() {
 		(candidate) => candidate.symbol.toLowerCase() === String(symbol).toLowerCase(),
 	);
 
-	if (!token?.avantisSymbol) {
+	if (!token?.perpSymbol) {
 		return (
 			<Callout tone="warning" title="Token not found">
 				<p>
@@ -35,5 +35,5 @@ export default function SpotSymbolRedirect() {
 		);
 	}
 
-	return <Navigate to={`/trade/${token.avantisSymbol.replace("/", "-")}`} replace />;
+	return <Navigate to={`/trade/${token.perpSymbol.replace("/", "-")}`} replace />;
 }

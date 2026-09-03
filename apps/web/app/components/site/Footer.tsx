@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 
 /**
- * Site footer, built on the Avantis pattern: one big rounded panel floating
+ * Site footer, built on the reference pattern: one big rounded panel floating
  * inside the page gutter rather than a full-bleed bar, split into a brand
  * column, two link columns and a subscribe column on a 10-track grid.
  */
@@ -80,7 +80,7 @@ function Subscribe() {
 export function Footer() {
 	return (
 		<div className="px-[var(--section-x)] pb-12">
-			{/* Desktop: 10-track grid, matching the Avantis proportions (3/2/2/3). */}
+			{/* Desktop: 10-track grid, matching the reference proportions (3/2/2/3). */}
 			<footer className="mx-auto hidden w-full max-w-[var(--content-max)] grid-cols-10 gap-8 rounded-3xl bg-[var(--surface-4)] px-12 pb-24 pt-[72px] lg:grid xl:px-32">
 				<div className="col-span-3">
 					<Brand />

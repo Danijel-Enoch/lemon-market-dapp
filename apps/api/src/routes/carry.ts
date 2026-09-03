@@ -1,9 +1,22 @@
 import { isDatabaseConfigured } from "@lemon/db";
 import { findCarryCandidates } from "@lemon/registry";
 import { Elysia, t } from "elysia";
+import { AuthError, readSession, SESSION_COOKIE } from "../services/auth";
 import * as carry from "../services/carry";
 import { getMarkets } from "../services/markets";
 import { getSpotTokens } from "../services/spot";
+
+/**
+ * The signed-in user, for the legs this server executes.
+ *
+ * The short leg is placed with the session's Pacifica agent key, so unlike the
+ * reporting endpoints it cannot be driven by an address in the query string.
+ */
+async function requireUser(token: unknown) {
+	const session = await readSession(typeof token === "string" ? token : undefined);
+	if (!session) throw new AuthError("Sign in to trade the hedge leg.");
+	return session.user;
+}
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
 
@@ -28,7 +41,6 @@ export const carryRoutes = new Elysia({ prefix: "/carry" })
 				symbol: token.symbol,
 				name: token.name,
 				marketSymbol: market.symbol,
-				pairIndex: market.pairIndex,
 				maxLeverage: market.maxLeverage,
 				minPositionUsdc: market.minPositionUsdc,
 				isOpen: market.isOpen,
@@ -36,7 +48,7 @@ export const carryRoutes = new Elysia({ prefix: "/carry" })
 			// Tokens paired with a perp but not currently buyable, so the UI can
 			// explain the absence instead of silently omitting them.
 			unavailable: tokens
-				.filter((token) => !token.buyable && token.avantisPairIndex !== null)
+				.filter((token) => !token.buyable && token.perpSymbol !== null)
 				.map((token) => ({ symbol: token.symbol, reason: "No spot buy route" })),
 		};
 	})
@@ -116,15 +128,35 @@ export const carryRoutes = new Elysia({ prefix: "/carry" })
 		}),
 	})
 
-	.post("/:id/perp-opened", async ({ params, body }) => carry.markPerpOpened(params.id, body), {
-		params: t.Object({ id: t.String() }),
-		body: t.Object({
-			txHash: t.Optional(t.String()),
-			trackingId: t.Optional(t.String()),
-			tradeIndex: t.Number(),
-			openTimestamp: t.Number(),
-		}),
-	})
+	/**
+	 * Open the short leg.
+	 *
+	 * The server places it. Previously the browser signed an the reference design order and
+	 * reported back, which left the position exposed for as long as the user
+	 * took to confirm — or forever, if they closed the tab between legs.
+	 */
+	.post(
+		"/:id/open-perp",
+		async ({ params, cookie, status }) => {
+			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
+			const position = await carry.openPerpLeg(params.id, user);
+			if (!position) return status(404, { error: "Position not found" });
+			return position;
+		},
+		{ params: t.Object({ id: t.String() }) },
+	)
+
+	/** Close the short leg, sized from the live position rather than the plan. */
+	.post(
+		"/:id/close-perp",
+		async ({ params, cookie, status }) => {
+			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
+			const position = await carry.closePerpLeg(params.id, user);
+			if (!position) return status(404, { error: "Position not found" });
+			return position;
+		},
+		{ params: t.Object({ id: t.String() }) },
+	)
 
 	/**
 	 * Report a failed leg.

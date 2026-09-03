@@ -1,8 +1,8 @@
+import { PacificaPositions } from "@app/components/account/PacificaHoldings";
 import { IndexChart } from "@app/components/chart/IndexChart";
 import { Callout } from "@app/components/common/Callout";
 import { MarketLogo } from "@app/components/common/MarketLogo";
 import { BasketSelector } from "@app/components/trade/BasketSelector";
-import { PerpPositionsTable } from "@app/components/trade/PerpPositionsTable";
 import { Button } from "@app/components/ui/button";
 import { Input } from "@app/components/ui/input";
 import { Label } from "@app/components/ui/label";
@@ -252,9 +252,13 @@ export default function BasketPage() {
 			)}
 
 			<p className="text-center text-[11px] text-white/35">
+				{/* Perp legs are placed with your agent key, so only spot legs
+				    ever reach the wallet. */}
 				{venue === "carry"
-					? `${(plan?.tradableLegs ?? 0) * 2} transactions — two per leg.`
-					: `${plan?.tradableLegs ?? 0} separate transactions — one per leg.`}
+					? `${plan?.tradableLegs ?? 0} wallet signatures — the spot leg of each carry.`
+					: venue === "spot"
+						? `${plan?.tradableLegs ?? 0} wallet signatures — one per leg.`
+						: `${plan?.tradableLegs ?? 0} legs, placed for you — no wallet prompt.`}
 			</p>
 		</div>
 	);
@@ -336,7 +340,7 @@ export default function BasketPage() {
 					</Tabs>
 
 					{panel === "positions" ? (
-						<PerpPositionsTable />
+						<PacificaPositions />
 					) : (
 						<div className="overflow-hidden rounded-lg border border-[var(--line-soft)]">
 							<table className="w-full text-sm">

@@ -35,7 +35,7 @@ const connectors = connectorsForWallets(
 /**
  * Base mainnet only.
  *
- * Every venue this app trades on lives here — Avantis perps, the Coinbase
+ * Every venue this app trades on lives here — the reference design perps, the Coinbase
  * tokenized-stock pools, and KyberSwap routing. Funds from other chains arrive
  * through Relay deposit addresses rather than by switching networks, so there
  * is deliberately no second chain configured.

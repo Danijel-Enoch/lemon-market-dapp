@@ -77,7 +77,7 @@ export default function CarryDetailPage() {
 			detail: position.shares ? `${formatQuantity(position.shares, 6)} shares` : "—",
 		},
 		{
-			name: `Short — ${position.avantisSymbol}`,
+			name: `Short — ${position.perpSymbol}`,
 			open: position.perpOpenTxHash,
 			close: position.perpCloseTxHash,
 			detail: `${formatUsd(position.perpCollateralUsd)} margin at ${position.perpLeverage}x`,
@@ -97,7 +97,7 @@ export default function CarryDetailPage() {
 				title={
 					<>
 						{position.tokenSymbol} <span className="text-[var(--ink-2)]">/</span>{" "}
-						{position.avantisSymbol}
+						{position.perpSymbol}
 					</>
 				}
 				description={`Opened ${new Date(position.createdAt).toLocaleString()}`}
@@ -113,8 +113,8 @@ export default function CarryDetailPage() {
 					<div className="space-y-3">
 						<p>
 							{position.spotBuyTxHash && !position.perpOpenTxHash
-								? `You are holding ${position.shares ? formatQuantity(position.shares, 4) : ""} ${position.tokenSymbol} with no short against it — you are fully exposed to the price of ${position.avantisSymbol}.`
-								: `A short on ${position.avantisSymbol} is open with no spot position hedging it.`}
+								? `You are holding ${position.shares ? formatQuantity(position.shares, 4) : ""} ${position.tokenSymbol} with no short against it — you are fully exposed to the price of ${position.perpSymbol}.`
+								: `A short on ${position.perpSymbol} is open with no spot position hedging it.`}
 						</p>
 						{position.failureReason && (
 							<p className="rounded bg-black/30 p-2 font-fono text-[11px] opacity-80">

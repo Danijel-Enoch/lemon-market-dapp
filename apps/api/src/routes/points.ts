@@ -1,6 +1,6 @@
 import { isDatabaseConfigured } from "@lemon/db";
 import { Elysia, t } from "elysia";
-import { getGlobalLeaderboard, getLeaderboard, getProfile, recordEvent } from "../services/points";
+import { getLeaderboard, getProfile, recordEvent } from "../services/points";
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
 
@@ -14,14 +14,6 @@ export const pointsRoutes = new Elysia({ prefix: "/points" })
 		}),
 		{ query: t.Object({ limit: t.Optional(t.Number({ minimum: 1, maximum: 500 })) }) },
 	)
-
-	/**
-	 * Avantis' protocol-wide board, kept separate from ours.
-	 *
-	 * It ranks all Avantis traders by realised PnL rather than activity here, so
-	 * merging the two would misrepresent both.
-	 */
-	.get("/global", async () => ({ rows: await getGlobalLeaderboard() }))
 
 	.get(
 		"/:address",
@@ -41,7 +33,7 @@ export const pointsRoutes = new Elysia({ prefix: "/points" })
 	 *
 	 * The hash is verified on-chain before anything is awarded — it must exist,
 	 * have succeeded, and have been sent by the claiming address. Perp volume is
-	 * deliberately not claimable here: it is read from Avantis directly, so
+	 * deliberately not claimable here: it is read from the reference design directly, so
 	 * there is nothing for a client to assert.
 	 */
 	.post(

@@ -33,7 +33,7 @@ const universeCache = new TtlCache<PacificaMarket[]>(async () => {
 /**
  * Adapt a Pacifica market to the shape the rest of the app already speaks.
  *
- * Two conventions differ from Avantis and are normalised here:
+ * Two of Pacifica's conventions are normalised here:
  *
  *   * Funding is quoted per hour as a fraction; the app works in percent per
  *     hour, and by side. A positive Pacifica rate means longs pay, so the long
@@ -48,13 +48,10 @@ function toShared(market: PacificaMarket, logoUrl: string | null): MarketWithEco
 	const perHourPercent = market.fundingRate * 100;
 
 	return {
-		pairIndex: 0,
 		symbol: market.symbol,
 		base: market.base,
 		quote: market.quote,
 		assetClass: market.assetClass,
-		pythSymbol: null,
-		isUpside: false,
 		minLeverage: 1,
 		maxLeverage: market.maxLeverage,
 		minPositionUsdc: market.minOrderSize,

@@ -1,7 +1,7 @@
 /**
  * Unit conversion helpers.
  *
- * Note the asymmetry these exist to manage: the Avantis tx-builder API takes
+ * Note the asymmetry these exist to manage: the reference tx-builder API takes
  * *human* units (`collateralUsdc: 100`, `leverage: 10`), while KyberSwap and
  * every ERC-20 call take base units (`100000000`). Mixing the two silently
  * trades 1e6x the intended size, so conversions live here rather than inline.
@@ -79,7 +79,7 @@ export function annualizeFundingRate(percentPerHour: number): number {
 /**
  * Format an hourly funding rate as an annual percentage.
  *
- * The sign is preserved deliberately: on Avantis a positive rate means the side
+ * The sign is preserved deliberately: on the reference design a positive rate means the side
  * *receives* funding and negative means it pays, so dropping the sign would
  * invert the meaning.
  */

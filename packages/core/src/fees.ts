@@ -9,7 +9,7 @@ import type { Address, Hex } from "./types";
  *
  * - **Spot** — KyberSwap takes the fee inside the swap itself. It is a first
  *   class parameter of the route request, so it always applies.
- * - **Perp** — Avantis uses ERC-8021 builder codes: a registry entry holding
+ * - **Perp** — the reference design uses ERC-8021 builder codes: a registry entry holding
  *   the fee config, referenced by an attribution suffix appended to the
  *   transaction calldata. The rate lives on-chain in the registry, not here.
  */
@@ -49,7 +49,7 @@ export function isValidBps(bps: number): boolean {
 /** ERC-8021 trailer that marks the end of an attribution suffix. */
 const ERC8021_MARKER = "80218021802180218021802180218021";
 
-/** Schema 0 = canonical code registry, which is what Avantis builder codes use. */
+/** Schema 0 = canonical code registry, which is what the reference design builder codes use. */
 const SCHEMA_CANONICAL_REGISTRY = 0;
 
 /**
@@ -83,7 +83,7 @@ export function encodeAttributionSuffix(codes: readonly string[]): Hex {
  * Append an ERC-8021 attribution suffix to transaction calldata.
  *
  * Only usable on transactions this app builds and sends itself. A gasless
- * Avantis intent is submitted by the operator, which constructs its own
+ * The reference design intent is submitted by the operator, which constructs its own
  * calldata — so a suffix added client-side would never reach the chain, and
  * builder fees do not accrue on that path. The `attributed` flag on the API
  * response tells callers when that is the case rather than leaving them to

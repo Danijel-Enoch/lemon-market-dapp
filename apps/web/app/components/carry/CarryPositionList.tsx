@@ -66,9 +66,7 @@ export function CarryPositionList() {
 							<div>
 								<p className="font-medium">
 									{position.tokenSymbol}
-									<span className="ml-2 text-xs text-[var(--ink-2)]">
-										vs {position.avantisSymbol}
-									</span>
+									<span className="ml-2 text-xs text-[var(--ink-2)]">vs {position.perpSymbol}</span>
 								</p>
 								<p className="text-xs text-[var(--ink-2)]">
 									{formatUsd(position.notionalUsd)} per leg · {position.perpLeverage}x short

@@ -7,7 +7,7 @@ type Tone = "info" | "warning" | "danger";
 /**
  * Notice block.
  *
- * Avantis carries tone on a left rule and the icon rather than by tinting the
+ * The reference design carries tone on a left rule and the icon rather than by tinting the
  * whole panel, so a warning sits at the same visual weight as the surfaces
  * around it and only the accent changes.
  */

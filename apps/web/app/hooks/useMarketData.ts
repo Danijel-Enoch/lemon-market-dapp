@@ -1,12 +1,4 @@
-import {
-	basketApi,
-	carryApi,
-	depositApi,
-	marketsApi,
-	perpApi,
-	pointsApi,
-	spotApi,
-} from "@app/lib/api";
+import { basketApi, carryApi, depositApi, marketsApi, pointsApi, spotApi } from "@app/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
 /** Pair catalog changes rarely; funding within it moves on a ~5s upstream cycle. */
@@ -43,15 +35,6 @@ export function useSpotTokens() {
 		refetchInterval: (query) =>
 			query.state.data && query.state.data.routabilityKnown === false ? 3_000 : 60_000,
 		staleTime: 30_000,
-	});
-}
-
-export function usePerpPositions(trader: string | undefined) {
-	return useQuery({
-		queryKey: ["perp-positions", trader],
-		queryFn: () => perpApi.positions(trader as string),
-		enabled: Boolean(trader),
-		refetchInterval: 15_000,
 	});
 }
 
@@ -139,7 +122,7 @@ export function useGlobalLeaderboard() {
 	return useQuery({
 		queryKey: ["points-global"],
 		queryFn: () => pointsApi.global(),
-		// Avantis recomputes this on its own schedule; polling faster just
+		// The reference design recomputes this on its own schedule; polling faster just
 		// re-reads the same snapshot.
 		staleTime: 5 * 60_000,
 		refetchInterval: 5 * 60_000,

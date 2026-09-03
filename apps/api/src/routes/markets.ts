@@ -1,39 +1,7 @@
 import { TRADABLE_ASSET_CLASSES } from "@lemon/core";
 import { Elysia, t } from "elysia";
-import { clients } from "../config";
+import { getCandles, isResolution } from "../services/candles";
 import { getMarket, getMarkets, getPrices } from "../services/markets";
-
-/**
- * Chart resolutions.
- *
- * The app's resolution codes are TradingView-style ("1", "60", "D"); Pacifica
- * expects a suffixed interval ("1m", "1h", "1d"). The mapping lives here so the
- * chart component keeps its existing vocabulary.
- */
-const INTERVALS = {
-	"1": "1m",
-	"5": "5m",
-	"15": "15m",
-	"30": "30m",
-	"60": "1h",
-	"240": "4h",
-	D: "1d",
-	W: "1w",
-} as const;
-
-type Resolution = keyof typeof INTERVALS;
-
-/** How far back to fetch by default, per resolution, in seconds. */
-const DEFAULT_LOOKBACK: Record<Resolution, number> = {
-	"1": 6 * 3600,
-	"5": 24 * 3600,
-	"15": 3 * 24 * 3600,
-	"30": 7 * 24 * 3600,
-	"60": 14 * 24 * 3600,
-	"240": 60 * 24 * 3600,
-	D: 365 * 24 * 3600,
-	W: 3 * 365 * 24 * 3600,
-};
 
 export const marketRoutes = new Elysia({ prefix: "/markets" })
 	/**
@@ -88,32 +56,12 @@ export const marketRoutes = new Elysia({ prefix: "/markets" })
 			const market = await getMarket(params.symbol);
 			if (!market) return status(404, { error: `Unknown market: ${params.symbol}` });
 
-			const resolution = (query.resolution ?? "60") as Resolution;
-			const interval = INTERVALS[resolution];
-			if (!interval) {
+			const resolution = query.resolution ?? "60";
+			if (!isResolution(resolution)) {
 				return status(400, { error: `Unsupported resolution: ${query.resolution}` });
 			}
 
-			const lookbackSeconds = DEFAULT_LOOKBACK[resolution];
-			const startTime = Date.now() - lookbackSeconds * 1000;
-
-			const raw = await clients.pacifica.candles(
-				market.pacifica.pacificaSymbol,
-				interval,
-				startTime,
-			);
-
-			const candles = raw
-				.map((candle) => ({
-					time: candle.t,
-					open: Number(candle.o),
-					high: Number(candle.h),
-					low: Number(candle.l),
-					close: Number(candle.c),
-					volume: Number(candle.v),
-				}))
-				.filter((candle) => Number.isFinite(candle.close))
-				.sort((a, b) => a.time - b.time);
+			const candles = await getCandles(market.pacifica.pacificaSymbol, resolution);
 
 			return { symbol: market.symbol, resolution, candles };
 		},

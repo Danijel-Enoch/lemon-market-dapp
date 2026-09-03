@@ -1,10 +1,4 @@
-import type {
-	MarketWithEconomics,
-	PerpOrder,
-	PerpPosition,
-	SpotQuote,
-	SpotTokenInfo,
-} from "@lemon/core";
+import type { Candle, MarketWithEconomics, SpotQuote, SpotTokenInfo } from "@lemon/core";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -98,94 +92,6 @@ export const marketsApi = {
 		),
 	prices: () =>
 		request<{ prices: Record<string, { price: number; at: number }> }>("/markets/prices"),
-};
-
-export interface Candle {
-	/** Unix milliseconds. */
-	time: number;
-	open: number;
-	high: number;
-	low: number;
-	close: number;
-}
-
-// --- Perps ----------------------------------------------------------------
-
-export interface IntentPayload {
-	intent: string;
-	signerRule: string;
-	domain: { name: string; version: string; chainId: number; verifyingContract: `0x${string}` };
-	types: Record<string, { name: string; type: string }[]>;
-	primaryType: string;
-	message: Record<string, unknown>;
-	encodedIntent: `0x${string}`;
-}
-
-export interface UnsignedTxPayload {
-	to: `0x${string}`;
-	data: `0x${string}`;
-	value?: string;
-	chainId?: number;
-}
-
-export type OpenResult =
-	| { mode: "intent"; intent: IntentPayload; attributed: boolean }
-	/**
-	 * `attributed` reports whether a builder-code fee will actually be
-	 * collected. It is only ever true on the direct-transaction path: gasless
-	 * intents are submitted by the Avantis operator, which builds its own
-	 * calldata, so an attribution suffix never reaches the chain.
-	 */
-	| { mode: "transaction"; tx: UnsignedTxPayload; attributed: boolean };
-
-export interface OpenPerpInput {
-	trader: string;
-	symbol: string;
-	side: "long" | "short";
-	collateralUsdc: number;
-	leverage: number;
-	orderType?: "market" | "limit" | "stop_limit";
-	openPrice?: number;
-	takeProfit?: number;
-	stopLoss?: number;
-	slippagePercent?: number;
-	gasless?: boolean;
-}
-
-export const perpApi = {
-	positions: (trader: string) =>
-		request<{ positions: PerpPosition[]; orders: PerpOrder[] }>("/perp/positions", {
-			query: { trader },
-		}),
-	allowance: (trader: string) =>
-		request<{ data: { allowance: string; balance: string } }>("/perp/allowance", {
-			query: { trader },
-		}),
-	approve: (trader: string, amountUsdc?: number) =>
-		post<{ data: UnsignedTxPayload }>("/perp/approve", { trader, amountUsdc }),
-	open: (input: OpenPerpInput) => post<OpenResult>("/perp/open", input),
-	close: (input: {
-		trader: string;
-		pairIndex: number;
-		index: number;
-		collateralToCloseUsdc: number;
-		gasless?: boolean;
-	}) => post<OpenResult>("/perp/close", input),
-	updateLimit: (input: {
-		trader: string;
-		pairIndex: number;
-		index: number;
-		openPrice?: number;
-		takeProfit?: number;
-		stopLoss?: number;
-	}) => post<{ data: UnsignedTxPayload }>("/perp/limit/update", input),
-	cancelLimit: (input: { trader: string; pairIndex: number; index: number }) =>
-		post<{ data: UnsignedTxPayload }>("/perp/limit/cancel", input),
-	submit: (input: { orderType: number; encodedIntent: string; signature: string }) =>
-		post<{ trackingId?: string; status: string; events: { name: string; payload: unknown }[] }>(
-			"/perp/submit",
-			input,
-		),
 };
 
 // --- Spot -----------------------------------------------------------------
@@ -364,8 +270,7 @@ export interface CarryPositionRecord {
 	id: string;
 	userAddress: string;
 	tokenSymbol: string;
-	avantisPairIndex: number;
-	avantisSymbol: string;
+	perpSymbol: string;
 	status:
 		| "VALIDATING"
 		| "SPOT_FILLED"
@@ -382,8 +287,6 @@ export interface CarryPositionRecord {
 	perpLeverage: number;
 	entryFundingRatePct: number | null;
 	entryNetApyPct: number | null;
-	perpTradeIndex: number | null;
-	perpOpenTimestamp: number | null;
 	spotBuyTxHash: string | null;
 	perpOpenTxHash: string | null;
 	spotSellTxHash: string | null;
@@ -407,7 +310,6 @@ export const carryApi = {
 				symbol: string;
 				name: string;
 				marketSymbol: string;
-				pairIndex: number;
 				maxLeverage: number;
 				minPositionUsdc: number;
 				isOpen: boolean;
@@ -428,10 +330,12 @@ export const carryApi = {
 	}) => post<CarryPositionRecord>("/carry", input),
 	spotFilled: (id: string, input: { txHash: string; shares: number; spotCostUsd: number }) =>
 		post<CarryPositionRecord>(`/carry/${id}/spot-filled`, input),
-	perpOpened: (
-		id: string,
-		input: { txHash?: string; trackingId?: string; tradeIndex: number; openTimestamp: number },
-	) => post<CarryPositionRecord>(`/carry/${id}/perp-opened`, input),
+	/**
+	 * Open the hedge. The server places it with the session's agent key, so
+	 * there is no wallet prompt and nothing to report back afterwards.
+	 */
+	openPerp: (id: string) => post<CarryPositionRecord>(`/carry/${id}/open-perp`, {}),
+	closePerp: (id: string) => post<CarryPositionRecord>(`/carry/${id}/close-perp`, {}),
 	legFailed: (id: string, input: { leg: "SPOT" | "PERP"; error: string }) =>
 		post<{ position: CarryPositionRecord; repairOptions: RepairOption[] }>(
 			`/carry/${id}/leg-failed`,

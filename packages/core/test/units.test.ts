@@ -100,7 +100,7 @@ describe("symbol handling", () => {
 		expect(isSameUnderlying("AAPL/USD", "NVDAc")).toBe(false);
 	});
 
-	test("every Avantis asset class is tradable; unknown ones are not", () => {
+	test("every the reference design asset class is tradable; unknown ones are not", () => {
 		// The catalog is gated on listing status upstream, not on an allowlist
 		// here, so a newly listed class must not be silently dropped.
 		for (const asset of ["equity", "fx", "crypto", "commodity", "metal", "index"]) {

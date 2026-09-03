@@ -4,10 +4,10 @@
 		"baseUrl": "../..",
 		"paths": {
 			"@lemon/core": ["./packages/core/src/index.ts"],
-			"@lemon/avantis": ["./packages/avantis/src/index.ts"],
 			"@lemon/kyber": ["./packages/kyber/src/index.ts"],
 			"@lemon/relay": ["./packages/relay/src/index.ts"],
 			"@lemon/registry": ["./packages/registry/src/index.ts"],
+			"@lemon/pacifica": ["./packages/pacifica/src/index.ts"],
 			"@lemon/db": ["./packages/db/src/index.ts"]
 		}
 	},

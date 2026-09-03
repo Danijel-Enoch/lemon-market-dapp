@@ -177,7 +177,7 @@ function Hero() {
 /* -------------------------------------------------------------------------- */
 
 const RAIL = [
-	"Avantis · Perpetuals",
+	"Pacifica · Perpetuals",
 	"KyberSwap · Spot routing",
 	"Relay · Cross-chain deposits",
 	"Base · Settlement",
@@ -279,9 +279,9 @@ function Bento() {
 							<TrendingUp size={22} className="text-lime-400" aria-hidden />
 							<h3 className="mt-5 text-xl font-medium text-white sm:text-2xl">Perpetuals</h3>
 							<p className="mt-3 max-w-md text-sm leading-relaxed text-[var(--ink-2)]">
-								Long or short every market Avantis lists — crypto, tokenized stocks, FX, commodities
-								and metals. Orders are signed rather than gassed, so an unfilled order costs
-								nothing.
+								Long or short every market Pacifica lists — crypto, tokenized stocks, FX,
+								commodities and metals. Orders are signed rather than gassed, so an unfilled order
+								costs nothing.
 							</p>
 						</div>
 
@@ -406,7 +406,7 @@ const STEPS = [
 	{
 		n: "04",
 		title: "Settle on Base",
-		body: "Fills clear through Avantis and KyberSwap. Every position, fee and funding payment is verifiable on-chain.",
+		body: "Fills clear through Pacifica and KyberSwap. Every position, fee and funding payment is verifiable on-chain.",
 	},
 ];
 

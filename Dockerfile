@@ -9,7 +9,6 @@ COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
 COPY packages/core/package.json ./packages/core/
-COPY packages/avantis/package.json ./packages/avantis/
 COPY packages/kyber/package.json ./packages/kyber/
 COPY packages/relay/package.json ./packages/relay/
 COPY packages/registry/package.json ./packages/registry/

@@ -1,7 +1,7 @@
-import type { Candle } from "@lemon/avantis";
+import type { Candle } from "@lemon/core";
 
 export interface BasketLeg {
-	/** Avantis market symbol, e.g. "BTC/USD". */
+	/** Perp market symbol, e.g. "BTC/USD". */
 	marketSymbol: string;
 	/** Base ticker, used to resolve the spot token. */
 	ticker: string;

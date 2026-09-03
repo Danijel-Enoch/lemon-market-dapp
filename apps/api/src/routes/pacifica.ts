@@ -7,7 +7,7 @@ import { Elysia, t } from "elysia";
 import { clients, config } from "../config";
 import { AuthError, readSession, SESSION_COOKIE } from "../services/auth";
 import { builderCodeFor } from "../services/builder";
-import { resolvePacificaSymbol } from "../services/markets";
+import { getMarkets, resolvePacificaSymbol } from "../services/markets";
 import { tradingIdentity } from "../services/pacifica-account";
 import {
 	creditDeposit,
@@ -15,6 +15,7 @@ import {
 	pendingBalance,
 	withdraw,
 } from "../services/pacifica-deposit";
+import { recordPerpVolume } from "../services/points";
 
 /**
  * Trading, on the user's Pacifica account.
@@ -54,6 +55,30 @@ async function pacificaSymbol(symbol: string): Promise<string> {
 	return resolved;
 }
 
+/**
+ * Award points for a filled order, priced at the live mark.
+ *
+ * Failures here are swallowed: the order has already been placed, and losing
+ * points is a far smaller problem than reporting a successful trade as an
+ * error because the points write failed.
+ */
+async function creditVolume(
+	userAddress: string,
+	symbol: string,
+	amount: string,
+	orderId: number,
+): Promise<void> {
+	try {
+		const markets = await getMarkets();
+		const market = markets.find((candidate) => candidate.pacifica.pacificaSymbol === symbol);
+		const price = market?.pacifica.markPrice ?? 0;
+		const volumeUsd = Number(amount) * price;
+		if (volumeUsd > 0) await recordPerpVolume({ userAddress, volumeUsd, orderId });
+	} catch {
+		// Deliberately silent, per the note above.
+	}
+}
+
 export const pacificaRoutes = new Elysia({ prefix: "/pacifica" })
 	/**
 	 * Everything the accounts page needs about the Pacifica side, in one call.
@@ -87,16 +112,22 @@ export const pacificaRoutes = new Elysia({ prefix: "/pacifica" })
 			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
 			const identity = tradingIdentity(user);
 
-			return clients.pacifica.createMarketOrder(identity.sign, {
+			const symbol = await pacificaSymbol(body.symbol);
+			const receipt = await clients.pacifica.createMarketOrder(identity.sign, {
 				account: identity.account,
 				agentWallet: identity.agentWallet,
-				symbol: await pacificaSymbol(body.symbol),
+				symbol,
 				side: body.side as Side,
 				amount: body.amount,
 				slippagePercent: body.slippagePercent ?? "0.5",
 				reduceOnly: body.reduceOnly ?? false,
 				builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
 			});
+
+			// Points are awarded from the order this process just placed, not
+			// from anything the client reports afterwards.
+			await creditVolume(user.address, symbol, body.amount, receipt.order_id);
+			return receipt;
 		},
 		{
 			body: t.Object({

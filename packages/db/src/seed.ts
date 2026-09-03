@@ -6,8 +6,8 @@
  * token handling usually assumes, so a wrong value here would misprice every
  * order by a factor of 1e10 — cheap to check, expensive to get wrong.
  */
-import { AvantisClient, findMarketByTicker } from "@lemon/avantis";
-import { SPOT_TOKENS } from "@lemon/registry";
+import { joinMarkets, PacificaClient } from "@lemon/pacifica";
+import { findMarketByTicker, SPOT_TOKENS } from "@lemon/registry";
 import { prisma } from "./index";
 
 const RPC_URL = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
@@ -42,9 +42,10 @@ function decodeString(hex: string): string | null {
 }
 
 async function main() {
-	const avantis = new AvantisClient();
-	const markets = await avantis.getMarkets();
-	console.log(`Loaded ${markets.length} tradable Avantis markets (equity + fx).`);
+	const pacifica = new PacificaClient();
+	const [info, prices] = await Promise.all([pacifica.markets(), pacifica.prices().catch(() => [])]);
+	const markets = joinMarkets(info, prices);
+	console.log(`Loaded ${markets.length} tradable Pacifica markets.`);
 
 	let verified = 0;
 	let mismatched = 0;
@@ -83,20 +84,16 @@ async function main() {
 				name: token.name,
 				address: token.address,
 				decimals: onchainDecimals ?? token.decimals,
-				avantisPairIndex: market?.pairIndex ?? null,
-				avantisSymbol: market?.symbol ?? null,
+				perpSymbol: market?.symbol ?? null,
 			},
 			update: {
 				name: token.name,
 				decimals: onchainDecimals ?? token.decimals,
-				avantisPairIndex: market?.pairIndex ?? null,
-				avantisSymbol: market?.symbol ?? null,
+				perpSymbol: market?.symbol ?? null,
 			},
 		});
 
-		console.log(
-			`  ${token.symbol.padEnd(7)} -> ${market ? `${market.symbol} (idx ${market.pairIndex})` : "no perp market"}`,
-		);
+		console.log(`  ${token.symbol.padEnd(7)} -> ${market ? market.symbol : "no perp market"}`);
 	}
 
 	console.log(

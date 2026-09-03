@@ -52,10 +52,6 @@ services:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
-      AVANTIS_TX_BUILDER_URL: ${AVANTIS_TX_BUILDER_URL:-https://tx-builder.avantisfi.com}
-      AVANTIS_BATCHED_MARKET_URL: ${AVANTIS_BATCHED_MARKET_URL:-https://prod-api.avantisfi.com/batched-market}
-      AVANTIS_DATA_API_URL: ${AVANTIS_DATA_API_URL:-https://data.avantisfi.com}
-      AVANTIS_FEED_URL: ${AVANTIS_FEED_URL:-https://feed-v3.avantisfi.com}
       KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
       CHAIN_ID: ${CHAIN_ID:-8453}
@@ -83,14 +79,12 @@ services:
       SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
 
       # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
-      # is approved by each user during onboarding; the Avantis code is an
-      # on-chain calldata suffix used by carry and baskets.
+      # is approved by each user during onboarding.
       SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
       SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
       SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
       PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
       PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
-      AVANTIS_BUILDER_CODE: ${AVANTIS_BUILDER_CODE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,14 +145,12 @@ services:
       SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
 
       # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
-      # is approved by each user during onboarding; the Avantis code is an
-      # on-chain calldata suffix used by carry and baskets.
+      # is approved by each user during onboarding.
       SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
       SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
       SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
       PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
       PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
-      AVANTIS_BUILDER_CODE: ${AVANTIS_BUILDER_CODE:-}
     depends_on:
       postgres:
         condition: service_healthy

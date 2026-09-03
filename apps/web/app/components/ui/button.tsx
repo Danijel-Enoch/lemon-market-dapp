@@ -6,7 +6,7 @@ import type * as React from "react";
 /**
  * Button.
  *
- * Avantis runs flat fills on a 6px radius rather than gradients: one solid
+ * The reference design runs flat fills on a 6px radius rather than gradients: one solid
  * accent for the primary action, a surface fill for the secondary, and a
  * hairline for everything quieter. Long and short keep their own semantics.
  */

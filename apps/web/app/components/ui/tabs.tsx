@@ -5,7 +5,7 @@ import type * as React from "react";
 /**
  * Tabs.
  *
- * Avantis has one tab shape everywhere: a 4px-radius hairline box whose active
+ * The reference design has one tab shape everywhere: a 4px-radius hairline box whose active
  * segment is filled with the next surface up — no underline, no shadow. It
  * scrolls horizontally on narrow screens rather than wrapping.
  */

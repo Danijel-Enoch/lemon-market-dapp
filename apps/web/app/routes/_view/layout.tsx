@@ -4,7 +4,7 @@ import { Outlet } from "react-router";
 /**
  * Application shell.
  *
- * Avantis runs its app surfaces edge to edge under a 56px fixed bar, with the
+ * The reference design runs its app surfaces edge to edge under a 56px fixed bar, with the
  * mobile tab bar reserving space at the bottom — no centred marketing gutter.
  */
 export default function ViewLayout() {

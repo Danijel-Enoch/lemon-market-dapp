@@ -17,7 +17,7 @@ import { Link, useLocation } from "react-router";
 /**
  * Application header.
  *
- * Follows the Avantis app-shell pattern rather than the marketing one: a dense
+ * Follows the reference app-shell pattern rather than the marketing one: a dense
  * fixed bar with grouped dropdowns on the left and the wallet on the right,
  * plus a three-tab bottom bar below md.
  */
@@ -78,7 +78,7 @@ const FLAT_LINKS: NavLeaf[] = [
 	{ href: "/docs", label: "Docs", description: "How the app works", icon: BookOpen },
 ];
 
-/** The bottom bar mirrors Avantis' three-tab mobile shell. */
+/** The bottom bar mirrors the reference design's three-tab mobile shell. */
 const TABS: NavLeaf[] = [
 	{ href: "/trade", label: "Trade", description: "", icon: TrendingUp },
 	{ href: "/baskets", label: "Baskets", description: "", icon: Layers },
@@ -91,7 +91,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 /**
- * Hover/focus dropdown. Avantis keeps the panel mounted and animates opacity
+ * Hover/focus dropdown. the reference design keeps the panel mounted and animates opacity
  * and scale-y from the top edge, so it reads as a sheet unrolling rather than a
  * popover appearing.
  */
@@ -222,7 +222,7 @@ export function Header() {
 			</header>
 
 			{/*
-			  Mobile tab bar — the primary navigation below md. Avantis frames the
+			  Mobile tab bar — the primary navigation below md. the reference design frames the
 			  tabs inside a single hairline box and fills the active one, rather
 			  than tinting an icon. Padded for the home indicator.
 			*/}

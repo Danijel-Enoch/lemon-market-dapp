@@ -3,13 +3,10 @@ import type { Market } from "@lemon/core";
 import { annualizeFunding, deltaDriftPercent, planCarry } from "../src/carry";
 
 const market: Market = {
-	pairIndex: 81,
 	symbol: "NVDA/USD",
 	base: "NVDA",
 	quote: "USD",
 	assetClass: "equity",
-	pythSymbol: "Equity.US.NVDA/USD",
-	isUpside: false,
 	minLeverage: 1,
 	maxLeverage: 5,
 	minPositionUsdc: 100,

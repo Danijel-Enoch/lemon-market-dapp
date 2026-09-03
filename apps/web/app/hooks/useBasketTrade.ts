@@ -1,5 +1,6 @@
 import { useCarryFlow } from "@app/hooks/useCarryFlow";
-import { usePerpTrade } from "@app/hooks/usePerpTrade";
+import { useMarkets } from "@app/hooks/useMarketData";
+import { sizeForNotional, usePacificaTrade } from "@app/hooks/usePacificaTrade";
 import { useSpotSwap } from "@app/hooks/useSpotSwap";
 import type { BasketPlan } from "@app/lib/api";
 import type { SpotTokenInfo } from "@lemon/core";
@@ -17,7 +18,7 @@ export interface LegProgress {
 /**
  * Execute a basket entry leg by leg.
  *
- * There is no atomic multi-market order across Avantis and KyberSwap, so a
+ * There is no atomic multi-market order across Pacifica and KyberSwap, so a
  * basket is genuinely N independent trades. Legs run sequentially and each
  * records its own outcome, because the realistic failure here is a *partial*
  * basket — a wallet rejection or a stalled route halfway through — and the user
@@ -28,7 +29,8 @@ export interface LegProgress {
  * entering, and stopping early would leave an even more lopsided basket.
  */
 export function useBasketTrade() {
-	const perp = usePerpTrade();
+	const perp = usePacificaTrade();
+	const { data: catalog } = useMarkets();
 	const spot = useSpotSwap();
 	const carry = useCarryFlow();
 	const [progress, setProgress] = useState<LegProgress[]>([]);
@@ -57,13 +59,12 @@ export function useBasketTrade() {
 				ticker: string;
 				marketSymbol: string;
 				spotSymbol: string | null;
-				pairIndex: number | null;
 			}[];
 			leverage: number;
 			tokens?: SpotTokenInfo[];
 		}) => {
 			setRunning(true);
-			const eligible = params.legs.filter((leg) => leg.spotSymbol && leg.pairIndex !== null);
+			const eligible = params.legs.filter((leg) => leg.spotSymbol);
 			setProgress(
 				params.legs.map((leg) => ({
 					ticker: leg.ticker,
@@ -78,7 +79,7 @@ export function useBasketTrade() {
 			for (const leg of eligible) {
 				update(leg.ticker, { state: "running" });
 				const token = params.tokens?.find((candidate) => candidate.symbol === leg.spotSymbol);
-				if (!token || leg.pairIndex === null) {
+				if (!token) {
 					update(leg.ticker, { state: "failed", error: "Spot token unavailable" });
 					continue;
 				}
@@ -86,7 +87,6 @@ export function useBasketTrade() {
 					await carry.open({
 						token,
 						marketSymbol: leg.marketSymbol,
-						pairIndex: leg.pairIndex,
 						notionalUsd: perLeg,
 						perpLeverage: params.leverage,
 					});
@@ -131,12 +131,22 @@ export function useBasketTrade() {
 				try {
 					if (params.plan.venue === "perp") {
 						const leverage = params.leverage ?? params.plan.leverage;
-						await perp.open({
+						const market = catalog?.markets.find(
+							(candidate) => candidate.symbol === leg.marketSymbol,
+						);
+						if (!market) throw new Error(`No market data for ${leg.marketSymbol}`);
+
+						const amount = sizeForNotional(market, leg.notionalUsd);
+						if (!amount) {
+							throw new Error(`${leg.ticker} allocation is below one lot on this market`);
+						}
+
+						await perp.place({
 							symbol: leg.marketSymbol,
-							side: params.side ?? "long",
-							collateralUsdc: leg.notionalUsd / leverage,
-							leverage,
+							side: (params.side ?? "long") === "long" ? "bid" : "ask",
+							amount,
 							orderType: "market",
+							leverage,
 						});
 						update(leg.ticker, { state: "filled" });
 					} else {
@@ -165,7 +175,7 @@ export function useBasketTrade() {
 			setRunning(false);
 			return { filled, total: params.plan.tradableLegs };
 		},
-		[perp, spot, update],
+		[catalog, perp, spot, update],
 	);
 
 	return { execute, executeCarry, progress, running, reset };

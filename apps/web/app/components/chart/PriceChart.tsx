@@ -25,7 +25,9 @@ type Resolution = (typeof RESOLUTIONS)[number]["value"];
 /**
  * Candlestick chart for a market.
  *
- * Data comes from the Avantis feed shim via our API, which resolves the pair's
+ * Data comes from Pacifica via our API, which maps the app's TradingView-style
+ * resolution codes onto Pacifica's interval names.
+ *
  * Pyth symbol server-side. Equity and FX series have real gaps — markets close
  * overnight and at weekends — so the time scale is left to lightweight-charts'
  * default handling rather than forced to a continuous axis, which would

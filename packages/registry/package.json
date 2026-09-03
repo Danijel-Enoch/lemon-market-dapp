@@ -13,7 +13,6 @@
 	"dependencies": {
 		"viem": "^2.44.2",
 		"@lemon/core": "workspace:*",
-		"@lemon/avantis": "workspace:*",
 		"@lemon/kyber": "workspace:*"
 	}
 }

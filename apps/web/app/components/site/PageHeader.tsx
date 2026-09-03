@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /**
  * App-surface page header.
  *
- * Avantis opens every in-app page the same way: a 30px title, one line of grey
+ * The reference design opens every in-app page the same way: a 30px title, one line of grey
  * supporting copy under it, and any page-level actions pinned to the right on
  * wide screens. Below md the actions drop underneath.
  */

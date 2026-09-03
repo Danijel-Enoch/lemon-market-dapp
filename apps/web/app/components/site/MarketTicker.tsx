@@ -5,7 +5,7 @@ import { Link } from "react-router";
 /**
  * The live market strip that fills the wide block in the hero stat row.
  *
- * Avantis parks a chart there; a scrolling tape of what is actually listed says
+ * The reference design parks a chart there; a scrolling tape of what is actually listed says
  * the same thing with real data. The track is duplicated so the CSS marquee in
  * `globals.css` can loop at -50% without a visible seam.
  */

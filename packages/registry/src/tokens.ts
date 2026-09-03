@@ -1,9 +1,9 @@
 import type { Address } from "@lemon/core";
-import { AVANTIS_CRYPTO_TOKENS } from "./crypto-tokens";
+import { PERP_CRYPTO_TOKENS } from "./crypto-tokens";
 
 export interface StockTokenSeed {
 	symbol: string;
-	/** Base ticker, used to pair with the Avantis perp market. */
+	/** Base ticker, used to pair with the reference perp market. */
 	ticker: string;
 	name: string;
 	address: Address;
@@ -126,13 +126,13 @@ export const ONCHAIN_REGISTRY_ADDRESS =
 	"0x3f3E8cf41cdd3b1D118c16471aB0113DfDDd5CaD" as const satisfies Address;
 
 /**
- * Every Base token with a matching Avantis market — tokenized equities plus
- * verified crypto. This is the spot universe: if Avantis does not list the
+ * Every Base token with a matching the reference design market — tokenized equities plus
+ * verified crypto. This is the spot universe: if the reference design does not list the
  * underlying, it is not tradable here.
  */
 export const SPOT_TOKENS: readonly StockTokenSeed[] = [
 	...COINBASE_STOCK_TOKENS,
-	...AVANTIS_CRYPTO_TOKENS,
+	...PERP_CRYPTO_TOKENS,
 ];
 
 export function findTokenBySymbol(symbol: string): StockTokenSeed | undefined {

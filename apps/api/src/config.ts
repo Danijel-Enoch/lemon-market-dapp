@@ -1,12 +1,3 @@
-import {
-	AvantisClient,
-	AvantisDataClient,
-	AvantisFeedClient,
-	DEFAULT_BATCHED_MARKET_URL,
-	DEFAULT_DATA_API_URL,
-	DEFAULT_FEED_URL,
-	DEFAULT_TX_BUILDER_URL,
-} from "@lemon/avantis";
 import { BASE_CHAIN_ID, isValidBps, MAX_SPOT_FEE_BPS, type SpotFeeConfig } from "@lemon/core";
 import { KyberAggregatorClient, KyberLimitOrderClient } from "@lemon/kyber";
 import { NearMpcClient, type NearNetwork } from "@lemon/near-mpc";
@@ -51,10 +42,6 @@ function readSpotFee(): SpotFeeConfig | null {
 export const config = {
 	chainId: Number(env("CHAIN_ID", String(BASE_CHAIN_ID))),
 	baseRpcUrl: env("BASE_RPC_URL", "https://mainnet.base.org"),
-	avantisTxBuilderUrl: env("AVANTIS_TX_BUILDER_URL", DEFAULT_TX_BUILDER_URL),
-	avantisBatchedMarketUrl: env("AVANTIS_BATCHED_MARKET_URL", DEFAULT_BATCHED_MARKET_URL),
-	avantisDataUrl: env("AVANTIS_DATA_API_URL", DEFAULT_DATA_API_URL),
-	avantisFeedUrl: env("AVANTIS_FEED_URL", DEFAULT_FEED_URL),
 	kyberBaseUrl: env("KYBER_BASE_URL", "https://aggregator-api.kyberswap.com"),
 	kyberClientId: env("KYBER_CLIENT_ID", "lemon-markets"),
 	pacificaApiUrl: env("PACIFICA_API_URL", PACIFICA_MAINNET),
@@ -92,14 +79,12 @@ export const config = {
 	/**
 	 * Fees this deployment collects.
 	 *
-	 * Spot fees ride inside the KyberSwap route. Perp fees come from an Avantis
-	 * builder code: the rate and collector live on-chain in the BuilderCode
-	 * registry, and orders are attributed by an ERC-8021 calldata suffix — so
-	 * only the code goes here, not a percentage.
+	 * Spot fees ride inside the KyberSwap route. Perp fees come from a Pacifica
+	 * builder code, which each user approves during onboarding — the rate is a
+	 * ceiling they agree to, not something charged unilaterally.
 	 */
 	fees: {
 		spot: readSpotFee(),
-		builderCode: optionalEnv("AVANTIS_BUILDER_CODE"),
 		/**
 		 * Pacifica builder attribution, or null when unconfigured.
 		 *
@@ -123,12 +108,6 @@ export const config = {
  * never reach the browser bundle.
  */
 export const clients = {
-	avantis: new AvantisClient({
-		txBuilderUrl: config.avantisTxBuilderUrl,
-		batchedMarketUrl: config.avantisBatchedMarketUrl,
-	}),
-	avantisData: new AvantisDataClient({ baseUrl: config.avantisDataUrl }),
-	avantisFeed: new AvantisFeedClient({ baseUrl: config.avantisFeedUrl }),
 	pacifica: new PacificaClient({ baseUrl: config.pacificaApiUrl }),
 	kyber: new KyberAggregatorClient({
 		baseUrl: config.kyberBaseUrl,

@@ -89,7 +89,7 @@ export default function AccountsPage() {
 						{needsAttention.map(({ position }) => (
 							<li key={position.id}>
 								<Link to={`/carry/${position.id}`} className="underline">
-									{position.tokenSymbol} / {position.avantisSymbol}
+									{position.tokenSymbol} / {position.perpSymbol}
 								</Link>{" "}
 								is only half-open and is not hedged.
 							</li>
@@ -193,7 +193,7 @@ export default function AccountsPage() {
 													{formatQuantity(amount, 6)}
 												</td>
 												<td className="px-3 py-2.5 font-fono text-[var(--ink-2)]">
-													{token.avantisSymbol ?? "—"}
+													{token.perpSymbol ?? "—"}
 												</td>
 												<td className="px-3 py-2.5 text-right">
 													<Link to="/carry" className="t-caption text-lime-400 hover:underline">

@@ -1,5 +1,5 @@
-import { toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
-import type { CarryPosition, CarryStatus } from "@lemon/db";
+import { formatUsd, toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
+import type { CarryPosition, CarryStatus, User } from "@lemon/db";
 import { prisma } from "@lemon/db";
 import {
 	ALLOWED_TRANSITIONS,
@@ -9,15 +9,17 @@ import {
 	planCarry,
 	repairActionsFor,
 } from "@lemon/registry";
-import { clients } from "../config";
-import { getMarket } from "../services/markets";
-import { findSeedToken, getSpotToken } from "../services/spot";
+import { clients, config } from "../config";
+import { builderCodeFor } from "./builder";
+import { getMarket } from "./markets";
+import { tradingIdentity } from "./pacifica-account";
+import { findSeedToken, getSpotToken } from "./spot";
 
 /**
  * Cash-and-carry lifecycle.
  *
- * A carry spans two independent systems — a KyberSwap swap on-chain and an
- * Avantis order via its operator — with no shared transaction. Either leg can
+ * A carry spans two independent systems — a KyberSwap swap on-chain and a
+ * Pacifica order off it — with no shared transaction. Either leg can
  * land while the other fails, and when that happens the user is holding a
  * one-sided, directional position they did not ask for.
  *
@@ -31,6 +33,21 @@ export class CarryTransitionError extends Error {
 	constructor(from: CarryStatus, to: CarryStatus) {
 		super(`Illegal carry transition ${from} -> ${to}`);
 		this.name = "CarryTransitionError";
+	}
+}
+
+/**
+ * A leg could not be executed.
+ *
+ * Distinct from `CarryTransitionError`, which means the state machine was asked
+ * for something impossible. This one means the machine was right and the venue
+ * refused — a different problem, with a different owner, and worth telling
+ * apart in a log.
+ */
+export class CarryLegError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "CarryLegError";
 	}
 }
 
@@ -65,7 +82,6 @@ export interface PlanResponse {
 	symbol: string;
 	tokenSymbol: string;
 	marketSymbol: string;
-	pairIndex: number;
 	plan: CarryPlan;
 	buyable: boolean;
 	blockers: string[];
@@ -82,9 +98,9 @@ export interface PlanResponse {
 export async function buildPlan(request: PlanRequest): Promise<PlanResponse | null> {
 	const token = await getSpotToken(request.symbol);
 	const seed = findSeedToken(request.symbol);
-	if (!token || !seed || token.avantisPairIndex === null || !token.avantisSymbol) return null;
+	if (!token || !seed || !token.perpSymbol) return null;
 
-	const market = await getMarket(token.avantisSymbol);
+	const market = await getMarket(token.perpSymbol);
 	if (!market) return null;
 
 	const blockers: string[] = [];
@@ -142,7 +158,6 @@ export async function buildPlan(request: PlanRequest): Promise<PlanResponse | nu
 		symbol: token.symbol,
 		tokenSymbol: token.symbol,
 		marketSymbol: market.symbol,
-		pairIndex: market.pairIndex,
 		plan,
 		buyable: quote.ok,
 		blockers,
@@ -166,8 +181,7 @@ export async function createPosition(params: {
 		data: {
 			userAddress: params.userAddress.toLowerCase(),
 			tokenSymbol: planned.tokenSymbol,
-			avantisPairIndex: planned.pairIndex,
-			avantisSymbol: planned.marketSymbol,
+			perpSymbol: planned.marketSymbol,
 			status: "VALIDATING",
 			notionalUsd: planned.plan.notionalUsd,
 			perpCollateralUsd: planned.plan.perpCollateralUsd,
@@ -231,26 +245,126 @@ export async function markSpotFilled(
 	});
 }
 
-/** Short leg filled. The position is now hedged. */
-export async function markPerpOpened(
-	id: string,
-	params: { txHash?: string; trackingId?: string; tradeIndex: number; openTimestamp: number },
-) {
-	await recordEvent({
-		positionId: id,
-		leg: "PERP",
-		action: "open",
-		status: "confirmed",
-		txHash: params.txHash,
-		trackingId: params.trackingId,
-	});
-	return transition(id, "OPEN", {
-		perpOpenTxHash: params.txHash,
-		perpTradeIndex: params.tradeIndex,
-		perpOpenTimestamp: params.openTimestamp,
-		openedAt: new Date(),
-		failureReason: null,
-	});
+/**
+ * Open the short leg on Pacifica.
+ *
+ * The order is placed here rather than by the browser. On the reference design this leg was
+ * a wallet signature and an on-chain confirmation, which is what made a
+ * half-open carry so easy to end up with: the spot buy landed, the user closed
+ * the tab, and the hedge never happened. Signing server-side with the agent key
+ * collapses that window to a single request.
+ *
+ * The size is derived from the position's notional and the live mark, then
+ * rounded down onto the lot grid — rounding up could exceed the collateral the
+ * plan was built from.
+ */
+export async function openPerpLeg(id: string, user: User) {
+	const position = await prisma.carryPosition.findUnique({ where: { id } });
+	if (!position) return null;
+
+	const market = await getMarket(position.perpSymbol);
+	if (!market) throw new CarryLegError(`No perp market for ${position.perpSymbol}.`);
+
+	const price = market.pacifica.markPrice;
+	if (!price || price <= 0) {
+		throw new CarryLegError(`No live price for ${position.perpSymbol}; refusing to hedge.`);
+	}
+
+	const lot = market.pacifica.lotSize;
+	const size =
+		lot > 0 ? Math.floor(position.notionalUsd / price / lot) * lot : position.notionalUsd / price;
+	if (size <= 0) {
+		throw new CarryLegError(
+			`${formatUsd(position.notionalUsd)} is below one lot of ${position.perpSymbol}.`,
+		);
+	}
+
+	const identity = tradingIdentity(user);
+
+	try {
+		await clients.pacifica.updateLeverage(identity.sign, {
+			account: identity.account,
+			agentWallet: identity.agentWallet,
+			symbol: market.pacifica.pacificaSymbol,
+			leverage: position.perpLeverage,
+		});
+
+		const receipt = await clients.pacifica.createMarketOrder(identity.sign, {
+			account: identity.account,
+			agentWallet: identity.agentWallet,
+			symbol: market.pacifica.pacificaSymbol,
+			// Short: the hedge against a long spot holding.
+			side: "ask",
+			amount: size.toFixed(decimalsFor(lot)),
+			slippagePercent: "1",
+			builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
+		});
+
+		await recordEvent({
+			positionId: id,
+			leg: "PERP",
+			action: "open",
+			status: "confirmed",
+			trackingId: String(receipt.order_id),
+		});
+
+		return transition(id, "OPEN", { openedAt: new Date(), failureReason: null });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Short leg failed";
+		await markLegFailed(id, { leg: "PERP", error: message });
+		throw new CarryLegError(message);
+	}
+}
+
+/**
+ * Close the short leg.
+ *
+ * The size comes from the live Pacifica position rather than from the stored
+ * plan: partial fills and funding drift mean the two can disagree, and closing
+ * the stored size would leave a remainder short.
+ */
+export async function closePerpLeg(id: string, user: User) {
+	const position = await prisma.carryPosition.findUnique({ where: { id } });
+	if (!position) return null;
+
+	const market = await getMarket(position.perpSymbol);
+	if (!market) throw new CarryLegError(`No perp market for ${position.perpSymbol}.`);
+
+	const identity = tradingIdentity(user);
+	const open = await clients.pacifica.positions(identity.account);
+	const live = open.find((candidate) => candidate.symbol === market.pacifica.pacificaSymbol);
+
+	if (!live) {
+		// Nothing to close. Recording it as closed is right: the hedge is gone
+		// either way, and leaving the position UNWINDING would strand it.
+		await recordEvent({ positionId: id, leg: "PERP", action: "close", status: "already_closed" });
+		return markClosed(id, {});
+	}
+
+	try {
+		const receipt = await clients.pacifica.createMarketOrder(identity.sign, {
+			account: identity.account,
+			agentWallet: identity.agentWallet,
+			symbol: market.pacifica.pacificaSymbol,
+			side: live.side === "bid" ? "ask" : "bid",
+			amount: live.amount,
+			slippagePercent: "1",
+			reduceOnly: true,
+			builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
+		});
+
+		return markClosed(id, { trackingId: String(receipt.order_id) });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Closing the short failed";
+		await markLegFailed(id, { leg: "PERP", error: message });
+		throw new CarryLegError(message);
+	}
+}
+
+/** Decimal places implied by a lot size, so a rounded size formats exactly. */
+function decimalsFor(increment: number): number {
+	if (!increment || increment >= 1) return 0;
+	return Math.min(8, Math.ceil(-Math.log10(increment)));
 }
 
 /**
@@ -345,7 +459,7 @@ export function repairOptions(position: CarryPosition): RepairOption[] {
 			{
 				action: "retry_perp",
 				label: "Open the short leg",
-				description: `Short ${position.avantisSymbol} to hedge the ${position.shares ?? 0} ${position.tokenSymbol} you are holding.`,
+				description: `Short ${position.perpSymbol} to hedge the ${position.shares ?? 0} ${position.tokenSymbol} you are holding.`,
 			},
 			{
 				action: "unwind_spot",
@@ -360,7 +474,7 @@ export function repairOptions(position: CarryPosition): RepairOption[] {
 			{
 				action: "close_perp",
 				label: "Close the short leg",
-				description: `Close the ${position.avantisSymbol} short — there is no spot position hedging it.`,
+				description: `Close the ${position.perpSymbol} short — there is no spot position hedging it.`,
 			},
 		];
 	}

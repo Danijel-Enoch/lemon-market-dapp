@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /**
  * Readout tile.
  *
- * The Avantis treatment: a flat surface with no border, a quiet sentence-case
+ * The the reference design treatment: a flat surface with no border, a quiet sentence-case
  * label, and the figure itself set in the mono face with tabular numerals so a
  * row of tiles never jitters as values tick.
  */

@@ -1,6 +1,6 @@
-import type { Resolution } from "@lemon/avantis";
 import { Elysia, t } from "elysia";
 import { getBasket, getBasketIndex, listBaskets, planBasket } from "../services/baskets";
+import type { Resolution } from "../services/candles";
 
 const RESOLUTIONS = ["1", "5", "15", "30", "60", "240", "D", "W"] as const;
 
@@ -36,7 +36,10 @@ export const basketRoutes = new Elysia({ prefix: "/baskets" })
 			const to = query.to ?? Math.floor(Date.now() / 1000);
 			const from = query.from ?? to - (LOOKBACK[resolution] ?? 14 * 24 * 3600);
 
-			const index = await getBasketIndex(params.id, resolution, from, to);
+			// The query is in seconds, as TradingView-style ranges are; Pacifica
+			// takes milliseconds. Passing seconds through would silently ask for
+			// candles starting in 1970 and return nothing.
+			const index = await getBasketIndex(params.id, resolution, from * 1000);
 			if (!index) return status(404, { error: `Unknown basket: ${params.id}` });
 			return { basketId: params.id, resolution, ...index };
 		},

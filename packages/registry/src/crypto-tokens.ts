@@ -1,12 +1,12 @@
 import type { StockTokenSeed } from "./tokens";
 
 /**
- * Base ERC-20s that correspond to an Avantis crypto market.
+ * Base ERC-20s that correspond to a listed perp crypto market.
  *
  * Curation rule: the token must be the **same asset** the perp prices, not
  * merely a ticker match. That distinction is load-bearing — a DexScreener sweep
  * for "FARTCOIN" surfaces "Based Fartcoin", a separate Base-native token, while
- * the Avantis FARTCOIN/USD feed prices the Solana original. Pairing those for a
+ * the FARTCOIN/USD perp prices the Solana original. Pairing those for a
  * cash-and-carry would produce a hedge against the wrong asset, so it is
  * excluded despite matching by symbol and having liquidity.
  *
@@ -16,7 +16,7 @@ import type { StockTokenSeed } from "./tokens";
  * deliberately omitted: they did not appear on the curated list, so their
  * canonical status could not be confirmed.
  */
-export const AVANTIS_CRYPTO_TOKENS: readonly StockTokenSeed[] = [
+export const PERP_CRYPTO_TOKENS: readonly StockTokenSeed[] = [
 	{
 		symbol: "WETH",
 		ticker: "ETH",

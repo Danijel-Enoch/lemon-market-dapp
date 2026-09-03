@@ -1,10 +1,6 @@
-import { requestJson } from "@lemon/core";
 import { isDatabaseConfigured, prisma } from "@lemon/db";
 import { computePoints, type PointsBreakdown, tierFor, volumePoints } from "@lemon/registry";
-import { TtlCache } from "../cache";
 import { config } from "../config";
-
-const AVANTIS_HISTORY_URL = "https://api.avantisfi.com";
 
 /**
  * Verify a transaction actually happened before it earns anything.
@@ -111,34 +107,37 @@ export async function recordEvent(params: {
 }
 
 /**
- * Perp volume for an address, straight from Avantis.
+ * Record perp volume from an order this server placed.
  *
- * Read from the protocol rather than recorded by us: perp orders are submitted
- * gaslessly by the Avantis operator, so we never see their transactions at all,
- * and this is settled on-chain history rather than anything a client asserts.
+ * Not verified against a chain transaction, because there is no chain
+ * transaction: a Pacifica order is an API call this process made itself with
+ * the user's agent key. That makes it a stronger source than reading volume
+ * back from a venue's own history endpoint — but it does mean the caller must
+ * be the order path, never a client report.
+ *
+ * The order id doubles as the idempotency key: `txHash` is unique, so a retried
+ * or replayed record cannot award points twice.
  */
-const perpVolumeCache = new TtlCache<Map<string, number>>(async () => new Map(), 60_000);
+export async function recordPerpVolume(params: {
+	userAddress: string;
+	volumeUsd: number;
+	orderId: number | string;
+}): Promise<void> {
+	if (!isDatabaseConfigured() || params.volumeUsd <= 0) return;
 
-export async function getPerpVolume(trader: string): Promise<number> {
-	const cache = await perpVolumeCache.get();
-	const key = trader.toLowerCase();
-	const cached = cache.get(key);
-	if (cached !== undefined) return cached;
-
-	const response = await requestJson<{ data?: { totalSize?: number }[] | { totalSize?: number } }>(
-		"avantis-history",
-		AVANTIS_HISTORY_URL,
-		`/v1/history/portfolio/total-size/${trader}`,
-		{ timeoutMs: 15_000 },
-	).catch(() => null);
-
-	const raw = response?.data;
-	const total = Array.isArray(raw)
-		? raw.reduce((sum, row) => sum + (row.totalSize ?? 0), 0)
-		: (raw?.totalSize ?? 0);
-
-	cache.set(key, total);
-	return total;
+	await prisma.pointsEvent
+		.create({
+			data: {
+				userAddress: params.userAddress.toLowerCase(),
+				source: "PERP_VOLUME",
+				volumeUsd: params.volumeUsd,
+				points: volumePoints(params.volumeUsd),
+				txHash: `pacifica:${params.orderId}`,
+			},
+		})
+		// A duplicate order id is the idempotent case, not an error worth
+		// failing an already-placed order over.
+		.catch(() => undefined);
 }
 
 export interface PointsProfile extends PointsBreakdown {
@@ -150,7 +149,7 @@ export interface PointsProfile extends PointsBreakdown {
 export async function getProfile(address: string): Promise<PointsProfile> {
 	const key = address.toLowerCase();
 
-	const [events, carries, perpVolumeUsd] = await Promise.all([
+	const [events, carries] = await Promise.all([
 		isDatabaseConfigured()
 			? prisma.pointsEvent.groupBy({
 					by: ["source"],
@@ -164,11 +163,11 @@ export async function getProfile(address: string): Promise<PointsProfile> {
 					where: { userAddress: key, status: { in: ["OPEN", "UNWINDING", "CLOSED"] } },
 				})
 			: Promise.resolve(0),
-		getPerpVolume(address).catch(() => 0),
 	]);
 
 	const bySource = new Map(events.map((row) => [row.source, row]));
 	const spotVolumeUsd = bySource.get("SPOT_VOLUME")?._sum.volumeUsd ?? 0;
+	const perpVolumeUsd = bySource.get("PERP_VOLUME")?._sum.volumeUsd ?? 0;
 	const basketEntries = bySource.get("BASKET_ENTRY")?._count._all ?? 0;
 
 	const breakdown = computePoints({
@@ -194,16 +193,15 @@ export interface LeaderboardRow {
 /**
  * Ranked points for everyone who has traded through this app.
  *
- * Perp volume is fetched per address, so the board is capped rather than
- * unbounded — a leaderboard nobody reads past row 100 is not worth N hundred
- * upstream calls.
+ * Every figure now comes from our own recorded events, so the board is a
+ * couple of grouped queries rather than one upstream call per address.
  */
 export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 	if (!isDatabaseConfigured()) return [];
 
 	const [eventAddresses, carryAddresses] = await Promise.all([
 		prisma.pointsEvent.groupBy({
-			by: ["userAddress"],
+			by: ["userAddress", "source"],
 			_sum: { volumeUsd: true, points: true },
 		}),
 		prisma.carryPosition.groupBy({
@@ -218,13 +216,19 @@ export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 		...carryAddresses.map((row) => row.userAddress),
 	]);
 
-	const spotBy = new Map(eventAddresses.map((row) => [row.userAddress, row._sum.volumeUsd ?? 0]));
+	const volumeBy = new Map<string, { spot: number; perp: number }>();
+	for (const row of eventAddresses) {
+		const entry = volumeBy.get(row.userAddress) ?? { spot: 0, perp: 0 };
+		if (row.source === "SPOT_VOLUME") entry.spot += row._sum.volumeUsd ?? 0;
+		if (row.source === "PERP_VOLUME") entry.perp += row._sum.volumeUsd ?? 0;
+		volumeBy.set(row.userAddress, entry);
+	}
 	const carryBy = new Map(carryAddresses.map((row) => [row.userAddress, row._count._all]));
 
 	const rows = await Promise.all(
 		Array.from(addresses).map(async (address) => {
-			const perpVolumeUsd = await getPerpVolume(address).catch(() => 0);
-			const spotVolumeUsd = spotBy.get(address) ?? 0;
+			const perpVolumeUsd = volumeBy.get(address)?.perp ?? 0;
+			const spotVolumeUsd = volumeBy.get(address)?.spot ?? 0;
 			const carriesOpened = carryBy.get(address) ?? 0;
 			const breakdown = computePoints({
 				perpVolumeUsd,
@@ -247,48 +251,4 @@ export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 		.sort((a, b) => b.points - a.points)
 		.slice(0, limit)
 		.map((row, index) => ({ rank: index + 1, ...row }));
-}
-
-export interface GlobalLeaderboardRow {
-	rank: number;
-	trader: string;
-	volumeUsd: number;
-	trades: number;
-	winRatePercent: number;
-	pnlUsd: number;
-}
-
-/**
- * Avantis' own protocol-wide leaderboard.
- *
- * Shown alongside ours and labelled as such — it ranks every Avantis trader by
- * realised PnL, not activity through this app, so presenting the two as one
- * board would misrepresent both.
- */
-const globalCache = new TtlCache<GlobalLeaderboardRow[]>(async () => {
-	const response = await requestJson<{
-		leaderBoard?: {
-			trader: string;
-			rank: number;
-			totalPositionSizes: number;
-			totalTrades: number;
-			winRate: number;
-			totalProfits: number;
-		}[];
-	}>("avantis-history", AVANTIS_HISTORY_URL, "/v1/history/portfolio/leader-board", {
-		timeoutMs: 15_000,
-	});
-
-	return (response.leaderBoard ?? []).map((row) => ({
-		rank: row.rank,
-		trader: row.trader,
-		volumeUsd: row.totalPositionSizes ?? 0,
-		trades: row.totalTrades ?? 0,
-		winRatePercent: (row.winRate ?? 0) * 100,
-		pnlUsd: row.totalProfits ?? 0,
-	}));
-}, 5 * 60_000);
-
-export function getGlobalLeaderboard(): Promise<GlobalLeaderboardRow[]> {
-	return globalCache.get().catch(() => []);
 }

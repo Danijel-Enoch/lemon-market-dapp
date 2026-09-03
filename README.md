@@ -11,7 +11,7 @@ the app derives for you — see **Accounts** below for exactly what that means.
 | | |
 |---|---|
 | **Perps** | Every market Pacifica lists — 76 across crypto, US equities, FX majors, commodities and metals. Market and limit orders. Orders are signed server-side by an agent key you authorise once, so trading costs no wallet prompt and no gas. |
-| **Spot** | Real tokens on Base routed through the KyberSwap aggregator, with gasless off-chain limit orders. The tradable set is restricted to underlyings Avantis also lists, so anything you can hold you can also hedge. |
+| **Spot** | Real tokens on Base routed through the KyberSwap aggregator, with gasless off-chain limit orders. The tradable set is restricted to underlyings Pacifica also lists, so anything you can hold you can also hedge. |
 | **Cash & carry** | Buy the spot token, short the matching perp at equal notional, collect funding. Works on crypto and tokenized equities. |
 | **Baskets** | Enter several correlated markets at once, equally weighted, with a composite index chart. Available as perp, spot, or carry. |
 
@@ -30,7 +30,6 @@ packages/
   core/       Shared types, unit conversion, symbol normalisation
   near-mpc/   NEAR chain-signature address derivation and Ed25519 signing
   pacifica/   Perp REST client, request signing, Solana deposit instruction
-  avantis/    tx-builder, data service and price feed clients
   kyber/      Aggregator + limit-order clients
   relay/      Deposit addresses and status
   registry/   Token registry, basket definitions, carry maths
@@ -84,7 +83,10 @@ wallet through MPC — deposits it into Pacifica's custody program. Those two
 steps are shown separately, because between them the funds have left one place
 and not yet arrived at the other.
 
-Cash-and-carry and baskets still trade Avantis perps on Base; they are unchanged.
+Cash-and-carry and baskets trade the same Pacifica perps. Their short leg is
+placed server-side with your agent key, so a carry no longer needs a wallet
+signature per leg — which is what used to leave positions half-open when a user
+closed the tab between them.
 
 ## Running it
 
@@ -121,19 +123,11 @@ separately — see `.env.example` for the full notes.
   `SPOT_FEE_CHARGE_BY`). KyberSwap takes the cut inside the route, so the quote
   the user is shown is already net of it. Both values are required; one without
   the other is treated as no fee.
-- **Perp (Pacifica)** — `PACIFICA_BUILDER_CODE` + `PACIFICA_BUILDER_MAX_FEE_RATE`.
-  Users approve the code during onboarding; orders they placed before approving
-  are unattributed. See **Accounts** above.
-
-- **Perp (Avantis, used by carry and baskets)** — `AVANTIS_BUILDER_CODE`. The rate and collector are **not** set
-  here: they live on-chain in the Avantis BuilderCode registry, which you
-  register once. Orders are attributed by an ERC-8021 calldata suffix.
-
-  One caveat before relying on it: attribution is a calldata suffix, and on the
-  gasless path the Avantis operator builds its own calldata, so the suffix never
-  reaches the chain and no builder fee accrues. Gasless is the default, so send
-  orders with `gasless: false` when you want them attributed. `/api/perp/open`
-  and `/api/perp/close` return an `attributed` flag saying which happened.
+- **Perp** — `PACIFICA_BUILDER_CODE` + `PACIFICA_BUILDER_MAX_FEE_RATE`. Users
+  approve the code during onboarding; orders placed before they approve are
+  unattributed. Pacifica *rejects* an order whose builder fee exceeds the
+  ceiling a user approved rather than filling it unattributed, so set the
+  ceiling above the rate you actually charge. See **Accounts** above.
 
 ### Docker
 
@@ -159,8 +153,9 @@ bun run db:seed      # seed the token registry (verifies decimals on-chain)
 
 These are behaviours that look like bugs but are not.
 
-**Funding sign is inverted from most venues.** Avantis documents it as *"a
-positive rate means you receive, negative means you pay."* A cash-and-carry
+**Funding sign is inverted from most venues.** Pacifica quotes one hourly rate
+where a *positive* number means longs pay shorts; the app splits it by side, so
+a figure shown against your side is what you receive. A cash-and-carry
 holds the short side, so it only earns when the short rate is positive — which
 happens when longs are crowded. The app shows the real sign and warns when a
 carry would cost money.
@@ -173,9 +168,10 @@ time.
 **Price impact on stock pools is material.** Over 1% on a $100 trade is normal
 given the depth. It is shown as a headline number on the order panel.
 
-**Pair indexes are never hardcoded.** Avantis pair indexes are not stable across
-protocol versions — v1 documented BTC at index 0, live v2 returns ETH there —
-so every market is resolved by symbol at call time.
+**Markets are addressed by symbol, never by index.** Venue pair indexes are not
+stable across protocol versions, so a persisted index can end up naming a
+different asset after an upgrade — and trade it without complaint. Every market
+is resolved by symbol at call time.
 
 **Baskets are N separate trades.** There is no atomic multi-market order, so a
 basket can partially fill. Each leg reports its own outcome.
@@ -188,7 +184,8 @@ complete the short or unwind the spot — it is never silently abandoned.
 
 | Service | Used for | Docs |
 |---|---|---|
-| Avantis | Perps, funding, OHLCV | [sdk.avantisfi.com](https://sdk.avantisfi.com) |
+| Pacifica | Perps, funding, OHLCV, custody | [docs.pacifica.fi](https://docs.pacifica.fi) |
+| NEAR | Chain signatures for derived wallets | [docs.near.org](https://docs.near.org/chain-abstraction/chain-signatures) |
 | KyberSwap | Spot routing, limit orders | [docs.kyberswap.com](https://docs.kyberswap.com) |
 | Relay | Cross-chain deposits (API only, UI disabled) | [docs.relay.link](https://docs.relay.link) |
 | Coinbase | Tokenized equities (B20) on Base | [docs.base.org](https://docs.base.org) |

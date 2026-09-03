@@ -1,6 +1,5 @@
-import { usePerpTrade } from "@app/hooks/usePerpTrade";
 import { useSpotSwap } from "@app/hooks/useSpotSwap";
-import { type CarryPositionRecord, carryApi, perpApi } from "@app/lib/api";
+import { type CarryPositionRecord, carryApi } from "@app/lib/api";
 import type { SpotTokenInfo } from "@lemon/core";
 import { fromBaseUnits } from "@lemon/core";
 import { useCallback, useState } from "react";
@@ -37,44 +36,22 @@ const INITIAL: CarryFlowState = { step: "idle", positionId: null, orphaned: fals
  * Spot executes first deliberately: it is the slower, failure-prone leg (an
  * on-chain swap through thin pools), so discovering its failure before any perp
  * exposure exists is cheaper than the reverse.
+ *
+ * The short leg is one server call. It used to be a wallet signature followed
+ * by polling the chain for the trade slot, which is what made the unhedged
+ * window wide enough to matter; the agent key closes it to a single request.
  */
 export function useCarryFlow() {
 	const { address } = useConnection();
 	const spot = useSpotSwap();
-	const perp = usePerpTrade();
 	const [state, setState] = useState<CarryFlowState>(INITIAL);
 
 	const reset = useCallback(() => setState(INITIAL), []);
-
-	/**
-	 * Locate the perp trade slot that was just opened.
-	 *
-	 * The fill is asynchronous — the operator submits after the intent is
-	 * accepted — so the position may not be readable immediately. Without the
-	 * trade index and open timestamp the short cannot later be closed, which is
-	 * why this retries rather than giving up on the first empty read.
-	 */
-	const findOpenedTrade = useCallback(
-		async (pairIndex: number, attempts = 6) => {
-			if (!address) return null;
-			for (let attempt = 0; attempt < attempts; attempt++) {
-				const { positions } = await perpApi.positions(address);
-				const match = positions
-					.filter((position) => position.pairIndex === pairIndex && position.side === "short")
-					.sort((a, b) => b.openTimestamp - a.openTimestamp)[0];
-				if (match) return match;
-				await new Promise((resolve) => setTimeout(resolve, 2_000));
-			}
-			return null;
-		},
-		[address],
-	);
 
 	const open = useCallback(
 		async (params: {
 			token: SpotTokenInfo;
 			marketSymbol: string;
-			pairIndex: number;
 			notionalUsd: number;
 			perpLeverage: number;
 			slippagePercent?: number;
@@ -120,67 +97,33 @@ export function useCarryFlow() {
 			// From here the user holds unhedged spot until this succeeds.
 			setState((prev) => ({ ...prev, step: "opening_short" }));
 			try {
-				await perp.open({
-					symbol: params.marketSymbol,
-					side: "short",
-					collateralUsdc: params.notionalUsd / params.perpLeverage,
-					leverage: params.perpLeverage,
-					orderType: "market",
-					slippagePercent: params.slippagePercent,
-				});
-
-				const trade = await findOpenedTrade(params.pairIndex);
-				if (!trade) {
-					throw new Error(
-						"The short was submitted but has not appeared on-chain yet. Check the position before opening another.",
-					);
-				}
-
-				const updated = await carryApi.perpOpened(position.id, {
-					tradeIndex: trade.index,
-					openTimestamp: trade.openTimestamp,
-				});
+				const updated = await carryApi.openPerp(position.id);
 				setState((prev) => ({ ...prev, step: "done" }));
 				return updated;
 			} catch (cause) {
+				// The server already recorded the failed leg, so the position is
+				// findable under "needs attention" even if this tab goes away.
 				const message = cause instanceof Error ? cause.message : "Short leg failed";
-				await carryApi.legFailed(position.id, { leg: "PERP", error: message });
 				setState((prev) => ({ ...prev, step: "idle", orphaned: true, error: message }));
 				throw cause;
 			}
 		},
-		[address, findOpenedTrade, perp, spot],
+		[address, spot],
 	);
 
 	/** Complete the missing short on an orphaned position. */
-	const repairShort = useCallback(
-		async (position: CarryPositionRecord) => {
-			setState({ ...INITIAL, positionId: position.id, step: "opening_short" });
-			try {
-				await perp.open({
-					symbol: position.avantisSymbol,
-					side: "short",
-					collateralUsdc: position.perpCollateralUsd,
-					leverage: position.perpLeverage,
-					orderType: "market",
-				});
-				const trade = await findOpenedTrade(position.avantisPairIndex);
-				if (!trade) throw new Error("Short not yet visible on-chain — try again shortly.");
-
-				const updated = await carryApi.perpOpened(position.id, {
-					tradeIndex: trade.index,
-					openTimestamp: trade.openTimestamp,
-				});
-				setState((prev) => ({ ...prev, step: "done", orphaned: false }));
-				return updated;
-			} catch (cause) {
-				const message = cause instanceof Error ? cause.message : "Repair failed";
-				setState((prev) => ({ ...prev, step: "idle", orphaned: true, error: message }));
-				throw cause;
-			}
-		},
-		[findOpenedTrade, perp],
-	);
+	const repairShort = useCallback(async (position: CarryPositionRecord) => {
+		setState({ ...INITIAL, positionId: position.id, step: "opening_short" });
+		try {
+			const updated = await carryApi.openPerp(position.id);
+			setState((prev) => ({ ...prev, step: "done", orphaned: false }));
+			return updated;
+		} catch (cause) {
+			const message = cause instanceof Error ? cause.message : "Repair failed";
+			setState((prev) => ({ ...prev, step: "idle", orphaned: true, error: message }));
+			throw cause;
+		}
+	}, []);
 
 	const unwind = useCallback(
 		async (position: CarryPositionRecord, token: SpotTokenInfo) => {
@@ -211,24 +154,16 @@ export function useCarryFlow() {
 			// --- Leg 2: close the short --------------------------------------
 			setState((prev) => ({ ...prev, step: "closing_short" }));
 			try {
-				if (position.perpTradeIndex !== null) {
-					await perp.close({
-						pairIndex: position.avantisPairIndex,
-						index: position.perpTradeIndex,
-						collateralToCloseUsdc: position.perpCollateralUsd,
-					});
-				}
-				const closed = await carryApi.closed(position.id, {});
+				const closed = await carryApi.closePerp(position.id);
 				setState((prev) => ({ ...prev, step: "done" }));
 				return closed;
 			} catch (cause) {
 				const message = cause instanceof Error ? cause.message : "Closing the short failed";
-				await carryApi.legFailed(position.id, { leg: "PERP", error: message });
 				setState((prev) => ({ ...prev, step: "idle", orphaned: true, error: message }));
 				throw cause;
 			}
 		},
-		[perp, spot],
+		[spot],
 	);
 
 	/** Sell the spot leg of an orphan and close the position out. */
@@ -264,6 +199,5 @@ export function useCarryFlow() {
 		unwindSpotOnly,
 		isBusy: state.step !== "idle" && state.step !== "done",
 		spotStage: spot.stage,
-		perpStage: perp.stage,
 	};
 }

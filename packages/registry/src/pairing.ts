@@ -1,4 +1,3 @@
-import { findMarketByTicker } from "@lemon/avantis";
 import type { Market, StockToken } from "@lemon/core";
 import { SPOT_TOKENS, type StockTokenSeed } from "./tokens";
 
@@ -7,16 +6,40 @@ import { SPOT_TOKENS, type StockTokenSeed } from "./tokens";
  * differently.
  *
  * Alphabet is the live case: Coinbase issues `GOOGLc` (Class A, ticker GOOGL)
- * while Avantis lists the perp as `GOOG/USD` (Class C). Without this the token
- * silently fails to pair and drops out of cash-and-carry entirely — it looks
- * like the market does not exist rather than like a naming mismatch.
+ * while a venue may list the perp against Class C as `GOOG`. Without this the
+ * token silently fails to pair and drops out of cash-and-carry entirely — it
+ * looks like the market does not exist rather than like a naming mismatch.
  */
 const TICKER_ALIASES: Record<string, string[]> = {
 	GOOGL: ["GOOG"],
 	GOOG: ["GOOGL"],
 };
 
-function resolveMarket(markets: Market[], ticker: string): Market | undefined {
+/**
+ * The least a market has to expose to be paired with a token.
+ *
+ * Narrower than `Market` so the pairing can run against a raw venue catalog —
+ * the seed script has one of those and no reason to build a full `Market`.
+ */
+export interface PerpMarketRef {
+	symbol: string;
+	base: string;
+	quote: string;
+}
+
+/** Find the USD-quoted market for a ticker, e.g. "NVDA" → NVDA/USD. */
+export function findMarketByTicker<T extends PerpMarketRef>(
+	markets: readonly T[],
+	ticker: string,
+): T | undefined {
+	const target = ticker.trim().toUpperCase();
+	return markets.find((market) => market.base.toUpperCase() === target && market.quote === "USD");
+}
+
+function resolveMarket<T extends PerpMarketRef>(
+	markets: readonly T[],
+	ticker: string,
+): T | undefined {
 	const direct = findMarketByTicker(markets, ticker);
 	if (direct) return direct;
 
@@ -28,14 +51,15 @@ function resolveMarket(markets: Market[], ticker: string): Market | undefined {
 }
 
 /**
- * Join the stock-token registry to the live Avantis catalog by ticker.
+ * Join the stock-token registry to the live perp catalog by ticker.
  *
- * The join is by symbol, never by a stored pair index: Avantis pair indexes are
- * not stable across protocol versions, so a persisted index can silently point
- * at a different company after an upgrade.
+ * The join is by symbol, never by a stored index. Venue indexes are not stable
+ * across protocol versions, so a persisted one can end up pointing at a
+ * different company after an upgrade — a silent failure that would hedge a
+ * position against the wrong underlying.
  */
 export function pairTokensWithMarkets(
-	markets: Market[],
+	markets: readonly PerpMarketRef[],
 	tokens: readonly StockTokenSeed[] = SPOT_TOKENS,
 ): StockToken[] {
 	return tokens.map((token) => {
@@ -46,8 +70,7 @@ export function pairTokensWithMarkets(
 			name: token.name,
 			address: token.address,
 			decimals: token.decimals,
-			avantisPairIndex: market?.pairIndex ?? null,
-			avantisSymbol: market?.symbol ?? null,
+			perpSymbol: market?.symbol ?? null,
 		};
 	});
 }
@@ -66,11 +89,11 @@ export function findCarryCandidates(
 	markets: Market[],
 	isBuyable: (symbol: string) => boolean,
 ): CarryCandidate[] {
-	const byIndex = new Map(markets.map((market) => [market.pairIndex, market]));
+	const bySymbol = new Map(markets.map((market) => [market.symbol, market]));
 
 	return tokens.flatMap((token) => {
-		if (token.avantisPairIndex === null) return [];
-		const market = byIndex.get(token.avantisPairIndex);
+		if (token.perpSymbol === null) return [];
+		const market = bySymbol.get(token.perpSymbol);
 		if (!market || !market.isListed || market.closeOnly) return [];
 		if (!isBuyable(token.symbol)) return [];
 		return [{ token, market }];

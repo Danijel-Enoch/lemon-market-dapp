@@ -6,21 +6,18 @@ export type Hex = `0x${string}`;
 export type Side = "long" | "short";
 export type OrderType = "market" | "limit" | "stop_limit" | "market_pnl";
 
-/** A tradable Avantis market, normalised from `GET /v2/pairs`. */
+/**
+ * A tradable perp market.
+ *
+ * Keyed by symbol throughout. Venues that identify markets by a numeric index
+ * are a poor fit for persistence — an index can silently point at a different
+ * company after an upstream change — so nothing here stores one.
+ */
 export interface Market {
-	pairIndex: number;
 	symbol: string;
 	base: string;
 	quote: string;
 	assetClass: AssetClass;
-	/**
-	 * Pyth feed symbol, e.g. "Equity.US.NVDA/USD". This is the identifier the
-	 * Avantis OHLCV shim accepts — the trading symbol ("NVDA/USD") returns an
-	 * empty series.
-	 */
-	pythSymbol: string | null;
-	/** Avantis "Upside" market: no upfront fee, tiered profit share on wins. */
-	isUpside: boolean;
 	minLeverage: number;
 	maxLeverage: number;
 	minPositionUsdc: number;
@@ -34,36 +31,6 @@ export interface Market {
 	isOpen: boolean;
 	nextOpen: number | null;
 	nextClose: number | null;
-}
-
-/** An open Avantis position, normalised from `GET /v2/positions`. */
-export interface PerpPosition {
-	pairIndex: number;
-	symbol: string;
-	index: number;
-	side: Side;
-	collateralUsdc: number;
-	leverage: number;
-	notionalUsdc: number;
-	openPrice: number;
-	liquidationPrice: number | null;
-	takeProfit: number | null;
-	stopLoss: number | null;
-	coinExposure: number | null;
-	/** Unix seconds. Close intents are bound to this, so it must round-trip exactly. */
-	openTimestamp: number;
-}
-
-/** A pending limit / stop-limit order. */
-export interface PerpOrder {
-	pairIndex: number;
-	symbol: string;
-	index: number;
-	side: Side;
-	orderType: OrderType;
-	collateralUsdc: number;
-	leverage: number;
-	triggerPrice: number;
 }
 
 /**
@@ -93,9 +60,13 @@ export interface StockToken {
 	name: string;
 	address: Address;
 	decimals: number;
-	/** Avantis pair index for the matching perp, resolved by symbol at runtime. */
-	avantisPairIndex: number | null;
-	avantisSymbol: string | null;
+	/**
+	 * The perp market that hedges this token, resolved by ticker at runtime.
+	 *
+	 * Null when nothing lists a matching perp, which is what makes the token
+	 * un-hedgeable and so unavailable for cash-and-carry.
+	 */
+	perpSymbol: string | null;
 }
 
 /**
@@ -131,6 +102,25 @@ export interface SpotTokenInfo extends StockToken {
 	probeFailed: boolean;
 	routabilityCheckedAt: number | null;
 }
+
+/**
+ * One OHLCV bar.
+ *
+ * `time` is milliseconds, which is what the charting library wants; venues that
+ * publish seconds are normalised at the edge rather than here, so nothing
+ * downstream has to remember which unit it is holding.
+ */
+export interface Candle {
+	time: number;
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume?: number;
+}
+
+/** Chart resolutions the app offers, in minutes (or "D" for daily). */
+export type Resolution = "1" | "5" | "15" | "60" | "240" | "D";
 
 /** An executable spot quote from the KyberSwap aggregator. */
 export interface SpotQuote {

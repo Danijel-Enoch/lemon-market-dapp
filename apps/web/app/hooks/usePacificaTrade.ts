@@ -83,6 +83,26 @@ export function roundToLot(amount: number, lotSize: number): number {
 	return Math.floor(amount / lotSize) * lotSize;
 }
 
+/**
+ * The order size, in base units, for a USD notional on this market.
+ *
+ * Returns null when the notional does not buy a whole lot — callers should skip
+ * the leg rather than send a zero-size order the venue will reject. Kept beside
+ * the rounding rules so a basket leg and a single ticket size identically.
+ */
+export function sizeForNotional(
+	market: { pacifica?: { lotSize: number; markPrice: number | null } },
+	notionalUsd: number,
+): string | null {
+	const price = market.pacifica?.markPrice ?? 0;
+	const lot = market.pacifica?.lotSize ?? 0;
+	if (price <= 0 || notionalUsd <= 0) return null;
+
+	const size = roundToLot(notionalUsd / price, lot);
+	if (size <= 0) return null;
+	return size.toFixed(decimalsFor(lot));
+}
+
 /** Decimal places implied by an increment, for display without float noise. */
 export function decimalsFor(increment: number): number {
 	if (!increment || increment >= 1) return 0;

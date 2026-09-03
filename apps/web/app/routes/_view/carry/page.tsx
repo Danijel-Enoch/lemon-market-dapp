@@ -9,7 +9,7 @@ export const meta: MetaFunction = () => [
 	{
 		name: "description",
 		content:
-			"Delta-neutral positions: hold tokenized stock spot, short the matching Avantis perp, collect funding.",
+			"Delta-neutral positions: hold tokenized stock spot, short the matching Pacifica perp, collect funding.",
 	},
 ];
 

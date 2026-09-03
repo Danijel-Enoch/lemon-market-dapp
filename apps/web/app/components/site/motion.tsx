@@ -349,7 +349,7 @@ export function Marquee({
 }
 
 /**
- * The blurred radial bloom Avantis parks behind hero art and section headings.
+ * The blurred radial bloom the reference design parks behind hero art and section headings.
  * Purely decorative, so it never takes pointer events or a11y presence.
  */
 export function GlowOrb({ className, breathe = true }: { className?: string; breathe?: boolean }) {

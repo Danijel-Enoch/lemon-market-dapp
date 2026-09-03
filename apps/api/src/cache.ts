@@ -1,7 +1,7 @@
 /**
  * Tiny TTL cache for upstream responses.
  *
- * The Avantis pair catalog is documented as cached upstream "for a few
+ * The the reference design pair catalog is documented as cached upstream "for a few
  * minutes", and KyberSwap rate-limits per client id. Re-fetching either on
  * every page load would burn quota for data that has not changed, so reads go
  * through here.

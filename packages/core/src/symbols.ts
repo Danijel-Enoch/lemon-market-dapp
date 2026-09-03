@@ -1,20 +1,20 @@
 /**
- * Symbol normalisation across the three systems we talk to.
+ * Symbol normalisation across the systems we talk to.
  *
- *   Avantis pair     "NVDA/USD", "EUR/USD"     (separators /, -, _ all accepted upstream)
- *   Coinbase B20     "NVDAc"                   (base ticker + lowercase "c")
- *   Our canonical    "NVDA", "EUR/USD"
+ *   Pacifica market   "NVDA", "BTC"             (base only; USD is implied)
+ *   Display pair      "NVDA/USD", "EUR/USD"     (separators /, -, _ all accepted)
+ *   Coinbase B20      "NVDAc"                   (base ticker + lowercase "c")
+ *   Our canonical     "NVDA", "EUR/USD"
  *
- * Pair *indexes* are deliberately not modelled here. They are resolved at
- * runtime from `GET /v2/pairs`, because they are not stable across Avantis
- * versions — v1 documented BTC as index 0, the live v2 catalog returns ETH at
- * index 0. Hardcoding one would silently trade the wrong asset.
+ * Markets are addressed by symbol everywhere, never by a numeric index. Venue
+ * indexes are not stable across protocol versions — a persisted one can end up
+ * naming a different asset after an upgrade, and trade it without complaint.
  */
 
 export type AssetClass = "equity" | "fx" | "crypto" | "commodity" | "metal" | "index" | "unknown";
 
 /**
- * Asset classes this app trades: everything Avantis lists.
+ * Asset classes this app trades: everything Pacifica lists.
  *
  * The catalog is filtered by *listing status*, not by an allowlist here, so new
  * markets appear on their own. This constant only drives UI grouping.
@@ -77,7 +77,7 @@ export function baseTickerToStockToken(ticker: string): string {
 }
 
 /**
- * True when an Avantis pair symbol and a B20 token symbol reference the same
+ * True when an the reference design pair symbol and a B20 token symbol reference the same
  * underlying company — the precondition for a cash-and-carry pairing.
  */
 export function isSameUnderlying(pairSymbol: string, tokenSymbol: string): boolean {

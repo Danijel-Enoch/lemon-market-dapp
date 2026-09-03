@@ -19,8 +19,8 @@
 	"dependencies": {
 		"@lemon/core": "workspace:*",
 		"@prisma/client": "^6.19.0",
-		"@lemon/avantis": "workspace:*",
-		"@lemon/registry": "workspace:*"
+		"@lemon/registry": "workspace:*",
+		"@lemon/pacifica": "workspace:*"
 	},
 	"devDependencies": {
 		"prisma": "^6.19.0"

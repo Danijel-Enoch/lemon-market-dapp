@@ -64,7 +64,7 @@ export default function TradeTerminalPage() {
 		return (
 			<Callout tone="warning" title="Market not found">
 				<p>
-					No Avantis market matches “{symbol}”.{" "}
+					No market matches “{symbol}”.{" "}
 					<Link to="/trade" className="underline">
 						Back to markets
 					</Link>
@@ -77,7 +77,7 @@ export default function TradeTerminalPage() {
 	// The spot leg exists only where a Base token maps to this market and has a
 	// live route. Without that, the venue toggle would offer a dead end.
 	const spotToken = spotTokens?.tokens.find(
-		(token) => token.avantisSymbol === market.symbol && (token.buyable || token.sellable),
+		(token) => token.perpSymbol === market.symbol && (token.buyable || token.sellable),
 	);
 	const activeVenue: Venue = venue === "spot" && !spotToken ? "perp" : venue;
 

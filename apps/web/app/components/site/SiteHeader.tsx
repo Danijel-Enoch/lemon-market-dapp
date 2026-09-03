@@ -7,7 +7,7 @@ import { Link } from "react-router";
 /**
  * Marketing header.
  *
- * Avantis splits the landing nav into three detached, blurred blocks — brand,
+ * The reference design splits the landing nav into three detached, blurred blocks — brand,
  * links, call to action — sitting on the page rather than inside a single bar.
  * Below sm it collapses to a solid strip with a sheet menu.
  */
@@ -123,7 +123,7 @@ export function SiteHeader() {
 	);
 }
 
-/** Shared "Built on and backed by Base" chip from the Avantis hero. */
+/** Shared "Built on and backed by Base" chip from the reference hero. */
 export function BaseChip({ className }: { className?: string }) {
 	return (
 		<div

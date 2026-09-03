@@ -1,5 +1,5 @@
 /**
- * Small typed fetch wrapper shared by the Avantis, KyberSwap and Relay clients.
+ * Small typed fetch wrapper shared by the Pacifica, KyberSwap and Relay clients.
  *
  * Upstreams here signal "expected, actionable" conditions with HTTP 200 bodies
  * (KyberSwap returns `code: 4008 route not found`), so callers need the parsed

@@ -58,7 +58,6 @@ export function CarryBuilder() {
 			await flow.open({
 				token,
 				marketSymbol: selected.marketSymbol,
-				pairIndex: selected.pairIndex,
 				notionalUsd: notionalValue,
 				perpLeverage: leverage,
 			});
@@ -267,7 +266,7 @@ export function CarryBuilder() {
 				</Button>
 
 				<p className="text-center text-[11px] text-white/35">
-					Two transactions: a spot buy, then the hedging short.
+					One wallet signature for the spot buy. The hedging short is placed for you.
 				</p>
 			</aside>
 		</div>

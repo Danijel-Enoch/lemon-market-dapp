@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 /**
- * Market picker, built to the Avantis pair-menu specification.
+ * Market picker, built to the reference pair-menu specification.
  *
  * The structure is theirs verbatim: a search pill, a horizontally scrolling
  * filter row that opens on "All" and toggles back to it when the active chip is
@@ -19,11 +19,11 @@ import { useNavigate } from "react-router";
  * lg. Column titles, the empty state and the sort affordances are reproduced as
  * written.
  *
- * Two of their seven columns are dropped rather than faked. Avantis serves
+ * Two of their seven columns are dropped rather than faked. the reference design serves
  * 24H CHANGE and 24H VOLUME from its own indexer; Lemon's market feed exposes
  * neither, and a column of dashes is worse than a column that carries real
  * information. NET RATE and MAX LEVERAGE take those slots — both are already
- * part of the Avantis trade vocabulary, and both come off data we actually have.
+ * part of the reference trade vocabulary, and both come off data we actually have.
  */
 
 /* ------------------------------------------------------------------ filters */
@@ -38,7 +38,7 @@ type Filter =
 	| "commodities"
 	| "indices";
 
-/** Chip order and labels as Avantis lists them. */
+/** Chip order and labels as the reference design lists them. */
 const FILTERS: { value: Filter; label: string }[] = [
 	{ value: "all", label: "All" },
 	{ value: "favourites", label: "Favorites" },
@@ -98,7 +98,7 @@ type SortKey = "netRate" | "leverage" | "oi";
 
 /* ------------------------------------------------------------------- pieces */
 
-/** Long/short split, the same read as Avantis' MARKET SENTIMENT column. */
+/** Long/short split, the same read as the reference design's MARKET SENTIMENT column. */
 function Sentiment({ market }: { market: MarketWithEconomics }) {
 	const total = market.longOpenInterest + market.shortOpenInterest;
 
@@ -122,7 +122,6 @@ function Sentiment({ market }: { market: MarketWithEconomics }) {
 
 function Incentives({ market, hasSpot }: { market: MarketWithEconomics; hasSpot: boolean }) {
 	const tags: string[] = [];
-	if (market.isUpside) tags.push("Upside");
 	if (hasSpot) tags.push("Spot");
 	if (market.closeOnly) tags.push("Close only");
 
@@ -142,7 +141,7 @@ function Incentives({ market, hasSpot }: { market: MarketWithEconomics; hasSpot:
 	);
 }
 
-/** Sortable column button — Avantis pairs the title with a direction glyph. */
+/** Sortable column button — the reference design pairs the title with a direction glyph. */
 function SortHeader({
 	label,
 	active,
@@ -212,7 +211,7 @@ export function MarketSelector({
 	const spotSymbols = useMemo(() => {
 		const set = new Set<string>();
 		for (const token of spot?.tokens ?? []) {
-			if (token.avantisSymbol && (token.buyable || token.sellable)) set.add(token.avantisSymbol);
+			if (token.perpSymbol && (token.buyable || token.sellable)) set.add(token.perpSymbol);
 		}
 		return set;
 	}, [spot]);
@@ -226,7 +225,7 @@ export function MarketSelector({
 			if (classes && !classes.includes(market.assetClass)) return false;
 
 			if (!term) return true;
-			// Avantis matches the display pair, the base and the quote.
+			// The reference design matches the display pair, the base and the quote.
 			return (
 				market.symbol.toLowerCase().includes(term) ||
 				market.base.toLowerCase().includes(term) ||
@@ -241,8 +240,6 @@ export function MarketSelector({
 		};
 
 		return [...filtered].sort((a, b) => {
-			// Upside markets float to the top of every view, as they do upstream.
-			if (a.isUpside !== b.isUpside) return a.isUpside ? -1 : 1;
 			const delta = value(a) - value(b);
 			return sort.direction === "asc" ? delta : -delta;
 		});

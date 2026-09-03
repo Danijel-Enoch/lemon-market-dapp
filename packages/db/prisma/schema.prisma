@@ -1,6 +1,6 @@
 // Persistence for state that cannot be reconstructed from chain or upstream APIs.
 //
-// Deliberately narrow: Avantis owns perp positions, KyberSwap owns spot limit
+// Deliberately narrow: Pacifica owns perp positions, KyberSwap owns spot limit
 // orders, and the chain owns balances. The only things stored here are the
 // multi-leg cash-and-carry strategies (which span two independent systems and
 // can half-fail), Relay deposit tracking, and cached market state.
@@ -21,9 +21,10 @@ model StockToken {
   name             String
   address          String   @unique
   decimals         Int
-  /// Resolved by symbol against the live Avantis catalog, refreshed on sync.
-  avantisPairIndex Int?
-  avantisSymbol    String?
+  /// The perp market that hedges this token, resolved by ticker against the
+  /// live catalog and refreshed on sync. Null means nothing lists a match, so
+  /// the token cannot be carried.
+  perpSymbol String?
 
   /// Whether KyberSwap can currently route into / out of this token. This is
   /// live market state, not configuration — most of these tokens have no
@@ -69,10 +70,9 @@ model CarryPosition {
   tokenSymbol  String
   token        StockToken  @relation(fields: [tokenSymbol], references: [symbol])
 
-  /// Snapshotted at open for display; the authoritative index is always
-  /// re-resolved by symbol before trading, never read from here.
-  avantisPairIndex Int
-  avantisSymbol    String
+  /// Snapshotted at open for display. The market is always re-resolved by
+  /// symbol before trading, never read from here.
+  perpSymbol String
 
   status CarryStatus @default(VALIDATING)
 
@@ -86,11 +86,6 @@ model CarryPosition {
   /// Economics captured at open, so the position card can show drift since.
   entryFundingRatePct Float?
   entryNetApyPct      Float?
-
-  /// Per-pair trade slot on Avantis, needed to close the short leg.
-  perpTradeIndex  Int?
-  /// On-chain open timestamp; close intents are bound to it and must match.
-  perpOpenTimestamp Int?
 
   spotBuyTxHash   String?
   perpOpenTxHash  String?
@@ -126,7 +121,8 @@ model CarryLegEvent {
   action  String
   status  String
   txHash  String?
-  /// Tracking id from the Avantis batched-market SSE stream, when gasless.
+  /// Venue order id, when the leg was placed through an API rather than a
+  /// chain transaction.
   trackingId String?
   error   String?
   payload Json?

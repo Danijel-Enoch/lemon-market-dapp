@@ -11,7 +11,7 @@ export interface TypedDataPayload {
 /**
  * Sign an EIP-712 payload whose shape is only known at runtime.
  *
- * Both Avantis and KyberSwap return the domain, types and message from their
+ * Both the reference design and KyberSwap return the domain, types and message from their
  * APIs, so the structure cannot be described to wagmi's generics ahead of time.
  * The cast is confined here rather than repeated at each call site, and the
  * payload is passed through untouched — re-deriving or reordering any field

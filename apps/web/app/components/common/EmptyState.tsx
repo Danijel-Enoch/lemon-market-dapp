@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 /**
  * Empty panel.
  *
- * Avantis keeps empties on the same flat surface as the content they replace,
+ * The reference design keeps empties on the same flat surface as the content they replace,
  * with a hairline rather than a dashed outline, so a table that has no rows
  * still reads as part of the page rather than as a dropped-out placeholder.
  */

@@ -1,5 +1,4 @@
-import type { Candle, Resolution } from "@lemon/avantis";
-import type { AssetClass } from "@lemon/core";
+import type { AssetClass, Candle } from "@lemon/core";
 import {
 	BASKETS,
 	type BasketDefinition,
@@ -9,14 +8,13 @@ import {
 	indexChangePercent,
 	splitEqually,
 } from "@lemon/registry";
-import { clients } from "../config";
+import { getCandles, type Resolution } from "./candles";
 import { getMarkets } from "./markets";
 import { getSpotTokens } from "./spot";
 
 export interface BasketLegStatus {
 	marketSymbol: string;
 	ticker: string;
-	pairIndex: number | null;
 	logoUrl: string | null;
 	maxLeverage: number;
 	minPositionUsdc: number;
@@ -69,7 +67,6 @@ async function describe(basket: BasketDefinition): Promise<BasketSummary> {
 		return {
 			marketSymbol: leg.marketSymbol,
 			ticker: leg.ticker,
-			pairIndex: market?.pairIndex ?? null,
 			logoUrl: market?.logoUrl ?? token?.logoUrl ?? null,
 			maxLeverage: market?.maxLeverage ?? 1,
 			minPositionUsdc: market?.minPositionUsdc ?? 0,
@@ -130,7 +127,6 @@ export async function getBasketIndex(
 	id: string,
 	resolution: Resolution,
 	from: number,
-	to: number,
 ): Promise<BasketIndex | undefined> {
 	const basket = findBasket(id);
 	if (!basket) return undefined;
@@ -143,13 +139,13 @@ export async function getBasketIndex(
 	await Promise.all(
 		basket.legs.map(async (leg) => {
 			const market = markets.find((candidate) => candidate.symbol === leg.marketSymbol);
-			if (!market?.pythSymbol) {
+			if (!market) {
 				missing.push(leg.ticker);
 				return;
 			}
-			const candles = await clients.avantisFeed
-				.getCandles({ pythSymbol: market.pythSymbol, resolution, from, to })
-				.catch(() => [] as Candle[]);
+			const candles = await getCandles(market.pacifica.pacificaSymbol, resolution, from).catch(
+				() => [] as Candle[],
+			);
 
 			if (candles.length === 0) {
 				missing.push(leg.ticker);
@@ -212,7 +208,7 @@ export async function planBasket(params: {
 		if (!available) {
 			reason =
 				params.venue === "perp"
-					? `${leg.ticker} is not listed on Avantis`
+					? `${leg.ticker} is not listed on Pacifica`
 					: `${leg.ticker} has no buy route on Base`;
 		} else if (params.venue === "perp" && !leg.isOpen) {
 			reason = `${leg.ticker} market is closed`;

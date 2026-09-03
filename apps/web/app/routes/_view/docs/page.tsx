@@ -71,14 +71,14 @@ type Status = "live" | "building" | "planned";
 const ROADMAP: { status: Status; title: string; body: string; icon: typeof Coins }[] = [
 	{
 		status: "live",
-		title: "Perps on every Avantis market",
+		title: "Perps on every Pacifica market",
 		body: "Crypto, tokenized equities, FX, commodities and metals — 90+ markets, gasless order signing, market/limit/stop orders with TP and SL.",
 		icon: TrendingUp,
 	},
 	{
 		status: "live",
 		title: "Spot via KyberSwap",
-		body: "Market and gasless limit orders on every Base token that has a matching Avantis market.",
+		body: "Market and limit orders on every Base token that has a matching Pacifica market.",
 		icon: Coins,
 	},
 	{
@@ -169,8 +169,8 @@ export default function DocsPage() {
 				<header className="space-y-2">
 					<h1 className="t-h2 font-medium text-white">Documentation</h1>
 					<p className="text-sm text-[var(--ink-2)]">
-						Everything on Lemon Markets settles in USDC on Base. Perps run on Avantis and spot
-						routes through KyberSwap.
+						Everything on Lemon Markets settles in USDC. Perps run on Pacifica and spot routes
+						through KyberSwap.
 					</p>
 				</header>
 
@@ -200,7 +200,7 @@ export default function DocsPage() {
 
 				<Section id="trading" title="Trading">
 					<p>
-						Perps are provided by Avantis. Every listed market is available: crypto, tokenized US
+						Perps are provided by Pacifica. Every listed market is available: crypto, tokenized US
 						equities, FX majors, commodities and metals. Leverage caps are per-market and enforced
 						by the protocol — up to 500x on FX majors, and typically 2–10x on equities.
 					</p>
@@ -212,9 +212,9 @@ export default function DocsPage() {
 					</p>
 					<p>
 						<strong className="text-[var(--ink-1)]">Gasless.</strong> Orders are signed as EIP-712
-						intents and submitted by the Avantis operator, which pays the gas. You do not need ETH
-						on Base to trade. If the operator is unavailable the app falls back to a normal
-						transaction that you pay gas for.
+						agent key you authorise once, so no wallet prompt and no gas are needed on Base to
+						trade. If the operator is unavailable the app falls back to a normal transaction that
+						you pay gas for.
 					</p>
 					<p>
 						<strong className="text-[var(--ink-1)]">Market hours.</strong> Crypto trades 24/7.
@@ -227,8 +227,8 @@ export default function DocsPage() {
 				<Section id="spot" title="Spot">
 					<p>
 						Spot buys and sells real tokens on Base, routed through the KyberSwap aggregator. The
-						tradable set is deliberately limited to underlyings that Avantis also lists, so anything
-						you can hold you can also hedge.
+						tradable set is deliberately limited to underlyings that Pacifica also lists, so
+						anything you can hold you can also hedge.
 					</p>
 					<p>
 						<strong className="text-[var(--ink-1)]">Availability is measured, not assumed.</strong>{" "}
@@ -276,7 +276,7 @@ export default function DocsPage() {
 
 				<Section id="fees" title="Fees &amp; funding">
 					<p>
-						<strong className="text-[var(--ink-1)]">Perp fees</strong> are set by Avantis: roughly
+						<strong className="text-[var(--ink-1)]">Perp fees</strong> are set by Pacifica: roughly
 						4.5bps taker on crypto majors, and zero commission on real-world assets while they are
 						in growth mode, where you pay the spread instead.
 					</p>
@@ -307,9 +307,9 @@ export default function DocsPage() {
 					</p>
 					<p>
 						<strong className="text-[var(--ink-1)]">Everything is verified.</strong> Perp volume is
-						read straight from Avantis, and each spot trade is checked against its transaction
-						on-chain — it must exist, have succeeded, and have been sent by the address claiming it.
-						Reporting a transaction twice awards nothing the second time.
+						recorded from the orders this app places, and each spot trade is checked against its
+						transaction on-chain — it must exist, have succeeded, and have been sent by the address
+						claiming it. Reporting a transaction twice awards nothing the second time.
 					</p>
 					<p className="text-xs text-white/35">
 						Points and tiers are cosmetic. They are not a token, carry no entitlement, and may be
@@ -329,7 +329,7 @@ export default function DocsPage() {
 							be unavailable in your jurisdiction.
 						</li>
 						<li>Funding rates move; a carry that earns today can pay tomorrow.</li>
-						<li>Smart contract risk across Avantis, KyberSwap, Relay and the token issuers.</li>
+						<li>Smart contract risk across Pacifica, KyberSwap, Relay and the token issuers.</li>
 					</ul>
 					<p className="text-xs text-white/35">
 						Nothing here is investment advice. You are responsible for your own positions.
@@ -377,7 +377,7 @@ export default function DocsPage() {
 						{[
 							{
 								q: "Do I need ETH on Base for gas?",
-								a: "Not for perp orders — those are signed and submitted gaslessly by the Avantis operator. Spot swaps and approvals are ordinary transactions, so those need a small amount of ETH.",
+								a: "Not for perp orders — those are signed server-side with the agent key you authorise at sign-in. Spot swaps and approvals are ordinary transactions, so those need a small amount of ETH.",
 							},
 							{
 								q: "Why can I sell a token but not buy it?",
