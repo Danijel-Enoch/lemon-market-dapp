@@ -1,3 +1,4 @@
+import { HedgeHealthCard } from "@app/components/basis/HedgeHealth";
 import { Callout } from "@app/components/common/Callout";
 import { StatCard, toneForValue } from "@app/components/pons/StatCard";
 import { PageHeader, SubHeading } from "@app/components/site/PageHeader";
@@ -170,6 +171,17 @@ export default function PositionDetailPage() {
 					tone={toneForValue(position.entryNetApyPct ?? 0)}
 				/>
 			</div>
+
+			{/*
+			  Above the leg list on purpose: the legs say what happened, this says
+			  whether the position is still doing what it was opened to do.
+			*/}
+			<HedgeHealthCard
+				positionId={position.id}
+				tokenSymbol={position.tokenSymbol}
+				perpSymbol={position.perpSymbol}
+				isOpen={isLive}
+			/>
 
 			<section className="space-y-3">
 				<SubHeading title="Legs" />

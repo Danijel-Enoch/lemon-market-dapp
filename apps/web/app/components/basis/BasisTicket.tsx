@@ -6,6 +6,7 @@ import { Label } from "@app/components/ui/label";
 import { Slider } from "@app/components/ui/slider";
 import { useBasisFlow } from "@app/hooks/useBasisFlow";
 import { basisApi } from "@app/lib/api";
+import { cn } from "@app/lib/utils";
 import type { BasisMarket } from "@lemon/core";
 import { formatFundingApr, formatPercent, formatUsd } from "@lemon/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,20 @@ const STEP_LABELS: Record<string, string> = {
  * good at $10k can be uneconomic at $200k — and a ticket that extrapolated the
  * row would quote a yield the fill cannot deliver.
  */
-export function BasisTicket({ market }: { market: BasisMarket }) {
+export function BasisTicket({
+	market,
+	inSheet = false,
+}: {
+	market: BasisMarket;
+	/**
+	 * Rendered inside the mobile bottom sheet.
+	 *
+	 * Drops the card's own frame and heading, because the sheet already
+	 * supplies both — nesting a bordered panel inside a bordered sheet and
+	 * repeating the market name reads as two separate things stacked.
+	 */
+	inSheet?: boolean;
+}) {
 	const { isConnected } = useConnection();
 	const queryClient = useQueryClient();
 	const flow = useBasisFlow();
@@ -71,10 +85,20 @@ export function BasisTicket({ market }: { market: BasisMarket }) {
 	const blockers = quoted?.blockers ?? market.blockers;
 
 	return (
-		<div className="space-y-4 rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-5">
+		<div
+			className={cn(
+				"space-y-4",
+				!inSheet &&
+					"rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-5",
+			)}
+		>
 			<div>
-				<h2 className="font-display text-[16px] font-bold text-[var(--pon-fg)]">Open a position</h2>
-				<p className="mt-1 t-micro text-[var(--pon-fg-3)]">
+				{!inSheet && (
+					<h2 className="font-display text-[16px] font-bold text-[var(--pon-fg)]">
+						Open a position
+					</h2>
+				)}
+				<p className={cn("t-micro text-[var(--pon-fg-3)]", !inSheet && "mt-1")}>
 					Long {market.spot.symbol} spot, short {market.perp.symbol} at equal notional.
 				</p>
 			</div>

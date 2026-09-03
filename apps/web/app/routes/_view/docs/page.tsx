@@ -1,7 +1,11 @@
 import { Callout } from "@app/components/common/Callout";
 import { cn } from "@app/lib/utils";
 import { ROUND_TRIP_FEE_PERCENT, VENUE_FEES } from "@lemon/core";
-import { REFERENCE_LEVERAGE, REFERENCE_NOTIONAL_USD } from "@lemon/registry";
+import {
+	REBALANCE_DRIFT_THRESHOLD_PERCENT,
+	REFERENCE_LEVERAGE,
+	REFERENCE_NOTIONAL_USD,
+} from "@lemon/registry";
 import { useEffect, useState } from "react";
 import { Link, type MetaFunction } from "react-router";
 
@@ -21,6 +25,7 @@ const SECTIONS = [
 	{ id: "numbers", label: "Reading the numbers" },
 	{ id: "fees", label: "Fees & funding" },
 	{ id: "execution", label: "Execution" },
+	{ id: "rebalancing", label: "Rebalancing" },
 	{ id: "api", label: "API" },
 	{ id: "points", label: "Points" },
 	{ id: "risks", label: "Risks" },
@@ -109,12 +114,13 @@ export default function DocsPage() {
 			  fading to nothing, so the reading column below starts on a clean
 			  surface rather than under a floating title.
 			*/}
-			<header className="border-b border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-lime-dim)] to-transparent px-7 py-9 sm:px-10">
+			<header className="border-b border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-lime-dim)] to-transparent px-5 py-7 sm:px-10 sm:py-9">
 				<p className="t-eyebrow text-[var(--pon-lime)]">Protocol</p>
-				<h1 className="font-display mt-3 text-[clamp(28px,4vw,38px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
+				<h1 className="font-display mt-3 text-[clamp(24px,4vw,38px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
 					One product, documented
-					<br />
-					without the flattering parts.
+					{/* The forced break is a desktop composition. On a phone the line
+					    already wraps, and breaking it again makes a four-line title. */}
+					<br className="hidden md:inline" /> without the flattering parts.
 				</h1>
 				<p className="mt-3 max-w-[52ch] text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
 					Lemon lists one thing: spot-versus-perp basis markets on Base. The spot leg routes through
@@ -122,23 +128,37 @@ export default function DocsPage() {
 				</p>
 			</header>
 
-			<div className="grid lg:grid-cols-[220px_1fr]">
+			{/*
+			  `min-w-0` on the grid and on the nav is load-bearing, not defensive.
+			  A grid track sizes to its content's max-content width by default, so
+			  the horizontally-scrolling chip rail inside the nav would stretch the
+			  column past the viewport and push the article's text off the right
+			  edge — a clipped page that looks like a copy problem rather than a
+			  layout one.
+			*/}
+			<div className="grid min-w-0 lg:grid-cols-[220px_1fr]">
 				{/* Table of contents */}
+				{/*
+				  Two shapes, not one squeezed. A ten-item vertical list is a sidebar
+				  on a laptop and the entire first screen on a phone — so below `lg`
+				  it becomes a sticky horizontal chip rail, which is what a native
+				  docs reader does and keeps the contents reachable while scrolling.
+				*/}
 				<nav
-					className="border-b border-[var(--pon-line)] px-5 py-6 lg:sticky lg:top-[92px] lg:self-start lg:border-b-0 lg:border-r"
+					className="sticky top-[52px] z-20 min-w-0 border-b border-[var(--pon-line)] bg-[var(--pon-bg)]/95 px-4 py-3 backdrop-blur-xl lg:top-[92px] lg:self-start lg:border-b-0 lg:border-r lg:bg-transparent lg:px-5 lg:py-6 lg:backdrop-blur-none"
 					aria-label="Table of contents"
 				>
-					<p className="mb-3 t-caption text-[var(--pon-fg-3)]">Contents</p>
-					<ul className="space-y-0.5">
+					<p className="mb-3 hidden t-caption text-[var(--pon-fg-3)] lg:block">Contents</p>
+					<ul className="flex gap-1.5 overflow-x-auto scrollbar-hide lg:block lg:space-y-0.5 lg:overflow-visible">
 						{SECTIONS.map((section) => (
-							<li key={section.id}>
+							<li key={section.id} className="shrink-0 lg:shrink">
 								<a
 									href={`#${section.id}`}
 									className={cn(
-										"block rounded-[var(--pon-r-sm)] px-2.5 py-1.5 text-[13px] transition-colors",
+										"block whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] transition-colors lg:rounded-[var(--pon-r-sm)] lg:border-0 lg:px-2.5",
 										active === section.id
-											? "bg-[var(--pon-lime-dim)] font-semibold text-[var(--pon-lime)]"
-											: "text-[var(--pon-fg-2)] hover:text-[var(--pon-fg)]",
+											? "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] font-semibold text-[var(--pon-lime)]"
+											: "border-[var(--pon-line)] text-[var(--pon-fg-2)] hover:text-[var(--pon-fg)] lg:border-transparent",
 									)}
 								>
 									{section.label}
@@ -148,7 +168,7 @@ export default function DocsPage() {
 					</ul>
 				</nav>
 
-				<div className="min-w-0 space-y-9 px-6 py-7 sm:px-8">
+				<div className="min-w-0 space-y-8 px-5 py-6 sm:px-8 sm:py-7 lg:space-y-9">
 					<Section id="getting-started" title="Getting started">
 						<ol className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4">
 							<Step n={1} title="Connect a wallet">
@@ -311,6 +331,37 @@ export default function DocsPage() {
 						</Callout>
 					</Section>
 
+					<Section id="rebalancing" title="Rebalancing">
+						<p>
+							A position is neutral when it holds the{" "}
+							<span className={strong}>same number of units</span> on each side. That stays true at
+							any price, which is why a position does not need rebalancing every time the market
+							moves — and why the app measures drift in units rather than in dollars. A dollar
+							comparison would report fresh drift on every tick and invite you to trade against a
+							position that never moved.
+						</p>
+						<p>
+							Drift comes from execution, not from price. The perp leg is floored onto the venue's
+							lot grid when it opens, so a position usually starts a fraction under-hedged. Partial
+							fills land short. An auto-deleverage can shrink the hedge without asking. None of that
+							is visible from the position's original plan, so the position page reads both venues
+							live and compares what actually exists.
+						</p>
+						<p>
+							<span className={strong}>Rebalancing trades the perp leg only.</span> Correcting on
+							the spot side would mean another swap through a thin pool — paying that pool's
+							slippage to fix a rounding artifact — and would need a wallet signature. The perp side
+							needs neither, so a correction is one tap and costs the {VENUE_FEES.perpTakerPercent}%
+							taker fee on the traded amount alone, not on the whole position.
+						</p>
+						<Callout tone="info" title="Small drift is left alone on purpose">
+							Below {REBALANCE_DRIFT_THRESHOLD_PERCENT}% the correction costs more than the exposure
+							it removes, and drift smaller than one lot cannot be expressed as an order at all. In
+							both cases the app says so rather than offering a button that trades nothing and
+							reports success.
+						</Callout>
+					</Section>
+
 					<Section id="api" title="API">
 						<p>
 							The board is served from a public JSON API. No key is needed for market data; anything
@@ -333,6 +384,14 @@ export default function DocsPage() {
 							</Endpoint>
 							<Endpoint method="GET" path="/api/basis/positions?user=0x…">
 								Positions for an address, with the legs that make each one up.
+							</Endpoint>
+							<Endpoint method="GET" path="/api/basis/positions/:id/health">
+								Live comparison of the two legs in units: drift, direction of exposure, and the
+								correction that would close it.
+							</Endpoint>
+							<Endpoint method="POST" path="/api/basis/positions/:id/rebalance">
+								Trades the perp leg back to the spot leg's size. Answers `traded: false` when the
+								position is already inside the threshold — a success, not a no-op to retry.
 							</Endpoint>
 						</ul>
 						<p className="t-caption text-[var(--pon-fg-4)]">
@@ -415,6 +474,10 @@ export default function DocsPage() {
 								{
 									q: "Why can't I close the perp from the accounts page?",
 									a: "Pacifica nets positions per symbol, so closing one there would flatten the hedge while the position record still described it as hedged. Unwinding from the position closes both legs together and records what happened.",
+								},
+								{
+									q: "Why does my position show drift when I have not touched it?",
+									a: "Almost always the lot grid. The perp leg is rounded down to a whole number of the venue's increments when it opens, so a position typically starts a fraction under-hedged. The position page shows the gap in units and offers to close it in one tap when it is worth doing.",
 								},
 								{
 									q: "Are my funds custodied?",

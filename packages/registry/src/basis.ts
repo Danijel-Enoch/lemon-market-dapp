@@ -295,3 +295,100 @@ export function deltaDriftPercent(spotNotionalUsd: number, perpNotionalUsd: numb
 	if (spotNotionalUsd === 0) return 0;
 	return ((spotNotionalUsd - perpNotionalUsd) / spotNotionalUsd) * 100;
 }
+
+/* ------------------------------------------------------------- rebalancing */
+
+/**
+ * Drift below which rebalancing costs more than it fixes.
+ *
+ * A rebalance is a taker fill, so it costs 0.1% of the traded notional plus
+ * slippage. Chasing a 0.2% delta with a trade that costs 0.1% of it is not
+ * risk management, it is churn — and on the lot-grid rounding that causes most
+ * small drift, the correction may not even be expressible.
+ */
+export const REBALANCE_DRIFT_THRESHOLD_PERCENT = 1;
+
+export interface HedgeHealthInput {
+	/** Units of the token actually held on the spot leg. */
+	spotUnits: number;
+	/** Units of the perp actually short. Zero when the hedge is gone. */
+	perpUnits: number;
+	/** Live mark, used to express the gap in money as well as in units. */
+	markPrice: number;
+	/** Venue quantity increment; a correction smaller than this cannot be placed. */
+	lotSize: number;
+}
+
+export interface HedgeHealth {
+	spotUnits: number;
+	perpUnits: number;
+	/**
+	 * Signed unit gap: positive means under-hedged (long exposure), negative
+	 * means over-hedged (short exposure).
+	 *
+	 * Both directions matter and they are not symmetric in how they arise —
+	 * under-hedging is the common case, from the lot-grid rounding at open —
+	 * but a position can end up over-hedged after a partial spot sell, and
+	 * reporting only the magnitude would hide which way the user is exposed.
+	 */
+	deltaUnits: number;
+	/** The gap as a percent of the spot leg. */
+	driftPercent: number;
+	/** The gap in USD at the current mark. */
+	deltaUsd: number;
+	/** Direction, for wording that does not make the reader do the sign maths. */
+	exposure: "neutral" | "long" | "short";
+	/** True when drift is worth correcting *and* large enough to be placeable. */
+	shouldRebalance: boolean;
+	/**
+	 * Units the perp leg must trade to close the gap, already rounded onto the
+	 * lot grid. Positive means sell more perp, negative means buy some back.
+	 */
+	correctionUnits: number;
+}
+
+/**
+ * Compare the two legs and say whether the hedge still holds.
+ *
+ * Measured in **units of the underlying, not in dollars**. A basis position is
+ * neutral when it is long and short the same number of units, and that stays
+ * true at any price — so a dollar-denominated check would report drift every
+ * time the market moved, and a user following it would rebalance repeatedly
+ * against a position that was never unbalanced.
+ */
+export function hedgeHealth(input: HedgeHealthInput): HedgeHealth {
+	const { spotUnits, perpUnits, markPrice, lotSize } = input;
+
+	const deltaUnits = spotUnits - perpUnits;
+	const driftPercent = spotUnits === 0 ? 0 : (deltaUnits / spotUnits) * 100;
+	const deltaUsd = deltaUnits * markPrice;
+
+	// Round *down* in magnitude onto the lot grid. Rounding up would overshoot
+	// past neutral and leave the position exposed the other way.
+	const correctionUnits =
+		lotSize > 0
+			? Math.sign(deltaUnits) * Math.floor(Math.abs(deltaUnits) / lotSize) * lotSize
+			: deltaUnits;
+
+	const exposure: HedgeHealth["exposure"] =
+		Math.abs(driftPercent) < REBALANCE_DRIFT_THRESHOLD_PERCENT
+			? "neutral"
+			: deltaUnits > 0
+				? "long"
+				: "short";
+
+	return {
+		spotUnits,
+		perpUnits,
+		deltaUnits,
+		driftPercent,
+		deltaUsd,
+		exposure,
+		// Both conditions, not either: drift worth fixing that rounds to zero on
+		// the lot grid cannot be fixed, and offering the button anyway produces a
+		// rebalance that trades nothing and reports success.
+		shouldRebalance:
+			Math.abs(driftPercent) >= REBALANCE_DRIFT_THRESHOLD_PERCENT && Math.abs(correctionUnits) > 0,
+		correctionUnits,
+	};
+}

@@ -48,6 +48,23 @@ export function useBasisPosition(id: string | undefined) {
 }
 
 /**
+ * Live hedge health for one position.
+ *
+ * Polled while a position is open because drift is not a one-off: a partial
+ * fill or an ADL can unbalance a position that was neutral a minute ago, and
+ * the whole point of surfacing it is that nobody is watching Pacifica directly.
+ */
+export function useHedgeHealth(id: string | undefined, enabled = true) {
+	return useQuery({
+		queryKey: ["basis-health", id],
+		queryFn: () => basisApi.health(id as string),
+		enabled: Boolean(id) && enabled,
+		refetchInterval: 30_000,
+		retry: false,
+	});
+}
+
+/**
  * Half-open positions.
  *
  * Polled independently of the position list so the warning can appear anywhere

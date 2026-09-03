@@ -25,18 +25,20 @@ export function StatCard({
 	return (
 		<div
 			className={cn(
-				"rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-[22px]",
+				// Two of these sit side by side on a phone, where 22px of padding
+				// around a 38px figure leaves the label with nowhere to go.
+				"rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-3.5 md:p-[22px]",
 				className,
 			)}
 		>
 			<p className="t-caption text-[var(--pon-fg-3)]">{label}</p>
-			<p className="font-fono mt-3 text-[38px] font-semibold leading-none tracking-[-0.02em] text-[var(--pon-fg)]">
+			<p className="font-fono mt-2 text-[26px] font-semibold leading-none tracking-[-0.02em] text-[var(--pon-fg)] md:mt-3 md:text-[38px]">
 				{value}
 			</p>
 			{delta && (
 				<p
 					className={cn(
-						"mt-3 t-caption",
+						"mt-2 t-caption md:mt-3",
 						tone === "positive" && "text-[var(--pon-up)]",
 						tone === "negative" && "text-[var(--pon-down)]",
 						(!tone || tone === "neutral") && "text-[var(--pon-fg-3)]",

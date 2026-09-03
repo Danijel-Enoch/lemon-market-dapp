@@ -150,6 +150,20 @@ export interface BasisPositionRecord {
 	createdAt: string;
 }
 
+/** Live comparison of the two legs, in units of the underlying. */
+export interface HedgeHealth {
+	spotUnits: number;
+	perpUnits: number;
+	/** Positive = under-hedged (long exposure); negative = over-hedged. */
+	deltaUnits: number;
+	driftPercent: number;
+	deltaUsd: number;
+	exposure: "neutral" | "long" | "short";
+	shouldRebalance: boolean;
+	/** Units the perp leg must trade, already rounded onto the lot grid. */
+	correctionUnits: number;
+}
+
 export interface RepairOption {
 	action: "retry_perp" | "unwind_spot" | "close_perp";
 	label: string;
@@ -198,6 +212,18 @@ export const basisApi = {
 		post<{ position: BasisPositionRecord; repairOptions: RepairOption[] }>(
 			`/basis/positions/${id}/leg-failed`,
 			input,
+		),
+	health: (id: string) => request<HedgeHealth>(`/basis/positions/${id}/health`),
+	/**
+	 * Trade the perp leg back to the spot leg's size.
+	 *
+	 * `traded: false` means the position was already inside the drift threshold
+	 * — a success, not a no-op to retry.
+	 */
+	rebalance: (id: string) =>
+		post<{ health: HedgeHealth; traded: boolean; orderId?: number }>(
+			`/basis/positions/${id}/rebalance`,
+			{},
 		),
 	unwind: (id: string) => post<BasisPositionRecord>(`/basis/positions/${id}/unwind`, {}),
 	spotClosed: (id: string, input: { txHash: string; proceedsUsd: number }) =>

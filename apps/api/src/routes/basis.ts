@@ -279,6 +279,46 @@ export const basisRoutes = new Elysia({ prefix: "/basis" })
 		},
 	)
 
+	/**
+	 * How well the hedge still holds.
+	 *
+	 * Read from both venues live rather than from the stored plan: the plan says
+	 * what was intended, and a hedge is only as good as what actually filled.
+	 */
+	.get(
+		"/positions/:id/health",
+		async ({ params, status }) => {
+			const blocked = requireDb(status as never);
+			if (blocked) return blocked;
+
+			const health = await basis.positionHealth(params.id);
+			if (!health) return status(404, { error: "Position not found" });
+			return health;
+		},
+		{ params: t.Object({ id: t.String() }) },
+	)
+
+	/**
+	 * Trade the perp leg back to the size of the spot leg.
+	 *
+	 * Answers 200 with `traded: false` when the position is already inside the
+	 * drift threshold. That is the desired state, not a failure — returning an
+	 * error would make "nothing needed doing" look like something went wrong.
+	 */
+	.post(
+		"/positions/:id/rebalance",
+		async ({ params, cookie, status }) => {
+			const blocked = requireDb(status as never);
+			if (blocked) return blocked;
+
+			const user = await requireUser(cookie[SESSION_COOKIE]?.value);
+			const result = await basis.rebalancePosition(params.id, user);
+			if (!result) return status(404, { error: "Position not found" });
+			return result;
+		},
+		{ params: t.Object({ id: t.String() }) },
+	)
+
 	.post("/positions/:id/unwind", async ({ params }) => basis.startUnwind(params.id), {
 		params: t.Object({ id: t.String() }),
 	})

@@ -6,7 +6,9 @@ import {
 	computeBasisEconomics,
 	defaultCosts,
 	deltaDriftPercent,
+	hedgeHealth,
 	planBasis,
+	REBALANCE_DRIFT_THRESHOLD_PERCENT,
 	roundTripFeePercent,
 	spotPerpBasisPercent,
 } from "../src/basis";
@@ -380,5 +382,100 @@ describe("delta drift", () => {
 	test("drift is reported as a percentage of the spot leg", () => {
 		expect(deltaDriftPercent(1000, 900)).toBeCloseTo(10, 6);
 		expect(deltaDriftPercent(1000, 1100)).toBeCloseTo(-10, 6);
+	});
+});
+
+describe("hedge health", () => {
+	const base = { markPrice: 100, lotSize: 0.001 };
+
+	test("matched legs are neutral and need nothing", () => {
+		const health = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 10 });
+
+		expect(health.deltaUnits).toBeCloseTo(0, 10);
+		expect(health.driftPercent).toBeCloseTo(0, 10);
+		expect(health.exposure).toBe("neutral");
+		expect(health.shouldRebalance).toBe(false);
+	});
+
+	/**
+	 * The property that makes this measurable at all. A basis position is
+	 * neutral when it holds the same number of units on each side, and that is
+	 * true at every price — so a dollar-denominated check would report fresh
+	 * drift on every tick and invite a rebalance against a position that never
+	 * moved.
+	 */
+	test("drift does not appear just because the price moved", () => {
+		const cheap = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 10, markPrice: 50 });
+		const dear = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 10, markPrice: 5_000 });
+
+		expect(cheap.driftPercent).toBeCloseTo(dear.driftPercent, 10);
+		expect(cheap.shouldRebalance).toBe(false);
+		expect(dear.shouldRebalance).toBe(false);
+	});
+
+	test("an under-hedged position reads as long exposure", () => {
+		// The common case: the perp leg was floored onto the lot grid at open.
+		const health = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 9 });
+
+		expect(health.exposure).toBe("long");
+		expect(health.driftPercent).toBeCloseTo(10, 6);
+		expect(health.deltaUsd).toBeCloseTo(100, 6);
+		expect(health.correctionUnits).toBeCloseTo(1, 6);
+		expect(health.shouldRebalance).toBe(true);
+	});
+
+	test("an over-hedged position reads as short exposure", () => {
+		const health = hedgeHealth({ ...base, spotUnits: 9, perpUnits: 10 });
+
+		expect(health.exposure).toBe("short");
+		expect(health.deltaUnits).toBeCloseTo(-1, 6);
+		expect(health.correctionUnits).toBeCloseTo(-1, 6);
+		expect(health.shouldRebalance).toBe(true);
+	});
+
+	test("drift under the threshold is left alone", () => {
+		// 0.5% — real, but cheaper to carry than to trade out of.
+		const health = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 9.95 });
+
+		expect(Math.abs(health.driftPercent)).toBeLessThan(REBALANCE_DRIFT_THRESHOLD_PERCENT);
+		expect(health.exposure).toBe("neutral");
+		expect(health.shouldRebalance).toBe(false);
+	});
+
+	/**
+	 * Rounding up would carry the position past neutral and leave it exposed the
+	 * other way — turning a hedging action into a directional one.
+	 */
+	test("the correction rounds down onto the lot grid, never up", () => {
+		const health = hedgeHealth({ spotUnits: 10, perpUnits: 8.5, markPrice: 100, lotSize: 1 });
+
+		expect(health.deltaUnits).toBeCloseTo(1.5, 6);
+		expect(health.correctionUnits).toBe(1);
+	});
+
+	test("drift that cannot be expressed on the lot grid is not offered as fixable", () => {
+		// 2% adrift, but a whole-unit grid cannot place 0.2 of a unit.
+		const health = hedgeHealth({ spotUnits: 10, perpUnits: 9.8, markPrice: 100, lotSize: 1 });
+
+		expect(Math.abs(health.driftPercent)).toBeGreaterThan(REBALANCE_DRIFT_THRESHOLD_PERCENT);
+		expect(health.correctionUnits).toBe(0);
+		// Offering a button here would place an order for nothing and report success.
+		expect(health.shouldRebalance).toBe(false);
+	});
+
+	test("a vanished hedge is the maximum drift, not a divide-by-zero", () => {
+		const health = hedgeHealth({ ...base, spotUnits: 10, perpUnits: 0 });
+
+		expect(health.driftPercent).toBeCloseTo(100, 6);
+		expect(health.exposure).toBe("long");
+		expect(health.shouldRebalance).toBe(true);
+	});
+
+	test("an empty position reports no drift rather than NaN", () => {
+		// A NaN here would propagate into the position card and render as "NaN%".
+		const health = hedgeHealth({ ...base, spotUnits: 0, perpUnits: 0 });
+
+		expect(health.driftPercent).toBe(0);
+		expect(health.shouldRebalance).toBe(false);
 	});
 });

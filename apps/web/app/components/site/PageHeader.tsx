@@ -26,12 +26,15 @@ export function PageHeader({
 	className?: string;
 }) {
 	const content = (
-		<div className="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+		<div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-5">
 			<div className="min-w-0">
-				{eyebrow && <p className="mb-2.5 t-eyebrow text-[var(--pon-lime)]">{eyebrow}</p>}
+				{eyebrow && <p className="mb-2 t-eyebrow text-[var(--pon-lime)] md:mb-2.5">{eyebrow}</p>}
 				<h1 className="t-h1 font-bold text-[var(--pon-fg-0)]">{title}</h1>
 				{description && (
-					<p className="mt-2.5 max-w-[52ch] text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
+					// Clamped on phones. A four-line paragraph above the fold pushes
+					// the actual content off it, and the copy is explanatory rather
+					// than load-bearing — the full text is one tap away in the docs.
+					<p className="mt-2 line-clamp-3 max-w-[52ch] text-[13px] leading-relaxed text-[var(--pon-fg-2)] md:mt-2.5 md:line-clamp-none md:text-[13.5px]">
 						{description}
 					</p>
 				)}
@@ -47,7 +50,7 @@ export function PageHeader({
 	return (
 		<header
 			className={cn(
-				"relative overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-[30px] py-[34px]",
+				"relative overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-5 py-6 md:px-[30px] md:py-[34px]",
 				className,
 			)}
 		>

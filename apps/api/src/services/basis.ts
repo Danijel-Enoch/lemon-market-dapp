@@ -6,6 +6,8 @@ import {
 	type BasisEvent,
 	type BasisPlan,
 	defaultCosts,
+	type HedgeHealth,
+	hedgeHealth,
 	nextStatus,
 	planBasis,
 	repairActionsFor,
@@ -503,4 +505,125 @@ export function listOrphaned(userAddress: string) {
 		where: { userAddress: userAddress.toLowerCase(), status: "ORPHANED" },
 		orderBy: { updatedAt: "desc" },
 	});
+}
+
+/* ------------------------------------------------------------- rebalancing */
+
+/**
+ * Read the live state of both legs.
+ *
+ * The perp size comes from Pacifica rather than from the stored plan, and the
+ * spot size from the stored fill. Those two can disagree — a partial fill, a
+ * lot-grid floor at open, an ADL — and the stored plan describes what was
+ * *intended*, which is exactly the wrong thing to measure a hedge against.
+ */
+export async function positionHealth(id: string): Promise<HedgeHealth | null> {
+	const position = await prisma.basisPosition.findUnique({ where: { id } });
+	if (!position) return null;
+
+	const market = await getMarket(position.perpSymbol);
+	if (!market) return null;
+
+	const identity = await prisma.user.findFirst({
+		where: { address: position.userAddress },
+	});
+	if (!identity) return null;
+
+	const open = await clients.pacifica.positions(identity.solanaAddress).catch(() => []);
+	const live = open.find((candidate) => candidate.symbol === market.pacifica.pacificaSymbol);
+
+	return hedgeHealth({
+		spotUnits: position.shares ?? 0,
+		// A closed or liquidated hedge is zero units, not an error: that is the
+		// most under-hedged a position can be, and the caller needs to see it as
+		// drift rather than as missing data.
+		perpUnits: live ? Number(live.amount) : 0,
+		markPrice: market.pacifica.markPrice ?? 0,
+		lotSize: market.pacifica.lotSize,
+	});
+}
+
+/**
+ * Trade the perp leg back to the size of the spot leg.
+ *
+ * Only ever touches the perp side. Correcting on the spot side would mean an
+ * on-chain swap through a thin pool, paying that pool's slippage to fix a
+ * rounding artifact — and it needs the user's wallet, which defeats the point
+ * of a correction they can apply in one tap.
+ *
+ * Reduce-only when shrinking, so a correction can never accidentally flip the
+ * hedge into a long.
+ */
+export async function rebalancePosition(id: string, user: User) {
+	const position = await prisma.basisPosition.findUnique({ where: { id } });
+	if (!position) return null;
+
+	if (position.status !== "OPEN") {
+		throw new BasisLegError(
+			`Only an open position can be rebalanced; this one is ${position.status.toLowerCase()}.`,
+		);
+	}
+
+	const market = await getMarket(position.perpSymbol);
+	if (!market) throw new BasisLegError(`No perp market for ${position.perpSymbol}.`);
+
+	const health = await positionHealth(id);
+	if (!health) throw new BasisLegError("Could not read the position's live state.");
+
+	if (!health.shouldRebalance) {
+		// Not an error. A position inside the threshold is the desired state, and
+		// raising here would surface "nothing to do" as a failed action.
+		return { position, health, traded: false as const };
+	}
+
+	const lot = market.pacifica.lotSize;
+	const size = Math.abs(health.correctionUnits);
+	if (size <= 0) return { position, health, traded: false as const };
+
+	const identity = tradingIdentity(user);
+	// Under-hedged means too little short: sell more. Over-hedged means buy back.
+	const side = health.correctionUnits > 0 ? "ask" : "bid";
+
+	try {
+		const receipt = await clients.pacifica.createMarketOrder(identity.sign, {
+			account: identity.account,
+			agentWallet: identity.agentWallet,
+			symbol: market.pacifica.pacificaSymbol,
+			side,
+			amount: size.toFixed(decimalsFor(lot)),
+			slippagePercent: "1",
+			// Buying back is always a reduction of the short. Selling more is not,
+			// so it must not carry the flag or the venue will reject it.
+			reduceOnly: side === "bid",
+			builderCode: builderCodeFor(user, config.fees.pacificaBuilder),
+		});
+
+		await recordEvent({
+			positionId: id,
+			leg: "PERP",
+			action: "rebalance",
+			status: "confirmed",
+			trackingId: String(receipt.order_id),
+			payload: {
+				side,
+				units: size,
+				driftPercentBefore: health.driftPercent,
+			},
+		});
+
+		return { position, health, traded: true as const, orderId: receipt.order_id };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Rebalance failed";
+		await recordEvent({
+			positionId: id,
+			leg: "PERP",
+			action: "rebalance",
+			status: "error",
+			error: message,
+		});
+		// Deliberately not markLegFailed: the position is still fully open and
+		// hedged as well as it was a moment ago. A failed correction is not an
+		// orphan, and recording it as one would show a false alarm.
+		throw new BasisLegError(message);
+	}
 }

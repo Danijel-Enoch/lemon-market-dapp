@@ -15,7 +15,7 @@ exactly what that means.
 |---|---|
 | **The board** | Every pair where both legs exist, ranked by net yield after costs. Untradable markets stay listed with the reason rather than disappearing. |
 | **A market** | Live spread, funding, both legs side by side, the perp chart, and a ticket that re-quotes at the size you actually type. |
-| **A position** | Both legs opened in one flow and tracked as one object, with recovery when a leg fails. |
+| **A position** | Both legs opened in one flow and tracked as one object, with recovery when a leg fails and one-tap rebalancing when the hedge drifts. |
 | **Funding** | USDC on Base for the spot leg; a bridged, MPC-signed deposit for the perp leg's margin. |
 
 Only spot-versus-perp today. Perp-versus-perp is not built.
@@ -68,6 +68,24 @@ a probe-sized trade moves the pool more than 10%, or when the two legs disagree
 on price by more than 5% — a double-digit "spread" is not an opportunity, it is
 one of the two prices being wrong.
 
+## Rebalancing
+
+A position is neutral when it holds the **same number of units** on each side,
+and that holds at any price — so drift comes from execution, not from the market.
+The perp leg is floored onto the venue's lot grid at open, partial fills land
+short, and an ADL can shrink the hedge unannounced. None of that is visible from
+the stored plan, so `GET /api/basis/positions/:id/health` reads both venues live
+and compares what actually exists.
+
+Measured in units, deliberately. A dollar-denominated check would report fresh
+drift on every tick and invite a rebalance against a position that never moved.
+
+Corrections trade the **perp leg only**: the spot side would mean another swap
+through a thin pool, paying that pool's slippage to fix a rounding artifact, and
+would need a wallet signature. Below a 1% gap — or when the gap is smaller than
+one lot and therefore not expressible as an order — the app says so rather than
+offering a button that trades nothing and reports success.
+
 ## Architecture
 
 Bun workspaces:
@@ -103,6 +121,8 @@ GET  /api/basis/markets/:id          # one market, by ticker or either leg's sym
 GET  /api/basis/markets/:id/candles  # OHLCV for the perp mark (not the spread — see below)
 POST /api/basis/plan                 # price a position at real size; commits to nothing
 GET  /api/basis/positions?user=0x…   # positions for an address
+GET  /api/basis/positions/:id/health # live drift between the two legs, in units
+POST /api/basis/positions/:id/rebalance  # trade the perp leg back to the spot leg's size
 ```
 
 There is deliberately no discretionary perp-order endpoint. Pacifica nets
@@ -258,6 +278,11 @@ and the app does not describe it as one.
 **A half-open position is recoverable, not failed.** If the spot buy lands and
 the short does not, the position is marked as needing attention and offers to
 complete the short or unwind the spot — it is never silently abandoned.
+
+**A new position often shows a little drift immediately.** The perp leg is
+rounded down onto the venue's lot grid, so it starts a fraction under-hedged.
+That is expected; the position page shows the gap and only offers to close it
+when doing so costs less than carrying it.
 
 ## External services
 

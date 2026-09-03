@@ -3,11 +3,12 @@ import { Callout } from "@app/components/common/Callout";
 import { ChipGroup } from "@app/components/pons/Segmented";
 import { StatCard, toneForValue } from "@app/components/pons/StatCard";
 import { PageHeader } from "@app/components/site/PageHeader";
+import { useTour } from "@app/components/tour/TourProvider";
 import { EmptyState } from "@app/components/ui/EmptyState";
 import { Skeleton } from "@app/components/ui/skeleton";
 import { useBasisMarkets } from "@app/hooks/useMarketData";
 import { formatPercent } from "@lemon/core";
-import { Scale } from "lucide-react";
+import { Compass, Scale } from "lucide-react";
 import { useState } from "react";
 import type { MetaFunction } from "react-router";
 
@@ -34,6 +35,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 ];
 
 export default function MarketsBoardPage() {
+	const tour = useTour();
 	const [filter, setFilter] = useState<Filter>("all");
 	const { data, isLoading, isError } = useBasisMarkets();
 
@@ -49,11 +51,24 @@ export default function MarketsBoardPage() {
 		tradable.length > 0 ? tradable[Math.floor(tradable.length / 2)].economics.netApyPercent : 0;
 
 	return (
-		<div className="space-y-8">
+		<div className="space-y-6 md:space-y-8">
 			<PageHeader
 				eyebrow="Delta neutral"
 				title="Basis markets"
 				description="Buy the spot token on Base, short the matching perp at equal size. Price moves cancel, so what is left is funding minus costs. Every yield below is quoted after the full round trip."
+				actions={
+					// Replayable, not one-shot. Someone who skipped the walkthrough on
+					// their first visit has no other way back to it, and the moment
+					// people want it is usually the second visit rather than the first.
+					<button
+						type="button"
+						onClick={tour.start}
+						className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--pon-line-2)] px-4 text-[13px] font-medium text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
+					>
+						<Compass size={14} aria-hidden />
+						Take the tour
+					</button>
+				}
 			/>
 
 			{isError && (
@@ -70,13 +85,13 @@ export default function MarketsBoardPage() {
 				</Callout>
 			)}
 
-			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+			<div data-tour="board-headline" className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
 				{isLoading ? (
 					<>
-						<Skeleton className="h-[124px]" />
-						<Skeleton className="h-[124px]" />
-						<Skeleton className="h-[124px]" />
-						<Skeleton className="h-[124px]" />
+						<Skeleton className="h-[92px] md:h-[124px]" />
+						<Skeleton className="h-[92px] md:h-[124px]" />
+						<Skeleton className="h-[92px] md:h-[124px]" />
+						<Skeleton className="h-[92px] md:h-[124px]" />
 					</>
 				) : (
 					<>
@@ -102,14 +117,17 @@ export default function MarketsBoardPage() {
 				)}
 			</div>
 
-			<div className="flex flex-wrap items-center justify-between gap-3">
+			<div
+				data-tour="board-filters"
+				className="flex flex-wrap items-center justify-between gap-2 md:gap-3"
+			>
 				<ChipGroup<Filter>
 					options={FILTERS}
 					value={filter}
 					onChange={setFilter}
 					aria-label="Filter markets by asset class"
 				/>
-				<p className="t-micro text-[var(--pon-fg-3)]">
+				<p className="hidden t-micro text-[var(--pon-fg-3)] sm:block">
 					Ranked by net yield after fees and measured slippage
 				</p>
 			</div>

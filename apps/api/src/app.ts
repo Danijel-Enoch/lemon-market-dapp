@@ -13,6 +13,19 @@ import { BasisLegError, BasisTransitionError } from "./services/basis";
 import { DepositUnavailableError } from "./services/pacifica-deposit";
 
 /**
+ * Anything thrown by Prisma.
+ *
+ * Matched on the constructor-name prefix rather than by importing Prisma's
+ * error classes: the generated client re-exports them from a path that changes
+ * between versions, and an import that silently resolves to `undefined` would
+ * turn this guard into a no-op that always returns false — failing open, and
+ * leaking exactly what it was written to hide.
+ */
+function isPrismaError(error: unknown): boolean {
+	return error instanceof Error && error.constructor.name.startsWith("PrismaClient");
+}
+
+/**
  * The API surface, mountable two ways.
  *
  * `apps/web` mounts this plugin directly so a single container serves both the
@@ -68,6 +81,20 @@ export function createApiApp(prefix = "/api") {
 					service: error.service,
 					upstreamStatus: error.status,
 					details: error.body,
+				};
+			}
+
+			// Prisma stringifies its errors with the failing query, the source
+			// file and a snippet of surrounding code. That is excellent in a log
+			// and unacceptable in an HTTP body — a caller hitting a schema that
+			// has not been migrated should not be told the server's absolute file
+			// paths. The detail goes to the log; the caller gets the category.
+			if (isPrismaError(error)) {
+				console.error("[api] database", error);
+				set.status = 503;
+				return {
+					error:
+						"The database is unavailable or out of date. If this deployment was just updated, its schema may need `bun run db:push`.",
 				};
 			}
 

@@ -54,15 +54,25 @@ export function Sheet({
 	);
 }
 
+/** Height of the floating tab bar, tab-bar padding included but not the inset. */
+export const TAB_BAR_HEIGHT = 84;
+
 /**
  * Fixed action bar sitting above the mobile tab bar.
  *
  * Keeps the primary action reachable with a thumb no matter how far the page
  * has scrolled.
+ *
+ * Hidden at `lg`, not `md`. The desktop ticket only appears at `lg`, so hiding
+ * this one at `md` leaves tablet widths with no way to open a position at all —
+ * a gap that is invisible on both a phone and a laptop.
  */
 export function MobileActionBar({ children }: { children: ReactNode }) {
 	return (
-		<div className="fixed inset-x-0 bottom-[74px] z-40 border-t border-[var(--pon-line)] bg-[var(--pon-bg)]/95 p-3 backdrop-blur-md md:hidden">
+		<div
+			className="fixed inset-x-0 z-40 border-t border-[var(--pon-line)] bg-[var(--pon-bg)]/95 px-3 py-3 backdrop-blur-md lg:hidden"
+			style={{ bottom: `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))` }}
+		>
 			{children}
 		</div>
 	);

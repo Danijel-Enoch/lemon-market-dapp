@@ -60,6 +60,7 @@ export function Header() {
 								<Link
 									key={link.href}
 									to={link.href}
+									data-tour={link.href === "/portfolio" ? "nav-portfolio" : undefined}
 									className={cn(
 										"rounded-full px-3.5 py-1.5 text-[13px] transition-colors",
 										isActive(pathname, link.href)
@@ -79,21 +80,30 @@ export function Header() {
 				</div>
 			</header>
 
-			{/* Mobile bar — brand and wallet only; navigation lives in the tab bar. */}
+			{/*
+			  Mobile top bar — brand and wallet only; navigation lives in the tab
+			  bar. Translucent with a blur so content scrolling under it reads as
+			  depth rather than as a hard cut, which is what makes a web page feel
+			  like a page instead of an app.
+			*/}
 			<header
-				className="fixed inset-x-0 top-0 z-40 flex w-full items-center gap-4 overflow-clip border-b border-[var(--pon-line)] bg-[var(--pon-bg)] p-3.5 md:hidden"
+				className="fixed inset-x-0 top-0 z-40 flex w-full items-center gap-3 overflow-clip border-b border-[var(--pon-line)] bg-[var(--pon-bg)]/85 px-4 py-2.5 backdrop-blur-xl md:hidden"
 				style={safeAreaStyle}
 			>
-				<Brand size={26} className="min-w-px flex-1" />
+				<Brand size={24} className="min-w-px flex-1" />
 				<ConnectWallet />
 			</header>
 
-			{/* Mobile tab bar — one pill track, the active tab filled. */}
+			{/*
+			  Mobile tab bar — one floating pill track, the active tab filled.
+			  Sits above the home indicator rather than under it: `env()` is zero
+			  on a device without one, so the max() keeps a sensible gap on both.
+			*/}
 			<nav
-				className="fixed inset-x-0 bottom-0 z-40 bg-[var(--pon-bg)] p-2.5 md:hidden"
-				style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
+				className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[var(--pon-bg)] via-[var(--pon-bg)] to-transparent px-3 pt-4 md:hidden"
+				style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
 			>
-				<ul className="flex w-full items-stretch rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-1">
+				<ul className="flex w-full items-stretch rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)]/95 p-1 backdrop-blur-xl">
 					{TABS.map((item) => {
 						const Icon = item.icon;
 						const active = isActive(pathname, item.href);
@@ -101,20 +111,26 @@ export function Header() {
 							<li key={item.href} className="flex min-w-px flex-1">
 								<Link
 									to={item.href}
+									data-tour={item.href === "/portfolio" ? "nav-portfolio" : undefined}
+									aria-current={active ? "page" : undefined}
+									// 48px clears the 44px touch-target floor with the
+									// padding the pill track already contributes.
 									className={cn(
-										"flex min-h-11 w-full flex-col items-center justify-center gap-0.5 overflow-clip rounded-full px-2 py-1.5 transition-colors",
+										"flex min-h-12 w-full flex-col items-center justify-center gap-1 overflow-clip rounded-full px-2 py-1.5 transition-colors active:scale-[0.97]",
 										active ? "bg-[var(--pon-surface-2)]" : "",
 									)}
 								>
 									<Icon
-										size={16}
+										size={17}
 										aria-hidden
 										className={active ? "text-[var(--pon-lime)]" : "text-[var(--pon-fg-3)]"}
 									/>
 									<span
 										className={cn(
-											"whitespace-nowrap text-center t-micro",
-											active ? "font-semibold text-[var(--pon-fg)]" : "text-[var(--pon-fg-3)]",
+											"whitespace-nowrap text-center text-[10px] leading-none",
+											active
+												? "font-bold text-[var(--pon-fg)]"
+												: "font-medium text-[var(--pon-fg-3)]",
 										)}
 									>
 										{item.label}
