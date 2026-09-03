@@ -4,7 +4,8 @@ import { appendAttributionSuffix } from "@lemon/core";
 import { Elysia, t } from "elysia";
 import { clients } from "../config";
 import { builderSuffix, canAttribute } from "../services/attribution";
-import { getMarket, getSymbolResolver } from "../services/markets";
+import { getAvantisSymbolResolver } from "../services/avantis-markets";
+import { getMarket } from "../services/markets";
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
 
@@ -30,7 +31,7 @@ export const perpRoutes = new Elysia({ prefix: "/perp" })
 	.get(
 		"/positions",
 		async ({ query }) => {
-			const resolveSymbol = await getSymbolResolver();
+			const resolveSymbol = await getAvantisSymbolResolver();
 			return clients.avantis.getPositions(query.trader as Address, resolveSymbol);
 		},
 		{ query: t.Object({ trader: addressSchema }) },

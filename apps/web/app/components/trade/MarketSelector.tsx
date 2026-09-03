@@ -28,24 +28,35 @@ import { useNavigate } from "react-router";
 
 /* ------------------------------------------------------------------ filters */
 
-type Filter = "all" | "favourites" | "upside" | "commodities" | "crypto" | "forex" | "equities";
+type Filter =
+	| "all"
+	| "favourites"
+	| "crypto"
+	| "equities"
+	| "forex"
+	| "metals"
+	| "commodities"
+	| "indices";
 
 /** Chip order and labels as Avantis lists them. */
 const FILTERS: { value: Filter; label: string }[] = [
 	{ value: "all", label: "All" },
 	{ value: "favourites", label: "Favorites" },
-	{ value: "upside", label: "Upside Perps" },
-	{ value: "commodities", label: "Commodities" },
 	{ value: "crypto", label: "Crypto" },
-	{ value: "forex", label: "Forex" },
 	{ value: "equities", label: "Equities" },
+	{ value: "forex", label: "Forex" },
+	{ value: "metals", label: "Metals" },
+	{ value: "commodities", label: "Commodities" },
+	{ value: "indices", label: "Indices" },
 ];
 
 const CLASS_FOR: Partial<Record<Filter, AssetClass[]>> = {
-	commodities: ["commodity", "metal"],
 	crypto: ["crypto"],
-	forex: ["fx"],
 	equities: ["equity"],
+	forex: ["fx"],
+	metals: ["metal"],
+	commodities: ["commodity"],
+	indices: ["index"],
 };
 
 /* ---------------------------------------------------------------- favourites */
@@ -90,8 +101,12 @@ type SortKey = "netRate" | "leverage" | "oi";
 /** Long/short split, the same read as Avantis' MARKET SENTIMENT column. */
 function Sentiment({ market }: { market: MarketWithEconomics }) {
 	const total = market.longOpenInterest + market.shortOpenInterest;
-	const longPercent = total > 0 ? (market.longOpenInterest / total) * 100 : 50;
 
+	// Pacifica publishes total open interest without a side breakdown. Drawing a
+	// bar from no data would read as balanced positioning rather than absence.
+	if (total <= 0) return <span className="t-micro text-[var(--ink-2)]">—</span>;
+
+	const longPercent = (market.longOpenInterest / total) * 100;
 	return (
 		<div className="flex items-center gap-2">
 			<div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--trade-short)]/40">
@@ -100,9 +115,7 @@ function Sentiment({ market }: { market: MarketWithEconomics }) {
 					style={{ width: `${longPercent}%` }}
 				/>
 			</div>
-			<span className="font-fono t-micro text-[var(--ink-2)]">
-				{total > 0 ? `${longPercent.toFixed(0)}%` : "—"}
-			</span>
+			<span className="font-fono t-micro text-[var(--ink-2)]">{longPercent.toFixed(0)}%</span>
 		</div>
 	);
 }
@@ -209,7 +222,6 @@ export function MarketSelector({
 
 		const filtered = (data?.markets ?? []).filter((market) => {
 			if (filter === "favourites" && !favourites.includes(market.symbol)) return false;
-			if (filter === "upside" && !market.isUpside) return false;
 			const classes = CLASS_FOR[filter];
 			if (classes && !classes.includes(market.assetClass)) return false;
 
@@ -256,8 +268,7 @@ export function MarketSelector({
 		);
 	}
 
-	const priceFor = (market: MarketWithEconomics) =>
-		prices?.prices[String(market.pairIndex)]?.price ?? null;
+	const priceFor = (market: MarketWithEconomics) => prices?.prices[market.symbol]?.price ?? null;
 
 	return (
 		<Popover.Root open={open} onOpenChange={setOpen}>
@@ -397,7 +408,7 @@ export function MarketSelector({
 											const starred = favourites.includes(market.symbol);
 											return (
 												<tr
-													key={market.pairIndex}
+													key={market.symbol}
 													onClick={() => choose(market.symbol)}
 													className={cn(
 														"cursor-pointer border-b border-[var(--line-soft)] transition-colors hover:bg-[var(--surface-4)]",
@@ -490,7 +501,7 @@ export function MarketSelector({
 									const starred = favourites.includes(market.symbol);
 									return (
 										<div
-											key={market.pairIndex}
+											key={market.symbol}
 											className="relative flex w-full items-center justify-between border-t border-[var(--line-soft)] p-2"
 										>
 											{/* Sits under the content so the star stays clickable. */}

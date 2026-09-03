@@ -99,7 +99,25 @@ export async function buildPlan(request: PlanRequest): Promise<PlanResponse | nu
 		blockers.push(`${token.symbol} has no buy route right now, so the spot leg cannot be opened.`);
 	}
 
-	const economics = market.economics;
+	// Pacifica reports one hourly funding rate; the shared market splits it by
+	// side. A market with no rate at all is the "unavailable" case.
+	const hasFunding =
+		Number.isFinite(market.fundingLongPercentPerHour) &&
+		Number.isFinite(market.fundingShortPercentPerHour);
+	const economics = hasFunding
+		? {
+				fundingRate: {
+					long: market.fundingLongPercentPerHour,
+					short: market.fundingShortPercentPerHour,
+				},
+				// Pacifica charges from the account's fee level rather than
+				// publishing a per-market rate, so the perp leg contributes no
+				// modelled fee here. The spot leg's real cost still applies.
+				openFeePercent: market.openFeePercent,
+				closeFeePercent: market.closeFeePercent,
+				spreadPercent: market.spreadPercent,
+			}
+		: null;
 	if (!economics) blockers.push("Funding rates are unavailable for this market.");
 
 	const impact = quote.ok ? quote.quote.priceImpactPercent : 0;

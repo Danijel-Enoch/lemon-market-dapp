@@ -21,6 +21,7 @@
 		"@lemon/registry": "workspace:*",
 		"@lemon/relay": "workspace:*",
 		"elysia": "1.4.19",
-		"viem": "^2.44.2"
+		"viem": "^2.44.2",
+		"@lemon/pacifica": "workspace:*"
 	}
 }

@@ -81,7 +81,8 @@ export default function TradeTerminalPage() {
 	);
 	const activeVenue: Venue = venue === "spot" && !spotToken ? "perp" : venue;
 
-	const mark = prices?.prices[String(market.pairIndex)]?.price ?? null;
+	// Pacifica keys markets by symbol; there is no stable pair index.
+	const mark = prices?.prices[market.symbol]?.price ?? null;
 
 	const orderPanel =
 		activeVenue === "spot" && spotToken ? (

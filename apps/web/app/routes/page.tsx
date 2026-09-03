@@ -510,7 +510,7 @@ function LiveMarkets() {
 
 					{rows.map((market) => (
 						<Link
-							key={market.pairIndex}
+							key={market.symbol}
 							to={`/trade/${market.symbol.replace("/", "-")}`}
 							className="grid grid-cols-2 items-center gap-3 border-b border-white/[0.05] px-5 py-4 transition-colors last:border-b-0 hover:bg-white/[0.03] sm:grid-cols-[2fr_1fr_1fr_1fr] sm:gap-4 sm:px-6"
 						>

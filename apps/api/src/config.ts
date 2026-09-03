@@ -9,6 +9,7 @@ import {
 } from "@lemon/avantis";
 import { BASE_CHAIN_ID, isValidBps, MAX_SPOT_FEE_BPS, type SpotFeeConfig } from "@lemon/core";
 import { KyberAggregatorClient, KyberLimitOrderClient } from "@lemon/kyber";
+import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
 import { RelayClient } from "@lemon/relay";
 
 function env(name: string, fallback: string): string {
@@ -54,6 +55,7 @@ export const config = {
 	avantisFeedUrl: env("AVANTIS_FEED_URL", DEFAULT_FEED_URL),
 	kyberBaseUrl: env("KYBER_BASE_URL", "https://aggregator-api.kyberswap.com"),
 	kyberClientId: env("KYBER_CLIENT_ID", "lemon-markets"),
+	pacificaApiUrl: env("PACIFICA_API_URL", PACIFICA_MAINNET),
 	relayApiUrl: env("RELAY_API_URL", "https://api.relay.link"),
 	relayApiKey: process.env.RELAY_API_KEY?.trim() || undefined,
 	databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
@@ -85,6 +87,7 @@ export const clients = {
 	}),
 	avantisData: new AvantisDataClient({ baseUrl: config.avantisDataUrl }),
 	avantisFeed: new AvantisFeedClient({ baseUrl: config.avantisFeedUrl }),
+	pacifica: new PacificaClient({ baseUrl: config.pacificaApiUrl }),
 	kyber: new KyberAggregatorClient({
 		baseUrl: config.kyberBaseUrl,
 		clientId: config.kyberClientId,
