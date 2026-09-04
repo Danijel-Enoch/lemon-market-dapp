@@ -1,28 +1,135 @@
-# Dokploy deployment.
+# Dokploy deployment — the whole app.
 #
-# Differences from `docker-compose.yml`, which is the local/self-hosted file:
+# Six services. `web` alone used to be a complete deployment, and is not any
+# more: since the rebuild onto vaults, every historical number the app shows
+# (balances, the withdrawal queue, the activity feed, the share-price series)
+# is served by the indexer and proxied by the API. Without it the board renders
+# "the indexer is unreachable" and nothing else works.
+#
+#   postgres   sessions, admin allowlist, venue config, the agent's decision log
+#   migrate    one-shot schema push; everything else waits on it
+#   indexer    Ponder over the factory and its vaults. Internal, no ingress
+#   web        the depositor app, with the API mounted in-process  → ${DOMAIN}
+#   admin      the operator console, its own origin  → ${ADMIN_DOMAIN}
+#   agent      the per-vault worker. No ports, no ingress
+#
+# Differences from `docker-compose.yml`, the local/self-hosted file:
 #
 #   * Nothing publishes a host port. Dokploy fronts everything with Traefik, and
 #     a published port would both bypass TLS and collide with other apps on the
 #     same host.
-#   * `web` joins the external `dokploy-network` so Traefik can reach it, and
-#     carries the router labels that put it on ${DOMAIN}.
-#   * Postgres stays on a private network with no ingress at all.
+#   * Services that face the internet join the external `dokploy-network` and
+#     carry the router labels that put them on a hostname.
+#   * Postgres, the indexer and the agent stay on a private network with no
+#     ingress at all.
 #
 # Set up in Dokploy:
 #   1. Create an application of type "Docker Compose" pointing at this repo.
 #   2. Set the compose path to `docker-compose.dokploy.yml`.
-#   3. In Environment, set at minimum DOMAIN and POSTGRES_PASSWORD. Every other
-#      variable below has a working default — see `.env.example` for the full
-#      list and what each one does.
+#   3. In Environment set, at minimum:
+#        DOMAIN, ADMIN_DOMAIN, POSTGRES_PASSWORD, AUTH_SECRET,
+#        VAULT_FACTORY_ADDRESS, VAULT_FACTORY_START_BLOCK,
+#        VITE_VAULT_FACTORY_ADDRESS
+#      See `.env.example` for the full list and what each one does.
+#
+# **The `VITE_` values are build inputs, not runtime configuration.** They are
+# compiled into the browser bundle, so changing one requires a rebuild rather
+# than a restart, and one image serves one chain. That is why they appear under
+# `build.args` and not under `environment`.
 #
 # `dokploy-network` is created by Dokploy on install. It is declared external
 # here so Compose attaches to it rather than making a second, isolated one.
 
+# One image, built once, run six ways. Anchored rather than repeated: the web
+# and API service definitions used to carry two copies of the same forty-line
+# environment block, which is exactly how the two come to disagree about which
+# chain they are on.
+x-image: &image
+  build:
+    context: .
+    target: release
+    args:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
+      VITE_BASE_RPC_URL: ${VITE_BASE_RPC_URL:-}
+      VITE_CHAIN_ID: ${VITE_CHAIN_ID:-}
+      VITE_CHAIN_NAME: ${VITE_CHAIN_NAME:-}
+      VITE_CHAIN_RPC_URL: ${VITE_CHAIN_RPC_URL:-}
+      VITE_CHAIN_EXPLORER_URL: ${VITE_CHAIN_EXPLORER_URL:-}
+      VITE_VAULT_FACTORY_ADDRESS: ${VITE_VAULT_FACTORY_ADDRESS:-}
+      VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-https://${DOMAIN}}
+  image: lemon-app:${IMAGE_TAG:-latest}
+
+x-database: &database
+  DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+
+# Everything the server side reads. Shared by web, api, admin and the agent so
+# they cannot drift apart about which chain, which venue, or which factory.
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+
+  # Chain. CHAIN_ID is what the server signs and indexes against; the browser's
+  # copy is a build arg above and the two must name the same chain.
+  CHAIN_ID: ${CHAIN_ID:-8453}
+  BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+
+  # Deployed contracts. Without the factory the admin console can read the
+  # market board but cannot create a vault, and says so rather than failing at
+  # signing time.
+  VAULT_FACTORY_ADDRESS: ${VAULT_FACTORY_ADDRESS:-}
+  INSURANCE_FUND_ADDRESS: ${INSURANCE_FUND_ADDRESS:-}
+  USDC_ADDRESS: ${USDC_ADDRESS:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}
+
+  # The read model. Reached over the private network; the browser never talks to
+  # it directly, the API proxies it.
+  INDEXER_URL: http://indexer:42069
+
+  # Venues. Pacifica's testnet is the same API on a different host — but it runs
+  # on Solana devnet, so SOLANA_RPC_URL has to follow it or balances are read on
+  # the wrong chain.
+  KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
+  KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+  PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
+  SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
+  RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
+  # Deposits stay disabled (with an explanatory message) until this is set.
+  RELAY_API_KEY: ${RELAY_API_KEY:-}
+
+  # Sign-in, and the admin allowlist this seeds at boot. Membership lives in the
+  # database afterwards, so removing an address here does not revoke it.
+  AUTH_SECRET: ${AUTH_SECRET:-}
+  ADMIN_ADDRESSES: ${ADMIN_ADDRESSES:-}
+
+  # NEAR chain signatures, which hold every vault agent's wallets.
+  #
+  # NEAR_ACCOUNT_ID is an input to address derivation, and a vault's agent
+  # address is immutable — changing it after vaults exist leaves them permanently
+  # unable to trade. Choose it once and treat it as permanent.
+  NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
+  NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
+  NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
+  NEAR_RPC_URL: ${NEAR_RPC_URL:-}
+  NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
+
+  # An agent's derived Solana wallet holds USDC and no SOL, so it cannot pay for
+  # its own transactions. This covers that and the one-off rent for its first
+  # USDC token account. It is never an authority over vault funds.
+  SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
+
+  # Fees this deployment collects. Spot rides inside the KyberSwap route, so it
+  # comes out of vault performance and is disclosed on the vault page.
+  SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
+  SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
+  SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
+
+x-restart: &restart
+  restart: unless-stopped
+
 services:
   postgres:
     image: postgres:17-alpine
-    restart: unless-stopped
+    <<: *restart
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-lemon}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a database password in Dokploy}
@@ -32,24 +139,25 @@ services:
     networks:
       - internal
     healthcheck:
-      # The app must not start migrating before Postgres accepts connections.
+      # Nothing must start migrating before Postgres accepts connections.
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lemon} -d ${POSTGRES_DB:-lemon}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # One-shot: applies pending migrations, then exits. `web` waits for it to
+  # One-shot: pushes the schema, then exits. Everything else waits for it to
   # complete successfully, so a failed migration blocks the release instead of
   # letting a half-migrated schema serve traffic.
+  #
+  # `db:push`, not `db:deploy`: this schema has no migration history, and
+  # `migrate deploy` fails outright against a database it did not create.
   migrate:
-    build:
-      context: .
-      target: release
-    # The image's WORKDIR is apps/web; db:deploy is a root workspace script.
+    <<: *image
     working_dir: /usr/src/app
-    command: ["bun", "run", "db:deploy"]
+    command:
+      ["bunx", "prisma", "db", "push", "--schema", "packages/db/prisma/schema.prisma", "--skip-generate"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
+      <<: *database
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,54 +165,62 @@ services:
       - internal
     restart: "no"
 
-  web:
-    build:
-      context: .
-      target: release
-    restart: unless-stopped
+  # The read model, rebuilt from chain events. Disposable: drop it and a resync
+  # reproduces it exactly.
+  #
+  # Its own `ponder` schema, deliberately. Left at the default it writes into
+  # `public` alongside Prisma, and the migrate step above then offers to drop
+  # `vault`, `nav_point`, `activity` and the rest of it.
+  #
+  # PORT is set explicitly because Ponder resolves its listen port from `PORT`
+  # in preference to its own `--port` flag.
+  indexer:
+    <<: [*image, *restart]
+    working_dir: /usr/src/app/apps/indexer
+    command: ["bunx", "ponder", "start", "--schema", "ponder"]
     environment:
-      NODE_ENV: production
-      PORT: 3002
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
-      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
-      KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
-      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
-      CHAIN_ID: ${CHAIN_ID:-8453}
-      PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
-      RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
-      # Deposits stay disabled (with an explanatory message) until this is set.
-      RELAY_API_KEY: ${RELAY_API_KEY:-}
-
-      # Accounts: sign-in, derived wallets, Pacifica trading. All three are
-      # required together — without them the app still serves market data and
-      # the connected-wallet view, and /api/auth/status names what is missing.
-      #
-      # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
-      # users exist repoints every one of them at fresh, empty wallets.
-      AUTH_SECRET: ${AUTH_SECRET:-}
-      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
-      NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
-      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
-      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
-      NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
-
-      # Crediting a deposit is signed by the user's derived Solana wallet, which
-      # holds USDC and no SOL, so a funded fee payer is needed to cover it.
-      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
-      SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
-
-      # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
-      # is approved by each user during onboarding.
-      SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
-      SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
-      SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
-      PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
-      PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
+      <<: *app-env
+      PORT: 42069
+      # A dedicated endpoint is worth having: a backfill will rate-limit a
+      # public one immediately.
+      PONDER_RPC_URL_BASE: ${PONDER_RPC_URL_BASE:-}
+      # Indexing from genesis is hours of RPC for nothing — there is no factory
+      # before the block it was deployed in.
+      VAULT_FACTORY_START_BLOCK: ${VAULT_FACTORY_START_BLOCK:-0}
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    networks:
+      - internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun -e \"const r = await fetch('http://localhost:42069/health'); process.exit(r.ok ? 0 : 1)\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  web:
+    <<: [*image, *restart]
+    environment:
+      <<: *app-env
+      PORT: 3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      # Started, not healthy: a backfill can take minutes and the app degrades
+      # honestly while it runs — it says the indexer is unreachable rather than
+      # showing an empty board. Blocking the release on a full resync would make
+      # every deploy as slow as the longest backfill.
+      indexer:
+        condition: service_started
     networks:
       - internal
       - dokploy-network
@@ -123,8 +239,8 @@ services:
       start_period: 30s
     labels:
       - traefik.enable=true
-      # Router name is namespaced so it cannot clash with another app's router
-      # on the shared Traefik instance.
+      # Router names are namespaced so they cannot clash with another app's on
+      # the shared Traefik instance.
       - traefik.http.routers.lemon-web.rule=Host(`${DOMAIN}`)
       - traefik.http.routers.lemon-web.entrypoints=websecure
       - traefik.http.routers.lemon-web.tls=true
@@ -139,57 +255,107 @@ services:
       - traefik.http.middlewares.lemon-https.redirectscheme.scheme=https
       - traefik.http.middlewares.lemon-https.redirectscheme.permanent=true
 
-  # The web container mounts the API in-process, so the service above is a
-  # complete deployment on its own. Enable this only to run the API as its own
-  # scalable unit:  docker compose --profile split up
-  api:
-    profiles: ["split"]
-    build:
-      context: .
-      target: release
-    working_dir: /usr/src/app
-    command: ["bun", "run", "apps/api/src/index.ts"]
-    restart: unless-stopped
+  # The operator console. Its own app on its own origin so it can sit behind a
+  # VPN, an IP allowlist or an SSO proxy while the public app faces the
+  # internet. It mounts the same API, so authorisation is decided in one place.
+  #
+  # Not optional: creating a vault happens nowhere else.
+  admin:
+    <<: [*image, *restart]
+    working_dir: /usr/src/app/apps/admin
+    command: ["bun", "./app/server.ts"]
     environment:
-      NODE_ENV: production
-      API_PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
-      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
-      KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
-      CHAIN_ID: ${CHAIN_ID:-8453}
-      PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
-      RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
-      # Deposits stay disabled (with an explanatory message) until this is set.
-      RELAY_API_KEY: ${RELAY_API_KEY:-}
-
-      # Accounts: sign-in, derived wallets, Pacifica trading. All three are
-      # required together — without them the app still serves market data and
-      # the connected-wallet view, and /api/auth/status names what is missing.
-      #
-      # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
-      # users exist repoints every one of them at fresh, empty wallets.
-      AUTH_SECRET: ${AUTH_SECRET:-}
-      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
-      NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
-      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
-      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
-      NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
-
-      # Crediting a deposit is signed by the user's derived Solana wallet, which
-      # holds USDC and no SOL, so a funded fee payer is needed to cover it.
-      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
-      SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
-
-      # Fees. Spot rides inside the KyberSwap route; the Pacifica builder code
-      # is approved by each user during onboarding.
-      SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}
-      SPOT_FEE_RECEIVER: ${SPOT_FEE_RECEIVER:-}
-      SPOT_FEE_CHARGE_BY: ${SPOT_FEE_CHARGE_BY:-}
-      PACIFICA_BUILDER_CODE: ${PACIFICA_BUILDER_CODE:-}
-      PACIFICA_BUILDER_MAX_FEE_RATE: ${PACIFICA_BUILDER_MAX_FEE_RATE:-}
+      <<: *app-env
+      ADMIN_PORT: 3004
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      indexer:
+        condition: service_started
+    networks:
+      - internal
+      - dokploy-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bun -e \"const r = await fetch('http://localhost:3004/api/health'); process.exit(r.ok ? 0 : 1)\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lemon-admin.rule=Host(`${ADMIN_DOMAIN:-admin.${DOMAIN}}`)
+      - traefik.http.routers.lemon-admin.entrypoints=websecure
+      - traefik.http.routers.lemon-admin.tls=true
+      - traefik.http.routers.lemon-admin.tls.certresolver=letsencrypt
+      - traefik.http.services.lemon-admin.loadbalancer.server.port=3004
+      - traefik.docker.network=dokploy-network
+
+  # The per-vault worker: valuation, execution, the redemption queue.
+  #
+  # No ports and no ingress — it only makes outbound calls. Off by default:
+  # `AGENT_ENABLED=true` starts it, because an agent moving real capital should
+  # be switched on deliberately rather than by deploying.
+  #
+  # `AGENT_PAPER_TRADING=true` reads both venues and fills neither, which is
+  # what a testnet deployment wants — KyberSwap's aggregator serves Base mainnet
+  # only, so the spot leg cannot execute anywhere else.
+  agent:
+    <<: [*image, *restart]
+    profiles: ["agent"]
+    working_dir: /usr/src/app
+    command: ["bun", "run", "apps/agent/src/index.ts"]
+    environment:
+      <<: *app-env
+      # The vault list comes from the API, not the indexer: a vault's derivation
+      # path and venue configuration are deliberately off-chain, and the raw
+      # index would hand the agent vaults it has no way to act on.
+      AGENT_API_URL: http://web:3002/api
+      AGENT_PAPER_TRADING: ${AGENT_PAPER_TRADING:-false}
+      # Each tick reads both venues and may report a valuation, so this
+      # interacts with the vault's own minNavReportInterval.
+      AGENT_TICK_INTERVAL_MS: ${AGENT_TICK_INTERVAL_MS:-60000}
+      # Optional. With no key the agent runs on its deterministic policy alone,
+      # which is strictly less clever and equally safe.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.5}
+      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      # Healthy, not started: the agent reports NAV and fulfils redemptions from
+      # what the indexer tells it. Acting on a half-synced queue would mean
+      # fulfilling against a partial view of who is owed what.
+      indexer:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # The web container mounts the API in-process, so it is complete on its own.
+  # Enable this only to run the API as its own scalable unit:
+  #   docker compose --profile split up
+  api:
+    <<: [*image, *restart]
+    profiles: ["split"]
+    working_dir: /usr/src/app
+    command: ["bun", "run", "apps/api/src/index.ts"]
+    environment:
+      <<: *app-env
+      API_PORT: 3003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      indexer:
+        condition: service_started
     networks:
       - internal
       - dokploy-network
@@ -203,7 +369,7 @@ services:
       - traefik.docker.network=dokploy-network
 
 networks:
-  # Database traffic never leaves this network.
+  # Database, indexer and agent traffic never leaves this network.
   internal:
   # Created by Dokploy at install time; Traefik lives here.
   dokploy-network:
