@@ -6,12 +6,38 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+	/**
+	 * One React, whoever asks for it.
+	 *
+	 * In a workspace, `@lemon/ui` and the app resolve `react` from the hoisted
+	 * root while Vite's dependency pre-bundle hands its own copy to anything it
+	 * optimises. Two copies means two hook dispatchers, and a component rendered
+	 * by one calling a hook from the other reads a null dispatcher — which
+	 * surfaces as `Cannot read properties of null (reading 'useContext')` from
+	 * inside recharts, several layers away from the actual cause.
+	 */
+	resolve: {
+		dedupe: ["react", "react-dom"],
+	},
+	optimizeDeps: {
+		include: ["react", "react-dom", "react/jsx-runtime", "recharts"],
+	},
 	css: {
 		devSourcemap: false,
 	},
 	server: {
 		port: 5174,
 		strictPort: true,
+		/**
+		 * The HMR socket needs its own port, explicitly.
+		 *
+		 * Vite runs in middleware mode here — the Bun server owns :3002 and Vite
+		 * never binds `server.port` at all — so the HMR websocket falls back to a
+		 * default that the admin app also wants. Whichever app boots second logs
+		 * `WebSocket server error: Port undefined is already in use` and then
+		 * simply never hot-reloads, with no error in the browser to explain it.
+		 */
+		hmr: { port: 5174 },
 		allowedHosts: ["testb.kubesmith.app", "lemonmarkets.xyz", "www.lemonmarkets.xyz"],
 		sourcemapIgnoreList: (sourcePath) => sourcePath.includes("node_modules"),
 	},

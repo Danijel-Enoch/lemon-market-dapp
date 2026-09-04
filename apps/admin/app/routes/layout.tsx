@@ -1,9 +1,8 @@
+import { createWalletConfig, LemonRainbowKitProvider } from "@lemon/wallet";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { Outlet } from "react-router";
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { base } from "wagmi/chains";
-import { injected } from "wagmi/connectors";
+import { WagmiProvider } from "wagmi";
 
 /**
  * The console's providers.
@@ -13,16 +12,16 @@ import { injected } from "wagmi/connectors";
  * operator spending their own funds, and both should carry a human signature
  * rather than being something a leaked server key could do.
  *
- * Injected connector only — no WalletConnect, no RainbowKit. An operator console
- * is used from one machine with one wallet extension, and the alternative is
- * shipping a megabyte of connector UI for a button pressed twice a month.
+ * This used to be the injected connector alone, on the reasoning that an
+ * operator console is used from one machine with one extension. That held right
+ * up until the console had to be pointed at a fork or a testnet: the injected
+ * path offers no way to *add* the chain, so an operator whose wallet had never
+ * seen it got a connect button that appeared to work and writes that silently
+ * went nowhere. RainbowKit carries the add-chain flow, and it is the same modal
+ * the public app already shows, so there is one connection experience rather
+ * than two.
  */
-const wagmiConfig = createConfig({
-	chains: [base],
-	connectors: [injected()],
-	transports: { [base.id]: http(import.meta.env.VITE_BASE_RPC_URL || undefined) },
-	ssr: true,
-});
+const wagmiConfig = createWalletConfig({ appName: "Lemon Admin" });
 
 export default function RootLayout() {
 	const [queryClient] = useState(
@@ -42,7 +41,9 @@ export default function RootLayout() {
 	return (
 		<WagmiProvider config={wagmiConfig}>
 			<QueryClientProvider client={queryClient}>
-				<Outlet />
+				<LemonRainbowKitProvider>
+					<Outlet />
+				</LemonRainbowKitProvider>
 			</QueryClientProvider>
 		</WagmiProvider>
 	);

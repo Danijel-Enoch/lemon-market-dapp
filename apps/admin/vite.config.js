@@ -12,8 +12,23 @@ import tsconfigPaths from "vite-tsconfig-paths";
  */
 export default defineConfig({
 	plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+	/**
+	 * One React, whoever asks for it. Same reason as the public app's config:
+	 * `@lemon/ui` resolves `react` from the hoisted workspace root while Vite's
+	 * dependency pre-bundle hands its own copy to anything it optimises, and a
+	 * component rendered by one calling a hook from the other reads a null
+	 * dispatcher. It surfaces from inside recharts, which this app also depends
+	 * on, several layers from the actual cause.
+	 */
+	resolve: {
+		dedupe: ["react", "react-dom"],
+	},
+	optimizeDeps: {
+		include: ["react", "react-dom", "react/jsx-runtime", "recharts"],
+	},
 	css: { devSourcemap: false },
-	server: { port: 5175, strictPort: true },
+	// Its own HMR port, distinct from the public app's — see the note there.
+	server: { port: 5175, strictPort: true, hmr: { port: 5175 } },
 	build: {
 		rollupOptions: {
 			output: {

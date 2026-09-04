@@ -63,6 +63,12 @@ export interface DerivedAccounts {
  * two in flight means one is rejected as a duplicate. Queueing is slower than
  * failing, but signing throughput is not the bottleneck in an onboarding flow.
  */
+/** An unset environment variable and an empty one mean the same thing here. */
+function blankToUndefined(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : undefined;
+}
+
 export class NearMpcClient {
 	readonly accountId: string;
 	readonly contractId: string;
@@ -75,11 +81,20 @@ export class NearMpcClient {
 	constructor(config: NearMpcConfig) {
 		this.network = config.network;
 		this.accountId = config.accountId;
-		this.contractId = config.contractId ?? MPC_CONTRACT[config.network];
+		// `??` is not enough here. These arrive from environment variables, and a
+		// variable that is present but empty — which is how every `.env` template
+		// ships an optional override — is a string, not nullish, so it wins the
+		// coalesce and the client ends up addressing a contract named "". NEAR
+		// rejects that with "the Account ID is too short", at the first RPC call
+		// rather than at construction, which reads as an outage rather than as
+		// configuration.
+		this.contractId = blankToUndefined(config.contractId) ?? MPC_CONTRACT[config.network];
 		this.waitUntil = config.waitUntil ?? "FINAL";
 		this.account = new Account(
 			config.accountId,
-			new JsonRpcProvider({ url: config.rpcUrl ?? NEAR_RPC_URL[config.network] }),
+			new JsonRpcProvider({
+				url: blankToUndefined(config.rpcUrl) ?? NEAR_RPC_URL[config.network],
+			}),
 			config.privateKey as `ed25519:${string}`,
 		);
 	}

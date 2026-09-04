@@ -25,6 +25,7 @@
 			"@lemon/ui": ["./packages/ui/src/index.ts"],
 			"@lemon/ui/styles.css": ["./packages/ui/src/styles.css"],
 			"@lemon/client": ["./packages/client/src/index.ts"],
+			"@lemon/wallet": ["./packages/wallet/src/index.ts"],
 			"@lemon/near-mpc": ["./packages/near-mpc/src/index.ts"],
 			"@lemon/pacifica": ["./packages/pacifica/src/index.ts"],
 			"@lemon/api": ["./apps/api/src/app.ts"]

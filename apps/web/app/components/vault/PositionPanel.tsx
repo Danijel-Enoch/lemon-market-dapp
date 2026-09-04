@@ -164,6 +164,10 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 					)}
 				</div>
 
+				{/* The derivation path used to be printed here as a third row. It is
+				    still on the API response for anyone reproducing the addresses, but
+				    on the page it was an opaque string a depositor cannot act on,
+				    sitting directly under two addresses they can. */}
 				<p className="text-xs leading-relaxed text-[var(--pon-fg-3)]">
 					One NEAR path controls both. No private key exists anywhere — the MPC network signs on
 					request — and the EVM address is fixed in the vault as the only place it can send funds.
@@ -176,9 +180,6 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 					<p className="text-xs text-[var(--pon-amber)]">
 						The Solana address is not being shown — see the notes below.
 					</p>
-				)}
-				{position.wallets.path && (
-					<AddressRow label="Derivation path" value={position.wallets.path} />
 				)}
 			</div>
 

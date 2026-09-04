@@ -1,6 +1,7 @@
 import { Brand } from "@lemon/ui";
+import { WrongNetworkBanner } from "@lemon/wallet";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Outlet } from "react-router";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 /**
  * The console shell.
@@ -9,13 +10,13 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
  * row holding one link is worse than none. What the bar does carry is the
  * connected wallet, because every write on this page spends the operator's own
  * funds and they should be able to see which account is about to do it.
+ *
+ * The network banner sits above the content rather than replacing it. Every
+ * number on this page comes from the indexer, not the wallet, so a wrong network
+ * breaks the buttons and nothing else — hiding the dashboard to complain about
+ * it would take away the information the operator opened it for.
  */
 export default function ViewLayout() {
-	const { address, isConnected } = useAccount();
-	const { connect, connectors, isPending } = useConnect();
-	const { disconnect } = useDisconnect();
-	const injected = connectors[0];
-
 	return (
 		<div className="min-h-dvh bg-[var(--pon-bg)]">
 			<header className="sticky top-0 z-50 border-b border-[var(--pon-line)] bg-[var(--pon-bg)]/90 backdrop-blur">
@@ -27,29 +28,17 @@ export default function ViewLayout() {
 						</span>
 					</div>
 
-					{isConnected ? (
-						<button
-							type="button"
-							onClick={() => disconnect()}
-							className="rounded-full border border-[var(--pon-line-2)] px-3 py-1.5 font-mono text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
-							title="Disconnect"
-						>
-							{address?.slice(0, 6)}…{address?.slice(-4)}
-						</button>
-					) : (
-						<button
-							type="button"
-							disabled={!injected || isPending}
-							onClick={() => injected && connect({ connector: injected })}
-							className="rounded-full bg-[var(--pon-lime)] px-3.5 py-1.5 text-xs font-semibold text-[var(--pon-on-lime)] disabled:opacity-60"
-						>
-							{isPending ? "Connecting…" : "Connect"}
-						</button>
-					)}
+					<ConnectButton
+						accountStatus="address"
+						chainStatus="icon"
+						showBalance={false}
+						label="Connect"
+					/>
 				</div>
 			</header>
 
-			<main className="mx-auto w-full max-w-[var(--shell-max)] px-4 py-6 md:py-8">
+			<main className="mx-auto w-full max-w-[var(--shell-max)] space-y-4 px-4 py-6 md:py-8">
+				<WrongNetworkBanner />
 				<Outlet />
 			</main>
 		</div>

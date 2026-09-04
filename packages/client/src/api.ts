@@ -305,10 +305,25 @@ export interface VaultableMarket {
 	netApyPercent: number;
 	fundingAprPercent: number;
 	blockers: string[];
-	spot: { symbol: string; address: string; decimals: number; buyable: boolean };
+	spot: {
+		symbol: string;
+		address: string;
+		decimals: number;
+		buyable: boolean;
+		sellable: boolean;
+		probeFailed: boolean;
+	};
 	perp: { pacificaSymbol: string };
 	existing: { conservative: string | null; leveraged: string | null };
 	reasons: string[];
+	/**
+	 * Whether the spot leg can be bought *and* sold on Base right now.
+	 *
+	 * False means a vault here could not open or could not unwind. A failed
+	 * liquidity probe leaves this true rather than false — an unanswered question
+	 * is not a "no".
+	 */
+	spotTradableOnBase: boolean;
 }
 
 export interface PreparedVault {

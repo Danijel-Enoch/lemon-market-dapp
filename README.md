@@ -115,6 +115,7 @@ packages/
   contracts/  Foundry. LemonVault (4626+7540), VaultFactory, InsuranceFund
   ui/         The Pons design system. Presentational only — no wallet, no API
   client/     The shared read layer: API calls, formatting, data hooks
+  wallet/     The shared wallet layer: the chain, RainbowKit, network switching
   core/       Shared types, unit conversion, fee constants
   near-mpc/   NEAR chain-signature derivation, Ed25519 and secp256k1 signing
   pacifica/   Perp REST client, request signing, Solana deposit instruction
@@ -123,6 +124,13 @@ packages/
   registry/   Spot-asset registry, pairing, basis maths
   db/         Prisma schema and client
 ```
+
+**Why `client` and `wallet` are separate.** `client` is transport and
+formatting with no components and no wallet, so the API and any server-side
+caller can import it without dragging wagmi and a megabyte of connector UI
+along. `wallet` is the half that genuinely needs a browser, and both apps take
+it so their connect modal, their chain and their wrong-network handling cannot
+drift apart.
 
 **Why the admin console is its own app.** It mounts the same API plugin, so
 there is one implementation of every endpoint and one place authorisation is
@@ -187,6 +195,100 @@ Deploys the insurance fund and the factory only. Vaults are created from the
 admin dashboard, because a vault needs an agent wallet derived from the NEAR MPC
 network and the derivation has to happen alongside the transaction.
 
+### Connecting a wallet
+
+Both apps use the same RainbowKit modal, built once in `@lemon/wallet`. That
+package also owns the chain the browser targets, and it builds it from `VITE_`
+variables rather than pinning Base:
+
+```bash
+VITE_CHAIN_ID=84532                       # Base Sepolia and Vibenet are known by id
+VITE_CHAIN_ID=8453                        # a fork also needs the rest:
+VITE_CHAIN_NAME="Base Fork (local)"
+VITE_CHAIN_RPC_URL=http://127.0.0.1:8545
+VITE_CHAIN_EXPLORER_URL=https://basescan.org
+```
+
+Why it is built rather than patched: a wallet that has never heard of the chain
+is asked to add it with `wallet_addEthereumChain`, and that call needs a full
+name, native currency, RPC URL and explorer. `base` with a swapped transport
+does not carry those, and the call fails with an error most wallets do not
+explain — the app appears to connect and then every write goes nowhere. The
+scripts write these into their overlay files, so a fork or a testnet is
+connectable without hand-adding a network.
+
+One caveat on the fork: MetaMask keys networks by chain id, and the fork reports
+8453 so the venue APIs keep working. It is therefore offered as a *separate*
+network named "Base Fork (local)" rather than rewriting your real Base RPC.
+MetaMask will warn about the duplicate id; that warning is the intended
+behaviour, not a misconfiguration.
+
+### Testing against real chains
+
+Three environments, answering different questions. `scripts/dev.sh` runs the
+stack against any of them by loading an overlay file on top of `.env`, so a test
+run never edits the mainnet configuration.
+
+```bash
+bun run fork:up          # anvil forking Base mainnet, protocol deployed and seeded
+bun run dev:fork         # the stack against that fork
+bun run fork:down        # stop it
+```
+
+**The mainnet fork is the only place the whole thing runs.** It has Circle's real
+USDC — minted by impersonating the token's own master minter, so `totalSupply`
+stays consistent — and the real Base pools behind KyberSwap's routes. It is the
+only environment where the agent's spot leg can actually fill. `fork-up.sh`
+deploys with production's limit templates, seeds two vaults, funds two
+depositors, leaves a withdrawal in the queue, and warps the chain through eight
+NAV rounds over two days so the share-price chart and the fee high-water mark
+have something real to read.
+
+```bash
+echo 'DEPLOYER_PRIVATE_KEY=0x...' > .env.deployer   # gitignored
+bun run testnet:up sepolia         # Base Sepolia, Circle's test USDC
+bun run testnet:up vibenet         # Base Vibenet, own faucet token
+scripts/dev.sh .env.sepolia        # the stack against it
+```
+
+**Base Sepolia** is the shareable one: persistent, wallet-connectable, and it has
+Circle's test USDC at `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (faucet at
+faucet.circle.com). **Vibenet** (chain 84538453) is Base's ephemeral preview net
+for in-flight chain features; nothing is deployed there, so the script deploys
+its own faucet token. Its block gas limit is 6,000,000 and `VaultFactory`'s
+constructor costs 5,128,976 — which fits, but only with forge's gas estimation
+buffer trimmed to 1.05x, and it stops fitting if the factory grows by 11%.
+
+Neither testnet can run the spot leg: KyberSwap's aggregator serves Base mainnet
+only. The perp leg does work on both, because it is not on the same chain —
+point `PACIFICA_API_URL` at `https://test-api.pacifica.fi/api/v1` and the agent
+trades Pacifica's own testnet, which carries every market mainnet does.
+
+`fork-up.sh` creates its vaults with the wallets the NEAR MPC network actually
+derives, whenever `NEAR_ACCOUNT_ID` and `NEAR_PRIVATE_KEY` are set. That matters
+for more than tidiness: a vault's agent address is immutable, and it is the only
+thing the Solana address can be derived from. Point a vault at a throwaway EOA
+and the vault page has no Solana leg to show and no derivation to check — an
+anvil account has no Ed25519 sibling.
+
+Nothing can sign for an MPC-derived agent, which is the whole design. On a fork
+we own the node, so anvil runs with `--auto-impersonate` and the seed scripts
+broadcast as the agent by address. That is what lets the seeded chain name the
+real wallets and still be played forward.
+
+```bash
+bun run scripts/agent-addresses.ts    # the wallets, and the paths they come from
+```
+
+Without NEAR configured it falls back to two local keys. Everything still works;
+the Solana column is simply blank, because there is nothing true to put in it.
+
+Testnet deploys take the same override explicitly:
+
+```bash
+eval "$(bun run scripts/agent-addresses.ts --env)" && bun run testnet:up sepolia
+```
+
 ### Docker
 
 ```bash
@@ -198,12 +300,17 @@ docker compose --profile split up    # + standalone API on :3003
 
 ```bash
 bun run dev              # the public app, with the API mounted
-bun run dev:admin        # the operator console
+bun run dev:admin        # the operator console (:3004)
 bun run dev:indexer      # Ponder
 bun run dev:agent        # the vault agents
+bun run dev:stack        # api + indexer + web together (add `admin` for the console)
+bun run dev:fork         # the same, against the local Base fork
+bun run fork:up          # fork Base mainnet, deploy and seed
+bun run fork:down        # stop the fork
+bun run testnet:up <sepolia|vibenet>   # deploy to a public testnet
 bun run typecheck        # all workspaces
 bun run lint             # biome
-bun test                 # TypeScript tests + 112 Foundry tests
+bun test                 # TypeScript tests + 115 Foundry tests
 bun run contracts:test   # Foundry only
 bun run contracts:build  # compile and regenerate ABIs
 ```

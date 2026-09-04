@@ -100,6 +100,14 @@ export default function AdminPage() {
 	const vaults = vaultData?.vaults ?? [];
 	const overdue = vaultData?.queue.overdue ?? [];
 	const ripe = vaultData?.queue.ripe ?? [];
+
+	// A market is offered only when both legs actually work: the Base token can
+	// be round-tripped, and nothing else about the pair is blocking. The rest stay
+	// reachable behind a disclosure rather than vanishing, because "not listed"
+	// and "listed but unroutable today" need to look different to an operator.
+	const allMarkets = marketData?.markets ?? [];
+	const creatableMarkets = allMarkets.filter((m) => m.spotTradableOnBase && m.reasons.length === 0);
+	const blockedMarkets = allMarkets.filter((m) => !m.spotTradableOnBase || m.reasons.length > 0);
 	const stale = vaults.filter((v) => v.navStale);
 	const needingGas = gasData?.needingTopUp ?? 0;
 
@@ -243,7 +251,7 @@ export default function AdminPage() {
 			)}
 
 			{tab === "markets" && (
-				<section className="space-y-3">
+				<section className="space-y-4">
 					{!FACTORY_ADDRESS && (
 						<Alert
 							tone="danger"
@@ -255,44 +263,54 @@ export default function AdminPage() {
 					{marketsFetching && !marketData ? (
 						<Skeleton className="h-64 w-full rounded-[var(--pon-r-lg,16px)]" />
 					) : (
-						<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
-							{(marketData?.markets ?? []).map((market) => {
-								const both = market.existing.conservative && market.existing.leveraged;
-								return (
-									<li
-										key={market.id}
-										className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
-									>
-										<div className="min-w-0">
-											<div className="flex flex-wrap items-center gap-2">
-												<span className="font-medium text-[var(--pon-fg-0)]">{market.ticker}</span>
-												{market.existing.conservative && (
-													<Pill tone="muted">Conservative vault</Pill>
-												)}
-												{market.existing.leveraged && <Pill tone="muted">Leveraged vault</Pill>}
-												{market.reasons.length > 0 && <Pill tone="warning">Not tradable</Pill>}
-											</div>
-											<p className="mt-1 text-xs text-[var(--pon-fg-3)]">
-												{market.name} · net {formatPercent(market.netApyPercent, 1)} · funding{" "}
-												{formatPercent(market.fundingAprPercent, 1)}
-											</p>
-											{market.reasons.length > 0 && (
-												<p className="mt-1 text-xs text-[var(--pon-amber)]">{market.reasons[0]}</p>
-											)}
-										</div>
+						<>
+							<p className="text-sm text-[var(--pon-fg-3)]">
+								Only markets whose spot token can be bought and sold on Base today. A vault holds
+								that token against the perp short, so one without a live route both ways would take
+								deposits it could not open or could not unwind.
+							</p>
 
-										<Button
-											size="sm"
-											disabled={Boolean(both) || !FACTORY_ADDRESS}
-											onClick={() => setCreating(market)}
-										>
-											<Plus className="mr-1.5 size-3.5" />
-											{both ? "Both tiers exist" : "Create vault"}
-										</Button>
-									</li>
-								);
-							})}
-						</ul>
+							{creatableMarkets.length === 0 ? (
+								<EmptyState
+									icon={AlertTriangle}
+									title="No market can be vaulted right now"
+									description="Every paired market is missing a spot route on Base or has a perp leg that is not accepting positions. The full list is below."
+								/>
+							) : (
+								<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+									{creatableMarkets.map((market) => (
+										<MarketRow
+											key={market.id}
+											market={market}
+											canCreate={Boolean(FACTORY_ADDRESS)}
+											onCreate={setCreating}
+										/>
+									))}
+								</ul>
+							)}
+
+							{/* Kept, not hidden. An operator who cannot find NVDA needs to see that
+							    it is listed and unroutable today, not conclude it was never paired —
+							    but it does not belong in the list of things they can act on. */}
+							{blockedMarkets.length > 0 && (
+								<details className="overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+									<summary className="cursor-pointer px-5 py-3.5 text-sm text-[var(--pon-fg-2)]">
+										{blockedMarkets.length} market{blockedMarkets.length === 1 ? "" : "s"} cannot be
+										vaulted right now
+									</summary>
+									<ul className="divide-y divide-[var(--pon-line)] border-t border-[var(--pon-line)]">
+										{blockedMarkets.map((market) => (
+											<MarketRow
+												key={market.id}
+												market={market}
+												canCreate={false}
+												onCreate={setCreating}
+											/>
+										))}
+									</ul>
+								</details>
+							)}
+						</>
 					)}
 				</section>
 			)}
@@ -390,5 +408,71 @@ function Pill({
 		>
 			{children}
 		</span>
+	);
+}
+
+/**
+ * One row on the Create tab.
+ *
+ * Shared by the creatable list and the blocked disclosure so the two cannot
+ * drift into showing different things about the same market. `canCreate` is
+ * passed in rather than derived here: the blocked list renders the identical row
+ * with the button disabled, which is what makes the reason legible next to the
+ * thing it is blocking.
+ */
+function MarketRow({
+	market,
+	canCreate,
+	onCreate,
+}: {
+	market: VaultableMarket;
+	canCreate: boolean;
+	onCreate: (market: VaultableMarket) => void;
+}) {
+	const bothTiersExist = Boolean(market.existing.conservative && market.existing.leveraged);
+	const spotUnavailable = !market.spotTradableOnBase;
+	const blocked = spotUnavailable || market.reasons.length > 0;
+	const disabled = bothTiersExist || !canCreate;
+
+	return (
+		<li className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+			<div className="min-w-0">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="font-medium text-[var(--pon-fg-0)]">{market.ticker}</span>
+					<span className="font-mono text-[11px] text-[var(--pon-fg-4)]">{market.spot.symbol}</span>
+					{market.existing.conservative && <Pill tone="muted">Conservative vault</Pill>}
+					{market.existing.leveraged && <Pill tone="muted">Leveraged vault</Pill>}
+					{spotUnavailable && <Pill tone="danger">No spot on Base</Pill>}
+					{/* Not "perp blocked": `reasons` also carries spot problems that are
+					    not routability — thin liquidity, most often — and naming the
+					    wrong leg sends an operator to look at the wrong venue. The
+					    actual sentence is printed below, so the badge only has to say
+					    that something is. */}
+					{!spotUnavailable && market.reasons.length > 0 && <Pill tone="warning">Blocked</Pill>}
+					{market.spot.probeFailed && <Pill tone="muted">Liquidity unknown</Pill>}
+				</div>
+				<p className="mt-1 text-xs text-[var(--pon-fg-3)]">
+					{market.name} · net {formatPercent(market.netApyPercent, 1)} · funding{" "}
+					{formatPercent(market.fundingAprPercent, 1)}
+				</p>
+				{market.reasons.length > 0 && (
+					<p className="mt-1 text-xs text-[var(--pon-amber)]">{market.reasons[0]}</p>
+				)}
+			</div>
+
+			{/* A disabled primary button is still a lime button, and at a glance it
+			    reads as pressable — an operator clicks it, nothing happens, and the
+			    reason is a line of text they have already skimmed past. Blocked rows
+			    get the outline variant and a label that names the state instead. */}
+			<Button
+				size="sm"
+				variant={disabled ? "outline" : "shine"}
+				disabled={disabled}
+				onClick={() => onCreate(market)}
+			>
+				{!disabled && <Plus className="mr-1.5 size-3.5" />}
+				{bothTiersExist ? "Both tiers exist" : blocked ? "Unavailable" : "Create vault"}
+			</Button>
+		</li>
 	);
 }

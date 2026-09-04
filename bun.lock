@@ -22,6 +22,7 @@
         "@lemon/client": "workspace:*",
         "@lemon/contracts": "workspace:*",
         "@lemon/ui": "workspace:*",
+        "@lemon/wallet": "workspace:*",
         "@rainbow-me/rainbowkit": "^2.2.10",
         "@react-router/node": "^7.12.0",
         "@tailwindcss/vite": "^4.1.18",
@@ -107,6 +108,7 @@
         "@lemon/registry": "workspace:*",
         "@lemon/relay": "workspace:*",
         "@lemon/ui": "workspace:*",
+        "@lemon/wallet": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
         "@radix-ui/react-popover": "^1.1.15",
@@ -247,6 +249,17 @@
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
         "react-router": "^7.12.0",
+      },
+    },
+    "packages/wallet": {
+      "name": "@lemon/wallet",
+      "version": "0.2.0",
+      "peerDependencies": {
+        "@rainbow-me/rainbowkit": "^2.2.10",
+        "@tanstack/react-query": "^5.90.16",
+        "react": "^19.2.3",
+        "viem": "^2.44.2",
+        "wagmi": "^3.3.2",
       },
     },
   },
@@ -556,6 +569,8 @@
     "@lemon/relay": ["@lemon/relay@workspace:packages/relay"],
 
     "@lemon/ui": ["@lemon/ui@workspace:packages/ui"],
+
+    "@lemon/wallet": ["@lemon/wallet@workspace:packages/wallet"],
 
     "@lemon/web": ["@lemon/web@workspace:apps/web"],
 

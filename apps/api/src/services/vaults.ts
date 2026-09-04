@@ -67,8 +67,21 @@ export interface IndexedVault {
 	depositorCount: number;
 	paused: boolean;
 	emergencyExit: boolean;
-	apy7d?: { apy: number | null } | null;
-	apy30d?: { apy: number | null } | null;
+	apy7d?: RealisedYield | null;
+	apy30d?: RealisedYield | null;
+	apyAll?: RealisedYield | null;
+}
+
+/**
+ * A realised-yield window, annualised, or `apy: null` when the window is too
+ * short or too implausible to annualise. The indexer decides which; this layer
+ * only carries it.
+ */
+export interface RealisedYield {
+	apy: number | null;
+	from?: number;
+	to?: number;
+	samples?: number;
 }
 
 /** A vault, with the label and configuration the chain does not carry. */
@@ -128,11 +141,21 @@ export async function listVaults(): Promise<VaultView[]> {
 
 export async function getVault(address: string): Promise<VaultView | null> {
 	try {
-		const [{ vault }, byAddress] = await Promise.all([
-			fromIndexer<{ vault: IndexedVault }>(`/vaults/${address}`),
+		const [{ vault, apy7d, apy30d, apyAll }, byAddress] = await Promise.all([
+			fromIndexer<{
+				vault: IndexedVault;
+				apy7d: RealisedYield | null;
+				apy30d: RealisedYield | null;
+				apyAll: RealisedYield | null;
+			}>(`/vaults/${address}`),
 			vaultConfigs(),
 		]);
-		return decorate(vault, byAddress.get(address.toLowerCase()));
+		// The two indexer endpoints disagree about where the yield windows live:
+		// `/vaults` embeds them on each row, `/vaults/:address` returns them
+		// beside the vault. Destructuring only `vault` dropped them silently, so
+		// the vault page's "7d realised" card was blank on every vault while the
+		// board showed a figure for the same one.
+		return decorate({ ...vault, apy7d, apy30d, apyAll }, byAddress.get(address.toLowerCase()));
 	} catch (error) {
 		if (error instanceof IndexerUnavailableError && error.message.includes("404")) return null;
 		throw error;

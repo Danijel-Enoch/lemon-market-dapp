@@ -45,6 +45,15 @@ function serialise<T>(value: T): T {
 const DAY = 86_400;
 
 /**
+ * The ceiling past which an annualised figure is reported as absent.
+ *
+ * Not a clamp — the value is discarded, not capped. A capped number still reads
+ * as a measurement, and the whole point is that beyond here there is no
+ * measurement to report.
+ */
+const MAX_PLAUSIBLE_APY = 1000;
+
+/**
  * Realised yield over a window, annualised from the share price at each end.
  *
  * Share price rather than total assets, deliberately: assets move when people
@@ -78,10 +87,14 @@ async function realisedApy(
 	const last = points[points.length - 1];
 	const elapsed = last.timestamp - first.timestamp;
 
-	// An hour is the floor. Annualising a ten-minute sample multiplies its noise
-	// by 52,000 and produces a headline figure that swings by hundreds of percent
-	// between page loads.
-	if (elapsed < 3600 || first.pricePerShare === 0n) {
+	// A day is the floor, because annualising raises the window's growth to the
+	// power of `year / window` and that exponent *is* the error term. An hour
+	// of data carries an exponent of 8,760: a vault three hours old that has
+	// gained 3% annualises to 2 x 10^22 percent, which is arithmetically correct
+	// and completely uninformative. At a day the exponent is 365, which is the
+	// convention every other vault quotes on and the least this can be without
+	// the extrapolation dominating the measurement.
+	if (elapsed < DAY || first.pricePerShare === 0n) {
 		return { apy: null, from: first.timestamp, to: last.timestamp, samples: points.length };
 	}
 
@@ -90,9 +103,13 @@ async function realisedApy(
 	const apy = (growth ** periods - 1) * 100;
 
 	return {
-		// A compounded figure can overflow to Infinity on a short, volatile
-		// window. Reporting null beats reporting a number that is not one.
-		apy: Number.isFinite(apy) ? apy : null,
+		// Above the floor a short lucky window still compounds into a number
+		// whose only real content is that the window was short. A basis trade
+		// earns funding; it does not earn 1,000% a year, and quoting a figure
+		// that says it does is worse than quoting nothing — the reader cannot
+		// tell it apart from a real one. `Number.isFinite` alone catches only
+		// the far end of that range, so it is not the guard this needs.
+		apy: Number.isFinite(apy) && Math.abs(apy) <= MAX_PLAUSIBLE_APY ? apy : null,
 		from: first.timestamp,
 		to: last.timestamp,
 		samples: points.length,

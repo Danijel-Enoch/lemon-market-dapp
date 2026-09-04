@@ -80,12 +80,34 @@ export interface VaultableMarket {
 	netApyPercent: number;
 	fundingAprPercent: number;
 	blockers: string[];
-	spot: { symbol: string; address: string; decimals: number; buyable: boolean };
+	spot: {
+		symbol: string;
+		address: string;
+		decimals: number;
+		buyable: boolean;
+		sellable: boolean;
+		/** True when the routability probe could not answer, so `buyable` is a guess. */
+		probeFailed: boolean;
+	};
 	perp: { pacificaSymbol: string };
 	/** Vaults that already exist for this market, by tier. */
 	existing: { conservative: string | null; leveraged: string | null };
 	/** Why this market cannot have a vault created right now. Empty means it can. */
 	reasons: string[];
+	/**
+	 * Whether the spot leg can be round-tripped on Base right now.
+	 *
+	 * The vault's whole job is to hold a spot position on Base against a perp
+	 * short, so a market whose Base token cannot be bought — or can be bought and
+	 * not sold — is one whose vault would take deposits and then be unable to open
+	 * or unwind. Both directions are required: enterable-but-not-exitable is the
+	 * worse failure, because the money is already in by the time it is discovered.
+	 *
+	 * A failed probe is *not* reported as untradable. Throttled liquidity checks
+	 * would otherwise take the whole board off the create list at exactly the
+	 * moment an operator is least able to tell why.
+	 */
+	spotTradableOnBase: boolean;
 }
 
 export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
@@ -111,7 +133,19 @@ export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 		// The market board's own blockers carry forward. A market nobody can
 		// trade is a market whose vault would take deposits and sit idle.
 		if (market.blockers.length) reasons.push(...market.blockers);
-		if (!market.spot.buyable) reasons.push("The spot leg has no route right now.");
+
+		const spotTradableOnBase =
+			!market.spot.probeFailed && market.spot.buyable && market.spot.sellable;
+
+		if (!market.spot.probeFailed && !market.spot.buyable) {
+			reasons.push(
+				`No route into ${market.spot.symbol} on Base, so the spot leg cannot be opened.`,
+			);
+		} else if (!market.spot.probeFailed && !market.spot.sellable) {
+			reasons.push(
+				`${market.spot.symbol} can be bought but not sold on Base, so the position could not be unwound.`,
+			);
+		}
 
 		return {
 			id: market.id,
@@ -126,10 +160,13 @@ export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 				address: market.spot.address,
 				decimals: market.spot.decimals,
 				buyable: market.spot.buyable,
+				sellable: market.spot.sellable,
+				probeFailed: market.spot.probeFailed,
 			},
 			perp: { pacificaSymbol: market.perp.pacificaSymbol },
 			existing,
 			reasons,
+			spotTradableOnBase,
 		};
 	});
 }

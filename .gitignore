@@ -54,3 +54,9 @@ yarn-error.log*
 # Project specific
 .figma
 generated
+
+# Local Base fork state (scripts/fork-up.sh)
+.fork/
+
+# Public testnet deploy logs (scripts/testnet-up.sh)
+.testnet/

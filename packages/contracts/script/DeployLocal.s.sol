@@ -29,8 +29,7 @@ contract DeployLocal is Script {
     /// Anvil's first two accounts, and two agent keys derived from nothing in particular.
     uint256 internal constant DEPLOYER_PK =
         0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-    uint256 internal constant ALICE_PK =
-        0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+    uint256 internal constant ALICE_PK = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
     uint256 internal constant AGENT_A_PK = 0x0aaa;
     uint256 internal constant AGENT_B_PK = 0x0bbb;
 
@@ -72,13 +71,7 @@ contract DeployLocal is Script {
         MockUSDC usdc = new MockUSDC();
         InsuranceFund fund = new InsuranceFund(deployer, deployer);
         VaultFactory factory = new VaultFactory(
-            IERC20(address(usdc)),
-            deployer,
-            deployer,
-            deployer,
-            address(fund),
-            localLimits(),
-            localLimits()
+            IERC20(address(usdc)), deployer, deployer, deployer, address(fund), localLimits(), localLimits()
         );
 
         LemonVault conservative = LemonVault(
@@ -88,9 +81,7 @@ contract DeployLocal is Script {
                 "Lemon NVDA Basis Conservative",
                 "lmNVDAC",
                 LemonVault.RiskProfile({
-                    tier: LemonVault.RiskTier.CONSERVATIVE,
-                    targetLeverageBps: 10_000,
-                    maxLeverageBps: 10_000
+                    tier: LemonVault.RiskTier.CONSERVATIVE, targetLeverageBps: 10_000, maxLeverageBps: 10_000
                 })
             )
         );
@@ -102,9 +93,7 @@ contract DeployLocal is Script {
                 "Lemon BTC Basis Leveraged",
                 "lmBTCL",
                 LemonVault.RiskProfile({
-                    tier: LemonVault.RiskTier.LEVERAGED,
-                    targetLeverageBps: 20_000,
-                    maxLeverageBps: 30_000
+                    tier: LemonVault.RiskTier.LEVERAGED, targetLeverageBps: 20_000, maxLeverageBps: 30_000
                 })
             )
         );

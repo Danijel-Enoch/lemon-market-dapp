@@ -3,6 +3,17 @@ import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
 
 /**
+ * Note on the port.
+ *
+ * Ponder resolves its listen port from `process.env.PORT` in preference to its
+ * own `--port` flag, and this monorepo's `.env` sets `PORT` for the web app. Run
+ * unqualified alongside the rest of the stack, the indexer therefore tries to
+ * bind the web app's port, increments onto the API's, and exits — so the
+ * package scripts pin `PORT=42069` in front of every `ponder` invocation. The
+ * flag would not have worked; the environment variable is the only lever.
+ */
+
+/**
  * Vaults are not known at build time.
  *
  * The factory deploys them as an operator adds markets, so the address list has
@@ -33,7 +44,16 @@ export default createConfig({
 		: { kind: "pglite" },
 	chains: {
 		base: {
-			id: 8453,
+			/**
+			 * Base mainnet unless a deployment says otherwise.
+			 *
+			 * Read from the environment rather than pinned so the same indexer
+			 * follows a Base Sepolia or Vibenet deployment, and so an anvil fork
+			 * reporting id 8453 is indexed as the Base it is pretending to be.
+			 * Changing it invalidates the indexed tables — the ids in them are
+			 * chain-scoped — so Ponder will rebuild from `startBlock`.
+			 */
+			id: Number(process.env.CHAIN_ID ?? 8453),
 			rpc:
 				process.env.PONDER_RPC_URL_BASE ?? process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
 		},

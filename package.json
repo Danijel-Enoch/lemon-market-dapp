@@ -9,6 +9,11 @@
 	],
 	"scripts": {
 		"dev": "bun run --filter '@lemon/web' dev",
+		"dev:stack": "scripts/dev.sh",
+		"dev:fork": "scripts/dev.sh .env.fork",
+		"fork:up": "scripts/fork-up.sh",
+		"fork:down": "scripts/fork-down.sh",
+		"testnet:up": "scripts/testnet-up.sh",
 		"dev:api": "bun run --filter '@lemon/api' dev",
 		"dev:indexer": "bun run --filter '@lemon/indexer' dev",
 		"dev:agent": "bun run --filter '@lemon/agent' dev",
