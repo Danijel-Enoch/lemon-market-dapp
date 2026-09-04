@@ -19,6 +19,25 @@ import {
  * the package for market data should not drag a Solana runtime along with it.
  */
 
+/**
+ * Mainnet only, and deliberately not configurable yet.
+ *
+ * Everything else about the perp leg follows `PACIFICA_API_URL` — markets,
+ * prices, funding, account reads, and order placement, which is REST plus an
+ * Ed25519 signature rather than an on-chain call. Those all work against
+ * `test-api.pacifica.fi` today. Depositing does not: it is an Anchor
+ * instruction, so it needs the program, central state, vault and mint addresses
+ * for whichever cluster the venue is on, and Pacifica's testnet runs on Solana
+ * devnet where these four accounts do not exist.
+ *
+ * Pacifica does not publish the devnet equivalents — their own Python SDK
+ * hardcodes exactly these four and pins `mainnet-beta` — so there is nothing to
+ * make configurable against. When those addresses are known, these become
+ * options rather than constants; until then a caller pointing this at devnet
+ * would build an instruction against accounts that are not there, and it is
+ * better for that to be stated than discovered.
+ */
+
 /** Pacifica's custody program. */
 export const PACIFICA_PROGRAM_ID = new PublicKey("PCFA5iYgmqK6MqPhWNKg7Yv7auX7VZ4Cx7T1eJyrAMH");
 

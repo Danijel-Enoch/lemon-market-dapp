@@ -4,9 +4,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "PORT=42069 ponder dev",
-		"start": "PORT=42069 ponder start",
-		"serve": "PORT=42069 ponder serve",
+		"dev": "PORT=42069 ponder dev --schema ponder",
+		"start": "PORT=42069 ponder start --schema ponder",
+		"serve": "PORT=42069 ponder serve --schema ponder",
 		"codegen": "ponder codegen",
 		"typecheck": "tsc --noEmit"
 	},

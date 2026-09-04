@@ -133,8 +133,13 @@ contract DeployFork is Script {
         // demo script must not paper over by loosening the limits. `fork-up.sh`
         // advances anvil's clock and runs `SeedForkNav.s.sol` instead, which
         // also lets it produce a NAV series with more than one point in it.
-        _deploy(conservative, agentA, 9000);
-        _deploy(leveraged, agentB, 8500);
+        // Skipped when the live agent is going to run: pulling the capital is the
+        // agent's own first decision, and pre-making it leaves the agent with a
+        // deployed vault it never opened and cannot reconcile.
+        if (vm.envOr("SEED_ACTIVITY", true)) {
+            _deploy(conservative, agentA, 9000);
+            _deploy(leveraged, agentB, 8500);
+        }
 
         console.log("USDC          ", address(usdc));
         console.log("InsuranceFund ", address(fund));

@@ -3,6 +3,19 @@ import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
 
 /**
+ * Note on the schema.
+ *
+ * The package scripts pass `--schema ponder`, which is not cosmetic. Ponder
+ * writes its indexed tables into whatever schema it is given, and Prisma manages
+ * `public` — so left at the default the two share a namespace, and
+ * `prisma db push` offers to drop `vault`, `nav_point`, `activity` and the rest
+ * because they are not in its schema file. That is the documented setup command,
+ * and it silently destroys the read model.
+ *
+ * Keeping them apart also makes resetting the indexer a single statement
+ * (`drop schema ponder cascade`) rather than a hunt for which tables belong to
+ * whom.
+ *
  * Note on the port.
  *
  * Ponder resolves its listen port from `process.env.PORT` in preference to its

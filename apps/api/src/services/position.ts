@@ -1,3 +1,4 @@
+import { USDC_ADDRESS as BASE_USDC_ADDRESS } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import { findTokenByTicker } from "@lemon/registry";
@@ -91,9 +92,15 @@ export async function getLivePosition(address: string): Promise<LivePosition | n
 		.catch(() => null);
 
 	const wallets = await resolveWallets(vault, record, notes);
-	const spot = await readSpotLeg(vault, record, notes);
-	const perp = await readPerpLeg(wallets.solana, record, notes);
-	const idle = await readAgentUsdc(vault.agentWallet as Address, notes);
+
+	const paper = PAPER_TRADING ? await readPaperLegs(address, record, notes) : null;
+	const spot = paper ? paper.spot : await readSpotLeg(vault, record, notes);
+	const perp = paper ? paper.perp : await readPerpLeg(wallets.solana, record, notes);
+
+	// In paper mode the agent's USDC balance is the *backing* for the notional
+	// legs rather than a third holding, so counting it here would report the same
+	// dollars twice — exactly the double-count the agent's own valuation avoids.
+	const idle = paper ? 0n : await readAgentUsdc(vault.agentWallet as Address, notes);
 
 	const observed = combine(spot.valueUsd, perp.marginUsd, idle);
 	const reported = BigInt(vault.deployedAssets);
@@ -110,6 +117,136 @@ export async function getLivePosition(address: string): Promise<LivePosition | n
 		notes,
 		observedAt: Math.floor(Date.now() / 1000),
 	};
+}
+
+/**
+ * Whether this deployment's agent trades on paper.
+ *
+ * Read here as well as in the agent because the two answer different questions
+ * from the same fact: the agent asks "may I place an order", this asks "where
+ * does the position live". Getting it wrong in this direction is harmless but
+ * very visible — the page reads the chain, finds no token balance and no
+ * Pacifica account, and shows a vault holding nothing while the contract says
+ * it has deployed most of its capital.
+ */
+const PAPER_TRADING = process.env.AGENT_PAPER_TRADING === "true";
+
+/**
+ * Both legs, from the agent's simulated position and live prices.
+ *
+ * The prices are real — a KyberSwap route for the spot leg and Pacifica's own
+ * mark for the perp — so everything the page shows moves on its own. Only the
+ * fills behind the sizes were notional.
+ */
+async function readPaperLegs(
+	address: string,
+	record: VaultConfigRecord,
+	notes: string[],
+): Promise<{ spot: SpotLeg; perp: PerpLeg } | null> {
+	if (!record) return null;
+
+	const position = await prisma.paperPosition
+		.findUnique({ where: { vaultAddress: address.toLowerCase() } })
+		.catch(() => null);
+
+	notes.push(
+		"This deployment trades on paper: the sizes below are the agent's simulated position, priced against live KyberSwap and Pacifica quotes. No order was placed at either venue.",
+	);
+
+	const spotUnits = BigInt(position?.spotUnits ?? "0");
+	const perpUnits = BigInt(position?.perpUnits ?? "0");
+	const margin = BigInt(position?.perpMarginUsdc ?? "0");
+	const funding = BigInt(position?.fundingAccruedUsdc ?? "0");
+	const entryE6 = BigInt(position?.perpEntryPriceE6 ?? "0");
+	const decimals = record.spotTokenDecimals;
+	const scale = 10n ** BigInt(decimals);
+
+	const [priceE6, price] = await Promise.all([
+		paperSpotPriceE6(record, notes),
+		paperMark(record.perpSymbol, notes),
+	]);
+
+	const spot: SpotLeg = {
+		token: record.spotTokenAddress,
+		symbol: record.spotTokenSymbol,
+		decimals,
+		balance: spotUnits.toString(),
+		valueUsd: priceE6 === null ? null : ((spotUnits * priceE6) / scale).toString(),
+		priceUsd: priceE6 === null ? null : Number(priceE6) / 1e6,
+	};
+
+	const markE6 = price === null ? null : BigInt(Math.round(price.mark * 1e6));
+	const notional = markE6 === null ? null : Number((perpUnits * markE6) / scale) / 1e6;
+	// A short gains when the mark falls, so the sign is entry minus mark.
+	const unrealised =
+		markE6 === null ? null : Number(((entryE6 - markE6) * perpUnits) / scale) / 1e6;
+	const equity =
+		unrealised === null ? null : Number(margin) / 1e6 + unrealised + Number(funding) / 1e6;
+
+	const perp: PerpLeg = {
+		symbol: record.perpSymbol,
+		// Negative: a basis position is short the perp.
+		size: -(Number(perpUnits) / Number(scale)),
+		entryPrice: entryE6 === 0n ? null : Number(entryE6) / 1e6,
+		markPrice: price?.mark ?? null,
+		notionalUsd: notional,
+		unrealisedPnlUsd: unrealised,
+		marginUsd: equity,
+		leverage: equity && notional ? notional / equity : null,
+		fundingRateHourlyPercent: price === null ? null : price.funding * 100,
+	};
+
+	return { spot, perp };
+}
+
+/** USDC per whole spot token, scaled by 1e6, from a live route. */
+async function paperSpotPriceE6(
+	record: NonNullable<VaultConfigRecord>,
+	notes: string[],
+): Promise<bigint | null> {
+	const probe = 1_000_000_000n; // $1,000, past the dust tiers of any real pool.
+	try {
+		const route = await clients.kyber.getRoute({
+			// Base mainnet's USDC, not this deployment's asset. KyberSwap prices
+			// Base, and a testnet deployment's asset is a token that only exists on
+			// its own chain — quoting against it asks the aggregator to route a
+			// pair it has never seen and returns HTTP 400, which surfaces as an
+			// unpriceable spot leg rather than as the configuration error it is.
+			tokenIn: BASE_USDC_ADDRESS,
+			tokenOut: record.spotTokenAddress as Address,
+			amountIn: probe.toString(),
+			slippagePercent: 0.5,
+		});
+		if (!route.ok) {
+			notes.push(`No KyberSwap route into ${record.spotTokenSymbol}, so the spot leg is unpriced.`);
+			return null;
+		}
+		const out = BigInt(route.quote.amountOut);
+		if (out === 0n) return null;
+		return (probe * 10n ** BigInt(record.spotTokenDecimals)) / out;
+	} catch (error) {
+		notes.push(`The spot leg could not be priced: ${message(error)}`);
+		return null;
+	}
+}
+
+/** Mark and funding, from `prices()` — `markets()` carries no mark at all. */
+async function paperMark(
+	symbol: string,
+	notes: string[],
+): Promise<{ mark: number; funding: number } | null> {
+	try {
+		const prices = await clients.pacifica.prices();
+		const price = prices.find((p) => p.symbol === symbol);
+		if (!price) {
+			notes.push(`Pacifica does not list ${symbol}, so the perp leg is unpriced.`);
+			return null;
+		}
+		return { mark: Number(price.mark), funding: Number(price.funding) };
+	} catch (error) {
+		notes.push(`The perp leg could not be priced: ${message(error)}`);
+		return null;
+	}
 }
 
 type VaultConfigRecord = Awaited<ReturnType<typeof prisma.vaultConfig.findUnique>>;
@@ -217,9 +354,10 @@ async function readSpotLeg(
 			amountIn: balance.toString(),
 			slippagePercent: 0.5,
 		});
-		// biome-ignore lint/suspicious/noExplicitAny: the route envelope varies by version.
-		const out = (route as any)?.routeSummary?.amountOut;
-		const valueUsd = out ? BigInt(out) : null;
+		// `QuoteResult` is a discriminated union and the amounts live under
+		// `quote`. Reaching for `routeSummary` on the envelope reads undefined
+		// every time, which priced every spot leg on every vault page at null.
+		const valueUsd = route.ok ? BigInt(route.quote.amountOut) : null;
 
 		return {
 			token,

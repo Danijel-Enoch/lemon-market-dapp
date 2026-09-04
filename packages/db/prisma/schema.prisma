@@ -239,6 +239,43 @@ model VaultConfig {
   @@index([ticker])
 }
 
+/// A paper position, for a deployment where the venues are read but not traded.
+///
+/// Exists because the legs have to persist across restarts. A real agent reads
+/// its position back from Kyber and Pacifica; a paper one has nowhere to read it
+/// from, and holding it in memory would mean every restart silently flattened a
+/// vault that the chain still believes is deployed.
+///
+/// Amounts are strings, not floats. Spot units carry the token's own decimals
+/// and USDC carries six; a position parsed through a double loses precision
+/// well before it reaches a NAV report.
+model PaperPosition {
+  /// The vault this position belongs to, lowercased.
+  vaultAddress String @id
+
+  /// Spot tokens the agent would be holding, in the token's own decimals.
+  spotUnits String @default("0")
+  /// USDC actually spent acquiring them, so realised spot P&L is knowable.
+  spotCostUsdc String @default("0")
+
+  /// Size of the short, in the same units as the spot leg — delta-neutral means
+  /// these two track each other, and the gap between them is the thing to watch.
+  perpUnits String @default("0")
+  /// Margin posted against it, in USDC units.
+  perpMarginUsdc String @default("0")
+  /// Mark price the short was opened at, scaled by 1e6.
+  perpEntryPriceE6 String @default("0")
+
+  /// Funding accrued since the position opened, in USDC units. Signed: a basis
+  /// trade that stops paying is the case worth being able to show.
+  fundingAccruedUsdc String @default("0")
+  /// When funding was last accrued, so a tick charges only the elapsed hours.
+  fundingAccruedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// One tick of one agent, kept for review.
 ///
 /// The agent is the only party that can move deployed capital, and most of what

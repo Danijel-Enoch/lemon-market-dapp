@@ -1,11 +1,21 @@
+import { USDC_ADDRESS } from "@lemon/core";
 import { prisma } from "@lemon/db";
+import { KyberAggregatorClient } from "@lemon/kyber";
 import { NearMpcClient } from "@lemon/near-mpc";
+import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
 import { createPublicClient, createWalletClient, http } from "viem";
-import { base } from "viem/chains";
 import { advisorFromEnv } from "./advisor";
+import { resolveAgentChain } from "./chain";
 import { VaultClient } from "./vault";
+import { createPaperVenueAdapter } from "./venue-paper";
 import { agentWalletFor } from "./wallet";
-import { type QueueEntry, type TickResult, tick, type WorkerDeps } from "./worker";
+import {
+	type QueueEntry,
+	type TickResult,
+	tick,
+	type VenueAdapter,
+	type WorkerDeps,
+} from "./worker";
 
 /**
  * The agent process.
@@ -35,6 +45,23 @@ const INDEXER_URL = process.env.INDEXER_URL ?? "http://localhost:42069";
  * The queue still comes from the indexer, because it is pure chain state.
  */
 const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
+
+/**
+ * Read both venues, fill neither.
+ *
+ * For deployments where the vault is somewhere the spot leg cannot execute. The
+ * prices are live; only the fills are notional. See `venue-paper.ts`.
+ */
+const PAPER_TRADING = process.env.AGENT_PAPER_TRADING === "true";
+
+const kyber = new KyberAggregatorClient({
+	baseUrl: process.env.KYBER_BASE_URL,
+	clientId: process.env.KYBER_CLIENT_ID ?? "lemon-agent",
+});
+
+const pacifica = new PacificaClient({
+	baseUrl: process.env.PACIFICA_API_URL?.trim() || PACIFICA_MAINNET,
+});
 
 function log(level: "info" | "warn" | "error", message: string, extra?: unknown) {
 	const line = `[agent] ${new Date().toISOString()} ${message}`;
@@ -157,8 +184,9 @@ async function main() {
 	// withdrawal.
 	await mpc.verifyRootKeys();
 
+	const chain = resolveAgentChain();
 	const transport = http(process.env.BASE_RPC_URL ?? "https://mainnet.base.org");
-	const publicClient = createPublicClient({ chain: base, transport });
+	const publicClient = createPublicClient({ chain, transport });
 	const advisor = advisorFromEnv();
 
 	log("info", advisor ? "Advisory layer enabled." : "No OPENROUTER_API_KEY; policy only.");
@@ -198,7 +226,7 @@ async function main() {
 		const wallet = agentWalletFor(mpc, indexed.agentPath, indexed.agentWallet);
 		const walletClient = createWalletClient({
 			account: wallet.account,
-			chain: base,
+			chain,
 			transport,
 		});
 
@@ -208,7 +236,7 @@ async function main() {
 		// the Pacifica symbol — which the registry owns. Wiring it is the
 		// remaining integration step; until then a vault is observed and its NAV
 		// is reported, and no trade is placed against an unconfigured market.
-		const venue = await resolveVenue(indexed, wallet);
+		const venue = await resolveVenue(indexed, vault);
 		if (!venue) {
 			log("warn", `${indexed.address}: no venue configuration for ${indexed.ticker ?? "?"}`);
 			return;
@@ -239,12 +267,53 @@ async function main() {
  * token address here hedges a position against a different asset while every
  * dashboard reads healthy — the exact failure the registry's by-asset curation
  * exists to prevent, so it must not be undone by a fallback here.
+ *
+ * `AGENT_PAPER_TRADING` picks the adapter. Paper reads both venues for real and
+ * fills neither, which is the only thing that works where the vault lives
+ * somewhere KyberSwap's aggregator cannot execute — a testnet, or Vibenet. It is
+ * opt-in rather than inferred from the chain id, because "the venue is
+ * unreachable" and "do not trade" have to be a deliberate choice: guessing wrong
+ * in the permissive direction would place real orders from a test deployment.
  */
 async function resolveVenue(
-	_indexed: IndexedVault,
-	_wallet: ReturnType<typeof agentWalletFor>,
-): Promise<null> {
-	return null;
+	indexed: IndexedVault,
+	vault: VaultClient,
+): Promise<VenueAdapter | null> {
+	const record = await prisma.vaultConfig
+		.findUnique({ where: { address: indexed.address.toLowerCase() } })
+		.catch(() => null);
+
+	if (!record) return null;
+
+	if (!PAPER_TRADING) {
+		// The live adapter needs a bridge, a Pacifica signer and a wallet client
+		// wired through; that is the remaining integration step. Refusing beats
+		// half-executing a two-legged trade.
+		log(
+			"warn",
+			`${indexed.address}: live trading is not wired up yet. Set AGENT_PAPER_TRADING=true to run this vault against read-only venues.`,
+		);
+		return null;
+	}
+
+	return createPaperVenueAdapter({
+		config: {
+			vaultAddress: indexed.address.toLowerCase(),
+			symbol: record.spotTokenSymbol,
+			spotToken: record.spotTokenAddress as `0x${string}`,
+			spotTokenDecimals: record.spotTokenDecimals,
+			usdc: USDC_ADDRESS,
+			perpSymbol: record.perpSymbol,
+			agentAddress: indexed.agentWallet,
+			slippagePercent: record.slippagePercent,
+		},
+		kyber,
+		pacifica,
+		// The one real transaction in the paper path: a withdrawal has to be
+		// payable, so the USDC genuinely goes back to the vault.
+		returnToVault: (amount) => vault.agentReturn(amount),
+		now: () => Math.floor(Date.now() / 1000),
+	});
 }
 
 main().catch((error) => {

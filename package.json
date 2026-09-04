@@ -14,6 +14,8 @@
 		"fork:up": "scripts/fork-up.sh",
 		"fork:down": "scripts/fork-down.sh",
 		"testnet:up": "scripts/testnet-up.sh",
+		"seed:venues": "bun run scripts/seed-venue-config.ts",
+		"indexer:reset": "scripts/indexer-reset.sh",
 		"dev:api": "bun run --filter '@lemon/api' dev",
 		"dev:indexer": "bun run --filter '@lemon/indexer' dev",
 		"dev:agent": "bun run --filter '@lemon/agent' dev",

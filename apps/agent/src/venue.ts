@@ -84,9 +84,12 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				amountIn: balance.toString(),
 				slippagePercent: config.slippagePercent,
 			});
-			// biome-ignore lint/suspicious/noExplicitAny: envelope shape varies by route version.
-			const out = (route as any)?.routeSummary?.amountOut;
-			return out ? BigInt(out) : null;
+			// `QuoteResult` is a discriminated union: `ok: false` is "no pool",
+			// which is ordinary state. The quote's fields sit under `quote`, not at
+			// the top level — reading `routeSummary.amountOut` off the envelope
+			// yields undefined and prices every holding at null.
+			if (!route.ok) return null;
+			return BigInt(route.quote.amountOut);
 		} catch {
 			// Null, not zero. An unroutable pool is an unknown value, and the
 			// valuation layer refuses to price it rather than marking it to zero.
@@ -182,8 +185,8 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				amountIn: spotNotional.toString(),
 				slippagePercent: config.slippagePercent,
 			});
-			// biome-ignore lint/suspicious/noExplicitAny: envelope shape varies by route version.
-			const summary = (route as any).routeSummary;
+			if (!route.ok) throw new Error(`No spot route for ${config.symbol}: ${route.message}`);
+			const summary = route.quote.routeSummary;
 			const built = await kyber.buildRoute({
 				routeSummary: summary,
 				sender: config.agentAddress,
@@ -316,9 +319,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				amountIn: closeUnits.toString(),
 				slippagePercent: config.slippagePercent,
 			});
+			if (!route.ok) throw new Error(`No spot route to exit ${config.symbol}: ${route.message}`);
 			const built = await kyber.buildRoute({
-				// biome-ignore lint/suspicious/noExplicitAny: envelope shape varies.
-				routeSummary: (route as any).routeSummary,
+				routeSummary: route.quote.routeSummary,
 				sender: config.agentAddress,
 				recipient: config.agentAddress,
 				slippagePercent: config.slippagePercent,

@@ -61,7 +61,14 @@ else
 	# agent wallets. Those have no private key anywhere — that is the whole design
 	# — so nothing could otherwise sign as them, and a fork whose agents are
 	# throwaway EOAs cannot show the Solana leg or verify its own derivation.
-	ANVIL_ARGS=(--fork-url "$FORK_SOURCE" --chain-id 8453 --port "$PORT" --accounts 10 --balance 10000 --auto-impersonate --silent)
+	#
+	# --block-time keeps the clock moving. Anvil only mines when a transaction
+	# arrives, so an idle fork's `block.timestamp` freezes — and every interval
+	# the contracts enforce is measured against it. The agent, reading wall clock,
+	# decides a report is due; the vault, reading a stopped chain, answers
+	# `NavReportTooSoon` forever. Two seconds is Base's own block time, so the
+	# fork ages at the rate the thing it is imitating does.
+	ANVIL_ARGS=(--fork-url "$FORK_SOURCE" --chain-id 8453 --port "$PORT" --accounts 10 --balance 10000 --auto-impersonate --block-time 2 --silent)
 	[[ -n "$BLOCK" ]] && ANVIL_ARGS+=(--fork-block-number "$BLOCK")
 	nohup anvil "${ANVIL_ARGS[@]}" > "${LOG_DIR}/anvil.log" 2>&1 &
 	echo "$!" > "${LOG_DIR}/anvil.pid"
@@ -156,6 +163,15 @@ fi
 # Two rounds are negative. A seeded chain where the number only ever goes up
 # hides every drawdown path in the app — and the high-water mark that the
 # performance fee is charged over is defined by exactly that case.
+# Skipped when the live agent is going to run: deploying and reporting are the
+# agent's own first decisions, and pre-making them hands it a vault it never
+# opened. The env file is still written either way — an early return here once
+# left the *previous* run's addresses and start block in place while printing
+# that it had written new ones.
+if [[ "${SEED_ACTIVITY:-true}" != "true" ]]; then
+	echo "==> skipping seeded activity; the agent will deploy and report for itself"
+else
+
 echo "==> reporting NAV rounds"
 export FORK_VAULT_CONSERVATIVE="$CONSERVATIVE"
 export FORK_VAULT_LEVERAGED="$LEVERAGED"
@@ -167,6 +183,8 @@ for gain in 2 1 3 -1 2 1 2 -1; do
 		>> "${LOG_DIR}/deploy.log" 2>&1
 	echo "    round ${gain}bps"
 done
+
+fi
 
 # --- env --------------------------------------------------------------------
 # A separate file rather than edits to .env: the fork's addresses are throwaway
@@ -206,6 +224,13 @@ ADMIN_ADDRESSES=${DEPLOYER}
 # there is no consistency to break by mixing them — and it is the only
 # combination in which both legs can be exercised without real money.
 PACIFICA_API_URL=https://test-api.pacifica.fi/api/v1
+
+# Pacifica's testnet lives on Solana *devnet*, so the cluster has to follow the
+# venue. Left on mainnet-beta the app reads the agent's SOL balance and its USDC
+# token account on a chain where its Pacifica account does not exist — the gas
+# panel then reports zero however much you fund, and the reading is not wrong so
+# much as about a different wallet.
+SOLANA_RPC_URL=https://api.devnet.solana.com
 
 # Seeded vaults, for convenience.
 FORK_VAULT_CONSERVATIVE=${CONSERVATIVE}
