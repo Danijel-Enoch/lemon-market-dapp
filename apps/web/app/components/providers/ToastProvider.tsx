@@ -1,5 +1,5 @@
 import { WalletProvider } from "@app/components/providers/WalletProvider";
-import { cn } from "@app/lib/utils";
+import { cn } from "@lemon/ui";
 import { AlertTriangle, Check, Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { type Toast, Toaster } from "react-hot-toast";

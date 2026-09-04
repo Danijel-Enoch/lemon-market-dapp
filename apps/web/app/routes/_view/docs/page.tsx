@@ -1,11 +1,5 @@
-import { Callout } from "@app/components/common/Callout";
-import { cn } from "@app/lib/utils";
 import { ROUND_TRIP_FEE_PERCENT, VENUE_FEES } from "@lemon/core";
-import {
-	REBALANCE_DRIFT_THRESHOLD_PERCENT,
-	REFERENCE_LEVERAGE,
-	REFERENCE_NOTIONAL_USD,
-} from "@lemon/registry";
+import { Callout, cn } from "@lemon/ui";
 import { useEffect, useState } from "react";
 import { Link, type MetaFunction } from "react-router";
 
@@ -14,20 +8,21 @@ export const meta: MetaFunction = () => [
 	{
 		name: "description",
 		content:
-			"How basis markets work here: the two legs, what the yield is made of, what it costs, and the API behind the board.",
+			"How the vaults work: what an agent does with your USDC, where the yield comes from, what the fees are, why withdrawals take days, and how to check any of it yourself.",
 	},
 ];
 
 const SECTIONS = [
 	{ id: "getting-started", label: "Getting started" },
 	{ id: "how-it-works", label: "How a basis works" },
-	{ id: "markets", label: "The markets" },
-	{ id: "numbers", label: "Reading the numbers" },
-	{ id: "fees", label: "Fees & funding" },
-	{ id: "execution", label: "Execution" },
-	{ id: "rebalancing", label: "Rebalancing" },
+	{ id: "vaults", label: "What a vault is" },
+	{ id: "tiers", label: "Risk tiers" },
+	{ id: "agent", label: "The agent" },
+	{ id: "withdrawals", label: "Withdrawals" },
+	{ id: "fees", label: "Fees" },
+	{ id: "limits", label: "What the contract enforces" },
+	{ id: "transparency", label: "Checking it yourself" },
 	{ id: "api", label: "API" },
-	{ id: "points", label: "Points" },
 	{ id: "risks", label: "Risks" },
 	{ id: "faq", label: "FAQ" },
 ] as const;
@@ -109,56 +104,30 @@ export default function DocsPage() {
 
 	return (
 		<div className="overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg)]">
-			{/*
-			  Pons opens its docs with a full-width band tinted by the accent and
-			  fading to nothing, so the reading column below starts on a clean
-			  surface rather than under a floating title.
-			*/}
 			<header className="border-b border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-lime-dim)] to-transparent px-5 py-7 sm:px-10 sm:py-9">
 				<p className="t-eyebrow text-[var(--pon-lime)]">Protocol</p>
 				<h1 className="font-display mt-3 text-[clamp(24px,4vw,38px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
 					One product, documented
-					{/* The forced break is a desktop composition. On a phone the line
-					    already wraps, and breaking it again makes a four-line title. */}
-					<br className="hidden md:inline" /> without the flattering parts.
 				</h1>
-				<p className="mt-3 max-w-[52ch] text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
-					Lemon lists one thing: spot-versus-perp basis markets on Base. The spot leg routes through
-					KyberSwap, the perp leg through Pacifica, and everything settles in USDC.
+				<p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[var(--pon-fg-2)]">
+					Vaults that run a delta-neutral basis position on Base. You deposit USDC; an agent does
+					the trading. This is what it does with the money, what it costs, and how to check any of
+					it without taking our word for it.
 				</p>
 			</header>
 
-			{/*
-			  `min-w-0` on the grid and on the nav is load-bearing, not defensive.
-			  A grid track sizes to its content's max-content width by default, so
-			  the horizontally-scrolling chip rail inside the nav would stretch the
-			  column past the viewport and push the article's text off the right
-			  edge — a clipped page that looks like a copy problem rather than a
-			  layout one.
-			*/}
-			<div className="grid min-w-0 lg:grid-cols-[220px_1fr]">
-				{/* Table of contents */}
-				{/*
-				  Two shapes, not one squeezed. A ten-item vertical list is a sidebar
-				  on a laptop and the entire first screen on a phone — so below `lg`
-				  it becomes a sticky horizontal chip rail, which is what a native
-				  docs reader does and keeps the contents reachable while scrolling.
-				*/}
-				<nav
-					className="sticky top-[52px] z-20 min-w-0 border-b border-[var(--pon-line)] bg-[var(--pon-bg)]/95 px-4 py-3 backdrop-blur-xl lg:top-[92px] lg:self-start lg:border-b-0 lg:border-r lg:bg-transparent lg:px-5 lg:py-6 lg:backdrop-blur-none"
-					aria-label="Table of contents"
-				>
-					<p className="mb-3 hidden t-caption text-[var(--pon-fg-3)] lg:block">Contents</p>
-					<ul className="flex gap-1.5 overflow-x-auto scrollbar-hide lg:block lg:space-y-0.5 lg:overflow-visible">
+			<div className="gap-10 px-5 py-8 sm:px-10 lg:flex">
+				<nav className="mb-8 hidden shrink-0 lg:sticky lg:top-24 lg:mb-0 lg:block lg:h-fit lg:w-52">
+					<ul className="space-y-0.5">
 						{SECTIONS.map((section) => (
-							<li key={section.id} className="shrink-0 lg:shrink">
+							<li key={section.id}>
 								<a
 									href={`#${section.id}`}
 									className={cn(
-										"block whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] transition-colors lg:rounded-[var(--pon-r-sm)] lg:border-0 lg:px-2.5",
+										"block rounded-[var(--pon-r-sm)] px-2.5 py-1.5 text-[12.5px] transition-colors",
 										active === section.id
-											? "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] font-semibold text-[var(--pon-lime)]"
-											: "border-[var(--pon-line)] text-[var(--pon-fg-2)] hover:text-[var(--pon-fg)] lg:border-transparent",
+											? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
+											: "text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
 									)}
 								>
 									{section.label}
@@ -168,334 +137,360 @@ export default function DocsPage() {
 					</ul>
 				</nav>
 
-				<div className="min-w-0 space-y-8 px-5 py-6 sm:px-8 sm:py-7 lg:space-y-9">
+				<div className="min-w-0 max-w-2xl flex-1 space-y-10">
 					<Section id="getting-started" title="Getting started">
-						<ol className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4">
-							<Step n={1} title="Connect a wallet">
-								Any Base-compatible wallet. Signing in also derives the Solana wallet that holds
-								your Pacifica account — the app never takes custody of either.
+						<p>There is one thing to do, and it takes one transaction.</p>
+						<ol className="mt-1">
+							<Step n={1} title="Pick a vault">
+								Each vault trades one market at one risk level. The board shows what each one's
+								share price has actually done, not what it might do.
 							</Step>
-							<Step n={2} title="Fund both sides">
-								The spot leg is bought from your own wallet, so it needs USDC on Base. The short leg
-								needs margin on Pacifica, funded from the{" "}
-								<Link to="/accounts" className="font-semibold text-[var(--pon-lime)] underline">
-									accounts
-								</Link>{" "}
-								page. A position cannot open with only one side funded.
+							<Step n={2} title="Deposit USDC">
+								Share tokens are minted immediately, at the vault's current price. The first deposit
+								into a vault also needs a one-off USDC approval, so two signatures the first time
+								and one after.
 							</Step>
-							<Step n={3} title="Activate trading">
-								One signature authorises an agent key to place and cancel orders on your Pacifica
-								account. It cannot withdraw — withdrawals require the account key, which the agent
-								key is not.
-							</Step>
-							<Step n={4} title="Pick a market">
-								The{" "}
-								<Link to="/" className="font-semibold text-[var(--pon-lime)] underline">
-									board
-								</Link>{" "}
-								ranks every pair by net yield after costs. Open one, size it, and the app places
-								both legs.
+							<Step n={3} title="Hold, or leave">
+								Your shares gain or lose value with the position. To exit, request a withdrawal — it
+								is queued for 3 to 7 days while the agent unwinds your share of the position, then
+								you claim.
 							</Step>
 						</ol>
+						<Callout tone="info" title="No account needed">
+							Depositing and withdrawing are ordinary wallet transactions. Signing in is optional
+							and grants nothing — it only saves you typing an address on the portfolio page.
+						</Callout>
 					</Section>
 
 					<Section id="how-it-works" title="How a basis works">
 						<p>
-							A basis position holds two offsetting legs at equal notional:{" "}
-							<span className={strong}>long the spot token</span> on Base and{" "}
-							<span className={strong}>short the matching perp</span> on Pacifica. Because the sizes
-							match, a move in the underlying gains on one leg exactly what it loses on the other.
-							What is left over is funding, minus what it cost to get in and out.
+							A vault buys a token on Base and shorts the matching perpetual on Pacifica at{" "}
+							<span className={strong}>the same size</span>. If the price rises, the spot gains what
+							the short loses. If it falls, the reverse. The position is therefore not a bet on
+							direction.
 						</p>
 						<p>
-							That is the whole trade. It is not a yield product and there is no counterparty paying
-							you a rate — you are being paid by whichever side of the perp is crowded, for as long
-							as it stays crowded.
+							What is left is <span className={strong}>funding</span>. Perp traders pay each other
+							an hourly rate, and when longs are crowded that rate flows to the short side. Holding
+							the short leg collects it. That stream, minus the cost of getting in and out, is the
+							entire return.
 						</p>
-						<Callout tone="warning" title="It only earns when the short side receives funding">
-							Funding flips. When longs are crowded the short side receives and the position earns;
-							when shorts are crowded the position pays to exist. Every quote on this site shows the
-							real sign rather than an absolute value.
+						<p>
+							Fees are {VENUE_FEES.spotTakerPercent}% per leg per fill, so a full round trip crosses
+							four fills and costs{" "}
+							<span className={strong}>{ROUND_TRIP_FEE_PERCENT}% of notional</span> before slippage.
+							That is why a vault holds a position rather than churning it, and why funding has to
+							hold for a while to be worth collecting.
+						</p>
+					</Section>
+
+					<Section id="vaults" title="What a vault is">
+						<p>
+							An ERC-4626 vault on Base holding USDC. Depositing mints you a share token; the share
+							price is the vault's total value divided by the shares outstanding. Gains raise it,
+							losses and fees lower it.
+						</p>
+						<p>
+							One vault runs <span className={strong}>one market</span> at{" "}
+							<span className={strong}>one risk level</span> through{" "}
+							<span className={strong}>one agent</span>. That mapping is enforced by the factory
+							that creates them: two vaults cannot compete for the same funding, and one agent key
+							cannot be the single point of failure for two books.
+						</p>
+						<p>
+							Your capital does not stay in the contract — it is out in a spot position and a perp
+							account, which is the entire point. The contract holds custody of what is idle, the
+							share accounting, the withdrawal queue, and hard limits on what the agent can do.
+						</p>
+					</Section>
+
+					<Section id="tiers" title="Risk tiers">
+						<p>
+							Two tiers, chosen when the vault is created and{" "}
+							<span className={strong}>fixed permanently</span>. They are different products, and
+							turning one into the other underneath people who already deposited is not something
+							the contract allows.
+						</p>
+						<ul className="mt-1">
+							<Step n={1} title="No leverage — 1x">
+								The short is fully collateralised. There is no liquidation price, so a move in the
+								underlying cannot wipe the position. The yield is funding on capital deployed
+								one-for-one.
+							</Step>
+							<Step n={2} title="Leveraged — 2x to 3x">
+								The same trade with a third to a half of the margin, which multiplies the funding
+								yield by the same factor. It also introduces a liquidation price: a sharp adverse
+								move against the hedge can lose capital.
+							</Step>
+						</ul>
+						<p>
+							"Conservative" is checked, not claimed. The contract refuses to create such a vault at
+							anything other than exactly 1x with no headroom, and no vault of either tier may
+							exceed 3x.
+						</p>
+					</Section>
+
+					<Section id="agent" title="The agent">
+						<p>
+							Each vault has one agent with its own wallet, derived through{" "}
+							<a
+								href="https://docs.near.org/chain-abstraction/chain-signatures"
+								target="_blank"
+								rel="noreferrer noopener"
+								className="text-[var(--pon-lime)] underline underline-offset-2"
+							>
+								NEAR chain signatures
+							</a>
+							. No private key exists anywhere — the MPC network signs on request, and the address
+							is a deterministic function of the vault, so it is reproducible rather than a stored
+							secret.
+						</p>
+						<p>The agent does four things, on a loop:</p>
+						<ol className="mt-1">
+							<Step n={1} title="Values the position">
+								Reads both venues and reports what the deployed capital is worth. The spot leg is
+								priced at an executable sell quote, not a mid — a thin pool's mid flatters a holding
+								nobody can liquidate at that price.
+							</Step>
+							<Step n={2} title="Deploys idle capital">
+								Buys the spot leg, bridges margin to Solana, and opens the short at the vault's
+								target leverage.
+							</Step>
+							<Step n={3} title="Rebalances">
+								The hedge drifts — a lot-grid rounding at open, a partial fill, an auto-deleveraging
+								event. Drift is measured in units rather than dollars, so a neutral position reads
+								neutral at any price, and only the perp leg is traded to correct it.
+							</Step>
+							<Step n={4} title="Unwinds for withdrawals">
+								Closes enough of the position to pay the queue, returns the USDC, and settles the
+								requests.
+							</Step>
+						</ol>
+						<Callout tone="info" title="Where the model fits">
+							A deterministic policy decides what is permissible and sizes every trade. A language
+							model only picks among options that are already safe — it can never produce an amount,
+							and an answer naming an action the policy did not offer is discarded. Near a
+							withdrawal deadline it is not consulted at all.
 						</Callout>
 					</Section>
 
-					<Section id="markets" title="The markets">
+					<Section id="withdrawals" title="Withdrawals">
 						<p>
-							A basis market exists only where both legs do. That means a Base ERC-20 the aggregator
-							can actually route into, paired with a Pacifica perp on the{" "}
-							<span className={strong}>same underlying</span> — matched by ticker, never by a stored
-							venue index, because indexes move between protocol versions and a stale one points at
-							a different company rather than at nothing.
+							Requesting a withdrawal moves your shares into escrow and queues them. The agent may
+							not act for <span className={strong}>three days</span>, and is held to{" "}
+							<span className={strong}>seven</span>. Then you claim.
 						</p>
 						<p>
-							In practice that is the Coinbase B20 tokenized equities on Base — Apple, Nvidia,
-							Tesla, Alphabet and the rest — plus the Base tokens with a listed perp: BTC through
-							cbBTC, ETH through WETH, AERO, and others.
+							Your shares stay outstanding for the whole of that window, so you keep earning — and
+							keep the risk — until the position is actually closed. The amount you receive is
+							priced <span className={strong}>at fulfilment</span>, not at request. That is
+							deliberate: a price fixed on the day you asked would be a free option on everyone
+							else's capital while the agent spends days closing a leveraged hedge.
 						</p>
 						<p>
-							<span className={strong}>Same asset, not the same ticker.</span> A plain symbol match
-							against a Base token list is dangerous: it returns an unrelated Base-native token for
-							FARTCOIN, a governance token for DOGE, and a different issuer's tokenized stock for
-							STRK. Pairing any of them would hedge against the wrong asset while looking perfectly
-							healthy, so the registry is curated by hand and those are excluded.
+							Adding to a request already in the queue restarts its three-day clock. Requests merge
+							into one, so keeping the earlier timestamp would let a one-wei request ripen and then
+							carry an arbitrarily large top-up out with it.
 						</p>
-					</Section>
-
-					<Section id="numbers" title="Reading the numbers">
-						<p>
-							<span className={strong}>Net APY</span> is the number the board ranks on and the one
-							to decide with. It is funding, annualised, on the capital you actually deploy, minus
-							the full round trip amortised over a year.
-						</p>
-						<p>
-							<span className={strong}>Funding APR</span> is the gross number before any cost. It is
-							what most venues advertise, and the two disagree often enough to matter — a market can
-							pay the best funding on the board and still be the worst trade on it once a thin
-							pool's slippage is priced in.
-						</p>
-						<p>
-							<span className={strong}>Spread</span> is the perp mark against the price a real spot
-							route would fill at, not against an oracle mid. On a shallow pool those differ by more
-							than the entire funding edge. When either leg is unpriced the spread shows as a dash
-							rather than as 0.00%, because an unquoted market is unknown, not fairly priced.
-						</p>
-						<p>
-							<span className={strong}>Breakeven</span> is how long funding must hold at its current
-							rate to cover the round trip. It is a straight-line estimate at today's rate, not a
-							forecast.
-						</p>
-						<Callout tone="info" title="Board figures are quoted at a fixed size">
-							Every row is priced at ${REFERENCE_NOTIONAL_USD.toLocaleString()} per leg at{" "}
-							{REFERENCE_LEVERAGE}x so the rows are comparable. Slippage is not linear in size, so
-							the ticket re-quotes both legs at whatever you actually type — a market that looks
-							good at ${REFERENCE_NOTIONAL_USD.toLocaleString()} can be uneconomic at ten times
-							that.
+						<Callout tone="warning" title="What the delay cannot promise">
+							The three-day floor is enforced on-chain. The seven-day ceiling is not — no contract
+							can make an off-chain agent act. What the contract does is publish the deadline, so
+							lateness is visible to anyone rather than only to us. Overdue requests are flagged on
+							your portfolio page and on the operator dashboard.
 						</Callout>
 					</Section>
 
-					<Section id="fees" title="Fees &amp; funding">
+					<Section id="fees" title="Fees">
 						<p>
-							<span className={strong}>{VENUE_FEES.spotTakerPercent}% on the spot leg</span> and{" "}
-							<span className={strong}>{VENUE_FEES.perpTakerPercent}% on the perp leg</span>, per
-							fill. A position crosses both legs on the way in and both again on the way out, so a
-							round trip is four fills:{" "}
-							<span className="font-fono text-[var(--pon-fg)]">
-								2 × ({VENUE_FEES.spotTakerPercent}% + {VENUE_FEES.perpTakerPercent}%) ={" "}
-								{ROUND_TRIP_FEE_PERCENT.toFixed(1)}%
-							</span>{" "}
-							of notional, before any slippage.
+							<span className={strong}>2% a year</span> on assets under management, streamed
+							continuously, and <span className={strong}>20% of gains</span> above the vault's
+							previous high-water mark.
 						</p>
 						<p>
-							That fixed {ROUND_TRIP_FEE_PERCENT.toFixed(1)}% is why a basis position has a minimum
-							sensible holding period. At 8% annualised funding it takes roughly eighteen days to
-							earn the round trip back; below about {ROUND_TRIP_FEE_PERCENT.toFixed(1)}% annualised
-							funding, a position cannot clear its own costs in a year at all — which is a real
-							market condition, and the board shows those markets with a negative net APY rather
-							than hiding them.
+							The high-water mark is what stops you paying twice for the same dollar: a vault that
+							falls 10% and recovers charges nothing on the recovery. New highs are chargeable
+							again.
 						</p>
 						<p>
-							<span className={strong}>Slippage is measured, not assumed.</span> Both the entry and
-							the exit are charged price impact. The exit figure is an estimate — the entry
-							measurement is the best available proxy — and it is labelled as such rather than
-							quietly omitted, which would understate the cost of every thin market on the board.
+							Both are taken as newly minted shares rather than a transfer of USDC, so the fee
+							dilutes rather than draining the working position — and both are already reflected in
+							the share price you see. The management fee is charged first, which stops the operator
+							earning a performance fee on assets it is about to take as rent.
 						</p>
 						<p>
-							<span className={strong}>Funding accrues hourly</span> on the perp leg only. Spot has
-							no funding: buying a token outright has no counterparty and no ongoing rate, which is
-							exactly why the position's whole return comes from the short side.
+							Fee shares are minted to an insurance fund, which is also what can absorb a vault
+							shortfall: it can send USDC into a vault with nothing minted against it, raising the
+							share price for everyone still in.
 						</p>
 					</Section>
 
-					<Section id="execution" title="Execution">
-						<p>
-							Opening is two legs across two systems with no shared transaction. The spot buy goes
-							first, deliberately: it is the slower and more failure-prone leg, so discovering a
-							failure before any perp exposure exists is cheaper than the reverse.
-						</p>
-						<p>
-							The short leg is then placed <span className={strong}>server-side</span> with your
-							agent key — one request, no wallet prompt. A browser-signed hedge would leave you
-							unhedged for as long as it took to confirm, or forever if the tab closed in between.
-						</p>
-						<p>
-							<span className={strong}>Nothing is silently abandoned.</span> Each leg's outcome is
-							persisted before the next is attempted. If one lands and the other fails, the position
-							is recorded as needing attention with the exact exposure named, and offers to either
-							complete the missing leg or unwind the one that landed.
-						</p>
-						<Callout tone="info" title="Perp positions are netted per symbol">
-							Pacifica nets positions by symbol, so a separate order in a symbol you already hold a
-							basis in would cancel that position's hedge. That is why there is no discretionary
-							order surface here, and why the Pacifica holdings table is read-only — closing happens
-							from the position, which closes both legs together.
+					<Section id="limits" title="What the contract enforces">
+						<p>The agent is not trusted. It is bounded, and the bounds are on-chain:</p>
+						<ul className="mt-1">
+							<Step n={1} title="One destination">
+								The agent can only move USDC to its own wallet, whose address is fixed at the
+								vault's creation and cannot be changed. There is no recipient parameter to abuse.
+							</Step>
+							<Step n={2} title="Rate and ratio limits">
+								It can withdraw only a capped amount per rolling window, and never more than a set
+								fraction of the vault — so an idle buffer always remains for the withdrawal queue.
+							</Step>
+							<Step n={3} title="Bounded valuations">
+								Its report of what the position is worth is limited per report and again per day, so
+								repricing the vault is slow and visible rather than instant. A report above the
+								vault's leverage mandate is rejected outright.
+							</Step>
+							<Step n={4} title="A guardian">
+								A human can pause the vault or declare an emergency exit. Pausing never blocks a
+								user from queueing a withdrawal.
+							</Step>
+						</ul>
+						<Callout tone="warning" title="Stated plainly">
+							None of this makes the agent trustless. The position genuinely lives off-chain, so its
+							value genuinely has to be reported. What the limits do is make a compromised agent's
+							worst case bounded and observable — which is the honest ceiling for this design, not a
+							claim that theft is impossible.
 						</Callout>
 					</Section>
 
-					<Section id="rebalancing" title="Rebalancing">
+					<Section id="transparency" title="Checking it yourself">
 						<p>
-							A position is neutral when it holds the{" "}
-							<span className={strong}>same number of units</span> on each side. That stays true at
-							any price, which is why a position does not need rebalancing every time the market
-							moves — and why the app measures drift in units rather than in dollars. A dollar
-							comparison would report fresh drift on every tick and invite you to trade against a
-							position that never moved.
+							Every action an agent takes is published to its vault contract and shown on the{" "}
+							<Link to="/activity" className="text-[var(--pon-lime)] underline underline-offset-2">
+								activity feed
+							</Link>{" "}
+							— spot fills, perp opens and closes, bridges in both directions, venue deposits and
+							funding settlement, each tagged with the chain it happened on and a link to the
+							transaction.
 						</p>
 						<p>
-							Drift comes from execution, not from price. The perp leg is floored onto the venue's
-							lot grid when it opens, so a position usually starts a fraction under-hedged. Partial
-							fills land short. An auto-deleverage can shrink the hedge without asking. None of that
-							is visible from the position's original plan, so the position page reads both venues
-							live and compares what actually exists.
+							These are <span className={strong}>attestations, not proofs</span>. Base cannot verify
+							a Pacifica fill, and we say so on every row rather than presenting them all as
+							established fact. What makes them useful anyway is that each names a real transaction
+							on a public chain: it can be fetched and compared against what was claimed. A row
+							marked <span className={strong}>verified</span> has been; one marked{" "}
+							<span className={strong}>does not check out</span> has been and disagrees; an
+							unverified row has not been looked at yet, which is not the same as being wrong.
 						</p>
 						<p>
-							<span className={strong}>Rebalancing trades the perp leg only.</span> Correcting on
-							the spot side would mean another swap through a thin pool — paying that pool's
-							slippage to fix a rounding artifact — and would need a wallet signature. The perp side
-							needs neither, so a correction is one tap and costs the {VENUE_FEES.perpTakerPercent}%
-							taker fee on the traded amount alone, not on the whole position.
+							Every number in this app is derived from chain events and served from a public
+							indexer. The yield figures come from the share-price series shown on each vault page,
+							so you can recompute them from the same data rather than trusting the percentage.
 						</p>
-						<Callout tone="info" title="Small drift is left alone on purpose">
-							Below {REBALANCE_DRIFT_THRESHOLD_PERCENT}% the correction costs more than the exposure
-							it removes, and drift smaller than one lot cannot be expressed as an order at all. In
-							both cases the app says so rather than offering a button that trades nothing and
-							reports success.
-						</Callout>
 					</Section>
 
 					<Section id="api" title="API">
 						<p>
-							The board is served from a public JSON API. No key is needed for market data; anything
-							that touches a position requires a session cookie.
+							No key, no session. Everything a vault does is public, and gating it would mean the
+							only people who could audit the system are the ones already inside it.
 						</p>
-						<ul className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4">
-							<Endpoint method="GET" path="/api/basis/markets">
-								Every pair, ranked by net yield. Untradable markets are included with a `blockers`
-								array explaining why, rather than being filtered out.
+						<ul className="mt-1">
+							<Endpoint method="GET" path="/api/vaults">
+								Every vault with its balances, tier, leverage and realised yield.
 							</Endpoint>
-							<Endpoint method="GET" path="/api/basis/markets/:id">
-								One market, by ticker (NVDA) or either leg's symbol (NVDAc, NVDA-USD).
+							<Endpoint method="GET" path="/api/vaults/:address">
+								One vault, with 7-day, 30-day and all-time realised return.
 							</Endpoint>
-							<Endpoint method="GET" path="/api/basis/markets/:id/candles">
-								OHLCV for the perp mark. Not the spread — no venue publishes a price history for a
-								tokenized equity on Base, so there is nothing to difference against.
+							<Endpoint method="GET" path="/api/vaults/:address/nav">
+								The share-price series every yield figure is computed from.
 							</Endpoint>
-							<Endpoint method="POST" path="/api/basis/plan">
-								Price a position at real size. Re-quotes both legs live; commits to nothing.
+							<Endpoint method="GET" path="/api/vaults/:address/activity">
+								That agent's actions, newest first. Filterable by kind and chain.
 							</Endpoint>
-							<Endpoint method="GET" path="/api/basis/positions?user=0x…">
-								Positions for an address, with the legs that make each one up.
+							<Endpoint method="GET" path="/api/vaults/activity">
+								The same feed across every vault — the protocol-wide ledger.
 							</Endpoint>
-							<Endpoint method="GET" path="/api/basis/positions/:id/health">
-								Live comparison of the two legs in units: drift, direction of exposure, and the
-								correction that would close it.
+							<Endpoint method="GET" path="/api/vaults/:address/transfers">
+								USDC crossing the vault boundary in either direction.
 							</Endpoint>
-							<Endpoint method="POST" path="/api/basis/positions/:id/rebalance">
-								Trades the perp leg back to the spot leg's size. Answers `traded: false` when the
-								position is already inside the threshold — a success, not a no-op to retry.
+							<Endpoint method="GET" path="/api/vaults/queue">
+								The withdrawal queue: what is ripe, what is waiting, what is overdue.
+							</Endpoint>
+							<Endpoint method="GET" path="/api/vaults/portfolio/:owner">
+								Any address's holdings and queue position.
 							</Endpoint>
 						</ul>
-						<p className="t-caption text-[var(--pon-fg-4)]">
-							Rates and liquidity are read live from upstream on every request behind a short cache,
-							so treat a response as a quote with a shelf life rather than as a stored value.
-						</p>
-					</Section>
-
-					<Section id="points" title="Points">
-						<p>
-							Points accrue automatically — there is nothing to claim. See the{" "}
-							<Link to="/leaderboard" className="font-semibold text-[var(--pon-lime)] underline">
-								leaderboard
-							</Link>{" "}
-							for the current standings and exact rates.
-						</p>
-						<p>
-							<span className={strong}>Everything is verified.</span> Spot volume is checked against
-							its transaction on-chain — it must exist, have succeeded, and have been sent by the
-							address claiming it. Positions opened are counted from our own records of both legs,
-							never from a client report, so there is nothing to forge with a POST.
-						</p>
-						<p className="t-caption text-[var(--pon-fg-4)]">
-							Points and tiers are cosmetic. They are not a token, carry no entitlement, and may be
-							recalculated.
-						</p>
 					</Section>
 
 					<Section id="risks" title="Risks">
-						<ul className="list-inside list-disc space-y-1.5">
-							<li>
-								<span className={strong}>The hedge can be liquidated.</span> The short leg is
-								leveraged; if the underlying rallies far enough the perp liquidates and you are left
-								long spot with no hedge. Higher leverage frees capital and moves that point closer.
-							</li>
-							<li>
-								<span className={strong}>Funding flips.</span> A position that earns today can pay
-								tomorrow, and nothing guarantees it stays positive long enough to clear the round
-								trip.
-							</li>
-							<li>
-								<span className={strong}>Thin spot liquidity.</span> Exit impact can be worse than
-								entry, and a market that was routable when you opened may not be when you close.
-							</li>
-							<li>
-								<span className={strong}>Overnight and weekend drift on equities.</span> Both legs
-								keep trading, but the market that prices the underlying does not — so the spread can
-								widen on thin flow and reprice at the open.
-							</li>
-							<li>
-								<span className={strong}>Issuer and contract risk</span> across Pacifica, KyberSwap,
-								the NEAR MPC network and the token issuers. Tokenized equities are issued by third
-								parties and may carry transfer restrictions or be unavailable in your jurisdiction.
-							</li>
+						<p>Delta neutral means price-neutral. It does not mean safe.</p>
+						<ul className="mt-1">
+							<Step n={1} title="Funding can turn negative">
+								When shorts are crowded the rate flips and the position pays rather than earns. The
+								vault can hold through it or unwind, and either choice costs something.
+							</Step>
+							<Step n={2} title="A leveraged short can be liquidated">
+								At 2–3x there is a liquidation price. A sharp move against the hedge before the
+								agent can rebalance is a real loss, and the conservative tier exists precisely
+								because some depositors should not take it.
+							</Step>
+							<Step n={3} title="The spot leg can become illiquid">
+								Several tokenized equities trade on thin Aerodrome pools. Exiting one can cost
+								several percent, and a pool with no route at all leaves the vault unable to price
+								itself — which blocks deposits and withdrawals until it recovers.
+							</Step>
+							<Step n={4} title="The agent is a dependency">
+								If it stops reporting, the vault goes stale and neither deposits nor withdrawals
+								settle until it resumes or a guardian intervenes. Funds are not at risk in that
+								state, but they are not moving either.
+							</Step>
+							<Step n={5} title="These contracts are new">
+								They are tested and their limits are documented above, but they have not been
+								through a third-party audit. Do not deposit more than you would be willing to lose
+								to a bug.
+							</Step>
 						</ul>
-						<p className="t-caption text-[var(--pon-fg-4)]">
-							Nothing here is investment advice. You are responsible for your own positions.
-						</p>
 					</Section>
 
 					<Section id="faq" title="FAQ">
 						<dl className="space-y-4">
 							{[
 								{
-									q: "Do I need ETH on Base for gas?",
-									a: "Yes, a small amount. The spot leg is an ordinary transaction from your wallet, so it and its one-time token approval cost gas. The short leg does not — it is signed server-side with your agent key.",
+									q: "Do I have to do anything after depositing?",
+									a: "No. The agent opens the position, rebalances the hedge as it drifts, and handles funding. Your only other action is requesting a withdrawal when you want to leave.",
 								},
 								{
-									q: "Why does a market show a negative net APY?",
-									a: "Either funding is negative on the short side, meaning the position would pay to exist, or funding is positive but too thin to cover the 0.4% round trip over a year. Both are real market conditions rather than errors, and both are shown rather than hidden.",
+									q: "Why does withdrawing take days?",
+									a: "Your money is in a live spot-and-perp position across two chains. Paying you means closing part of it, and forcing that to happen instantly would mean unwinding at whatever price is available in that second — which the remaining depositors would pay for.",
 								},
 								{
-									q: "Why is a market listed but not enterable?",
-									a: "Almost always the spot leg: several tokenized equities have no Aerodrome pool, or a one-sided one. The board keeps them visible with the reason, because a symbol that silently vanishes is indistinguishable from one that was never listed.",
+									q: "Can I sell my shares instead of waiting?",
+									a: "The share token is a standard ERC-20, so it can be transferred. Whether anyone will buy it depends on a market existing for it, and none is provided here.",
 								},
 								{
-									q: "What happens if one leg fails?",
-									a: "The position is flagged as needing attention and names exactly what you are holding unhedged, with actions to complete the missing leg or unwind the one that landed. It is never marked closed while real exposure is live.",
+									q: "What happens if the agent's key is stolen?",
+									a: "It can move capital only to the agent's own wallet, only at a capped rate, and only up to a set fraction of the vault. It can misreport the position's value within a bounded range per report and per day. It cannot mint itself shares, cannot change where funds go, and cannot stop you queueing a withdrawal. A guardian can pause it.",
 								},
 								{
-									q: "Why can't I close the perp from the accounts page?",
-									a: "Pacifica nets positions per symbol, so closing one there would flatten the hedge while the position record still described it as hedged. Unwinding from the position closes both legs together and records what happened.",
+									q: "Who decides what the position is worth?",
+									a: "The agent reports it, and the contract bounds the report. That is the one unverifiable input in the system, and every limit described above exists because of it.",
 								},
 								{
-									q: "Why does my position show drift when I have not touched it?",
-									a: "Almost always the lot grid. The perp leg is rounded down to a whole number of the venue's increments when it opens, so a position typically starts a fraction under-hedged. The position page shows the gap in units and offers to close it in one tap when it is worth doing.",
+									q: "What is the difference between the two tiers, in one sentence?",
+									a: "The conservative vault cannot be liquidated; the leveraged one can, and pays two to three times as much funding for taking that risk.",
 								},
 								{
-									q: "Are my funds custodied?",
-									a: "The spot leg is yours outright, in your own wallet. The perp leg sits in a Pacifica account controlled by a wallet derived through NEAR chain signatures — the private key exists nowhere, and the agent key the app holds can trade but cannot withdraw.",
+									q: "Where do the fees go?",
+									a: "Into an insurance fund, as shares of the vault that earned them. So the operator's take stays invested alongside depositors and exits through the same 3-to-7-day queue, and the fund can donate USDC back into a vault to cover a shortfall.",
+								},
+								{
+									q: "Is my deposit custodial?",
+									a: "Yes, in the sense that matters: the contract holds your USDC and an agent trades it. What you hold is a share of the vault, redeemable through the queue. This is a real change from a design where the spot leg sat in your own wallet, and it is the trade you make for not having to run the position yourself.",
 								},
 							].map((item) => (
-								<div
-									key={item.q}
-									className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-4"
-								>
+								<div key={item.q}>
 									<dt className="text-[13.5px] font-semibold text-[var(--pon-fg)]">{item.q}</dt>
-									<dd className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">
+									<dd className="mt-1 text-[13px] leading-relaxed text-[var(--pon-fg-3)]">
 										{item.a}
 									</dd>
 								</div>
 							))}
 						</dl>
 					</Section>
+
+					<p className="border-t border-[var(--pon-line)] pt-6 text-[12px] leading-relaxed text-[var(--pon-fg-4)]">
+						Not investment advice. A basis position is delta-neutral, not risk-free.
+					</p>
 				</div>
 			</div>
 		</div>

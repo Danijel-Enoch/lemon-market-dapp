@@ -1,0 +1,478 @@
+import { ponder } from "ponder:registry";
+import schema from "ponder:schema";
+import { hexToString, zeroAddress } from "viem";
+
+/**
+ * Event handlers.
+ *
+ * Two rules run through all of them.
+ *
+ * First, live vault state (`totalAssets`, `pricePerShare`, …) is read back from
+ * the contract rather than recomputed from event fields. Reimplementing the
+ * share maths here would create a second implementation that has to agree with
+ * the first forever, and the day they disagree the UI shows a balance the vault
+ * will not honour. The contract is the authority; this is a cache of it.
+ *
+ * Second, nothing is inferred. If an event does not carry a fact, the column
+ * stays null rather than being filled with a plausible guess — a null renders as
+ * "unknown", and a guess renders as a number people act on.
+ */
+
+/** `marketId` is `keccak256(ticker)` on-chain, so the ticker cannot be recovered from it. */
+const KNOWN_TICKERS = [
+	"NVDA",
+	"GOOGL",
+	"TSLA",
+	"MSTR",
+	"AAPL",
+	"MSFT",
+	"META",
+	"COIN",
+	"AMZN",
+	"INTC",
+	"BTC",
+	"ETH",
+	"SOL",
+	"LINK",
+	"AAVE",
+	"CRV",
+	"ENA",
+	"ZRO",
+	"VIRTUAL",
+	"VVV",
+	"KAITO",
+	"AERO",
+] as const;
+
+let tickerByHash: Map<string, string> | null = null;
+
+/**
+ * Recover a ticker from its hash by rainbow table.
+ *
+ * Hashing is one-way, so the alternative is an extra contract call per vault to
+ * read a string the vault does not store either. The universe of tickers is a
+ * couple of dozen and known, so precomputing the hashes is exact where it
+ * matches — and where it does not, the column stays null and the UI falls back
+ * to the vault's own name rather than inventing a symbol.
+ */
+async function tickerFor(marketId: string, keccak: (s: string) => string): Promise<string | null> {
+	if (!tickerByHash) {
+		tickerByHash = new Map();
+		for (const ticker of KNOWN_TICKERS) {
+			tickerByHash.set(keccak(ticker).toLowerCase(), ticker);
+		}
+	}
+	return tickerByHash.get(marketId.toLowerCase()) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Factory
+// ---------------------------------------------------------------------------
+
+ponder.on("VaultFactory:VaultCreated", async ({ event, context }) => {
+	const { keccak256, toBytes } = await import("viem");
+	const ticker = await tickerFor(event.args.marketId, (s) => keccak256(toBytes(s)));
+
+	await context.db.insert(schema.vault).values({
+		address: event.args.vault,
+		marketId: event.args.marketId,
+		ticker,
+		name: event.args.name,
+		symbol: event.args.symbol,
+		agentWallet: event.args.agentWallet,
+		riskTier: Number(event.args.tier),
+		targetLeverageBps: Number(event.args.targetLeverageBps),
+		maxLeverageBps: Number(event.args.maxLeverageBps),
+		createdAt: Number(event.block.timestamp),
+		createdBlock: event.block.number,
+		updatedAt: Number(event.block.timestamp),
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Vault state
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-read the vault and cache what it says.
+ *
+ * Six calls where a computation would do, on purpose. `totalAssets` alone
+ * depends on the token balance, the reported NAV and the claimable set, and any
+ * one of those can move in a transaction this handler is not watching.
+ */
+/**
+ * Ponder's context type is generated per-schema and is not nameable from a
+ * helper declared outside an indexing function, so it is taken loosely here.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: see above.
+type IndexingContext = any;
+
+async function syncVault(context: IndexingContext, address: `0x${string}`, timestamp: bigint) {
+	const { client, contracts } = context;
+	const abi = contracts.LemonVault.abi;
+	const read = (functionName: string, args: unknown[] = []) =>
+		client.readContract({ abi, address, functionName, args });
+
+	const [
+		totalAssets,
+		totalSupply,
+		deployedAssets,
+		claimableAssets,
+		pricePerShare,
+		highWaterMarkPps,
+		pendingShares,
+		leverage,
+		lastNavAt,
+	] = await Promise.all([
+		read("totalAssets"),
+		read("totalSupply"),
+		read("deployedAssets"),
+		read("claimableAssets"),
+		read("pricePerShare"),
+		read("highWaterMarkPps"),
+		read("totalPendingRedeemShares"),
+		read("lastObservedLeverageBps"),
+		read("lastNavReportAt"),
+	]);
+
+	await context.db.update(schema.vault, { address }).set({
+		totalAssets: totalAssets as bigint,
+		totalSupply: totalSupply as bigint,
+		deployedAssets: deployedAssets as bigint,
+		claimableAssets: claimableAssets as bigint,
+		// Idle is derived rather than read: the token balance is a separate call
+		// and this identity is guaranteed by `totalAssets` in the contract.
+		idleAssets: (totalAssets as bigint) + (claimableAssets as bigint) - (deployedAssets as bigint),
+		pricePerShare: pricePerShare as bigint,
+		highWaterMarkPps: highWaterMarkPps as bigint,
+		totalPendingRedeemShares: pendingShares as bigint,
+		lastObservedLeverageBps: Number(leverage),
+		lastNavReportAt: Number(lastNavAt),
+		updatedAt: Number(timestamp),
+	});
+}
+
+ponder.on("LemonVault:Deposit", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+	const owner = event.args.owner;
+	const assets = event.args.assets;
+	const shares = event.args.shares;
+	const now = Number(event.block.timestamp);
+
+	const existing = await context.db.find(schema.position, { vault: vaultAddress, owner });
+
+	await context.db
+		.insert(schema.position)
+		.values({
+			vault: vaultAddress,
+			owner,
+			shares,
+			netDeposited: assets,
+			depositedTotal: assets,
+			firstSeenAt: now,
+			updatedAt: now,
+		})
+		.onConflictDoUpdate((row) => ({
+			shares: row.shares + shares,
+			netDeposited: row.netDeposited + assets,
+			depositedTotal: row.depositedTotal + assets,
+			updatedAt: now,
+		}));
+
+	await context.db.insert(schema.flow).values({
+		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		vault: vaultAddress,
+		owner,
+		direction: "DEPOSIT",
+		assets,
+		shares,
+		timestamp: now,
+		txHash: event.transaction.hash,
+	});
+
+	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
+		lifetimeDeposited: row.lifetimeDeposited + assets,
+		// Counted on first deposit only, so a returning depositor is not a new one.
+		depositorCount: existing ? row.depositorCount : row.depositorCount + 1,
+	}));
+
+	await syncVault(context, vaultAddress, event.block.timestamp);
+});
+
+/**
+ * A queued exit.
+ *
+ * `RedeemQueued` carries the deadlines, so it is the one this listens to rather
+ * than the bare ERC-7540 `RedeemRequest` — both fire, and reacting to each would
+ * double-count the shares.
+ */
+ponder.on("LemonVault:RedeemQueued", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+	const controller = event.args.controller;
+	const now = Number(event.block.timestamp);
+
+	await context.db
+		.insert(schema.redeemRequest)
+		.values({
+			vault: vaultAddress,
+			controller,
+			pendingShares: event.args.shares,
+			requestedAt: now,
+			eligibleAt: Number(event.args.eligibleAt),
+			fulfillBy: Number(event.args.fulfillBy),
+			updatedAt: now,
+		})
+		.onConflictDoUpdate((row) => ({
+			pendingShares: row.pendingShares + event.args.shares,
+			// Deliberately overwritten. A top-up restarts the clock on-chain, and
+			// showing the old date would tell the user to expect money on a day
+			// the contract will refuse to release it.
+			requestedAt: now,
+			eligibleAt: Number(event.args.eligibleAt),
+			fulfillBy: Number(event.args.fulfillBy),
+			updatedAt: now,
+		}));
+
+	// Shares have left the holder's balance for escrow.
+	await context.db
+		.update(schema.position, { vault: vaultAddress, owner: controller })
+		.set((row) => ({ shares: row.shares - event.args.shares, updatedAt: now }))
+		.catch(() => undefined);
+
+	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
+		pendingRequestCount: row.pendingRequestCount + 1,
+	}));
+
+	await syncVault(context, vaultAddress, event.block.timestamp);
+});
+
+ponder.on("LemonVault:RedeemFulfilled", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+	const now = Number(event.block.timestamp);
+
+	await context.db
+		.update(schema.redeemRequest, { vault: vaultAddress, controller: event.args.controller })
+		.set((row) => ({
+			pendingShares: row.pendingShares - event.args.shares,
+			claimableShares: row.claimableShares + event.args.shares,
+			claimableAssets: row.claimableAssets + event.args.assets,
+			fulfilledAt: now,
+			updatedAt: now,
+		}));
+
+	await syncVault(context, vaultAddress, event.block.timestamp);
+});
+
+ponder.on("LemonVault:RedeemClaimed", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+	const now = Number(event.block.timestamp);
+
+	await context.db
+		.update(schema.redeemRequest, { vault: vaultAddress, controller: event.args.controller })
+		.set((row) => ({
+			claimableShares: row.claimableShares - event.args.shares,
+			claimableAssets: row.claimableAssets - event.args.assets,
+			claimedShares: row.claimedShares + event.args.shares,
+			claimedAssets: row.claimedAssets + event.args.assets,
+			updatedAt: now,
+		}));
+
+	await context.db
+		.update(schema.position, { vault: vaultAddress, owner: event.args.controller })
+		.set((row) => ({
+			netDeposited:
+				row.netDeposited > event.args.assets ? row.netDeposited - event.args.assets : 0n,
+			withdrawnTotal: row.withdrawnTotal + event.args.assets,
+			updatedAt: now,
+		}))
+		.catch(() => undefined);
+
+	await context.db.insert(schema.flow).values({
+		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		vault: vaultAddress,
+		owner: event.args.controller,
+		direction: "WITHDRAW",
+		assets: event.args.assets,
+		shares: event.args.shares,
+		timestamp: now,
+		txHash: event.transaction.hash,
+	});
+
+	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
+		lifetimeWithdrawn: row.lifetimeWithdrawn + event.args.assets,
+	}));
+
+	await syncVault(context, vaultAddress, event.block.timestamp);
+});
+
+// ---------------------------------------------------------------------------
+// Agent
+// ---------------------------------------------------------------------------
+
+ponder.on("LemonVault:NavReported", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+	const now = Number(event.block.timestamp);
+
+	const current = await context.db.find(schema.vault, { address: vaultAddress });
+
+	await context.db.insert(schema.navPoint).values({
+		id: `${vaultAddress}-${event.block.number}-${event.log.logIndex}`,
+		vault: vaultAddress,
+		timestamp: now,
+		block: event.block.number,
+		totalAssets: event.args.totalAssets,
+		deployedAssets: event.args.deployedAssets,
+		totalSupply: current?.totalSupply ?? 0n,
+		pricePerShare: event.args.pricePerShare,
+		leverageBps: Number(event.args.leverageBps),
+		observedAt: Number(event.args.observedAt),
+	});
+
+	await syncVault(context, vaultAddress, event.block.timestamp);
+});
+
+ponder.on("LemonVault:AgentWithdrew", async ({ event, context }) => {
+	await context.db.insert(schema.agentTransfer).values({
+		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		vault: event.log.address,
+		direction: "WITHDRAW",
+		amount: event.args.amount,
+		deployedAfter: event.args.deployedAssets,
+		timestamp: Number(event.block.timestamp),
+		txHash: event.transaction.hash,
+		block: event.block.number,
+	});
+	await syncVault(context, event.log.address, event.block.timestamp);
+});
+
+ponder.on("LemonVault:AgentReturned", async ({ event, context }) => {
+	await context.db.insert(schema.agentTransfer).values({
+		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		vault: event.log.address,
+		direction: "RETURN",
+		amount: event.args.amount,
+		deployedAfter: event.args.deployedAssets,
+		timestamp: Number(event.block.timestamp),
+		txHash: event.transaction.hash,
+		block: event.block.number,
+	});
+	await syncVault(context, event.log.address, event.block.timestamp);
+});
+
+/**
+ * The public feed.
+ *
+ * No verification happens here. Checking a Solana signature is an RPC round trip
+ * to another chain, and doing it inline would couple Base indexing throughput to
+ * a third party's uptime — one slow Solana node would stall the whole indexer.
+ * Verdicts are produced by a separate pass and stored outside this database, so
+ * a reindex cannot discard them.
+ */
+ponder.on("LemonVault:ActivityReported", async ({ event, context }) => {
+	const vaultAddress = event.log.address;
+
+	await context.db.insert(schema.activity).values({
+		id: `${vaultAddress}-${event.args.sequence}`,
+		vault: vaultAddress,
+		sequence: event.args.sequence,
+		kind: Number(event.args.kind),
+		chain: Number(event.args.chain),
+		symbol: decodeSymbol(event.args.symbol),
+		baseAmount: event.args.baseAmount,
+		notionalAssets: event.args.notionalAssets,
+		pnlAssets: event.args.pnlAssets,
+		feeAssets: event.args.feeAssets,
+		txRef: event.args.txRef,
+		occurredAt: Number(event.args.occurredAt),
+		reportedAt: Number(event.block.timestamp),
+		reportTxHash: event.transaction.hash,
+		reportBlock: event.block.number,
+	});
+
+	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
+		activityCount: row.activityCount + 1,
+		cumulativeNotional: row.cumulativeNotional + event.args.notionalAssets,
+		cumulativeVenueFees: row.cumulativeVenueFees + event.args.feeAssets,
+	}));
+});
+
+/** `bytes32` symbols are right-padded with zeros, which `hexToString` would keep. */
+function decodeSymbol(raw: `0x${string}`): string {
+	try {
+		return hexToString(raw, { size: 32 }).replace(/\0+$/, "");
+	} catch {
+		return raw;
+	}
+}
+
+ponder.on("LemonVault:FeesAccrued", async ({ event, context }) => {
+	await context.db.insert(schema.feeAccrual).values({
+		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		vault: event.log.address,
+		managementShares: event.args.managementShares,
+		performanceShares: event.args.performanceShares,
+		highWaterMarkAfter: event.args.newHighWaterMark,
+		timestamp: Number(event.block.timestamp),
+		txHash: event.transaction.hash,
+	});
+
+	await context.db.update(schema.vault, { address: event.log.address }).set((row) => ({
+		lifetimeFeeShares:
+			row.lifetimeFeeShares + event.args.managementShares + event.args.performanceShares,
+	}));
+});
+
+// ---------------------------------------------------------------------------
+// Share transfers, guardian actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Shares moving between wallets.
+ *
+ * Mints, burns, and the escrow leg of a redemption are all skipped — each is
+ * already accounted by the handler for the event that caused it, and counting
+ * the `Transfer` as well would double it.
+ */
+ponder.on("LemonVault:Transfer", async ({ event, context }) => {
+	const { from, to, value } = event.args;
+	const vaultAddress = event.log.address;
+	const now = Number(event.block.timestamp);
+
+	if (from === zeroAddress || to === zeroAddress) return;
+	if (from === vaultAddress || to === vaultAddress) return;
+	if (value === 0n) return;
+
+	await context.db
+		.update(schema.position, { vault: vaultAddress, owner: from })
+		.set((row) => ({ shares: row.shares - value, updatedAt: now }))
+		.catch(() => undefined);
+
+	await context.db
+		.insert(schema.position)
+		.values({
+			vault: vaultAddress,
+			owner: to,
+			shares: value,
+			firstSeenAt: now,
+			updatedAt: now,
+		})
+		.onConflictDoUpdate((row) => ({ shares: row.shares + value, updatedAt: now }));
+});
+
+ponder.on("LemonVault:Paused", async ({ event, context }) => {
+	await context.db
+		.update(schema.vault, { address: event.log.address })
+		.set({ paused: true, updatedAt: Number(event.block.timestamp) });
+});
+
+ponder.on("LemonVault:Unpaused", async ({ event, context }) => {
+	await context.db
+		.update(schema.vault, { address: event.log.address })
+		.set({ paused: false, updatedAt: Number(event.block.timestamp) });
+});
+
+ponder.on("LemonVault:EmergencyExitSet", async ({ event, context }) => {
+	await context.db
+		.update(schema.vault, { address: event.log.address })
+		.set({ emergencyExit: event.args.enabled, updatedAt: Number(event.block.timestamp) });
+});

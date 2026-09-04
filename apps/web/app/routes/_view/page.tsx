@@ -1,165 +1,165 @@
-import { BasisMarketTable } from "@app/components/basis/BasisMarketTable";
-import { Callout } from "@app/components/common/Callout";
-import { ChipGroup } from "@app/components/pons/Segmented";
-import { StatCard, toneForValue } from "@app/components/pons/StatCard";
-import { PageHeader } from "@app/components/site/PageHeader";
-import { useTour } from "@app/components/tour/TourProvider";
-import { EmptyState } from "@app/components/ui/EmptyState";
-import { Skeleton } from "@app/components/ui/skeleton";
-import { useBasisMarkets } from "@app/hooks/useMarketData";
-import { formatPercent } from "@lemon/core";
-import { Compass, Scale } from "lucide-react";
+import { VaultTable } from "@app/components/vault/VaultTable";
+import { formatUsdCompact, useProtocolStats, useVaults } from "@lemon/client";
+import { ChipGroup, EmptyState, PageHeader, Skeleton, StatCard } from "@lemon/ui";
+import { Vault as VaultIcon } from "lucide-react";
 import { useState } from "react";
 import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
-	{ title: "Basis markets — Lemon" },
+	{ title: "Vaults — Lemon" },
 	{
 		name: "description",
 		content:
-			"Every spot-versus-perp basis market on Base: tokenized stocks, BTC, ETH and AERO. Ranked by net yield after costs.",
+			"Deposit USDC into a delta-neutral basis vault on Base. An agent runs the spot-and-perp position; you hold a share token and can watch every trade it makes.",
 	},
-	{ property: "og:title", content: "Lemon — basis markets on Base" },
-	{
-		property: "og:description",
-		content: "Delta-neutral spot-versus-perp positions on tokenized stocks and crypto.",
-	},
+	{ property: "og:title", content: "Lemon — basis vaults on Base" },
 ];
 
-type Filter = "all" | "equity" | "crypto";
+type TierFilter = "all" | "CONSERVATIVE" | "LEVERAGED";
+type GroupFilter = "all" | "crypto" | "stocks" | "rwa" | "fx";
 
-const FILTERS: { value: Filter; label: string }[] = [
+const TIER_FILTERS: { value: TierFilter; label: string }[] = [
+	{ value: "all", label: "Any risk" },
+	{ value: "CONSERVATIVE", label: "No leverage" },
+	{ value: "LEVERAGED", label: "Leveraged" },
+];
+
+/**
+ * The four things a vault can be about.
+ *
+ * Coarser than the underlying asset-class taxonomy on purpose — metals,
+ * commodities and tokenized treasuries all sit under RWA, because splitting
+ * them across three tabs would leave most of them empty most of the time.
+ */
+const GROUP_FILTERS: { value: GroupFilter; label: string }[] = [
 	{ value: "all", label: "All" },
-	{ value: "equity", label: "Stocks" },
 	{ value: "crypto", label: "Crypto" },
+	{ value: "stocks", label: "Stocks" },
+	{ value: "rwa", label: "RWA" },
+	{ value: "fx", label: "FX" },
 ];
 
-export default function MarketsBoardPage() {
-	const tour = useTour();
-	const [filter, setFilter] = useState<Filter>("all");
-	const { data, isLoading, isError } = useBasisMarkets();
+export default function VaultBoardPage() {
+	const [tier, setTier] = useState<TierFilter>("all");
+	const [group, setGroup] = useState<GroupFilter>("all");
+	const { data, isLoading, isError, error } = useVaults();
+	const { data: stats } = useProtocolStats();
 
-	const all = data?.markets ?? [];
-	const unpaired = data?.unpaired ?? [];
-	const markets = filter === "all" ? all : all.filter((market) => market.assetClass === filter);
-	const tradable = markets.filter((market) => market.blockers.length === 0);
+	const all = data?.vaults ?? [];
+	const vaults = all.filter(
+		(v) => (tier === "all" || v.tier === tier) && (group === "all" || v.assetGroup === group),
+	);
 
-	// The board's headline is the best net yield, not the best funding — the two
-	// disagree, and the gross number is the one that flatters a bad trade.
-	const best = tradable[0];
-	const median =
-		tradable.length > 0 ? tradable[Math.floor(tradable.length / 2)].economics.netApyPercent : 0;
+	// Counts sit on the tabs so an empty one is visibly empty rather than
+	// looking like a filter that failed.
+	const countFor = (value: GroupFilter) =>
+		value === "all" ? all.length : all.filter((v) => v.assetGroup === value).length;
 
 	return (
 		<div className="space-y-6 md:space-y-8">
 			<PageHeader
 				eyebrow="Delta neutral"
-				title="Basis markets"
-				description="Buy the spot token on Base, short the matching perp at equal size. Price moves cancel, so what is left is funding minus costs. Every yield below is quoted after the full round trip."
-				actions={
-					// Replayable, not one-shot. Someone who skipped the walkthrough on
-					// their first visit has no other way back to it, and the moment
-					// people want it is usually the second visit rather than the first.
-					<button
-						type="button"
-						onClick={tour.start}
-						className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--pon-line-2)] px-4 text-[13px] font-medium text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
-					>
-						<Compass size={14} aria-hidden />
-						Take the tour
-					</button>
-				}
+				title="Vaults"
+				description="Deposit USDC and hold a share token. Each vault runs one basis position — long the spot token on Base, short the matching perp — through an agent whose every trade is published below. Withdrawals take 3 to 7 days, because the position has to be unwound to pay you."
 			/>
 
-			{isError && (
-				<Callout tone="danger" title="Could not load the board">
-					The market data service did not respond. Funding and liquidity are read live, so there is
-					nothing cached to fall back on.
-				</Callout>
-			)}
+			<div data-tour="board-headline" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+				<StatCard label="Total deposits" value={formatUsdCompact(stats?.tvl ?? "0")} />
+				<StatCard label="Deployed" value={formatUsdCompact(stats?.deployed ?? "0")} />
+				<StatCard label="Vaults" value={String(stats?.vaultCount ?? 0)} />
+				<StatCard label="Depositors" value={String(stats?.depositors ?? 0)} />
+			</div>
 
-			{data?.routabilityKnown === false && (
-				<Callout tone="info" title="Checking liquidity">
-					Every row's spot leg is being probed for a live route. Until that finishes, yields are
-					provisional and some markets will show as unavailable that are not.
-				</Callout>
-			)}
+			<div className="space-y-4">
+				<div data-tour="board-filters" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+					<ChipGroup
+						options={GROUP_FILTERS.map((f) => ({
+							value: f.value,
+							label: `${f.label} ${countFor(f.value)}`,
+						}))}
+						value={group}
+						onChange={(value) => setGroup(value as GroupFilter)}
+						aria-label="Filter by asset type"
+					/>
+					<span className="hidden h-4 w-px bg-[var(--pon-line-2)] sm:block" />
+					<ChipGroup
+						options={TIER_FILTERS}
+						value={tier}
+						onChange={(value) => setTier(value as TierFilter)}
+						aria-label="Filter by risk"
+					/>
+				</div>
 
-			<div data-tour="board-headline" className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
 				{isLoading ? (
-					<>
-						<Skeleton className="h-[92px] md:h-[124px]" />
-						<Skeleton className="h-[92px] md:h-[124px]" />
-						<Skeleton className="h-[92px] md:h-[124px]" />
-						<Skeleton className="h-[92px] md:h-[124px]" />
-					</>
+					<div className="space-y-2">
+						{[0, 1, 2].map((i) => (
+							<Skeleton key={i} className="h-20 w-full rounded-[var(--pon-r-lg,16px)]" />
+						))}
+					</div>
+				) : isError ? (
+					<EmptyState
+						icon={VaultIcon}
+						title="Vault data is unavailable"
+						description={
+							// Naming the indexer is deliberate: this is almost always
+							// an operator problem with a specific fix, and a generic
+							// "something went wrong" sends them looking at the app.
+							error instanceof Error
+								? error.message
+								: "The indexer could not be reached, so vault balances and history cannot be shown."
+						}
+					/>
+				) : vaults.length === 0 ? (
+					<EmptyState
+						icon={VaultIcon}
+						title={
+							tier === "all" && group === "all" ? "No vaults yet" : "Nothing matches those filters"
+						}
+						description={
+							tier === "all" && group === "all"
+								? "An operator creates vaults from the admin dashboard, one per basis market."
+								: "Clear a filter to see the rest of the board."
+						}
+					/>
 				) : (
-					<>
-						<StatCard
-							label="Best net APY"
-							value={best ? formatPercent(best.economics.netApyPercent) : "—"}
-							delta={best ? best.ticker : "nothing tradable"}
-							tone={best ? toneForValue(best.economics.netApyPercent) : "neutral"}
-						/>
-						<StatCard
-							label="Median net APY"
-							value={tradable.length ? formatPercent(median) : "—"}
-							delta="across tradable markets"
-							tone={toneForValue(median)}
-						/>
-						<StatCard
-							label="Tradable now"
-							value={`${tradable.length}`}
-							delta={`of ${markets.length} listed`}
-						/>
-						<StatCard label="Round trip" value="0.40%" delta="four fills, both venues" />
-					</>
+					<div data-tour="vault-row">
+						<VaultTable vaults={vaults} />
+					</div>
 				)}
 			</div>
 
-			<div
-				data-tour="board-filters"
-				className="flex flex-wrap items-center justify-between gap-2 md:gap-3"
-			>
-				<ChipGroup<Filter>
-					options={FILTERS}
-					value={filter}
-					onChange={setFilter}
-					aria-label="Filter markets by asset class"
-				/>
-				<p className="hidden t-micro text-[var(--pon-fg-3)] sm:block">
-					Ranked by net yield after fees and measured slippage
+			<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-6">
+				<h2 className="font-medium text-[var(--pon-fg-0)]">How a vault works</h2>
+				<div className="mt-3 grid gap-4 text-sm leading-relaxed text-[var(--pon-fg-2)] md:grid-cols-3">
+					<div>
+						<p className="font-medium text-[var(--pon-fg)]">You deposit USDC</p>
+						<p className="mt-1">
+							Share tokens are minted immediately, at the vault's current price. That is the only
+							step you take.
+						</p>
+					</div>
+					<div>
+						<p className="font-medium text-[var(--pon-fg)]">An agent trades it</p>
+						<p className="mt-1">
+							It buys the spot token on Base, shorts the matching perp on Pacifica at the same size,
+							and collects funding. Every move it makes is published.
+						</p>
+					</div>
+					<div>
+						<p className="font-medium text-[var(--pon-fg)]">You withdraw when you like</p>
+						<p className="mt-1">
+							Requests are queued for 3 to 7 days while the agent closes your share of the position.
+							Your shares keep earning until it does.
+						</p>
+					</div>
+				</div>
+				<p className="mt-4 text-xs leading-relaxed text-[var(--pon-fg-4)]">
+					Delta-neutral is not risk-free. Funding can turn negative, the spot leg can become
+					illiquid, and a leveraged vault's short can be liquidated by a sharp move. The vault
+					contract limits what the agent can do with your capital, but it cannot make the trade
+					profitable.
 				</p>
-			</div>
-
-			{isLoading ? (
-				<Skeleton className="h-[420px]" />
-			) : markets.length === 0 ? (
-				<EmptyState
-					icon={Scale}
-					title="No basis markets here"
-					description="A basis market needs both legs: a Base token the aggregator can route into, and a Pacifica perp on the same underlying."
-				/>
-			) : (
-				<BasisMarketTable
-					markets={markets}
-					referenceNotionalUsd={markets[0]?.economics.referenceNotionalUsd}
-				/>
-			)}
-
-			{/*
-			  Named rather than omitted. A basis market needs both legs, and most
-			  of the tokenized equity set has no perp listed yet — leaving them off
-			  the page entirely makes an absent venue listing look like an absent
-			  idea. They pair themselves the moment the perp exists.
-			*/}
-			{unpaired.length > 0 && (
-				<p className="t-caption text-[var(--pon-fg-4)]">
-					<span className="text-[var(--pon-fg-3)]">Waiting on a perp listing:</span>{" "}
-					{unpaired.map((asset) => asset.ticker).join(", ")}. Each pairs automatically once a
-					matching market is listed.
-				</p>
-			)}
+			</section>
 		</div>
 	);
 }

@@ -1,6 +1,5 @@
-import { Dialog, DialogContent } from "@app/components/ui/dialog";
-import { cn } from "@app/lib/utils";
 import { formatQuantity } from "@lemon/core";
+import { cn, Dialog, DialogContent } from "@lemon/ui";
 import { motion } from "framer-motion";
 import { Check, CopyIcon, ExternalLinkIcon, LogOut, Wallet } from "lucide-react";
 import { useState } from "react";

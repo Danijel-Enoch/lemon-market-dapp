@@ -1,0 +1,54 @@
+import { Shield, TrendingUp } from "lucide-react";
+import { cn } from "./utils";
+
+/**
+ * The tier, stated plainly.
+ *
+ * These are two different products, not two settings, and the badge is the main
+ * place a user encounters that. So it says what the tier *means* — "no leverage"
+ * rather than "conservative" — because the label alone tells someone nothing
+ * about whether the position they are buying can be liquidated.
+ */
+export function RiskBadge({
+	tier,
+	leverageLabel,
+	className,
+	size = "md",
+}: {
+	tier: "CONSERVATIVE" | "LEVERAGED";
+	leverageLabel?: string;
+	className?: string;
+	size?: "sm" | "md";
+}) {
+	const conservative = tier === "CONSERVATIVE";
+	const Icon = conservative ? Shield : TrendingUp;
+
+	return (
+		<span
+			className={cn(
+				"inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
+				size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
+				conservative
+					? "border-[var(--pon-accent)]/30 bg-[var(--pon-accent)]/10 text-[var(--pon-accent)]"
+					: "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 text-[var(--pon-amber)]",
+				className,
+			)}
+		>
+			<Icon className={size === "sm" ? "size-3" : "size-3.5"} />
+			{conservative ? "No leverage" : `Leveraged ${leverageLabel ?? ""}`.trim()}
+		</span>
+	);
+}
+
+/**
+ * The one-line explanation that goes with the badge.
+ *
+ * Both sentences name the actual risk rather than gesturing at it. "Can be
+ * liquidated" is the fact a leveraged depositor needs, and softening it into
+ * "higher risk" would leave them to guess what kind.
+ */
+export function riskDescription(tier: "CONSERVATIVE" | "LEVERAGED"): string {
+	return tier === "CONSERVATIVE"
+		? "The short leg is fully collateralised, so a move in the underlying cannot liquidate it. Yield is funding on capital deployed one-for-one."
+		: "The short leg runs at 2–3x, which multiplies the funding yield and introduces a liquidation price. A sharp move against the hedge can lose capital.";
+}

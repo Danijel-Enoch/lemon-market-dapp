@@ -1,4 +1,4 @@
-import { Brand } from "@app/components/pons/Brand";
+import { Brand } from "@lemon/ui";
 import { Link } from "react-router";
 
 /**

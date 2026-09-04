@@ -1,8 +1,7 @@
-import { Brand } from "@app/components/pons/Brand";
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
-import { cn } from "@app/lib/utils";
-import { BookOpen, Briefcase, Scale, Trophy, Wallet } from "lucide-react";
+import { Brand, cn } from "@lemon/ui";
+import { Activity, BookOpen, ChartNoAxesColumn, Vault, Wallet } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 /**
@@ -15,23 +14,31 @@ import { Link, useLocation } from "react-router";
  * at the bottom.
  */
 
-type NavLeaf = { href: string; label: string; icon: typeof Scale };
+type NavLeaf = { href: string; label: string; icon: typeof Vault };
 
 const LINKS: NavLeaf[] = [
-	{ href: "/", label: "Markets", icon: Scale },
+	{ href: "/", label: "Vaults", icon: Vault },
 	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
-	{ href: "/accounts", label: "Accounts", icon: Briefcase },
-	{ href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+	// Activity is a first-class destination rather than a tab inside a vault.
+	// The claim that anyone can audit the agents is only credible if the ledger
+	// is somewhere you can reach without knowing which vault to look in first.
+	{ href: "/activity", label: "Activity", icon: Activity },
+	{ href: "/stats", label: "Stats", icon: ChartNoAxesColumn },
 	{ href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
-/** The bottom bar drops Docs — it is a read, not a destination mid-session. */
-const TABS: NavLeaf[] = LINKS.filter((link) => link.href !== "/docs");
+/**
+ * The bottom bar drops Docs and Stats.
+ *
+ * Both are reads rather than destinations mid-session, and five tabs on a phone
+ * leaves each one too narrow to hit.
+ */
+const TABS: NavLeaf[] = LINKS.filter((link) => link.href !== "/docs" && link.href !== "/stats");
 
 function isActive(pathname: string, href: string): boolean {
 	// The board is an exact match only. Prefix-matching "/" would mark it
 	// active on every page in the app.
-	if (href === "/") return pathname === "/" || pathname.startsWith("/markets");
+	if (href === "/") return pathname === "/" || pathname.startsWith("/vaults");
 	return pathname === href || pathname.startsWith(`${href}/`);
 }
 

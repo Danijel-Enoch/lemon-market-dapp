@@ -1,0 +1,23 @@
+{
+	"name": "@lemon/contracts",
+	"version": "0.2.0",
+	"private": true,
+	"type": "module",
+	"main": "./ts/index.ts",
+	"exports": {
+		".": "./ts/index.ts"
+	},
+	"scripts": {
+		"build": "forge build && bun run abi",
+		"test": "forge test -vv",
+		"test:gas": "forge test --gas-report",
+		"coverage": "forge coverage --no-match-coverage '(script|test)'",
+		"fmt": "forge fmt",
+		"abi": "bun run scripts/export-abi.ts",
+		"deploy": "forge script script/Deploy.s.sol:Deploy --broadcast --verify",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@openzeppelin/contracts": "^5.6.1"
+	}
+}

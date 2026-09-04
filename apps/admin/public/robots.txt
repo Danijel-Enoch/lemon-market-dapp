@@ -1,0 +1,3 @@
+# An operator console has no business in a search index.
+User-agent: *
+Disallow: /

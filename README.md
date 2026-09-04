@@ -1,90 +1,104 @@
 # Lemon
 
-A basis trading platform on **Base**. One product: delta-neutral spot-versus-perp
-positions on tokenized stocks and crypto. Buy the spot token, short the matching
-perp at equal notional, collect funding. Everything settles in USDC.
+Delta-neutral basis **vaults** on **Base**. A user deposits USDC and holds a
+share token. An agent runs the position — long the spot token, short the
+matching perp at equal size — and every move it makes is published for anyone to
+check.
 
-The spot leg is non-custodial — the app builds the transaction, your wallet
-signs it, and the token lands in your own wallet. The short leg trades on
-Pacifica through an account the app derives for you; see **Accounts** below for
-exactly what that means.
+One vault, one market, one risk tier, one agent.
 
-## What it does
+```
+Admin dashboard ──creates──▶ VaultFactory ──deploys──▶ LemonVault  (Base, USDC)
+                                                          │ holds funds, mints shares
+       deposit USDC ─────────▶ shares minted instantly ────┤
+       requestRedeem ────────▶ queued 3–7 days ────────────┤
+                                                          ▼
+                                          Agent (NEAR-derived wallet)
+                                          ├─ pull idle USDC, buy spot (Kyber, Base)
+                                          ├─ bridge margin (Relay) → short perp (Pacifica)
+                                          ├─ value the position → reportNav (bounded)
+                                          ├─ rebalance on unit drift
+                                          └─ unwind → agentReturn → fulfillRedeem
+                                                          │
+                                     Ponder indexes ──────┴──▶ web + admin
+```
 
-| | |
+## What a user does
+
+Deposit USDC. That is the whole interaction.
+
+Shares are minted immediately at the vault's current price. Withdrawals are
+**requested** rather than executed: the request sits for three days minimum
+while the agent unwinds your share of a real position, and the agent is held to
+seven. Your shares stay outstanding for that window, so you keep earning — and
+keep the risk — until the position is actually closed.
+
+The exit price is fixed at **fulfilment**, not at request. A price fixed on the
+day you asked would be a free option on everyone else's capital.
+
+## Risk tiers
+
+Chosen when the vault is created and immutable afterwards. They are different
+products, and turning one into the other underneath existing depositors is not
+something the contract allows.
+
+| Tier | Target | Ceiling | What it means |
+|---|---|---|---|
+| `CONSERVATIVE` | 1x | 1x | Fully collateralised short. No liquidation price. |
+| `LEVERAGED` | 2x | up to 3x | Funding yield multiplied; a liquidation price appears. |
+
+"Conservative" is checked rather than claimed: the contract refuses to create
+one at anything but exactly 1x with no headroom, and rejects a `LEVERAGED` vault
+that sits at 1x. No vault of either tier may exceed 3x.
+
+## Fees
+
+**2% a year** on assets, streamed continuously. **20% of gains** above the
+vault's previous high-water mark, so a vault that falls and recovers charges
+nothing on the recovery.
+
+Both are minted as **shares** to an insurance fund rather than transferred as
+USDC — the vault is usually deployed, so there is often no USDC to pay with, and
+diluting takes the fee out of the gain rather than out of working capital.
+Management accrues first, which stops the operator earning a performance fee on
+assets it is about to take as rent.
+
+Fee shares are priced to be worth exactly the fee *after* the mint dilutes the
+pool that pays them. The obvious implementation lands a 2% schedule at about
+1.96%; the number in the docs and the number charged have to be the same number.
+
+## The trust boundary
+
+The position genuinely lives off-chain, so its value genuinely has to be
+reported. The design does not pretend otherwise — it bounds what a compromised
+agent key can do and makes the rest observable.
+
+| Limit | What it stops |
 |---|---|
-| **The board** | Every pair where both legs exist, ranked by net yield after costs. Untradable markets stay listed with the reason rather than disappearing. |
-| **A market** | Live spread, funding, both legs side by side, the perp chart, and a ticket that re-quotes at the size you actually type. |
-| **A position** | Both legs opened in one flow and tracked as one object, with recovery when a leg fails and one-tap rebalancing when the hedge drifts. |
-| **Funding** | USDC on Base for the spot leg; a bridged, MPC-signed deposit for the perp leg's margin. |
+| `agentWallet` is **immutable** | The agent cannot name a recipient. `agentWithdraw` takes an amount and nothing else. |
+| `maxDeployedBps` + rolling window cap | Capital leaves slowly and never entirely; a buffer stays for the queue. |
+| Per-report **and** per-epoch NAV bounds | One call cannot reprice the vault, and a drip of small reports cannot do slowly what one call may not do at once. |
+| Leverage mandate on every report | A report above the vault's ceiling is rejected outright. |
+| Guardian pause + emergency exit | A human can stop the agent. Pausing never blocks a user from queueing an exit. |
 
-Only spot-versus-perp today. Perp-versus-perp is not built.
+A stale NAV blocks deposits and fulfilments on-chain. That is deliberate: an
+agent that has stopped reporting cannot price anything honestly, and freezing is
+better than quoting.
 
-## The universe
+## The public ledger
 
-A basis market exists only where **both** legs do: a Base ERC-20 the aggregator
-can route into, paired by ticker with a listed Pacifica perp on the same
-underlying.
+`reportActivity` records every action an agent takes — spot fills, perp opens
+and closes, bridges in both directions, venue deposits, funding settlement —
+tagged with the chain it happened on, with the venue's own transaction
+reference. `txRef` is `bytes` rather than `bytes32` because a Solana signature is
+64 bytes and a truncated one links to nothing.
 
-That currently resolves to the Coinbase B20 tokenized equities on Base — NVDA,
-GOOGL, TSLA, MSTR and the rest — plus the Base tokens with a listed perp: BTC via
-cbBTC, ETH via WETH, SOL, LINK, AAVE, CRV, ENA, ZRO, VIRTUAL, VVV and KAITO.
+These are **attestations, not proofs**. Base cannot verify a Pacifica fill. What
+makes them useful is that each names a real transaction on a public chain, so
+anyone can fetch it and check it — and the UI shows each row's verification state
+rather than presenting them all as equally established.
 
-The pairing runs on every request, so a spot asset with no perp yet — AERO, AAPL,
-MSFT, META, COIN, AMZN, INTC — is reported as *waiting on a perp listing* rather
-than dropped, and promotes itself the moment the venue lists one. No deploy.
-
-Curation is by hand and by asset, never by ticker match. A plain symbol lookup
-against a Base token list returns an unrelated Base-native token for FARTCOIN, a
-governance token for DOGE, and a different issuer's tokenized stock for STRK —
-each of which would hedge a position against the wrong asset while looking
-perfectly healthy.
-
-## What the numbers mean
-
-Every row is quoted at `REFERENCE_NOTIONAL_USD` (currently $1,000) per leg at 2x,
-so rows are comparable — and the liquidity probe trades **exactly that size**, so
-the slippage priced into a row is slippage measured at the size the row claims.
-Probing smaller than you quote understates the cost of precisely the thin pools
-where it matters most.
-
-- **Net APY** — funding on deployed capital, minus the full round trip amortised
-  over a year. This is what the board ranks on.
-- **Funding APR** — the gross number before costs. The two disagree often enough
-  to matter, which is why the gross one does not lead.
-- **Spread** — perp mark against the spot **mid**, with the probe's own impact
-  backed out. Quoting the raw fill price instead makes every market appear to
-  trade at a discount by exactly the pool's slippage — an artifact uniform enough
-  to look like a real basis.
-- **Breakeven** — days of funding at today's rate to cover the round trip.
-
-Fees are **0.1% per leg per fill**. A round trip crosses both legs twice, so it
-costs **0.4% of notional** before slippage — which is why a position has a
-minimum sensible holding period, and why markets paying less than that
-annualised show a negative net APY rather than being hidden.
-
-A market is blocked, with its reason shown, when the spot leg has no route, when
-a probe-sized trade moves the pool more than 10%, or when the two legs disagree
-on price by more than 5% — a double-digit "spread" is not an opportunity, it is
-one of the two prices being wrong.
-
-## Rebalancing
-
-A position is neutral when it holds the **same number of units** on each side,
-and that holds at any price — so drift comes from execution, not from the market.
-The perp leg is floored onto the venue's lot grid at open, partial fills land
-short, and an ADL can shrink the hedge unannounced. None of that is visible from
-the stored plan, so `GET /api/basis/positions/:id/health` reads both venues live
-and compares what actually exists.
-
-Measured in units, deliberately. A dollar-denominated check would report fresh
-drift on every tick and invite a rebalance against a position that never moved.
-
-Corrections trade the **perp leg only**: the spot side would mean another swap
-through a thin pool, paying that pool's slippage to fix a rounding artifact, and
-would need a wallet signature. Below a 1% gap — or when the gap is smaller than
-one lot and therefore not expressible as an order — the app says so rather than
-offering a button that trades nothing and reports success.
+The feed is at `/activity`, open with no wallet and no key.
 
 ## Architecture
 
@@ -92,133 +106,86 @@ Bun workspaces:
 
 ```
 apps/
-  web/        React Router v7 SSR app, served by Elysia
-  api/        Elysia API — mounted in-process by web, or run standalone
+  web/        The depositor-facing app. React Router v7 SSR, served by Elysia
+  admin/      The operator console. Its own app, its own origin, its own port
+  api/        Elysia API — mounted in-process by both apps, or run standalone
+  indexer/    Ponder — the read model, rebuilt from chain events
+  agent/      Per-vault worker: valuation, execution, the redemption queue
 packages/
+  contracts/  Foundry. LemonVault (4626+7540), VaultFactory, InsuranceFund
+  ui/         The Pons design system. Presentational only — no wallet, no API
+  client/     The shared read layer: API calls, formatting, data hooks
   core/       Shared types, unit conversion, fee constants
-  near-mpc/   NEAR chain-signature address derivation and Ed25519 signing
+  near-mpc/   NEAR chain-signature derivation, Ed25519 and secp256k1 signing
   pacifica/   Perp REST client, request signing, Solana deposit instruction
   kyber/      Aggregator client
-  relay/      Deposit addresses and status
-  registry/   Spot-asset registry, pairing, basis maths and state machine
+  relay/      Bridge deposit addresses and status
+  registry/   Spot-asset registry, pairing, basis maths
   db/         Prisma schema and client
 ```
 
-`apps/api` exports a mountable Elysia plugin. The web server mounts it, so one
-container serves both — but it also has its own entrypoint, so splitting the API
-onto its own host later needs no code change.
+**Why the admin console is its own app.** It mounts the same API plugin, so
+there is one implementation of every endpoint and one place authorisation is
+decided. What differs is exposure: the console is meant to sit behind whatever
+an operator already uses — a VPN, an IP allowlist, an SSO proxy — while the
+public app faces the internet. Sharing a process meant both had the same attack
+surface and the same uptime.
 
-Secrets (`RELAY_API_KEY`, `KYBER_CLIENT_ID`, RPC URLs) live server-side and never
-reach the browser bundle.
+**Where state lives.** Vaults, shares, balances and the withdrawal queue are on
+Base, and the indexer is a disposable cache of them — drop it and a resync
+rebuilds it exactly. Postgres holds only what is not derivable from events:
+sessions, the admin allowlist, per-vault venue configuration, the agents'
+decision log, and verification verdicts (which come from other chains and would
+be discarded by a reindex).
 
-## API
+Losing the database costs sessions and operator configuration. It cannot cost
+anyone their funds.
 
-Market data needs no key; anything touching a position needs a session cookie.
+## Agent decisions
 
-```
-GET  /api/basis/markets              # the board, ranked, with blockers and unpaired assets
-GET  /api/basis/markets/:id          # one market, by ticker or either leg's symbol
-GET  /api/basis/markets/:id/candles  # OHLCV for the perp mark (not the spread — see below)
-POST /api/basis/plan                 # price a position at real size; commits to nothing
-GET  /api/basis/positions?user=0x…   # positions for an address
-GET  /api/basis/positions/:id/health # live drift between the two legs, in units
-POST /api/basis/positions/:id/rebalance  # trade the perp leg back to the spot leg's size
-```
+A deterministic policy decides what is permissible and **sizes every trade**. An
+OpenRouter model only picks among options the policy has already cleared. It
+cannot produce an amount, an answer naming an unpermitted action is discarded,
+and near a withdrawal deadline it is not consulted at all.
 
-There is deliberately no discretionary perp-order endpoint. Pacifica nets
-positions per symbol, so a standalone order in a symbol a user already holds a
-basis in would cancel that position's hedge while the database went on
-describing it as delta-neutral.
+With no `OPENROUTER_API_KEY` the agent runs on the policy alone — less clever,
+equally safe.
 
-Candles are the perp mark, not the basis spread, and say so in the response. No
-venue publishes a price history for a tokenized equity on Base, so a spread
-series would have to be reconstructed from our own snapshots — a line that would
-look authoritative and be mostly invented.
-
-## Accounts
-
-Perps live on Pacifica, which is a Solana venue, while the wallet you connect
-with is on Base. Bridging that gap is what sign-in does.
-
-**Two signatures, once.**
-
-1. **Sign in.** Proves you control the connected wallet, and derives an EVM and a
-   Solana wallet for you through [NEAR chain signatures](https://docs.near.org/chain-abstraction/chain-signatures).
-   The private keys do not exist anywhere — the NEAR MPC network signs on
-   request, and the addresses are a deterministic function of your wallet
-   address, so they are reproducible rather than stored secrets.
-2. **Activate trading.** Authorises one named agent key to place and cancel
-   orders on your Pacifica account. The message you sign names that exact key.
-   It cannot withdraw: Pacifica requires the account key for withdrawals, which
-   is what stops a compromised server from emptying an account.
-
-After that, orders are signed server-side with the agent key. No wallet prompt
-per trade, no gas.
-
-If `PACIFICA_BUILDER_CODE` is set, step 2 also approves your builder code, so
-collecting a fee costs no extra prompt — but the fee is named in the message the
-user signs and in the onboarding panel, because that dialog is the only place
-they can see what they are agreeing to.
-
-One asymmetry worth knowing: Pacifica **rejects** an order whose builder fee
-exceeds the ceiling the user approved, rather than filling it unattributed. The
-app therefore attaches your code only to users who approved this code at a
-ceiling that still covers it, and prompts everyone else. Raising your registered
-rate past an approved ceiling costs the fee until those users re-approve; it
-never costs them a trade.
-
-The derived wallets are deliberately never shown. They are plumbing, and money
-sent straight to one is money outside Pacifica that nothing will credit. Funding
-goes through the accounts page instead: USDC leaves your connected wallet,
-Relay bridges it to Solana, and a second transaction — signed by your derived
-wallet through MPC — deposits it into Pacifica's custody program. Those two
-steps are shown separately, because between them the funds have left one place
-and not yet arrived at the other.
-
-The short leg is placed server-side with your agent key, so it costs no wallet
-signature — which is what used to leave positions half-open when a user closed
-the tab between the two legs.
+Every tick is recorded with its action and stated reason, so "why did the vault
+sit idle through a good funding window" has an answer on the admin dashboard.
 
 ## Running it
 
 ```bash
 bun install
-cp .env.example .env          # works as-is; see notes below
-bun run db:generate           # generate the Prisma client
-bun run dev                   # http://localhost:3002
+git submodule update --init --recursive   # forge-std, for the contracts
+cp .env.example .env
+bun run db:generate
+bun run contracts:build                   # compiles and regenerates ts/abi.ts
+bun run dev                               # http://localhost:3002
 ```
 
-Market data, charts and the connected-wallet view work with no configuration.
-Two features are gated:
+The board and docs work with no configuration. Beyond that:
 
-- **Opening positions** needs `DATABASE_URL` — a position spans two independent
-  systems and its state has to survive a reload.
-- **Accounts and the hedge leg** need `DATABASE_URL`, `AUTH_SECRET` and a funded
-  NEAR account (`NEAR_ACCOUNT_ID`, `NEAR_PRIVATE_KEY`). Crediting deposits
-  additionally needs `SOLANA_FEE_PAYER_SECRET`, since a derived wallet holds
-  USDC but no SOL to pay its own transaction fee. `GET /api/auth/status` says
-  which piece is missing.
+- **Vault data** needs the indexer (`bun run dev:indexer`) and a deployed
+  `VAULT_FACTORY_ADDRESS`. Without it the board says the indexer is unreachable
+  rather than showing an empty list.
+- **Sign-in and the admin dashboard** need `DATABASE_URL` and `AUTH_SECRET`.
+- **Creating vaults** additionally needs a funded NEAR account
+  (`NEAR_ACCOUNT_ID`, `NEAR_PRIVATE_KEY`) — an agent wallet is derived before
+  the vault exists.
+- **The agent** (`bun run dev:agent`) needs all of the above plus venue access.
 
-Run `bun run db:push` after setting `DATABASE_URL`.
+### Deploying the contracts
 
-It reports itself as unavailable in the UI rather than failing quietly. The
-deposit endpoints additionally need a free `RELAY_API_KEY` from
-[dashboard.relay.link](https://dashboard.relay.link) if you re-enable that page.
+```bash
+cd packages/contracts
+forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_RPC_URL --broadcast --verify
+```
 
-### Charging your own fees
-
-Spot and perp collect fees by different mechanisms, so they are configured
-separately — see `.env.example` for the full notes.
-
-- **Spot** — `SPOT_FEE_BPS` + `SPOT_FEE_RECEIVER` (and optionally
-  `SPOT_FEE_CHARGE_BY`). KyberSwap takes the cut inside the route, so the quote
-  the user is shown is already net of it. Both values are required; one without
-  the other is treated as no fee.
-- **Perp** — `PACIFICA_BUILDER_CODE` + `PACIFICA_BUILDER_MAX_FEE_RATE`. Users
-  approve the code during onboarding; orders placed before they approve are
-  unattributed. Pacifica *rejects* an order whose builder fee exceeds the
-  ceiling a user approved rather than filling it unattributed, so set the
-  ceiling above the rate you actually charge. See **Accounts** above.
+Deploys the insurance fund and the factory only. Vaults are created from the
+admin dashboard, because a vault needs an agent wallet derived from the NEAR MPC
+network and the derivation has to happen alongside the transaction.
 
 ### Docker
 
@@ -230,74 +197,81 @@ docker compose --profile split up    # + standalone API on :3003
 ## Commands
 
 ```bash
-bun run dev          # web app with the API mounted
-bun run dev:api      # standalone API
-bun run build        # production build
-bun run typecheck    # all workspaces
-bun run lint         # biome
-bun test             # unit tests
-bun run db:migrate   # create a migration
-bun run db:seed      # seed the token registry (verifies decimals on-chain)
+bun run dev              # the public app, with the API mounted
+bun run dev:admin        # the operator console
+bun run dev:indexer      # Ponder
+bun run dev:agent        # the vault agents
+bun run typecheck        # all workspaces
+bun run lint             # biome
+bun test                 # TypeScript tests + 112 Foundry tests
+bun run contracts:test   # Foundry only
+bun run contracts:build  # compile and regenerate ABIs
 ```
+
+## Agent gas
+
+The one running cost the protocol cannot cover for itself. Each agent's wallets
+hold the position but are ordinary accounts on their chains: the Base one needs
+ETH to send a transaction, the Solana one needs SOL. The vault holds USDC and may
+only ever send USDC to one address, so neither can be funded from protocol
+capital — an operator tops them up.
+
+The failure is silent, which is why the console watches it. An agent out of gas
+does not crash; it fails every write, stops reporting a valuation, and its vault
+goes stale — which blocks deposits and withdrawals on-chain. From the outside
+that looks like a broken agent rather than an empty wallet.
+
+The Gas tab shows both balances per vault and funds the Base side directly from
+the operator's wallet. Solana is shown with its address and no button: a Base
+wallet cannot send SOL, and a button that opens a wallet which then cannot sign
+is worse than none.
 
 ## Things worth knowing
 
-These are behaviours that look like bugs but are not.
+Behaviours that look like bugs and are not.
+
+**Withdrawing restarts the clock if you top up.** Requests merge into one, so
+keeping the earlier timestamp would let a one-wei request ripen for three days
+and then carry an arbitrarily large addition out with it.
+
+**A new vault shows a dash, not 0%.** The yield column is the vault's *measured*
+share-price change annualised, not a projection from the current funding rate.
+Too little history is reported as unknown, because rendering it as zero is a
+claim about performance where none exists.
 
 **Funding sign is inverted from most venues.** Pacifica quotes one hourly rate
-where a *positive* number means longs pay shorts; the app splits it by side, so
-a figure shown against your side is what you receive. A basis position holds the
-short side, so it only earns when the short rate is positive — which happens when
-longs are crowded. The app shows the real sign and warns when a position would
-cost money.
+where a *positive* number means longs pay shorts. A basis position holds the
+short side, so it earns when longs are crowded.
 
-**Most tokenized equities are not buyable.** Only some have Aerodrome pools on
-Base, and the set changes. Routability is probed live rather than configured, so
-tokens show as buyable, sell-only, or unavailable instead of failing at signing
-time.
+**Hedge drift is measured in units, not dollars.** The two legs are priced by
+different venues that disagree by a few basis points at all times, so a
+dollar-denominated check would report fresh drift every tick and have the agent
+rebalancing a position that never moved.
 
-**Price impact on stock pools is material.** Several percent on a probe-sized
-trade is normal given the depth, and it is charged to the position on both entry
-and exit rather than quietly omitted. The aggregator's impact figure is also
-noisy on small trades — it reads 2%+ on cbBTC and SOL, among the deepest pools on
-Base — which is why the "no depth" threshold is loose and the price-divergence
-check does the real work.
+**An unroutable spot leg stales the vault rather than marking it down.** A vault
+whose pool has dried up is worth an unknown amount, not its perp equity alone.
+Reporting the knowable part as the whole would mark every holder down by the
+entire spot leg.
 
-**Markets are addressed by symbol, never by index.** Venue pair indexes are not
-stable across protocol versions, so a persisted index can end up naming a
-different asset after an upgrade — and trade it without complaint. Every market
-is resolved by symbol at call time.
-
-**Equity markets never close here, but their underlying does.** Pacifica
-publishes no session hours, so both legs trade continuously. What stops
-overnight and at weekends is the cash market that prices the underlying — so the
-spread can widen on thin flow and reprice at the open. That is a real risk, but
-it is not the "one leg is frozen" risk a venue with session hours would carry,
-and the app does not describe it as one.
-
-**A half-open position is recoverable, not failed.** If the spot buy lands and
-the short does not, the position is marked as needing attention and offers to
-complete the short or unwind the spot — it is never silently abandoned.
-
-**A new position often shows a little drift immediately.** The perp leg is
-rounded down onto the venue's lot grid, so it starts a fraction under-hedged.
-That is expected; the position page shows the gap and only offers to close it
-when doing so costs less than carrying it.
+**Markets are addressed by ticker, never by venue index.** Pair indexes are not
+stable across protocol upgrades, and a stored one can end up naming a different
+asset and trading it without complaint.
 
 ## External services
 
 | Service | Used for | Docs |
 |---|---|---|
 | Pacifica | Perps, funding, OHLCV, custody | [docs.pacifica.fi](https://docs.pacifica.fi) |
-| NEAR | Chain signatures for derived wallets | [docs.near.org](https://docs.near.org/chain-abstraction/chain-signatures) |
+| NEAR | Chain signatures for agent wallets | [docs.near.org](https://docs.near.org/chain-abstraction/chain-signatures) |
 | KyberSwap | Spot routing and liquidity probes | [docs.kyberswap.com](https://docs.kyberswap.com) |
-| Relay | Cross-chain deposits (API only, UI disabled) | [docs.relay.link](https://docs.relay.link) |
+| Relay | Base ↔ Solana bridging | [docs.relay.link](https://docs.relay.link) |
+| Ponder | Indexing Base into the read model | [ponder.sh](https://ponder.sh) |
+| OpenRouter | The agent's advisory layer | [openrouter.ai](https://openrouter.ai) |
 | Coinbase | Tokenized equities (B20) on Base | [docs.base.org](https://docs.base.org) |
 
 ## Disclaimer
 
-Not investment advice. A basis position is delta-neutral, not risk-free: the
-short leg is leveraged and can be liquidated, funding can turn negative, and the
-spot leg can become illiquid before you exit. Tokenized equities are issued by
-third parties, may carry transfer restrictions, and are not available
-everywhere.
+Not investment advice. A basis position is delta-neutral, not risk-free: funding
+can turn negative, the spot leg can become illiquid, a leveraged vault's short
+can be liquidated, and the vault is custodial — your USDC is held by a contract
+and traded by an agent. The contracts have not been independently audited.

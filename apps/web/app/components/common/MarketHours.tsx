@@ -1,5 +1,5 @@
-import { cn } from "@app/lib/utils";
 import type { Market } from "@lemon/core";
+import { cn } from "@lemon/ui";
 
 function formatWhen(timestamp: number | null): string | null {
 	if (!timestamp) return null;

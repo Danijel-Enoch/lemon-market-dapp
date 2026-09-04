@@ -1,0 +1,19 @@
+{
+	"name": "@lemon/indexer",
+	"version": "0.2.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "ponder dev",
+		"start": "ponder start",
+		"serve": "ponder serve",
+		"codegen": "ponder codegen",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@lemon/contracts": "workspace:*",
+		"hono": "^4.13.5",
+		"ponder": "^0.17.9",
+		"viem": "^2.44.2"
+	}
+}

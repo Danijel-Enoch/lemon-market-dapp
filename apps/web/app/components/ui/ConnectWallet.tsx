@@ -1,5 +1,5 @@
 import { AccountModal } from "@app/components/ui/AccountModal";
-import { cn } from "@app/lib/utils";
+import { cn } from "@lemon/ui";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { UserCircle2 } from "lucide-react";
 import type { ComponentProps } from "react";

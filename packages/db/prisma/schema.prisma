@@ -1,9 +1,20 @@
 // Persistence for state that cannot be reconstructed from chain or upstream APIs.
 //
-// Deliberately narrow: Pacifica owns perp positions, KyberSwap owns spot limit
-// orders, and the chain owns balances. The only things stored here are the
-// multi-leg basis positions (which span two independent systems and can
-// half-fail), Relay deposit tracking, and cached market state.
+// Narrower than it looks, because most of what the app shows is not here. The
+// vaults, their balances, every deposit and withdrawal and every action the
+// agents took live on Base and are read through Ponder — a database that can be
+// dropped and rebuilt from events. This one holds the four things that genuinely
+// cannot be:
+//
+//   1. Sessions and the wallets they are bound to.
+//   2. Which addresses may administer the protocol.
+//   3. The venue configuration a vault trades against, which is a curated
+//      mapping from a market to a specific token and perp and is not on-chain.
+//   4. Verdicts from verifying agent activity against other chains, which are
+//      the product of round trips that a reindex would otherwise discard.
+//
+// Nothing a user's balance depends on is stored here. Losing this database
+// costs sessions and operator configuration; it cannot cost anyone their funds.
 
 generator client {
   provider = "prisma-client-js"
@@ -40,164 +51,7 @@ model SpotAsset {
 
   updatedAt DateTime @updatedAt
 
-  positions BasisPosition[]
-
   @@index([buyable])
-}
-
-enum BasisStatus {
-  /// Both legs quoted and validated, nothing signed yet.
-  VALIDATING
-  /// Spot bought; the short leg has not landed. Directionally exposed.
-  SPOT_FILLED
-  /// Both legs live and delta-neutral.
-  OPEN
-  /// Unwind started.
-  UNWINDING
-  /// Spot sold during unwind; short still open.
-  SPOT_CLOSED
-  CLOSED
-  /// One leg landed and its counterpart failed. Needs user action.
-  ORPHANED
-  FAILED
-}
-
-enum BasisLeg {
-  SPOT
-  PERP
-}
-
-/// A delta-neutral basis position: long the spot token, short the matching perp.
-model BasisPosition {
-  id           String      @id @default(cuid())
-  userAddress  String
-  tokenSymbol  String
-  token        SpotAsset   @relation(fields: [tokenSymbol], references: [symbol])
-
-  /// Snapshotted at open for display. The market is always re-resolved by
-  /// symbol before trading, never read from here.
-  perpSymbol String
-
-  status BasisStatus @default(VALIDATING)
-
-  /// Target notional for each leg. Equal notionals are what make it neutral.
-  notionalUsd       Float
-  shares            Float?
-  spotCostUsd       Float?
-  perpCollateralUsd Float
-  perpLeverage      Float
-
-  /// Economics captured at open, so the position card can show drift since.
-  entryFundingRatePct Float?
-  entryNetApyPct      Float?
-
-  spotBuyTxHash   String?
-  perpOpenTxHash  String?
-  spotSellTxHash  String?
-  perpCloseTxHash String?
-
-  realizedPnlUsd Float?
-  /// Set when a leg fails, to explain the ORPHANED state to the user.
-  failureReason  String?
-
-  openedAt  DateTime?
-  closedAt  DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  events BasisLegEvent[]
-
-  @@index([userAddress, status])
-  @@index([status])
-}
-
-/// Append-only audit of every leg action.
-///
-/// Opening a position touches two independent systems, so a crash between them leaves
-/// state that cannot be inferred afterwards. Recording each attempt is what
-/// makes an interrupted open recoverable rather than silently lost.
-model BasisLegEvent {
-  id         String        @id @default(cuid())
-  positionId String
-  position   BasisPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
-
-  leg     BasisLeg
-  action  String
-  status  String
-  txHash  String?
-  /// Venue order id, when the leg was placed through an API rather than a
-  /// chain transaction.
-  trackingId String?
-  error   String?
-  payload Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([positionId, createdAt])
-}
-
-enum DepositStatus {
-  PENDING
-  DETECTED
-  COMPLETE
-  FAILED
-  REFUNDED
-}
-
-/// A Relay deposit address issued to fund an account with USDC on Base.
-model DepositIntent {
-  id             String        @id @default(cuid())
-  userAddress    String
-  requestId      String        @unique
-  depositAddress String
-  originChainId  Int
-  originCurrency String
-  originSymbol   String
-  amount         String
-  amountFormatted String?
-  status         DepositStatus @default(PENDING)
-  inTxHash       String?
-  outTxHash      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userAddress, status])
-  @@index([depositAddress])
-}
-
-/// Only the spot leg produces a chain transaction, so it is the only thing a
-/// client can claim. Positions opened are counted from `BasisPosition` rows
-/// directly, which cannot be forged by a POST.
-enum PointsSource {
-  SPOT_VOLUME
-}
-
-/// A verified, points-earning action.
-///
-/// `txHash` is unique, which is what makes recording idempotent: the client
-/// reports a hash after its wallet confirms, and replaying the same hash — by
-/// retry, refresh, or deliberately — cannot award points twice.
-///
-/// Nothing is written here on a client's say-so. Swaps are verified against the
-/// chain first (sender, success, and the router actually called), because the
-/// app only builds calldata — the wallet submits it, so an unverified report
-/// would let anyone mint points with a POST.
-model PointsEvent {
-  id          String       @id @default(cuid())
-  userAddress String
-  source      PointsSource
-  /// Notional in USD, for volume-based sources.
-  volumeUsd   Float        @default(0)
-  points      Int
-  txHash      String?      @unique
-  /// Verification evidence: block number and the contract that was called.
-  blockNumber Int?
-  target      String?
-  createdAt   DateTime     @default(now())
-
-  @@index([userAddress, createdAt])
-  @@index([source])
 }
 
 /// Periodic funding snapshots, so a market's APR can be shown as a trend rather
@@ -220,11 +74,15 @@ model FundingSnapshot {
 // ---------------------------------------------------------------------------
 // Accounts
 //
-// Sign-in binds a connected wallet to a pair of NEAR-derived wallets and a
-// Pacifica account. None of that is reconstructible from chain state: the
-// derived addresses come from a path, and the Pacifica agent key exists only
-// here, so this is the one record whose loss locks a user out of their own
-// positions.
+// Sign-in exists to answer one question: which wallet is this. Users do not
+// trade through the app any more — they deposit USDC into a vault and hold an
+// ERC-20 share, both of which are ordinary wallet actions needing no session at
+// all. What a session gates is the admin dashboard, and the convenience of
+// showing someone their own portfolio without typing an address.
+//
+// So unlike the previous design, losing this table locks nobody out of
+// anything. A user's position is their share balance on Base; it is theirs
+// whether or not this database exists.
 // ---------------------------------------------------------------------------
 
 /// A signed-in user, keyed by the wallet they connect with.
@@ -235,44 +93,14 @@ model User {
   /// in the app; the derived addresses below are infrastructure they never see.
   address String @unique
 
-  /// NEAR chain-signature derivation path. Written once at first sign-in and
-  /// never recomputed — the format is versioned precisely so that a change to
-  /// the derivation scheme cannot silently repoint an existing user at empty
-  /// wallets. See `@lemon/near-mpc`'s `derivationPath`.
-  derivationPath String @unique
-
-  /// Ed25519 address the path controls. Also the Pacifica account id.
-  solanaAddress String @unique
-  /// secp256k1 address the same path controls, held for future EVM use.
-  derivedEvmAddress String
-
-  /// Agent wallet authorised to trade for `solanaAddress`.
-  ///
-  /// Binding it is the only operation that needs the account key itself, so it
-  /// is the only one that costs an MPC round trip. Ordinary orders are signed
-  /// locally with this key, which is what keeps trading fast.
-  pacificaAgentPublicKey String?
-  /// The agent's secret key, sealed with AUTH_SECRET (AES-256-GCM). Ciphertext
-  /// alone is not enough to trade; the database and the secret must both leak.
-  pacificaAgentSecret String?
-  pacificaBoundAt     DateTime?
-
-  /// The builder code this user approved, and the fee ceiling they set.
-  ///
-  /// Both are recorded because an approval is only good for the exact pair.
-  /// Pacifica rejects an order whose builder fee exceeds the approved ceiling
-  /// rather than filling it unattributed, so raising the configured rate past
-  /// what a user approved would stop them trading. Storing what they agreed to
-  /// is what lets the app notice the mismatch and ask again instead.
-  pacificaBuilderCode       String?
-  pacificaBuilderMaxFeeRate String?
-  pacificaBuilderApprovedAt DateTime?
+  /// Whether this address is an admin, denormalised from `AdminUser` so the
+  /// session lookup does not need a second query on every request.
+  isAdmin Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   sessions Session[]
-  deposits PacificaDeposit[]
 }
 
 /// A browser session, established by a wallet signature.
@@ -302,8 +130,9 @@ model SignInNonce {
 
   /// Lowercased wallet the challenge was issued to.
   address String
-  /// Which step the challenge is for — a sign-in signature must not be
-  /// replayable as a Pacifica activation, or vice versa.
+  /// Which step the challenge is for. Kept even though sign-in is currently the
+  /// only purpose: a challenge issued for one action must never be replayable as
+  /// another, and adding the field back later means migrating live nonces.
   purpose String
 
   /// The exact text the wallet was asked to sign.
@@ -314,12 +143,7 @@ model SignInNonce {
   /// disagree is indistinguishable from an attack.
   message String
 
-  /// Sealed state the challenge carries between the two requests it spans.
-  ///
-  /// Pacifica activation generates an agent key when the challenge is issued,
-  /// because the key has to be named in the text the user signs. Parking it
-  /// here rather than on the user keeps an unbound key from overwriting the
-  /// working one if activation is abandoned half way.
+  /// Sealed state a challenge carries between the two requests it spans.
   payload String?
 
   expiresAt DateTime
@@ -330,42 +154,169 @@ model SignInNonce {
   @@index([expiresAt])
 }
 
-enum PacificaDepositStatus {
-  /// Relay is moving USDC from the connected wallet's chain to Solana.
-  BRIDGING
-  /// USDC has landed at the derived Solana wallet but is not yet Pacifica's.
-  BRIDGED
-  /// The on-chain deposit instruction has been submitted.
-  CREDITING
-  CREDITED
-  FAILED
+// ---------------------------------------------------------------------------
+// Vaults
+//
+// The on-chain vault is the source of truth for money. What it cannot hold is
+// which *actual assets* a market means — the vault knows `keccak256("NVDA")`
+// and nothing else, and resolving that to a Base ERC-20 and a Pacifica symbol
+// is a curated decision that must not be guessable from a ticker.
+// ---------------------------------------------------------------------------
+
+enum RiskTier {
+  CONSERVATIVE
+  LEVERAGED
 }
 
-/// Funding a Pacifica account, tracked across the two steps it takes.
+/// What kind of thing a vault trades.
 ///
-/// Bridging and crediting are separate transactions on separate chains, and the
-/// gap between them is where money can sit looking lost: it has left the
-/// connected wallet but is not yet a Pacifica balance. Recording the transition
-/// is what lets the accounts page explain that state instead of showing zero.
-model PacificaDeposit {
+/// Finer than the four tabs the board shows, because metals and commodities are
+/// genuinely different instruments even though a depositor choosing a vault
+/// groups them together. `@lemon/core` owns the mapping from these to tabs.
+enum VaultAssetClass {
+  CRYPTO
+  EQUITY
+  RWA
+  FX
+  COMMODITY
+  METAL
+  INDEX
+  UNKNOWN
+}
+
+/// Venue configuration for one deployed vault, and the record of how it was created.
+///
+/// The pairing here is by asset, never by ticker match. A plain symbol lookup
+/// against a Base token list returns an unrelated Base-native token for
+/// FARTCOIN, a governance token for DOGE, and a different issuer's tokenized
+/// stock for STRK — each of which would hedge a vault against the wrong asset
+/// while every dashboard read healthy. The agent refuses to trade a vault with
+/// no row here rather than resolving one itself.
+model VaultConfig {
+  /// The deployed vault address, lowercased.
+  address String @id
+
+  /// Ticker the vault was created for, e.g. "NVDA". `keccak256` of this is the
+  /// on-chain `marketId`, which is one-way — so this is the only place the
+  /// human-readable name survives.
+  ticker String
+
+  riskTier RiskTier
+
+  /// Set when the vault is created, from the market it was created for. Null
+  /// falls back to the curated ticker table in `@lemon/core`, so an older row
+  /// still lands in the right tab.
+  assetClass VaultAssetClass?
+
+  /// The NEAR derivation path this vault's agent wallet lives at. Recorded
+  /// rather than recomputed so a change to the derivation scheme is visible as
+  /// a mismatch instead of silently repointing an agent at empty wallets.
+  agentPath       String @unique
+  agentEvmAddress String @unique
+  agentSolanaAddress String @unique
+
+  /// The Base ERC-20 that is the spot leg, and its decimals.
+  spotTokenAddress  String
+  spotTokenDecimals Int
+  spotTokenSymbol   String
+
+  /// What Pacifica accepts on the wire for the perp leg, e.g. "NVDA".
+  perpSymbol String
+
+  /// Slippage the agent trades with, as a percent. 0.5 means 0.5%.
+  slippagePercent Float @default(0.5)
+
+  /// Set when an operator has deliberately stopped the agent trading this vault
+  /// without pausing the contract, which would also stop users depositing.
+  agentEnabled Boolean @default(true)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs  AgentRun[]
+
+  @@index([ticker])
+}
+
+/// One tick of one agent, kept for review.
+///
+/// The agent is the only party that can move deployed capital, and most of what
+/// it does is a judgement call about timing. Recording the decision and its
+/// stated reason is what makes "why did the vault sit idle through a good
+/// funding window" a question with an answer.
+model AgentRun {
   id String @id @default(cuid())
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vaultAddress String
+  vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
 
-  amountUsdc Float
+  /// DEPLOY, UNWIND, REBALANCE, HOLD or NONE.
+  action String
+  /// The reason given — by the policy, or by the advisory model when consulted.
+  rationale String
 
-  /// Relay's id for the bridge leg, when the funds came from another chain.
-  relayRequestId String?
-  /// The Pacifica `deposit` instruction, once broadcast. Unique, so a retried
-  /// credit cannot be recorded twice.
-  solanaTxSignature String? @unique
+  /// Whether a language model chose among the permitted actions on this tick.
+  /// The distinction matters when reviewing: an unadvised run is fully
+  /// explained by the policy, an advised one is not.
+  advised Boolean @default(false)
 
-  status        PacificaDepositStatus @default(BRIDGING)
-  failureReason String?
+  navReported      Boolean @default(false)
+  activityReported Int     @default(0)
+  fulfilled        Int     @default(0)
+  error            String?
+
+  createdAt DateTime @default(now())
+
+  @@index([vaultAddress, createdAt])
+  @@index([createdAt])
+}
+
+/// The result of checking one reported action against the chain it names.
+///
+/// Kept here rather than in the indexer because a Ponder resync drops and
+/// rebuilds every table from Base events, and these verdicts are not derivable
+/// from Base events — they come from Solana RPC and from block explorers. Storing
+/// them there would silently discard the entire audit history on any reindex.
+model ActivityVerification {
+  /// `<vault>-<sequence>`, matching the indexer's activity id.
+  id String @id
+
+  vaultAddress String
+  sequence     Int
+
+  /// Null while unchecked. False is a much stronger statement than silence: it
+  /// means the transaction the agent named does not support what it claimed.
+  verified Boolean?
+  /// What was checked and what was found, in plain language, for the UI.
+  note     String?
+
+  /// Attempts so far. A permanently unreachable chain should stop being retried
+  /// rather than becoming an endless background load.
+  attempts    Int       @default(0)
+  lastAttempt DateTime?
+  verifiedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId, status])
+  @@index([vaultAddress, sequence])
+  @@index([verified])
+}
+
+/// An address permitted to administer the protocol.
+///
+/// Deliberately a database row rather than an environment variable. Admin
+/// membership changes, and a change that needs a redeploy is a change that gets
+/// made by editing a running container instead.
+model AdminUser {
+  address String @id
+
+  /// Whether this admin may create vaults, as opposed to only reading the
+  /// dashboard. Creating a vault commits real capital to a market pairing.
+  canCreateVaults Boolean @default(false)
+
+  label     String?
+  addedBy   String?
+  createdAt DateTime @default(now())
 }

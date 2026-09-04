@@ -1,0 +1,319 @@
+import { prisma } from "@lemon/db";
+import { agentDerivationPath } from "@lemon/near-mpc";
+import { clients, config } from "../config";
+import { listBasisMarkets } from "./basis-markets";
+import { listVaults } from "./vaults";
+
+/**
+ * The admin side.
+ *
+ * Two jobs: decide who is an admin, and turn "this market should have a vault"
+ * into the two things that have to happen together — a derived agent wallet and
+ * a factory transaction naming it.
+ */
+
+export class AdminError extends Error {
+	readonly status: number;
+	constructor(message: string, status = 400) {
+		super(message);
+		this.name = "AdminError";
+		this.status = status;
+	}
+}
+
+/**
+ * Seed the admin table from the environment, once.
+ *
+ * The first admin has to come from somewhere, and a deployment with no admins is
+ * a deployment where no vault can ever be created. Subsequent changes happen in
+ * the database — env is the bootstrap, not the source of truth, so removing an
+ * address from `ADMIN_ADDRESSES` does not silently revoke someone.
+ */
+export async function seedAdmins(): Promise<void> {
+	if (config.bootstrapAdmins.length === 0) return;
+	await Promise.all(
+		config.bootstrapAdmins.map((address) =>
+			prisma.adminUser.upsert({
+				where: { address },
+				update: {},
+				create: { address, canCreateVaults: true, label: "bootstrap" },
+			}),
+		),
+	);
+}
+
+export async function isAdmin(address: string): Promise<boolean> {
+	const record = await prisma.adminUser.findUnique({
+		where: { address: address.toLowerCase() },
+	});
+	return record !== null;
+}
+
+export async function assertAdmin(address: string | undefined): Promise<void> {
+	if (!address) throw new AdminError("Sign in to reach the admin dashboard.", 401);
+	if (!(await isAdmin(address))) {
+		// 404, not 403. Telling an unauthorised caller that the route exists tells
+		// them what to attack next.
+		throw new AdminError("Not found", 404);
+	}
+}
+
+export async function assertCanCreateVaults(address: string | undefined): Promise<void> {
+	await assertAdmin(address);
+	const record = await prisma.adminUser.findUnique({
+		where: { address: (address as string).toLowerCase() },
+	});
+	if (!record?.canCreateVaults) {
+		throw new AdminError("This admin account cannot create vaults.", 403);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The market board, annotated with what already has a vault
+// ---------------------------------------------------------------------------
+
+export interface VaultableMarket {
+	id: string;
+	ticker: string;
+	name: string;
+	assetClass: string;
+	netApyPercent: number;
+	fundingAprPercent: number;
+	blockers: string[];
+	spot: { symbol: string; address: string; decimals: number; buyable: boolean };
+	perp: { pacificaSymbol: string };
+	/** Vaults that already exist for this market, by tier. */
+	existing: { conservative: string | null; leveraged: string | null };
+	/** Why this market cannot have a vault created right now. Empty means it can. */
+	reasons: string[];
+}
+
+export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
+	const [board, vaults] = await Promise.all([listBasisMarkets(), listVaults()]);
+
+	const byTicker = new Map<string, { conservative: string | null; leveraged: string | null }>();
+	for (const vault of vaults) {
+		const ticker = vault.ticker?.toUpperCase();
+		if (!ticker) continue;
+		const entry = byTicker.get(ticker) ?? { conservative: null, leveraged: null };
+		if (vault.tier === "CONSERVATIVE") entry.conservative = vault.address;
+		else entry.leveraged = vault.address;
+		byTicker.set(ticker, entry);
+	}
+
+	return board.markets.map((market) => {
+		const existing = byTicker.get(market.ticker.toUpperCase()) ?? {
+			conservative: null,
+			leveraged: null,
+		};
+
+		const reasons: string[] = [];
+		// The market board's own blockers carry forward. A market nobody can
+		// trade is a market whose vault would take deposits and sit idle.
+		if (market.blockers.length) reasons.push(...market.blockers);
+		if (!market.spot.buyable) reasons.push("The spot leg has no route right now.");
+
+		return {
+			id: market.id,
+			ticker: market.ticker,
+			name: market.name,
+			assetClass: market.assetClass,
+			netApyPercent: market.economics.netApyPercent,
+			fundingAprPercent: market.economics.fundingAprPercent,
+			blockers: market.blockers,
+			spot: {
+				symbol: market.spot.symbol,
+				address: market.spot.address,
+				decimals: market.spot.decimals,
+				buyable: market.spot.buyable,
+			},
+			perp: { pacificaSymbol: market.perp.pacificaSymbol },
+			existing,
+			reasons,
+		};
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Creating a vault
+// ---------------------------------------------------------------------------
+
+export interface PreparedVault {
+	ticker: string;
+	tier: "conservative" | "leveraged";
+	/** `keccak256(ticker)`, which is what the factory stores. */
+	marketId: `0x${string}`;
+	agentPath: string;
+	agentEvmAddress: `0x${string}`;
+	agentSolanaAddress: string;
+	name: string;
+	symbol: string;
+	targetLeverageBps: number;
+	maxLeverageBps: number;
+}
+
+/**
+ * Work out what a new vault would be, without creating it.
+ *
+ * The agent address has to be known *before* the vault exists, because the vault
+ * bakes it in at construction and cannot change it. So the flow is: derive here,
+ * show the operator exactly which wallet is about to be handed the capital, and
+ * only then send the factory transaction.
+ *
+ * Showing the address first is not ceremony. It is the one moment anybody looks
+ * at the wallet that will hold the entire position, and a dashboard that skipped
+ * straight to "created" would never surface it.
+ */
+export async function prepareVault(params: {
+	ticker: string;
+	tier: "conservative" | "leveraged";
+	targetLeverageBps?: number;
+	maxLeverageBps?: number;
+}): Promise<PreparedVault> {
+	const { keccak256, toBytes } = await import("viem");
+
+	if (!clients.nearMpc) {
+		throw new AdminError(
+			"NEAR chain signatures are not configured, so an agent wallet cannot be derived. Set NEAR_ACCOUNT_ID and NEAR_PRIVATE_KEY.",
+			503,
+		);
+	}
+
+	const ticker = params.ticker.trim().toUpperCase();
+	if (!/^[A-Z0-9.-]{1,16}$/.test(ticker)) {
+		throw new AdminError(`"${params.ticker}" is not a usable ticker.`);
+	}
+
+	const conservative = params.tier === "conservative";
+	const targetLeverageBps = conservative ? 10_000 : (params.targetLeverageBps ?? 20_000);
+	const maxLeverageBps = conservative ? 10_000 : (params.maxLeverageBps ?? 30_000);
+
+	// Checked here as well as in the contract so the operator gets a sentence
+	// rather than a reverted transaction.
+	if (!conservative && (targetLeverageBps <= 10_000 || maxLeverageBps > 30_000)) {
+		throw new AdminError(
+			"A leveraged vault must target above 1x and may not exceed 3x. A vault that sits at 1x is the conservative product under a riskier label.",
+		);
+	}
+	if (maxLeverageBps < targetLeverageBps) {
+		throw new AdminError("The leverage ceiling cannot be below the target.");
+	}
+
+	const agentPath = agentDerivationPath(ticker, params.tier);
+	const derived = clients.nearMpc.derive(agentPath);
+
+	const existing = await prisma.vaultConfig.findFirst({ where: { agentPath } });
+	if (existing) {
+		throw new AdminError(
+			`A ${params.tier} vault for ${ticker} already exists at ${existing.address}. One market and tier gets one vault, and one agent.`,
+			409,
+		);
+	}
+
+	return {
+		ticker,
+		tier: params.tier,
+		marketId: keccak256(toBytes(ticker)),
+		agentPath,
+		agentEvmAddress: derived.evmAddress,
+		agentSolanaAddress: derived.solanaAddress,
+		name: `Lemon ${ticker} Basis ${conservative ? "Conservative" : "Leveraged"}`,
+		symbol: `lm${ticker}${conservative ? "C" : "L"}`,
+		targetLeverageBps,
+		maxLeverageBps,
+	};
+}
+
+/**
+ * Record a vault the operator has deployed.
+ *
+ * The factory transaction is sent by the admin's own wallet from the browser,
+ * not by this server. That is the right split: creating a vault commits capital
+ * and names an agent, and it should carry a human signature rather than being
+ * something a compromised API key can do. This records the result so the agent
+ * can find its configuration.
+ */
+export async function recordVault(params: {
+	address: string;
+	prepared: PreparedVault;
+	spotTokenAddress: string;
+	spotTokenDecimals: number;
+	spotTokenSymbol: string;
+	perpSymbol: string;
+	/** The market's asset class, so the board does not have to fall back to a table. */
+	assetClass?: string;
+	createdBy: string;
+}) {
+	return prisma.vaultConfig.create({
+		data: {
+			address: params.address.toLowerCase(),
+			ticker: params.prepared.ticker,
+			riskTier: params.prepared.tier === "conservative" ? "CONSERVATIVE" : "LEVERAGED",
+			agentPath: params.prepared.agentPath,
+			agentEvmAddress: params.prepared.agentEvmAddress.toLowerCase(),
+			agentSolanaAddress: params.prepared.agentSolanaAddress,
+			spotTokenAddress: params.spotTokenAddress.toLowerCase(),
+			spotTokenDecimals: params.spotTokenDecimals,
+			spotTokenSymbol: params.spotTokenSymbol,
+			perpSymbol: params.perpSymbol,
+			assetClass: toVaultAssetClass(params.assetClass),
+			createdBy: params.createdBy.toLowerCase(),
+		},
+	});
+}
+
+/**
+ * Stand an agent down, or bring it back.
+ *
+ * Checks the row exists first rather than letting Prisma's "record not found"
+ * escape. That error reaches the generic handler as a database fault and is
+ * reported to the operator as "the database is unavailable or out of date",
+ * which is both wrong and actively misleading — the database is fine, the vault
+ * simply has no configuration because it was deployed outside this dashboard.
+ */
+export async function setAgentEnabled(address: string, enabled: boolean) {
+	const normalised = address.toLowerCase();
+
+	const existing = await prisma.vaultConfig.findUnique({ where: { address: normalised } });
+	if (!existing) {
+		throw new AdminError(
+			`No venue configuration exists for ${address}, so there is no agent to start or stop. The vault is deployed and holding funds, but it was created outside this dashboard — record its spot token and perp symbol before an agent can trade it.`,
+			409,
+		);
+	}
+
+	return prisma.vaultConfig.update({
+		where: { address: normalised },
+		data: { agentEnabled: enabled },
+	});
+}
+
+/** Recent agent ticks, for the operator to see why a vault did or did not act. */
+export async function recentRuns(vaultAddress?: string, limit = 50) {
+	return prisma.agentRun.findMany({
+		where: vaultAddress ? { vaultAddress: vaultAddress.toLowerCase() } : undefined,
+		orderBy: { createdAt: "desc" },
+		take: Math.min(limit, 200),
+	});
+}
+
+/**
+ * Map a market's asset class onto the enum the database stores.
+ *
+ * Unrecognised values become `UNKNOWN` rather than being rejected. A new asset
+ * class arriving from the market catalog should put a vault in the "other" tab,
+ * not stop it being created.
+ */
+function toVaultAssetClass(value: string | undefined) {
+	const upper = (value ?? "").toUpperCase();
+	const known = ["CRYPTO", "EQUITY", "RWA", "FX", "COMMODITY", "METAL", "INDEX"];
+	return (known.includes(upper) ? upper : "UNKNOWN") as
+		| "CRYPTO"
+		| "EQUITY"
+		| "RWA"
+		| "FX"
+		| "COMMODITY"
+		| "METAL"
+		| "INDEX"
+		| "UNKNOWN";
+}

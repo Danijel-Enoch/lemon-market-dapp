@@ -1,7 +1,5 @@
-import { Brand } from "@app/components/pons/Brand";
-import { Button } from "@app/components/ui/button";
-import { cn } from "@app/lib/utils";
 import { ROUND_TRIP_FEE_PERCENT } from "@lemon/core";
+import { Brand, Button, cn } from "@lemon/ui";
 import { ArrowLeftRight, Scale, ShieldAlert, TrendingUp } from "lucide-react";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 
@@ -82,8 +80,8 @@ function FundingArt() {
 	return (
 		<div className="grid w-full grid-cols-2 gap-3" aria-hidden>
 			{[
-				{ label: "YOUR WALLET", sub: "Base · USDC", note: "buys the spot leg" },
-				{ label: "PACIFICA", sub: "margin", note: "backs the short leg" },
+				{ label: "YOU", sub: "deposit USDC", note: "shares minted immediately" },
+				{ label: "THE AGENT", sub: "runs the position", note: "every trade published" },
 			].map((box) => (
 				<div
 					key={box.label}
@@ -102,9 +100,9 @@ function RiskArt() {
 	return (
 		<div className="w-full space-y-2" aria-hidden>
 			{[
+				"Withdrawals take 3–7 days",
 				"Funding can turn negative",
-				"The short leg can be liquidated",
-				"Thin pools cost more to exit",
+				"A leveraged short can be liquidated",
 			].map((risk) => (
 				<div
 					key={risk}
@@ -125,8 +123,9 @@ const SLIDES: Slide[] = [
 		title: "Two legs that cancel out",
 		body: (
 			<>
-				Buy a token on Base and short the matching perp at the same size. When the price moves, one
-				leg gains what the other loses — so you are not betting on direction at all.
+				Each vault holds a token on Base and shorts the matching perp at the same size. When the
+				price moves, one leg gains what the other loses — so the position is not a bet on direction
+				at all.
 			</>
 		),
 		art: <LegsArt />,
@@ -145,12 +144,13 @@ const SLIDES: Slide[] = [
 	},
 	{
 		icon: ArrowLeftRight,
-		eyebrow: "What you need",
-		title: "Both sides need funding",
+		eyebrow: "What you do",
+		title: "Deposit USDC. That is all.",
 		body: (
 			<>
-				The spot leg is bought from your own wallet, so it needs USDC on Base. The short leg needs
-				margin on Pacifica. A position cannot open with only one side funded.
+				You never touch either leg. Deposit USDC into a vault, receive a share token immediately,
+				and an agent runs the position for you — buying the spot, placing the hedge, and rebalancing
+				it as it drifts. Every move it makes is published for anyone to check.
 			</>
 		),
 		art: <FundingArt />,
@@ -158,12 +158,12 @@ const SLIDES: Slide[] = [
 	{
 		icon: ShieldAlert,
 		eyebrow: "Before you start",
-		title: "Delta neutral is not risk free",
+		title: "Two things worth knowing",
 		body: (
 			<>
-				Every yield on the board is quoted after fees and measured slippage, and markets that cannot
-				be traded stay listed with the reason. What we cannot promise is that funding stays positive
-				long enough to pay for the round trip.
+				Withdrawals take 3 to 7 days, because a real position has to be unwound to pay you. And
+				delta neutral is not risk free: funding can turn negative, a thin pool can be expensive to
+				exit, and a leveraged vault's short can be liquidated.
 			</>
 		),
 		art: <RiskArt />,

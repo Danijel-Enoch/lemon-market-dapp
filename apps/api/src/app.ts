@@ -1,16 +1,12 @@
 import { UpstreamError } from "@lemon/core";
 import { PacificaError } from "@lemon/pacifica";
 import { Elysia } from "elysia";
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
-import { basisRoutes } from "./routes/basis";
-import { depositRoutes } from "./routes/deposit";
 import { marketRoutes } from "./routes/markets";
-import { pacificaRoutes } from "./routes/pacifica";
-import { pointsRoutes } from "./routes/points";
-import { spotRoutes } from "./routes/spot";
+import { vaultRoutes } from "./routes/vaults";
+import { AdminError, seedAdmins } from "./services/admin";
 import { AuthError, AuthUnavailableError } from "./services/auth";
-import { BasisLegError, BasisTransitionError } from "./services/basis";
-import { DepositUnavailableError } from "./services/pacifica-deposit";
 
 /**
  * Anything thrown by Prisma.
@@ -36,12 +32,18 @@ function isPrismaError(error: unknown): boolean {
  * KyberSwap client id never reach the browser bundle.
  */
 export function createApiApp(prefix = "/api") {
+	// Seed the admin table from the environment, once, without blocking startup.
+	// A deployment with no admins is one where no vault can ever be created, so
+	// this has to happen somewhere — but it must not stop the app serving market
+	// data if the database is briefly unreachable.
+	seedAdmins().catch((error) => console.warn("[api] could not seed admins", error));
+
 	return new Elysia({ prefix, name: "lemon-api" })
 		.onError(({ error, code, set }) => {
 			// A deployment that has not configured accounts is a 503 with an
 			// explanation, not a 500: the caller did nothing wrong and there is
 			// something specific an operator can do about it.
-			if (error instanceof AuthUnavailableError || error instanceof DepositUnavailableError) {
+			if (error instanceof AuthUnavailableError) {
 				set.status = 503;
 				return { error: error.reason };
 			}
@@ -51,15 +53,8 @@ export function createApiApp(prefix = "/api") {
 				return { error: error.message };
 			}
 
-			if (error instanceof BasisTransitionError) {
-				set.status = 409;
-				return { error: error.message };
-			}
-
-			// A leg the venue refused. 422 rather than 409: the request was
-			// legal, the execution was not possible.
-			if (error instanceof BasisLegError) {
-				set.status = 422;
+			if (error instanceof AdminError) {
+				set.status = error.status;
 				return { error: error.message };
 			}
 
@@ -114,11 +109,8 @@ export function createApiApp(prefix = "/api") {
 		.get("/health", () => ({ ok: true, service: "lemon-api" }))
 		.use(authRoutes)
 		.use(marketRoutes)
-		.use(pacificaRoutes)
-		.use(spotRoutes)
-		.use(basisRoutes)
-		.use(pointsRoutes)
-		.use(depositRoutes);
+		.use(vaultRoutes)
+		.use(adminRoutes);
 }
 
 export type ApiApp = ReturnType<typeof createApiApp>;

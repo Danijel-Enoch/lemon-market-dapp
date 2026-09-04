@@ -21,6 +21,12 @@
 			"@lemon/relay": ["./packages/relay/src/index.ts"],
 			"@lemon/registry": ["./packages/registry/src/index.ts"],
 			"@lemon/db": ["./packages/db/src/index.ts"],
+			"@lemon/contracts": ["./packages/contracts/ts/index.ts"],
+			"@lemon/ui": ["./packages/ui/src/index.ts"],
+			"@lemon/ui/styles.css": ["./packages/ui/src/styles.css"],
+			"@lemon/client": ["./packages/client/src/index.ts"],
+			"@lemon/near-mpc": ["./packages/near-mpc/src/index.ts"],
+			"@lemon/pacifica": ["./packages/pacifica/src/index.ts"],
 			"@lemon/api": ["./apps/api/src/app.ts"]
 		}
 	},

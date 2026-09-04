@@ -1,0 +1,51 @@
+# Solidity for the vault layer. The contracts hold user USDC and mint the share
+# token; every decision about *what to trade* lives off-chain in the agent, so
+# what is on-chain here is deliberately small: custody, share accounting, the
+# redemption queue, fees, and the limits that bound a compromised agent key.
+
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+# OpenZeppelin is hoisted to the workspace root by bun; forge-std is a pinned
+# submodule. Both are listed so `forge build` resolves without a bun install
+# step having to have run inside this package specifically.
+libs = ["lib", "../../node_modules"]
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+# Required, not a preference. `VaultFactory` embeds LemonVault's full creation
+# bytecode because it deploys one directly, and without the IR pipeline that
+# lands at 26,313 bytes — over the 24,576-byte EIP-170 limit, so the factory
+# simply could not be deployed. With it the factory is ~22.2kB.
+#
+# The margin is thin, so `LemonVault.size.t.sol` asserts it rather than leaving
+# the next feature to discover it at deploy time.
+via_ir = true
+remappings = [
+    "@openzeppelin/contracts/=../../node_modules/@openzeppelin/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
+
+[profile.default.fuzz]
+runs = 512
+
+[profile.default.invariant]
+runs = 128
+depth = 64
+fail_on_revert = false
+
+# CI runs more of everything; a bad share-math edge case is worth the minutes.
+[profile.ci.fuzz]
+runs = 5000
+
+[profile.ci.invariant]
+runs = 512
+depth = 128
+
+[fmt]
+line_length = 110
+tab_width = 4
+bracket_spacing = false
+int_types = "long"

@@ -1,5 +1,5 @@
-import { cn } from "@app/lib/utils";
 import type { AssetClass } from "@lemon/core";
+import { cn } from "@lemon/ui";
 import { useState } from "react";
 
 /** ISO currency code -> flag emoji, for FX markets. */

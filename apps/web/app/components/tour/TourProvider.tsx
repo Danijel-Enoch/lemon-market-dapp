@@ -1,6 +1,6 @@
 import { TOUR_STEPS, type TourStep } from "@app/components/tour/steps";
 import { useFirstRun } from "@app/hooks/useFirstRun";
-import { cn } from "@app/lib/utils";
+import { cn } from "@lemon/ui";
 import {
 	createContext,
 	type ReactNode,

@@ -1,5 +1,5 @@
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
-import { Card, CardContent } from "@app/components/ui/card";
+import { Card, CardContent } from "@lemon/ui";
 import { Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useConnection } from "wagmi";

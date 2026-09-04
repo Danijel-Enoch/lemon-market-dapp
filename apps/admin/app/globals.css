@@ -1,0 +1,11 @@
+/*
+ * The admin console's stylesheet.
+ *
+ * Same tokens as the public app — an operator switching between the two should
+ * not have to relearn what a warning looks like. Only the Tailwind source globs
+ * differ, because each app scans its own files.
+ */
+@import "@lemon/ui/styles.css";
+
+@source "../app";
+@source "../../../packages/ui/src";

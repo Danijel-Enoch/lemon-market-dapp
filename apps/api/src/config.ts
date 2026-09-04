@@ -3,7 +3,6 @@ import { KyberAggregatorClient, KyberLimitOrderClient } from "@lemon/kyber";
 import { NearMpcClient, type NearNetwork } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
 import { RelayClient } from "@lemon/relay";
-import { parseBuilderConfig } from "./services/builder";
 
 function env(name: string, fallback: string): string {
 	return process.env[name]?.trim() || fallback;
@@ -84,20 +83,38 @@ export const config = {
 	 * ceiling they agree to, not something charged unilaterally.
 	 */
 	fees: {
-		spot: readSpotFee(),
 		/**
-		 * Pacifica builder attribution, or null when unconfigured.
+		 * The integrator fee on the agent's own swaps.
 		 *
-		 * The ceiling deliberately sits above the rate actually charged.
-		 * Pacifica rejects an order whose builder fee exceeds what the user
-		 * approved, so a rate raised past an approved ceiling stops those users
-		 * trading until they approve again. Headroom is what keeps a fee change
-		 * from becoming an outage.
+		 * Users no longer swap through this app, so this is charged on the
+		 * vault's trades — which means it comes out of vault performance and
+		 * lands in the same place the management fee does. It is disclosed on
+		 * the vault page for that reason.
 		 */
-		pacificaBuilder: parseBuilderConfig(
-			optionalEnv("PACIFICA_BUILDER_CODE"),
-			optionalEnv("PACIFICA_BUILDER_MAX_FEE_RATE"),
-		),
+		spot: readSpotFee(),
+	},
+
+	/**
+	 * Where the indexed read model lives.
+	 *
+	 * Everything historical — balances, the queue, the activity feed — is served
+	 * from Ponder rather than reconstructed here. The API proxies it so the
+	 * browser has one origin and so a caller cannot be handed a different answer
+	 * than the app was.
+	 */
+	indexerUrl: env("INDEXER_URL", "http://localhost:42069"),
+
+	/** Addresses that may administer the protocol, seeded at boot from env. */
+	bootstrapAdmins: (optionalEnv("ADMIN_ADDRESSES") ?? "")
+		.split(",")
+		.map((a) => a.trim().toLowerCase())
+		.filter((a) => /^0x[0-9a-f]{40}$/.test(a)),
+
+	/** Deployed contract addresses on Base. */
+	contracts: {
+		vaultFactory: optionalEnv("VAULT_FACTORY_ADDRESS") as `0x${string}` | undefined,
+		insuranceFund: optionalEnv("INSURANCE_FUND_ADDRESS") as `0x${string}` | undefined,
+		usdc: env("USDC_ADDRESS", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") as `0x${string}`,
 	},
 };
 
