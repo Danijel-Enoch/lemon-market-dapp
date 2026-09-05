@@ -101,6 +101,20 @@ ponder.on("VaultFactory:VaultCreated", async ({ event, context }) => {
  * already makes nine calls per event — a tenth for a value that has not changed
  * since the vault was deployed is a permanent cost for a one-off read.
  *
+ * `cache: "immutable"` is doing real work here, not just saving a round trip.
+ * Ponder otherwise pins every read to the block of the event being handled, and
+ * a `VaultCreated` block is thousands of blocks behind the chain head by the
+ * time a backfill reaches it — so the call needs archive state. Against a node
+ * that has pruned it the read fails with `BlockOutOfRangeError` and Ponder
+ * retries it eight times with a backoff, which turns a missing column into a
+ * two-minute stall per vault. `"immutable"` reads at `latest` instead, where
+ * the state always exists.
+ *
+ * The trade is that a reindex sees today's limits rather than the ones the
+ * vault was created with. That is the more useful answer anyway: these feed a
+ * projection of what a depositor will be charged, which is a question about now
+ * — and `LimitsUpdated` keeps them current from here on regardless.
+ *
  * `limits()` is Solidity's generated getter for a public struct, so it comes
  * back as a flat tuple in declaration order rather than as an object. Indices
  * 0, 1 and 4 are the management fee, the performance fee and the deployment
@@ -120,6 +134,7 @@ async function readLimits(
 			address,
 			functionName: "limits",
 			args: [],
+			cache: "immutable",
 		})) as readonly (number | bigint)[];
 
 		return {
