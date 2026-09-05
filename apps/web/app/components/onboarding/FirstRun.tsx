@@ -12,10 +12,12 @@ import { useLocation } from "react-router";
  * the board rendered underneath it. Running them at once would put a spotlight
  * on a page the reader has not been told the purpose of.
  *
- * Only ever starts on the board. Landing deep in the app — a shared link to one
- * market, or a return to /accounts — is a poor moment to be handed a four-slide
- * primer, and a tour whose first step lives on another route would yank the
- * page out from under whatever the person actually came for.
+ * Only ever starts on the board, which is `/vaults` rather than the site root:
+ * the root is the marketing landing page, and someone still reading the pitch
+ * has not asked to be walked around an app they have not entered. Landing deep
+ * in the app — a shared link to one market, or a return to /portfolio — is
+ * equally poor timing, and a tour whose first step lives on another route would
+ * yank the page out from under whatever the person actually came for.
  */
 export function FirstRun() {
 	const { pathname } = useLocation();
@@ -32,7 +34,7 @@ export function FirstRun() {
 	// `seen === null` means localStorage has not been read yet. Rendering the
 	// intro on that would flash it at every returning visitor during hydration.
 	if (seen !== false) return null;
-	if (pathname !== "/") return null;
+	if (pathname !== "/vaults") return null;
 
 	return <Welcome onDone={finish} />;
 }

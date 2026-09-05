@@ -28,6 +28,81 @@ contract LemonVaultAgentTest is VaultTest {
 
     // -- capital movement ---------------------------------------------------
 
+    /**
+     * The window cap has to hold *across* its own boundary.
+     *
+     * A counter that resets wholesale at a fixed boundary lets the agent draw
+     * the full cap in the last second of one window and the full cap again in
+     * the first second of the next — twice the stated limit inside two seconds,
+     * which is the exact burst the cap exists to prevent. The allowance refills
+     * in proportion to elapsed time instead, so one second buys back one
+     * second's worth.
+     */
+    function test_WindowCapHoldsAcrossItsOwnBoundary() public {
+        LemonVault.Limits memory l = noFeeLimits();
+        l.agentWithdrawWindowCap = 100 * ONE_USDC;
+        l.agentWithdrawWindow = 1 hours;
+        vm.prank(admin);
+        vault.setLimits(l);
+
+        // Sit until one second before a tumbling window would have rolled.
+        skip(1 hours - 1);
+        _agentWithdraw(100 * ONE_USDC);
+        skip(1);
+
+        vm.prank(agent);
+        vm.expectRevert();
+        vault.agentWithdraw(100 * ONE_USDC);
+
+        assertEq(vault.deployedAssets(), 100 * ONE_USDC, "one cap's worth, not two");
+    }
+
+    /// A full window's wait does refill it — the bucket leaks, it does not seize.
+    function test_WindowCapRefillsOverAFullWindow() public {
+        LemonVault.Limits memory l = noFeeLimits();
+        l.agentWithdrawWindowCap = 100 * ONE_USDC;
+        l.agentWithdrawWindow = 1 hours;
+        vm.prank(admin);
+        vault.setLimits(l);
+
+        _agentWithdraw(100 * ONE_USDC);
+        skip(1 hours);
+        _reportNav(100 * ONE_USDC); // keep the NAV fresh across the wait
+        _agentWithdraw(100 * ONE_USDC);
+
+        assertEq(vault.deployedAssets(), 200 * ONE_USDC, "the allowance comes back");
+    }
+
+    /**
+     * A donation is capital arriving, not capital coming home.
+     *
+     * `agentReturn` credits USDC the agent already held, so it lowers
+     * `deployedAssets` one-for-one and leaves the share price flat. `donate`
+     * must not: the money was never deployed, and writing the live position
+     * down by the size of the gift would leave the vault understating what it
+     * holds and booking the gap back as a fabricated gain later.
+     */
+    function test_DonateRaisesThePriceAndLeavesThePositionAlone() public {
+        _agentWithdraw(500 * ONE_USDC);
+        uint256 ppsBefore = vault.pricePerShare();
+
+        usdc.mint(bob, 100 * ONE_USDC);
+        vm.startPrank(bob);
+        usdc.approve(address(vault), 100 * ONE_USDC);
+        vault.donate(100 * ONE_USDC);
+        vm.stopPrank();
+
+        assertGt(vault.pricePerShare(), ppsBefore, "holders are better off");
+        assertEq(vault.totalAssets(), 1_100 * ONE_USDC, "the whole gift lands in the vault");
+        assertEq(vault.deployedAssets(), 500 * ONE_USDC, "the live position is untouched");
+    }
+
+    function test_DonateRejectsZero() public {
+        vm.prank(bob);
+        vm.expectRevert(LemonVault.ZeroAmount.selector);
+        vault.donate(0);
+    }
+
     function test_AgentWithdrawMovesCapitalWithoutMovingThePrice() public {
         uint256 ppsBefore = vault.pricePerShare();
 

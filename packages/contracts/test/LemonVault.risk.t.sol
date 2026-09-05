@@ -221,4 +221,72 @@ contract LemonVaultRiskTest is VaultTest {
         assertEq(eligibleAt - requestedAt, 3 days, "same 3-day floor");
         assertEq(fulfillBy - requestedAt, 7 days, "same 7-day SLA");
     }
+
+    // -- the limits a compromised admin cannot loosen ------------------------
+
+    /**
+     * `setLimits` belongs to the admin, and the admin can grant itself
+     * `AGENT_ROLE`. So the NAV bounds are only a trust boundary if they cannot
+     * be widened out of existence first — otherwise one transaction removes the
+     * whole thing before anyone has read the event.
+     *
+     * Each of these was accepted before, and together they turned a bounded,
+     * observable agent into an unbounded one: a 100% per-report bound with a
+     * one-second epoch doubles the reported valuation every block, and a zero
+     * redemption delay converts the result to cash in the same block.
+     */
+    function _expectRejected(LemonVault.Limits memory l) internal {
+        vm.prank(admin);
+        vm.expectRevert(LemonVault.InvalidLimits.selector);
+        vault.setLimits(l);
+    }
+
+    function test_AdminCannotWidenThePerReportNavBound() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.maxNavDeviationBps = 10_000;
+        l.maxNavEpochDeviationBps = 10_000;
+        _expectRejected(l);
+    }
+
+    function test_AdminCannotWidenTheEpochNavBound() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.maxNavEpochDeviationBps = 9_000;
+        _expectRejected(l);
+    }
+
+    function test_AdminCannotShrinkTheEpochToNothing() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.navEpochDuration = 1;
+        _expectRejected(l);
+    }
+
+    function test_AdminCannotRemoveTheRedemptionDelay() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.minRedeemDelay = 0;
+        _expectRejected(l);
+    }
+
+    function test_AdminCannotDeployTheWholeVault() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.maxDeployedBps = 10_000;
+        _expectRejected(l);
+    }
+
+    /**
+     * Staleness has to outlast the reporting rate limit. Set the other way the
+     * agent is forbidden from reporting until after the vault has already
+     * frozen, which blocks deposits and fulfilments with no way back.
+     */
+    function test_AdminCannotConfigureAVaultThatCanNeverReport() public {
+        LemonVault.Limits memory l = defaultLimits();
+        l.minNavReportInterval = 6 hours;
+        l.maxNavStaleness = 1 hours;
+        _expectRejected(l);
+    }
+
+    /// The templates the protocol actually ships still pass, in both tiers.
+    function test_ShippedLimitsRemainValid() public {
+        vm.prank(admin);
+        vault.setLimits(defaultLimits());
+    }
 }

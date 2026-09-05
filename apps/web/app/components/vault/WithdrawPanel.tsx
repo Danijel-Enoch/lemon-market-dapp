@@ -92,7 +92,10 @@ export function WithdrawPanel({
 	const busy = isPending || isConfirming;
 
 	return (
-		<div className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+		<div
+			data-testid="withdraw-panel"
+			className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5"
+		>
 			<div className="flex items-baseline justify-between">
 				<h3 className="font-medium text-[var(--pon-fg-0)]">Withdraw</h3>
 				<span className="text-xs text-[var(--pon-fg-3)]">

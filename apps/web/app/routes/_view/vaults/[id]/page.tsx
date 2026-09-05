@@ -87,7 +87,7 @@ export default function VaultDetailPage() {
 				title="No vault here"
 				description="That address is not a vault this deployment knows about."
 				action={
-					<Link to="/" className="text-sm text-[var(--pon-lime)] underline">
+					<Link to="/vaults" className="text-sm text-[var(--pon-lime)] underline">
 						Back to the board
 					</Link>
 				}
@@ -107,7 +107,7 @@ export default function VaultDetailPage() {
 	return (
 		<div className="space-y-6">
 			<Link
-				to="/"
+				to="/vaults"
 				className="inline-flex items-center gap-1.5 text-sm text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
 			>
 				<ArrowLeft className="size-4" /> All vaults

@@ -26,21 +26,21 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
 	{
-		path: "/",
+		path: "/vaults",
 		target: "board-headline",
 		title: "Deposit, and that's it",
 		body: "Each vault runs one delta-neutral position for you. You put USDC in and hold a share token; an agent does the trading. There is no ticket to fill in and no leg to manage.",
 		placement: "bottom",
 	},
 	{
-		path: "/",
+		path: "/vaults",
 		target: "board-filters",
 		title: "Two risk levels",
 		body: "A no-leverage vault holds a fully collateralised short — it cannot be liquidated by a price move. A leveraged one runs 2–3x, which multiplies the yield and introduces a liquidation price. The tier is fixed when the vault is created.",
 		placement: "bottom",
 	},
 	{
-		path: "/",
+		path: "/vaults",
 		target: "vault-row",
 		title: "Yield you can check",
 		body: "The percentage is what this vault's share price actually did over the last week, annualised — not a projection from today's funding rate. A vault too new to measure shows a dash rather than a flattering guess.",

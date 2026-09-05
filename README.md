@@ -173,6 +173,12 @@ bun run contracts:build                   # compiles and regenerates ts/abi.ts
 bun run dev                               # http://localhost:3002
 ```
 
+`/` is the landing page and `/vaults` is the board. The split is deliberate:
+the board assumes you already want a vault and are choosing between them, which
+is the wrong first page for someone who has not decided yet. A mini-app frame
+skips the landing page entirely — someone who opened this from a cast has
+already decided to look at the thing.
+
 The board and docs work with no configuration. Beyond that:
 
 - **Vault data** needs the indexer (`bun run dev:indexer`) and a deployed
@@ -256,8 +262,10 @@ Circle's test USDC at `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (faucet at
 faucet.circle.com). **Vibenet** (chain 84538453) is Base's ephemeral preview net
 for in-flight chain features; nothing is deployed there, so the script deploys
 its own faucet token. Its block gas limit is 6,000,000 and `VaultFactory`'s
-constructor costs 5,128,976 — which fits, but only with forge's gas estimation
-buffer trimmed to 1.05x, and it stops fitting if the factory grows by 11%.
+constructor costs 5,240,730 — which fits, but only with forge's gas estimation
+buffer trimmed to 1.05x, and it stops fitting if the factory grows by 9%. (The
+audit fixes cost 111,754 of that headroom; the factory embeds `LemonVault`'s
+creation bytecode, so anything added to the vault is paid for here.)
 
 Neither testnet can run the spot leg: KyberSwap's aggregator serves Base mainnet
 only. The perp leg does work on both, because it is not on the same chain —
@@ -310,10 +318,59 @@ bun run fork:down        # stop the fork
 bun run testnet:up <sepolia|vibenet>   # deploy to a public testnet
 bun run typecheck        # all workspaces
 bun run lint             # biome
-bun test                 # TypeScript tests + 115 Foundry tests
+bun test                 # TypeScript tests + 128 Foundry tests
 bun run contracts:test   # Foundry only
+bun run test:e2e         # Playwright, against a running fork stack
+bun run test:e2e:report  # the last run's HTML report
 bun run contracts:build  # compile and regenerate ABIs
 ```
+
+## End-to-end tests
+
+Playwright, against the fork — nothing is mocked. A deposit is a transaction, the
+indexer picks it up, and the assertion afterwards reads the same API the page
+reads. The interesting failures in this system live *between* the contract, the
+indexer and the page, and a suite that stubs any of the three cannot see them.
+
+```bash
+bun run fork:up
+bun run dev:fork admin       # web :3002, admin :3004, indexer :42069
+bun run test:e2e
+```
+
+Two projects: `desktop` on Chromium, and `mobile` on WebKit with an iPhone 14
+Pro profile. The mobile one is WebKit deliberately — `env(safe-area-inset-*)`,
+the input-zoom threshold and `pointer: coarse` all behave differently on
+Chromium, and those are exactly what the mobile suite asserts.
+
+**Signing.** There is no browser extension. `e2e/fixtures/wallet.ts` installs an
+EIP-1193 provider on `window`, announces it over EIP-6963 as MetaMask so
+RainbowKit offers it, and forwards every call to a `viem` wallet holding one of
+anvil's keys. The page's wagmi, its SIWE sign-in and its `writeContract` calls
+all take the ordinary path; the only thing that changed is who holds the key.
+
+The provider reports **no accounts until `eth_requestAccounts`**, the same as a
+wallet that has never seen the site. That matters: a shim answering
+`eth_accounts` unconditionally makes wagmi reconnect on load, so the app is
+already connected before any test clicks anything — and the connect flow, the
+part most likely to be broken, is never exercised.
+
+What the suite covers:
+
+| Spec | What it holds to account |
+|---|---|
+| `landing` | The front page quotes live protocol figures, and states the risks |
+| `board` | Every indexed vault is listed; filters partition rather than hide; an unmeasurable yield renders as a dash |
+| `deposit` | Approve → deposit → shares minted → queued redemption, as real transactions |
+| `admin` | Sign-in is a signature, not a connection; deriving, deploying and recording a vault; the new vault reaching the public board |
+| `mobile` | No horizontal scroll on any route, 44px touch targets, tab bar above the home indicator, no iOS input zoom |
+| `onboarding` | The intro appears once, on the board rather than the landing page, and is dismissible |
+
+`e2e/global-setup.ts` refuses to start against a stack that is not up, and names
+which part is missing. It also warms every route first: both apps are Vite dev
+servers, so the first request to a route pays for compiling it — comfortably
+more than a per-assertion timeout, and a cold start failing one spec while the
+rest pass reads as a flaky suite rather than a slow one.
 
 ## Agent gas
 

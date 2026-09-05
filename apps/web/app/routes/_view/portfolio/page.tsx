@@ -151,7 +151,7 @@ export default function PortfolioPage() {
 						title="No vault shares yet"
 						description="Deposit USDC into a vault and shares are minted immediately."
 						action={
-							<Link to="/" className="text-sm text-[var(--pon-lime)] underline">
+							<Link to="/vaults" className="text-sm text-[var(--pon-lime)] underline">
 								Browse vaults
 							</Link>
 						}

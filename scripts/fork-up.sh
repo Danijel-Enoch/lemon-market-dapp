@@ -68,7 +68,15 @@ else
 	# decides a report is due; the vault, reading a stopped chain, answers
 	# `NavReportTooSoon` forever. Two seconds is Base's own block time, so the
 	# fork ages at the rate the thing it is imitating does.
-	ANVIL_ARGS=(--fork-url "$FORK_SOURCE" --chain-id 8453 --port "$PORT" --accounts 10 --balance 10000 --auto-impersonate --block-time 2 --silent)
+	#
+	# --retries and --fork-retry-backoff are not tuning; they are what keeps the
+	# fork alive. anvil fetches state from upstream lazily, so a single failed
+	# `eth_getStorageAt` during execution is not a slow request — it panics the
+	# node mid-transaction and takes the whole run with it. Against a public RPC
+	# that happens on a timescale of hours, which is longer than a manual session
+	# and shorter than a test suite. The defaults are 5 retries and a 45s timeout;
+	# these widen the window enough that a blip is absorbed rather than fatal.
+	ANVIL_ARGS=(--fork-url "$FORK_SOURCE" --chain-id 8453 --port "$PORT" --accounts 10 --balance 10000 --auto-impersonate --block-time 2 --retries 20 --fork-retry-backoff 1000 --timeout 60000 --silent)
 	[[ -n "$BLOCK" ]] && ANVIL_ARGS+=(--fork-block-number "$BLOCK")
 	nohup anvil "${ANVIL_ARGS[@]}" > "${LOG_DIR}/anvil.log" 2>&1 &
 	echo "$!" > "${LOG_DIR}/anvil.pid"

@@ -87,6 +87,28 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
     uint16 public constant MAX_PERFORMANCE_FEE_BPS = 3000; // 30%
     uint32 public constant MAX_REDEEM_DELAY = 30 days;
 
+    /**
+     * @dev Ceilings on the *agent* bounds, so loosening them is not a way round them.
+     *
+     * `setLimits` is the admin's, and the admin can grant itself `AGENT_ROLE`.
+     * Without these, one transaction could set the per-report bound to 100%, the
+     * epoch to a second and the redemption delay to zero — and the NAV bounds
+     * that are the whole trust boundary would be gone before anyone read the
+     * event. These are what keep "slow and visible" true of a compromised admin
+     * key and not only of a compromised agent key.
+     *
+     * They are set well above every template the protocol ships (3-8% per
+     * report, 15-35% per epoch), so they bind a hostile configuration rather
+     * than an unusual market.
+     */
+    uint16 public constant MAX_NAV_DEVIATION_BPS = 2000; // 20% in one report
+    uint16 public constant MAX_NAV_EPOCH_DEVIATION_BPS = 5000; // 50% in one epoch
+    uint32 public constant MIN_NAV_EPOCH_DURATION = 1 hours;
+    uint32 public constant MIN_REDEEM_DELAY = 1 days;
+
+    /// @dev A buffer for the redemption queue always remains, whatever the admin sets.
+    uint16 public constant MAX_DEPLOYED_BPS = 9500;
+
     /// @dev One times notional. Leverage is quoted in bps so 2.5x is expressible.
     uint32 public constant NO_LEVERAGE_BPS = 10_000;
 
@@ -333,6 +355,7 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
     );
     event AgentWithdrew(uint256 amount, uint256 deployedAssets);
     event AgentReturned(uint256 amount, uint256 deployedAssets);
+    event Donated(address indexed from, uint256 amount, uint256 totalAssets);
     event ActivityReported(
         uint256 indexed sequence,
         ActivityKind indexed kind,
@@ -756,15 +779,27 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
             revert DeployedCeilingExceeded(deployedAssets + amount, ceiling);
         }
 
-        if (block.timestamp >= uint256(_agentWindowStartedAt) + limits.agentWithdrawWindow) {
-            _agentWindowStartedAt = uint64(block.timestamp);
-            _agentWithdrawnInWindow = 0;
+        // A leaky bucket rather than a tumbling one. Resetting the counter
+        // wholesale at a fixed boundary lets the agent draw the full cap in the
+        // last second of one window and the full cap again in the first second
+        // of the next — twice the stated limit, back to back, which is exactly
+        // the burst the cap exists to prevent. Decaying the counter in
+        // proportion to elapsed time refills the allowance at cap/window, so no
+        // interval of one window's length can carry more than the cap.
+        uint256 window = limits.agentWithdrawWindow;
+        uint256 elapsed = block.timestamp - uint256(_agentWindowStartedAt);
+        uint256 drawn = _agentWithdrawnInWindow;
+        if (elapsed >= window) {
+            drawn = 0;
+        } else if (elapsed > 0) {
+            drawn -= drawn.mulDiv(elapsed, window, Math.Rounding.Floor);
         }
-        uint256 remaining = limits.agentWithdrawWindowCap > _agentWithdrawnInWindow
-            ? limits.agentWithdrawWindowCap - _agentWithdrawnInWindow
-            : 0;
+        _agentWindowStartedAt = uint64(block.timestamp);
+
+        uint256 remaining =
+            limits.agentWithdrawWindowCap > drawn ? limits.agentWithdrawWindowCap - drawn : 0;
         if (amount > remaining) revert AgentWindowCapExceeded(amount, remaining);
-        _agentWithdrawnInWindow += amount;
+        _agentWithdrawnInWindow = drawn + amount;
 
         deployedAssets += amount;
         // The epoch bound exists to limit the agent's *P&L claim*, so capital
@@ -801,6 +836,44 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
         navEpochAnchor = navEpochAnchor > credited ? navEpochAnchor - credited : 0;
 
         emit AgentReturned(amount, deployedAssets);
+    }
+
+    /**
+     * @notice Add USDC to the vault with nothing minted against it.
+     *
+     * This is the insurance fund's shortfall cover, and the only operation that
+     * genuinely raises the share price for the holders who are still in.
+     *
+     * It is deliberately *not* `agentReturn`. That call credits capital the
+     * agent was already holding, so it lowers `deployedAssets` by the same
+     * amount it adds in idle USDC and leaves `totalAssets` — and therefore the
+     * share price — exactly where it was. Routing a donation through it would
+     * spend the fund's money for no benefit to anyone, write the live position
+     * down by the size of the gift, and then book that gap back as a fabricated
+     * gain at the agent's next honest report.
+     *
+     * Callable by anyone, for the same reason `agentReturn` is: money coming in
+     * can only help the vault, and gating it on a key means a rotated or lost
+     * key cannot make depositors whole.
+     */
+    function donate(uint256 amount) external {
+        if (amount == 0) revert ZeroAmount();
+
+        // Settle everything owed up to now *first*, against the pre-donation
+        // valuation. Fees are the price of time already elapsed, and the gift
+        // is not part of it.
+        _accrueFees();
+
+        IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
+
+        // Then carry the high-water mark over the donation. A gift is not
+        // performance: without this the price rise it causes reads as a gain
+        // and the operator is paid a 20% performance fee out of the very
+        // capital it just contributed to cover a loss.
+        uint256 pps = pricePerShare();
+        if (pps > highWaterMarkPps) highWaterMarkPps = pps;
+
+        emit Donated(msg.sender, amount, totalAssets());
     }
 
     // -----------------------------------------------------------------------
@@ -1095,15 +1168,26 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
     function _validateLimits(Limits memory l) internal pure {
         if (l.managementFeeBps > MAX_MANAGEMENT_FEE_BPS) revert InvalidLimits();
         if (l.performanceFeeBps > MAX_PERFORMANCE_FEE_BPS) revert InvalidLimits();
+        // A queue that can be set to no queue is not a queue. Zero here would
+        // let whoever inflated the share price convert the result to cash in
+        // the same block.
+        if (l.minRedeemDelay < MIN_REDEEM_DELAY) revert InvalidLimits();
         if (l.minRedeemDelay > l.maxRedeemDelay) revert InvalidLimits();
         if (l.maxRedeemDelay > MAX_REDEEM_DELAY) revert InvalidLimits();
-        if (l.maxDeployedBps > BPS) revert InvalidLimits();
-        if (l.maxNavDeviationBps > BPS) revert InvalidLimits();
-        if (l.maxNavEpochDeviationBps > BPS) revert InvalidLimits();
+        if (l.maxDeployedBps > MAX_DEPLOYED_BPS) revert InvalidLimits();
+        if (l.maxNavDeviationBps > MAX_NAV_DEVIATION_BPS) revert InvalidLimits();
+        if (l.maxNavEpochDeviationBps > MAX_NAV_EPOCH_DEVIATION_BPS) revert InvalidLimits();
         // An epoch bound looser than the per-report bound is not a bound at all.
         if (l.maxNavEpochDeviationBps < l.maxNavDeviationBps) revert InvalidLimits();
-        if (l.navEpochDuration == 0) revert InvalidLimits();
+        // An epoch short enough to reset every block is not a bound either: the
+        // anchor re-reads `deployedAssets` on rollover, so a one-second epoch
+        // turns the cumulative bound back into the per-report one, compounding.
+        if (l.navEpochDuration < MIN_NAV_EPOCH_DURATION) revert InvalidLimits();
         if (l.maxNavStaleness == 0) revert InvalidLimits();
+        // Staleness has to outlast the reporting rate limit, or the agent is
+        // forbidden from reporting until after the vault has already frozen —
+        // which blocks deposits and fulfilments with no way back.
+        if (l.maxNavStaleness <= l.minNavReportInterval) revert InvalidLimits();
         if (l.agentWithdrawWindow == 0) revert InvalidLimits();
     }
 

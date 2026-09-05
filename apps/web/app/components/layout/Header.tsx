@@ -17,7 +17,7 @@ import { Link, useLocation } from "react-router";
 type NavLeaf = { href: string; label: string; icon: typeof Vault };
 
 const LINKS: NavLeaf[] = [
-	{ href: "/", label: "Vaults", icon: Vault },
+	{ href: "/vaults", label: "Vaults", icon: Vault },
 	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
 	// Activity is a first-class destination rather than a tab inside a vault.
 	// The claim that anyone can audit the agents is only credible if the ledger
@@ -36,9 +36,6 @@ const LINKS: NavLeaf[] = [
 const TABS: NavLeaf[] = LINKS.filter((link) => link.href !== "/docs" && link.href !== "/stats");
 
 function isActive(pathname: string, href: string): boolean {
-	// The board is an exact match only. Prefix-matching "/" would mark it
-	// active on every page in the app.
-	if (href === "/") return pathname === "/" || pathname.startsWith("/vaults");
 	return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -60,6 +57,9 @@ export function Header() {
 			>
 				<div className="mx-auto flex w-full max-w-[var(--shell-max)] items-center justify-between gap-4 rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-2">
 					<div className="flex min-w-0 items-center gap-5">
+						{/* `Brand` is itself the link home — wrapping it in another one
+						    nests an <a> inside an <a>, which is invalid HTML and makes
+						    React throw out the whole SSR tree and re-render on hydration. */}
 						<Brand size={26} className="pl-1.5" />
 
 						<nav className="hidden items-center gap-1 md:flex">

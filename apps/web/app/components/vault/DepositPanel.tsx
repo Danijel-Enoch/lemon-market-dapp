@@ -4,7 +4,7 @@ import { lemonVaultAbi } from "@lemon/contracts";
 import { Button, cn } from "@lemon/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi } from "viem";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -47,16 +47,39 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-	// A confirmed deposit has to be reflected before the user looks away, and the
-	// indexer trails the chain by a block or two — so the refetch is what turns
-	// "it went through" into "and here it is".
+	/**
+	 * What to do when a transaction confirms — which is not the same thing for
+	 * both of them.
+	 *
+	 * A confirmed *deposit* has to be reflected before the user looks away, and
+	 * the indexer trails the chain by a block or two, so the refetch is what
+	 * turns "it went through" into "and here it is". Clearing the amount is
+	 * right there too: the deposit is done.
+	 *
+	 * A confirmed *approval* is the opposite. It is a step towards the deposit,
+	 * and clearing the field there left the first-time depositor with an
+	 * allowance granted, an empty box, and a "Deposit" button disabled because
+	 * there is no longer an amount — with nothing on screen saying why. Worse,
+	 * the approval is for the exact amount, so retyping anything else meant
+	 * approving a second time.
+	 *
+	 * Keyed on the hash rather than on `stage` alone, because resetting the
+	 * stage re-runs this effect while `isSuccess` is still true for the same
+	 * transaction — which would clear the field on the second pass.
+	 */
+	const settledHash = useRef<`0x${string}` | undefined>(undefined);
 	useEffect(() => {
-		if (!isSuccess) return;
+		if (!isSuccess || !hash || settledHash.current === hash) return;
+		settledHash.current = hash;
+
+		const wasDeposit = stage === "depositing";
 		setStage("idle");
+		if (!wasDeposit) return;
+
 		setInput("");
 		queryClient.invalidateQueries({ queryKey: ["portfolio"] });
 		queryClient.invalidateQueries({ queryKey: ["vault", vault.address] });
-	}, [isSuccess, queryClient, vault.address]);
+	}, [isSuccess, hash, stage, queryClient, vault.address]);
 
 	const needsApproval = amount !== null && amount > 0n && toBigInt(allowance) < amount;
 	const insufficient = amount !== null && amount > toBigInt(balance);
@@ -92,7 +115,10 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	}
 
 	return (
-		<div className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+		<div
+			data-testid="deposit-panel"
+			className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5"
+		>
 			<div className="flex items-baseline justify-between">
 				<h3 className="font-medium text-[var(--pon-fg-0)]">Deposit</h3>
 				<span className="text-xs text-[var(--pon-fg-3)]">Balance {formatUsd(balance ?? 0n)}</span>

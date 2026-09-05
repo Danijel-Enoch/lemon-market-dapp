@@ -44,8 +44,24 @@ export function CreateVaultDialog({
 	const [recording, setRecording] = useState(false);
 	const [done, setDone] = useState<string | null>(null);
 
-	const { writeContract, data: hash, isPending } = useWriteContract();
+	const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
 	const { data: receipt, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
+
+	/**
+	 * The wallet's own failures, shown.
+	 *
+	 * `useWriteContract`'s error used to be dropped on the floor here, and this
+	 * is the worst place in the app for that: a rejected signature, a wrong
+	 * chain, an account without gas or a factory call that reverts on estimation
+	 * all resolve in milliseconds, so the button flickers and returns to
+	 * "Create vault" with nothing said. The operator clicks it again, and again,
+	 * and the console looks broken rather than refused.
+	 *
+	 * The local `error` wins when set, because it carries the more specific
+	 * message — the deployed-but-unrecorded case in particular, which the
+	 * operator has to act on differently.
+	 */
+	const shownError = error ?? (writeError ? writeError.message.split("\n")[0] : null);
 
 	// Re-derive whenever the tier changes: the two tiers of one market are
 	// separate vaults with separate agents, so the address is not the same.
@@ -96,6 +112,19 @@ export function CreateVaultDialog({
 	useEffect(() => {
 		if (!receipt || !prepared || recording || done) return;
 
+		// A reverted transaction still produces a receipt — `waitForTransactionReceipt`
+		// resolves for it rather than throwing. Without this check the failure fell
+		// through to the "no VaultCreated event" branch below, which tells the
+		// operator the transaction *confirmed* and the vault *may exist*. Both are
+		// wrong for a plain revert, and the second one is the sentence that stops
+		// them retrying the thing that would have worked.
+		if (receipt.status === "reverted") {
+			setError(
+				"The transaction reverted, so no vault was created. The most likely cause is that this market and tier already has one — reload the market list before retrying.",
+			);
+			return;
+		}
+
 		const address = vaultAddressFrom(receipt.logs, factoryAddress);
 		if (!address) {
 			setError(
@@ -134,7 +163,19 @@ export function CreateVaultDialog({
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-			<div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] p-6">
+			{/*
+			  Named as a dialog rather than left as a div. Without the role a
+			  screen reader announces this as more of the page it covers, and the
+			  market list behind it stays in the reading order — so an operator
+			  can be reading the row for one market while the form in front of
+			  them is about another.
+			*/}
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label={`New ${market.ticker} vault`}
+				className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] p-6"
+			>
 				<h2 className="text-lg font-semibold text-[var(--pon-fg-0)]">New {market.ticker} vault</h2>
 				<p className="mt-1 text-sm text-[var(--pon-fg-3)]">{market.name}</p>
 
@@ -232,9 +273,9 @@ export function CreateVaultDialog({
 							</div>
 						)}
 
-						{error && (
+						{shownError && (
 							<p className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10 p-3 text-sm text-[var(--pon-down)]">
-								{error}
+								{shownError}
 							</p>
 						)}
 

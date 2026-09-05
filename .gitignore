@@ -60,3 +60,8 @@ generated
 
 # Public testnet deploy logs (scripts/testnet-up.sh)
 .testnet/
+
+# Playwright artefacts (bun run test:e2e)
+test-results/
+playwright-report/
+.playwright/

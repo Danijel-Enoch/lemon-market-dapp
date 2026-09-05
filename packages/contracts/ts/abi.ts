@@ -187,6 +187,19 @@ export const lemonVaultAbi = [
 	},
 	{
 		type: "function",
+		name: "MAX_DEPLOYED_BPS",
+		inputs: [],
+		outputs: [
+			{
+				name: "",
+				type: "uint16",
+				internalType: "uint16",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
 		name: "MAX_LEVERAGE_BPS",
 		inputs: [],
 		outputs: [
@@ -213,6 +226,32 @@ export const lemonVaultAbi = [
 	},
 	{
 		type: "function",
+		name: "MAX_NAV_DEVIATION_BPS",
+		inputs: [],
+		outputs: [
+			{
+				name: "",
+				type: "uint16",
+				internalType: "uint16",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
+		name: "MAX_NAV_EPOCH_DEVIATION_BPS",
+		inputs: [],
+		outputs: [
+			{
+				name: "",
+				type: "uint16",
+				internalType: "uint16",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
 		name: "MAX_PERFORMANCE_FEE_BPS",
 		inputs: [],
 		outputs: [
@@ -227,6 +266,32 @@ export const lemonVaultAbi = [
 	{
 		type: "function",
 		name: "MAX_REDEEM_DELAY",
+		inputs: [],
+		outputs: [
+			{
+				name: "",
+				type: "uint32",
+				internalType: "uint32",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
+		name: "MIN_NAV_EPOCH_DURATION",
+		inputs: [],
+		outputs: [
+			{
+				name: "",
+				type: "uint32",
+				internalType: "uint32",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
+		name: "MIN_REDEEM_DELAY",
 		inputs: [],
 		outputs: [
 			{
@@ -551,6 +616,19 @@ export const lemonVaultAbi = [
 				internalType: "uint256",
 			},
 		],
+		stateMutability: "nonpayable",
+	},
+	{
+		type: "function",
+		name: "donate",
+		inputs: [
+			{
+				name: "amount",
+				type: "uint256",
+				internalType: "uint256",
+			},
+		],
+		outputs: [],
 		stateMutability: "nonpayable",
 	},
 	{
@@ -1878,6 +1956,31 @@ export const lemonVaultAbi = [
 			},
 			{
 				name: "shares",
+				type: "uint256",
+				indexed: false,
+				internalType: "uint256",
+			},
+		],
+		anonymous: false,
+	},
+	{
+		type: "event",
+		name: "Donated",
+		inputs: [
+			{
+				name: "from",
+				type: "address",
+				indexed: true,
+				internalType: "address",
+			},
+			{
+				name: "amount",
+				type: "uint256",
+				indexed: false,
+				internalType: "uint256",
+			},
+			{
+				name: "totalAssets",
 				type: "uint256",
 				indexed: false,
 				internalType: "uint256",

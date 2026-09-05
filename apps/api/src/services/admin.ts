@@ -113,18 +113,36 @@ export interface VaultableMarket {
 export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 	const [board, vaults] = await Promise.all([listBasisMarkets(), listVaults()]);
 
-	const byTicker = new Map<string, { conservative: string | null; leveraged: string | null }>();
+	const { keccak256, toBytes } = await import("viem");
+
+	/**
+	 * Indexed by `marketId`, not by ticker.
+	 *
+	 * The ticker on a vault comes from its venue configuration, which lives in
+	 * Postgres and can be absent — a vault deployed outside this dashboard has
+	 * none — or, before `recordVault` verified what it was writing, wrong. Either
+	 * way the market looked unvaulted here, the console offered to create a
+	 * second vault for it, and the factory refused with a revert the operator had
+	 * to decode.
+	 *
+	 * `marketId` is set in the vault's constructor, is immutable, and is exactly
+	 * `keccak256(ticker)` — so it answers the question "does this market already
+	 * have a vault" from the chain, which is where the answer actually lives.
+	 */
+	const byMarketId = new Map<string, { conservative: string | null; leveraged: string | null }>();
 	for (const vault of vaults) {
-		const ticker = vault.ticker?.toUpperCase();
-		if (!ticker) continue;
-		const entry = byTicker.get(ticker) ?? { conservative: null, leveraged: null };
+		const key = vault.marketId?.toLowerCase();
+		if (!key) continue;
+		const entry = byMarketId.get(key) ?? { conservative: null, leveraged: null };
 		if (vault.tier === "CONSERVATIVE") entry.conservative = vault.address;
 		else entry.leveraged = vault.address;
-		byTicker.set(ticker, entry);
+		byMarketId.set(key, entry);
 	}
 
 	return board.markets.map((market) => {
-		const existing = byTicker.get(market.ticker.toUpperCase()) ?? {
+		const existing = byMarketId.get(
+			keccak256(toBytes(market.ticker.toUpperCase())).toLowerCase(),
+		) ?? {
 			conservative: null,
 			leveraged: null,
 		};
@@ -270,6 +288,58 @@ export async function prepareVault(params: {
  * something a compromised API key can do. This records the result so the agent
  * can find its configuration.
  */
+/**
+ * Check the vault at `address` is the vault this configuration is about.
+ *
+ * The dashboard sends an address and a market, and until this existed the
+ * server believed both. It is a three-step flow across two systems — derive,
+ * deploy, record — and any interruption between the second and third leaves the
+ * operator retrying from a page whose in-memory idea of "which market" can no
+ * longer be assumed to match the transaction that actually landed. The failure
+ * is silent and permanent: the contract says one market, the database says
+ * another, and the agent trades the database's answer with the contract's
+ * capital.
+ *
+ * So the chain is asked. `marketId` is immutable and set in the constructor, so
+ * it is the one field that cannot have drifted.
+ */
+async function assertVaultMatches(address: string, prepared: PreparedVault): Promise<void> {
+	const { createPublicClient, http, keccak256, toBytes } = await import("viem");
+	const { lemonVaultAbi } = await import("@lemon/contracts");
+
+	const client = createPublicClient({ transport: http(config.baseRpcUrl) });
+	const expectedMarketId = keccak256(toBytes(prepared.ticker));
+	const vault = { address: address as `0x${string}`, abi: lemonVaultAbi } as const;
+
+	let onChain: { marketId: string; agentWallet: string };
+	try {
+		const [marketId, agentWallet] = await Promise.all([
+			client.readContract({ ...vault, functionName: "marketId" }),
+			client.readContract({ ...vault, functionName: "agentWallet" }),
+		]);
+		onChain = { marketId, agentWallet };
+	} catch {
+		throw new AdminError(
+			`No vault could be read at ${address}. Nothing was recorded — check the transaction landed before retrying.`,
+			409,
+		);
+	}
+
+	if (onChain.marketId.toLowerCase() !== expectedMarketId.toLowerCase()) {
+		throw new AdminError(
+			`The vault at ${address} is not the ${prepared.ticker} vault — its marketId does not match. Nothing was recorded, which is deliberate: an agent reads this configuration and would have traded ${prepared.ticker} with that vault's capital.`,
+			409,
+		);
+	}
+
+	if (onChain.agentWallet.toLowerCase() !== prepared.agentEvmAddress.toLowerCase()) {
+		throw new AdminError(
+			`The vault at ${address} names a different agent wallet than the one derived for ${prepared.ticker}. Nothing was recorded.`,
+			409,
+		);
+	}
+}
+
 export async function recordVault(params: {
 	address: string;
 	prepared: PreparedVault;
@@ -281,6 +351,8 @@ export async function recordVault(params: {
 	assetClass?: string;
 	createdBy: string;
 }) {
+	await assertVaultMatches(params.address, params.prepared);
+
 	return prisma.vaultConfig.create({
 		data: {
 			address: params.address.toLowerCase(),

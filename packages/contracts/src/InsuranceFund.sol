@@ -73,15 +73,23 @@ contract InsuranceFund is AccessControl {
     /**
      * @notice Send USDC into a vault to absorb a shortfall.
      *
-     * Uses the vault's `agentReturn`, which is open to any caller precisely so
-     * that returning capital is never gated on holding a key. Nothing is minted,
-     * so the entire amount accrues to the vault's existing holders.
+     * Uses the vault's `donate`, which is open to any caller precisely so that
+     * putting capital in is never gated on holding a key. Nothing is minted, so
+     * the entire amount accrues to the vault's existing holders.
+     *
+     * Not `agentReturn`, which this used to call and which quietly did nothing.
+     * That call credits capital the *agent already held*, so it lowers the
+     * vault's `deployedAssets` by the same amount it adds in idle USDC: the
+     * fund paid out and the share price did not move. It also left the vault
+     * believing the live position was smaller than it was, so the agent's next
+     * honest report re-stated the gap as a gain — and the operator collected a
+     * performance fee on the money it had just donated to cover a loss.
      */
     function cover(LemonVault vault, uint256 amount) external onlyRole(TREASURER_ROLE) {
         if (amount == 0) revert ZeroAmount();
         IERC20 asset = IERC20(vault.asset());
         asset.forceApprove(address(vault), amount);
-        vault.agentReturn(amount);
+        vault.donate(amount);
         asset.forceApprove(address(vault), 0);
         emit Covered(address(vault), amount);
     }

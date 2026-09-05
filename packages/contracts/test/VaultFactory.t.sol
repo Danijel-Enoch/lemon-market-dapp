@@ -277,6 +277,64 @@ contract InsuranceFundTest is Test {
         assertEq(vault.balanceOf(address(fund)), 0, "cover mints nothing to the operator");
     }
 
+    /**
+     * The situation `cover` actually exists for: capital is deployed and the
+     * position lost value.
+     *
+     * This used to route through `agentReturn`, which credits capital the agent
+     * already held — so it lowered `deployedAssets` by exactly what it added in
+     * idle USDC, the share price did not move, and the fund had paid out for
+     * nothing. Worse, the vault was then understating the live position by the
+     * size of the cover, and the agent's next honest report re-stated that gap
+     * as a gain the operator collected a performance fee on.
+     */
+    function test_CoverRaisesThePriceWhenCapitalIsDeployed() public {
+        vm.prank(agent);
+        vault.agentWithdraw(9_000 * ONE_USDC);
+
+        skip(10 minutes);
+        vm.prank(agent);
+        vault.reportNav(8_500 * ONE_USDC, 10_000, uint64(block.timestamp)); // a 500 loss
+
+        uint256 ppsAfterLoss = vault.pricePerShare();
+        uint256 assetsAfterLoss = vault.totalAssets();
+
+        vm.prank(treasurer);
+        fund.cover(vault, 500 * ONE_USDC);
+
+        assertEq(usdc.balanceOf(address(fund)), 99_500 * ONE_USDC, "the fund really paid");
+        assertGt(vault.pricePerShare(), ppsAfterLoss, "and the holders got it");
+        assertEq(vault.totalAssets(), assetsAfterLoss + 500 * ONE_USDC, "in full");
+        assertEq(vault.deployedAssets(), 8_500 * ONE_USDC, "the live position is left alone");
+    }
+
+    /**
+     * A gift is not performance.
+     *
+     * Without carrying the high-water mark over the donation, the price rise a
+     * cover causes reads as a gain, and the operator is paid a 20% performance
+     * fee out of the very capital it just contributed to absorb a loss.
+     */
+    function test_CoverIsNotChargedAPerformanceFee() public {
+        vm.prank(agent);
+        vault.agentWithdraw(9_000 * ONE_USDC);
+        skip(10 minutes);
+        vm.prank(agent);
+        vault.reportNav(8_500 * ONE_USDC, 10_000, uint64(block.timestamp));
+
+        uint256 sharesBefore = vault.balanceOf(address(fund));
+
+        vm.prank(treasurer);
+        fund.cover(vault, 500 * ONE_USDC);
+        vault.accrueFees();
+
+        assertEq(
+            vault.balanceOf(address(fund)) - sharesBefore,
+            0,
+            "no performance fee is minted on donated capital"
+        );
+    }
+
     function test_CoverLeavesNoStandingApproval() public {
         vm.prank(treasurer);
         fund.cover(vault, 1_000 * ONE_USDC);

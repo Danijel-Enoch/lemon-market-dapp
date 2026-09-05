@@ -1,5 +1,5 @@
 import { Brand } from "@lemon/ui";
-import { Link } from "react-router";
+import { data, Link } from "react-router";
 
 /**
  * 404.
@@ -9,6 +9,18 @@ import { Link } from "react-router";
  * with the landing page, and reinstating a nav here would advertise
  * destinations that no longer exist.
  */
+
+/**
+ * The status, not just the page.
+ *
+ * Rendering a 404 body with a 200 status tells every crawler and uptime check
+ * that the URL is fine, which is how a broken link ends up indexed and how a
+ * monitor stays green through a routing mistake. `data()` sets the status while
+ * still rendering the component, which throwing a Response would not.
+ */
+export function loader() {
+	return data(null, { status: 404 });
+}
 export default function NotFound() {
 	return (
 		<main className="overflow-x-hidden bg-[var(--pon-bg)] text-[var(--pon-fg)]">

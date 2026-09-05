@@ -5,7 +5,8 @@
 	"private": true,
 	"workspaces": [
 		"apps/*",
-		"packages/*"
+		"packages/*",
+		"e2e"
 	],
 	"scripts": {
 		"dev": "bun run --filter '@lemon/web' dev",
@@ -35,10 +36,14 @@
 		"dev:admin": "bun run --filter '@lemon/admin' dev",
 		"build:web": "bun run --filter '@lemon/web' build",
 		"build:admin": "bun run --filter '@lemon/admin' build",
-		"start:admin": "bun run --filter '@lemon/admin' start"
+		"start:admin": "bun run --filter '@lemon/admin' start",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
+		"test:e2e:report": "playwright show-report"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.11",
+		"@playwright/test": "^1.62.1",
 		"@types/node": "^20.19.29",
 		"typescript": "^5.9.3"
 	},

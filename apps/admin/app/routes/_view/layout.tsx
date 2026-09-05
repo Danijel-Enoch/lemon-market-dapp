@@ -1,3 +1,4 @@
+import { AdminSignIn } from "@app/components/AdminSignIn";
 import { Brand } from "@lemon/ui";
 import { WrongNetworkBanner } from "@lemon/wallet";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -28,12 +29,17 @@ export default function ViewLayout() {
 						</span>
 					</div>
 
-					<ConnectButton
-						accountStatus="address"
-						chainStatus="icon"
-						showBalance={false}
-						label="Connect"
-					/>
+					<div className="flex items-center gap-3">
+						{/* Connecting proves nothing to the API; signing does. The two
+						    sit together so the second step is where the first ends. */}
+						<AdminSignIn />
+						<ConnectButton
+							accountStatus="address"
+							chainStatus="icon"
+							showBalance={false}
+							label="Connect"
+						/>
+					</div>
 				</div>
 			</header>
 
