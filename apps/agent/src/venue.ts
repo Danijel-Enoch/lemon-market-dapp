@@ -56,15 +56,25 @@ export interface VenueDeps {
 	/**
 	 * Sends USDC from the agent wallet back to the vault. Real, on-chain.
 	 *
-	 * A callback rather than the `VaultClient` itself, matching the paper
-	 * adapter. The adapter's job is to turn a position into USDC at the agent's
-	 * Base wallet; which vault that USDC belongs to is the worker's knowledge,
-	 * and handing the whole client over here would let a venue adapter report
-	 * NAV or fulfil a redemption — neither of which it has any business doing.
+	 * A callback rather than the `VaultClient` itself. The adapter's job is to
+	 * turn a position into USDC at the agent's Base wallet; which vault that USDC
+	 * belongs to is the worker's knowledge, and handing the whole client over
+	 * here would let a venue adapter report NAV or fulfil a redemption — neither
+	 * of which it has any business doing.
 	 */
 	returnToVault: (amount: bigint) => Promise<Hex>;
 	/** In-flight tracking, so a bridge does not read as a loss. */
 	inFlight: () => bigint;
+	/**
+	 * USDC sitting in the agent's *Solana* wallet, outside Pacifica.
+	 *
+	 * Ordinarily zero: the bridge deposits what it delivers in the same call. It
+	 * is non-zero exactly when something went wrong between the two — a fill
+	 * below Pacifica's deposit minimum, a deposit that failed after the money
+	 * arrived — and those are the cases where leaving it out of the valuation
+	 * would report a vault that had simply lost the transfer.
+	 */
+	solanaIdleUsdc: () => Promise<bigint>;
 	now: () => number;
 }
 
@@ -149,10 +159,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				pacifica.markets(),
 			]);
 
-			const [sellQuote, idleUsdc] = await Promise.all([
+			const [sellQuote, baseIdle, solanaIdle] = await Promise.all([
 				spotSellQuote(balance),
 				usdcBalance(config.agentAddress),
+				deps.solanaIdleUsdc(),
 			]);
+			// Both wallets, because the vault owns both. Idle USDC on either side is
+			// capital the vault holds and has not deployed, and counting only Base
+			// would price a stalled bridge as a loss.
+			const idleUsdc = baseIdle + solanaIdle;
 
 			const position = positions.find((p) => p.symbol === config.perpSymbol);
 			const market = markets.find((m) => m.symbol === config.perpSymbol);

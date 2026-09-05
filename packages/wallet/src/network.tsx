@@ -3,18 +3,15 @@ import { useAccount, useSwitchChain } from "wagmi";
 import { APP_CHAIN } from "./chain";
 
 /**
- * Keep the wallet on the chain this build targets, adding it if it is unknown.
+ * Keep the wallet on Base mainnet, adding it if the wallet does not have it.
  *
- * `switchChain` is doing two jobs here. For a chain the wallet already has it
- * sends `wallet_switchEthereumChain`; for one it does not, wagmi falls back to
- * `wallet_addEthereumChain` using the chain object from the config — which is
- * why `APP_CHAIN` is built with a full name, native currency, RPC URL and
- * explorer rather than being `base` with the transport swapped. A partial chain
- * object makes that call fail with an error most wallets do not explain.
- *
- * This is what makes a fork or a testnet usable without the operator hand-adding
- * a network: connect, and the wallet is asked to add exactly the chain the app
- * is talking to.
+ * `switchChain` is doing two jobs here. For a wallet that already knows Base it
+ * sends `wallet_switchEthereumChain`; for one that does not, wagmi falls back
+ * to `wallet_addEthereumChain` using the chain object from the config — which
+ * is why `APP_CHAIN` keeps viem's full Base definition, name, native currency
+ * and explorer included, rather than being an id with a transport bolted on. A
+ * partial chain object makes that call fail with an error most wallets do not
+ * explain.
  */
 export function useAppChain() {
 	const { isConnected, chainId } = useAccount();

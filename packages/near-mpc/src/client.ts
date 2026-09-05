@@ -7,7 +7,6 @@ import {
 	MPC_CONTRACT,
 	MPC_ROOT_KEYS,
 	NEAR_RPC_URL,
-	type NearNetwork,
 } from "./constants";
 import {
 	deriveEd25519PublicKey,
@@ -27,7 +26,6 @@ export class NearMpcError extends Error {
 }
 
 export interface NearMpcConfig {
-	network: NearNetwork;
 	/** The relayer account that calls `sign`. Part of every derived address. */
 	accountId: string;
 	/** Its full access key, `ed25519:<base58>`. Server-side only. */
@@ -72,14 +70,12 @@ function blankToUndefined(value: string | undefined): string | undefined {
 export class NearMpcClient {
 	readonly accountId: string;
 	readonly contractId: string;
-	private readonly network: NearNetwork;
 	private readonly account: Account;
 	private readonly waitUntil: NonNullable<NearMpcConfig["waitUntil"]>;
 	/** Tail of the serialisation chain; every request appends to it. */
 	private queue: Promise<unknown> = Promise.resolve();
 
 	constructor(config: NearMpcConfig) {
-		this.network = config.network;
 		this.accountId = config.accountId;
 		// `??` is not enough here. These arrive from environment variables, and a
 		// variable that is present but empty — which is how every `.env` template
@@ -88,19 +84,19 @@ export class NearMpcClient {
 		// rejects that with "the Account ID is too short", at the first RPC call
 		// rather than at construction, which reads as an outage rather than as
 		// configuration.
-		this.contractId = blankToUndefined(config.contractId) ?? MPC_CONTRACT[config.network];
+		this.contractId = blankToUndefined(config.contractId) ?? MPC_CONTRACT;
 		this.waitUntil = config.waitUntil ?? "FINAL";
 		this.account = new Account(
 			config.accountId,
 			new JsonRpcProvider({
-				url: blankToUndefined(config.rpcUrl) ?? NEAR_RPC_URL[config.network],
+				url: blankToUndefined(config.rpcUrl) ?? NEAR_RPC_URL,
 			}),
 			config.privateKey as `ed25519:${string}`,
 		);
 	}
 
 	private get roots(): { secp256k1: NajPublicKey; ed25519: NajPublicKey } {
-		return MPC_ROOT_KEYS[this.network];
+		return MPC_ROOT_KEYS;
 	}
 
 	/**

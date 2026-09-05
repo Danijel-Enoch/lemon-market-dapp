@@ -3,12 +3,15 @@ import { prisma } from "@lemon/db";
 import { KyberAggregatorClient } from "@lemon/kyber";
 import { NearMpcClient } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { RelayClient } from "@lemon/relay";
+import { createPublicClient, createWalletClient, http, type PublicClient } from "viem";
 import { advisorFromEnv } from "./advisor";
+import { createRelayBridge } from "./bridge";
 import { resolveAgentChain } from "./chain";
+import { createSolanaExecutor, type SolanaExecutor } from "./solana";
 import { VaultClient } from "./vault";
-import { createPaperVenueAdapter } from "./venue-paper";
-import { agentWalletFor } from "./wallet";
+import { createVenueAdapter } from "./venue";
+import { type AgentWallet, agentWalletFor } from "./wallet";
 import {
 	type QueueEntry,
 	type TickResult,
@@ -46,14 +49,6 @@ const INDEXER_URL = process.env.INDEXER_URL ?? "http://localhost:42069";
  */
 const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
 
-/**
- * Read both venues, fill neither.
- *
- * For deployments where the vault is somewhere the spot leg cannot execute. The
- * prices are live; only the fills are notional. See `venue-paper.ts`.
- */
-const PAPER_TRADING = process.env.AGENT_PAPER_TRADING === "true";
-
 const kyber = new KyberAggregatorClient({
 	baseUrl: process.env.KYBER_BASE_URL,
 	clientId: process.env.KYBER_CLIENT_ID ?? "lemon-agent",
@@ -61,6 +56,19 @@ const kyber = new KyberAggregatorClient({
 
 const pacifica = new PacificaClient({
 	baseUrl: process.env.PACIFICA_API_URL?.trim() || PACIFICA_MAINNET,
+});
+
+/**
+ * Relay carries USDC between the two chains the vault trades on.
+ *
+ * The API key is not optional here, unlike in the API where a missing one only
+ * disables a funding widget. Deposit addresses require it, both halves of every
+ * trade need one, and an agent that discovered this at the moment it tried to
+ * bridge would discover it with a deposit already drawn from a vault.
+ */
+const relay = new RelayClient({
+	baseUrl: process.env.RELAY_API_URL?.trim(),
+	apiKey: process.env.RELAY_API_KEY,
 });
 
 function log(level: "info" | "warn" | "error", message: string, extra?: unknown) {
@@ -170,8 +178,24 @@ async function main() {
 		);
 	}
 
+	// Both checked here rather than at first use, for the same reason. Every
+	// trade this process places crosses a chain, and the first crossing of a
+	// deployment happens with a depositor's capital already drawn out of a vault
+	// — which is the worst possible moment to learn the bridge was unconfigured.
+	if (!relay.hasApiKey) {
+		throw new Error(
+			"RELAY_API_KEY is required: the agent bridges USDC between Base and Solana over Relay deposit addresses, and those need a key (free, self-serve at dashboard.relay.link).",
+		);
+	}
+
+	const feePayerSecret = process.env.SOLANA_FEE_PAYER_SECRET?.trim();
+	if (!feePayerSecret) {
+		throw new Error(
+			"SOLANA_FEE_PAYER_SECRET is required: agent wallets are MPC-derived and hold USDC but never SOL, so a separate keypair has to pay for the Solana transactions that fund and unwind the perp leg.",
+		);
+	}
+
 	const mpc = new NearMpcClient({
-		network: process.env.NEAR_NETWORK === "testnet" ? "testnet" : "mainnet",
 		accountId: nearAccountId,
 		privateKey: nearPrivateKey,
 		rpcUrl: process.env.NEAR_RPC_URL?.trim(),
@@ -183,6 +207,20 @@ async function main() {
 	// key the network will not sign for — better found now than at the first
 	// withdrawal.
 	await mpc.verifyRootKeys();
+
+	const solana = createSolanaExecutor({
+		rpcUrl: process.env.SOLANA_RPC_URL?.trim() || "https://api.mainnet-beta.solana.com",
+		feePayerSecret,
+		mpc,
+	});
+
+	// One read at boot, because an empty fee payer does not fail loudly — it
+	// fails at the moment a bridge tries to send, halfway through an unwind.
+	const lamports = await solana.feePayerLamports();
+	log(
+		lamports < 20_000_000n ? "warn" : "info",
+		`Solana fee payer ${solana.feePayer} holds ${Number(lamports) / 1e9} SOL.${lamports < 20_000_000n ? " That is low; every bridge leg and Pacifica deposit spends from it." : ""}`,
+	);
 
 	const chain = resolveAgentChain();
 	const transport = http(process.env.BASE_RPC_URL ?? "https://mainnet.base.org");
@@ -232,11 +270,17 @@ async function main() {
 
 		const vault = new VaultClient(publicClient, walletClient, indexed.address);
 
-		// The venue adapter needs per-market configuration — token addresses,
-		// the Pacifica symbol — which the registry owns. Wiring it is the
-		// remaining integration step; until then a vault is observed and its NAV
-		// is reported, and no trade is placed against an unconfigured market.
-		const venue = await resolveVenue(indexed, vault);
+		// The venue adapter needs per-market configuration — token addresses, the
+		// Pacifica symbol — which the operator owns. No trade is placed against an
+		// unconfigured market.
+		const venue = await resolveVenue({
+			indexed,
+			vault,
+			wallet,
+			walletClient,
+			publicClient,
+			solana,
+		});
 		if (!venue) {
 			log("warn", `${indexed.address}: no venue configuration for ${indexed.ticker ?? "?"}`);
 			return;
@@ -261,60 +305,69 @@ async function main() {
 }
 
 /**
- * Resolve the venue configuration for one vault.
+ * Resolve the venue adapter for one vault.
  *
  * Returns null rather than guessing when a market is not configured. A wrong
  * token address here hedges a position against a different asset while every
  * dashboard reads healthy — the exact failure the registry's by-asset curation
  * exists to prevent, so it must not be undone by a fallback here.
  *
- * `AGENT_PAPER_TRADING` picks the adapter. Paper reads both venues for real and
- * fills neither, which is the only thing that works where the vault lives
- * somewhere KyberSwap's aggregator cannot execute — a testnet, or Vibenet. It is
- * opt-in rather than inferred from the chain id, because "the venue is
- * unreachable" and "do not trade" have to be a deliberate choice: guessing wrong
- * in the permissive direction would place real orders from a test deployment.
+ * Built fresh on every tick, and that is deliberate: `createRelayBridge` reads
+ * the unfinished crossings back from the database as it is constructed, so a
+ * process restarted mid-bridge picks the in-flight amount up again rather than
+ * reporting a NAV with the transfer missing from both sides.
  */
-async function resolveVenue(
-	indexed: IndexedVault,
-	vault: VaultClient,
-): Promise<VenueAdapter | null> {
+async function resolveVenue(params: {
+	indexed: IndexedVault;
+	vault: VaultClient;
+	wallet: AgentWallet;
+	walletClient: ReturnType<typeof createWalletClient>;
+	publicClient: PublicClient;
+	solana: SolanaExecutor;
+}): Promise<VenueAdapter | null> {
+	const { indexed, vault, wallet, walletClient, publicClient, solana } = params;
+
 	const record = await prisma.vaultConfig
 		.findUnique({ where: { address: indexed.address.toLowerCase() } })
 		.catch(() => null);
 
 	if (!record) return null;
 
-	if (!PAPER_TRADING) {
-		// What is still missing is the bridge: `BridgeAdapter` has no
-		// implementation in this repo, and both halves of the live adapter depend
-		// on one — `deploy` to get margin to Solana, `unwind` to bring it home.
-		// The Pacifica signer and the wallet client exist above; the bridge is the
-		// remaining integration step. Refusing beats half-executing a two-legged
-		// trade.
-		log(
-			"warn",
-			`${indexed.address}: live trading is not wired up yet — no bridge adapter. Set AGENT_PAPER_TRADING=true to run this vault against read-only venues.`,
-		);
-		return null;
-	}
+	const bridge = await createRelayBridge({
+		vaultAddress: indexed.address,
+		relay,
+		solana,
+		publicClient,
+		walletClient,
+		agentAddress: indexed.agentWallet,
+		solanaAddress: wallet.solanaAddress,
+		path: wallet.path,
+		log,
+	});
 
-	return createPaperVenueAdapter({
+	return createVenueAdapter({
 		config: {
-			vaultAddress: indexed.address.toLowerCase(),
 			symbol: record.spotTokenSymbol,
 			spotToken: record.spotTokenAddress as `0x${string}`,
 			spotTokenDecimals: record.spotTokenDecimals,
 			usdc: USDC_ADDRESS,
 			perpSymbol: record.perpSymbol,
+			solanaAddress: wallet.solanaAddress,
 			agentAddress: indexed.agentWallet,
 			slippagePercent: record.slippagePercent,
 		},
+		publicClient,
+		walletClient,
 		kyber,
 		pacifica,
-		// The one real transaction in the paper path: a withdrawal has to be
-		// payable, so the USDC genuinely goes back to the vault.
+		signPacifica: wallet.signSolanaMessage,
+		bridge,
+		// A callback rather than the client: the adapter's job is to turn a
+		// position into USDC at the agent's Base wallet, and which vault that USDC
+		// belongs to is the worker's knowledge.
 		returnToVault: (amount) => vault.agentReturn(amount),
+		inFlight: bridge.inFlight,
+		solanaIdleUsdc: () => solana.usdcBalance(wallet.solanaAddress),
 		now: () => Math.floor(Date.now() / 1000),
 	});
 }

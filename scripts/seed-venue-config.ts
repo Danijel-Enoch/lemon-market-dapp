@@ -6,10 +6,10 @@
  * it, and neither does the spot token, the perp symbol or the derivation path.
  * Those live in Postgres, written by the admin console's create-vault flow.
  *
- * A vault created by a deploy script has none of it, which is why a seeded fork
- * or testnet shows "No venue config" and the agent skips every vault. This
- * backfills the same rows the admin flow would have written, from the registry
- * and from NEAR, so a scripted deployment behaves like an operator-created one.
+ * A vault created outside that flow has none of it, which is why it shows "No
+ * venue config" and the agent skips it. This backfills the same rows the admin
+ * flow would have written, from the registry and from NEAR, so a scripted
+ * deployment behaves like an operator-created one.
  *
  * Idempotent. Run it after any deploy that creates vaults.
  *
@@ -38,7 +38,6 @@ if (!accountId || !privateKey) {
 }
 
 const mpc = new NearMpcClient({
-	network: process.env.NEAR_NETWORK === "testnet" ? "testnet" : "mainnet",
 	accountId,
 	privateKey,
 	rpcUrl: process.env.NEAR_RPC_URL,

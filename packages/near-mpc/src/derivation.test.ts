@@ -11,7 +11,7 @@ import {
 } from "./derivation";
 import { DERIVATION_PATH_VERSION, derivationPath } from "./paths";
 
-const roots = MPC_ROOT_KEYS.mainnet;
+const roots = MPC_ROOT_KEYS;
 
 /**
  * Captured from `v1.signer`'s own `derived_public_key` view on mainnet.

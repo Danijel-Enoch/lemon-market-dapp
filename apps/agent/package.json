@@ -13,12 +13,14 @@
 	"dependencies": {
 		"@lemon/contracts": "workspace:*",
 		"@lemon/core": "workspace:*",
+		"@lemon/db": "workspace:*",
 		"@lemon/kyber": "workspace:*",
 		"@lemon/near-mpc": "workspace:*",
 		"@lemon/pacifica": "workspace:*",
 		"@lemon/registry": "workspace:*",
 		"@lemon/relay": "workspace:*",
-		"viem": "^2.44.2",
-		"@lemon/db": "workspace:*"
+		"@scure/base": "^2.0.0",
+		"@solana/web3.js": "^1.98.4",
+		"viem": "^2.44.2"
 	}
 }

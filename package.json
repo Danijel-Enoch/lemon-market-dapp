@@ -11,10 +11,6 @@
 	"scripts": {
 		"dev": "bun run --filter '@lemon/web' dev",
 		"dev:stack": "scripts/dev.sh",
-		"dev:fork": "scripts/dev.sh .env.fork",
-		"fork:up": "scripts/fork-up.sh",
-		"fork:down": "scripts/fork-down.sh",
-		"testnet:up": "scripts/testnet-up.sh",
 		"seed:venues": "bun run scripts/seed-venue-config.ts",
 		"indexer:reset": "scripts/indexer-reset.sh",
 		"dev:api": "bun run --filter '@lemon/api' dev",

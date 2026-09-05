@@ -15,7 +15,6 @@ const suite = live ? describe : describe.skip;
 suite("near mpc live contract", () => {
 	// Views do not authenticate, so any well-formed key gets through.
 	const client = new NearMpcClient({
-		network: "mainnet",
 		accountId: process.env.NEAR_ACCOUNT_ID?.trim() || "lemon-markets.near",
 		privateKey:
 			"ed25519:3D4YudUahN1nawWogh8pAKSj92sUNMdbZGY3jH3vAdaZ8CqYcYqJhz2LDMnAWpuJ3RJDrsBwDLTDBqUq3VLhtHGA",

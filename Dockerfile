@@ -32,25 +32,19 @@ COPY . .
 ENV NODE_ENV=production
 
 # `VITE_` values are compiled into the browser bundle, so they are build inputs
-# rather than runtime configuration. An image is therefore built for one chain:
-# repointing a deployment between mainnet, a testnet and a fork means rebuilding,
-# not restarting. Everything the server reads stays runtime environment.
+# rather than runtime configuration: changing one means rebuilding, not
+# restarting. Everything the server reads stays runtime environment. The chain
+# itself is not among them — Base mainnet is pinned in code on both sides.
 ARG VITE_API_BASE_URL=/api
 ARG VITE_WALLETCONNECT_PROJECT_ID=
 ARG VITE_BASE_RPC_URL=
-ARG VITE_CHAIN_ID=
-ARG VITE_CHAIN_NAME=
 ARG VITE_CHAIN_RPC_URL=
-ARG VITE_CHAIN_EXPLORER_URL=
 ARG VITE_VAULT_FACTORY_ADDRESS=
 ARG VITE_PUBLIC_APP_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID \
     VITE_BASE_RPC_URL=$VITE_BASE_RPC_URL \
-    VITE_CHAIN_ID=$VITE_CHAIN_ID \
-    VITE_CHAIN_NAME=$VITE_CHAIN_NAME \
     VITE_CHAIN_RPC_URL=$VITE_CHAIN_RPC_URL \
-    VITE_CHAIN_EXPLORER_URL=$VITE_CHAIN_EXPLORER_URL \
     VITE_VAULT_FACTORY_ADDRESS=$VITE_VAULT_FACTORY_ADDRESS \
     VITE_PUBLIC_APP_URL=$VITE_PUBLIC_APP_URL
 

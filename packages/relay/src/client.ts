@@ -13,7 +13,6 @@ export const SOLANA_CHAIN_ID = 792703809;
 
 /** USDC's SPL mint, which is what Relay calls the currency on Solana. */
 export const SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-export const TESTNET_RELAY_URL = "https://api.testnets.relay.link";
 
 export interface RelayChain {
 	id: number;

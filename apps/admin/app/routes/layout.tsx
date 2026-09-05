@@ -13,13 +13,12 @@ import { WagmiProvider } from "wagmi";
  * rather than being something a leaked server key could do.
  *
  * This used to be the injected connector alone, on the reasoning that an
- * operator console is used from one machine with one extension. That held right
- * up until the console had to be pointed at a fork or a testnet: the injected
- * path offers no way to *add* the chain, so an operator whose wallet had never
- * seen it got a connect button that appeared to work and writes that silently
- * went nowhere. RainbowKit carries the add-chain flow, and it is the same modal
- * the public app already shows, so there is one connection experience rather
- * than two.
+ * operator console is used from one machine with one extension. The injected
+ * path offers no way to *add* a chain, though, so an operator whose wallet had
+ * never been on Base got a connect button that appeared to work and writes that
+ * silently went nowhere. RainbowKit carries the add-chain flow, and it is the
+ * same modal the public app already shows, so there is one connection
+ * experience rather than two.
  */
 const wagmiConfig = createWalletConfig({ appName: "Lemon Admin" });
 

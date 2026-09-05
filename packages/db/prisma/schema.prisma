@@ -239,41 +239,52 @@ model VaultConfig {
   @@index([ticker])
 }
 
-/// A paper position, for a deployment where the venues are read but not traded.
+/// One leg of a cross-chain USDC move, while it is in the air.
 ///
-/// Exists because the legs have to persist across restarts. A real agent reads
-/// its position back from Kyber and Pacifica; a paper one has nowhere to read it
-/// from, and holding it in memory would mean every restart silently flattened a
-/// vault that the chain still believes is deployed.
+/// A bridge is the only part of a tick that outlives the process running it.
+/// USDC that has left Base and not yet arrived on Solana belongs to the vault
+/// but sits in neither balance the valuation can read, and an agent restarted
+/// during that window would report a NAV missing the whole transfer — a dip and
+/// a recovery that never happened, written into every holder's share price.
 ///
-/// Amounts are strings, not floats. Spot units carry the token's own decimals
-/// and USDC carries six; a position parsed through a double loses precision
-/// well before it reaches a NAV report.
-model PaperPosition {
-  /// The vault this position belongs to, lowercased.
-  vaultAddress String @id
+/// So the in-flight amount is persisted rather than held in memory, and the
+/// valuation adds it back. The row is also the audit trail for a bridge that
+/// never lands: a `SENT` row older than the venue's fill time is a stranded
+/// transfer with a Relay request id to chase it by.
+model BridgeTransfer {
+  id String @id @default(cuid())
 
-  /// Spot tokens the agent would be holding, in the token's own decimals.
-  spotUnits String @default("0")
-  /// USDC actually spent acquiring them, so realised spot P&L is knowable.
-  spotCostUsdc String @default("0")
+  /// The vault whose capital this is, lowercased.
+  vaultAddress String
 
-  /// Size of the short, in the same units as the spot leg — delta-neutral means
-  /// these two track each other, and the gap between them is the thing to watch.
-  perpUnits String @default("0")
-  /// Margin posted against it, in USDC units.
-  perpMarginUsdc String @default("0")
-  /// Mark price the short was opened at, scaled by 1e6.
-  perpEntryPriceE6 String @default("0")
+  /// TO_SOLANA (margin out) or TO_BASE (margin home).
+  direction String
 
-  /// Funding accrued since the position opened, in USDC units. Signed: a basis
-  /// trade that stops paying is the case worth being able to show.
-  fundingAccruedUsdc String @default("0")
-  /// When funding was last accrued, so a tick charges only the elapsed hours.
-  fundingAccruedAt DateTime @default(now())
+  /// Relay's identifier for the intent, which is what its status endpoint takes.
+  requestId String
+
+  /// The address Relay asked us to send to, on the origin chain.
+  depositAddress String
+
+  /// Sent, in USDC base units. A string because six-decimal amounts are exact
+  /// as integers and lossy as doubles.
+  amountUsdc String
+
+  /// Filled on the destination chain, once known. Always less than what was
+  /// sent — the difference is the relayer's cut, and it is recorded as a fee.
+  landedUsdc String?
+
+  /// PENDING (quoted, not yet sent), SENT (origin transaction confirmed),
+  /// COMPLETE (filled), FAILED (refunded or given up on).
+  status String @default("PENDING")
+
+  /// The origin-chain transaction that funded the deposit address.
+  sendTxRef String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([vaultAddress, status])
 }
 
 /// One tick of one agent, kept for review.

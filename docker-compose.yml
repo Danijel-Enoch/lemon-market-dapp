@@ -54,7 +54,6 @@ services:
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
       KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
-      CHAIN_ID: ${CHAIN_ID:-8453}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
       # Deposits stay disabled (with an explanatory message) until this is set.
@@ -67,7 +66,6 @@ services:
       # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
       # users exist repoints every one of them at fresh, empty wallets.
       AUTH_SECRET: ${AUTH_SECRET:-}
-      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
       NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
       NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
       NEAR_RPC_URL: ${NEAR_RPC_URL:-}
@@ -120,7 +118,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
-      CHAIN_ID: ${CHAIN_ID:-8453}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
       # Deposits stay disabled (with an explanatory message) until this is set.
@@ -133,7 +130,6 @@ services:
       # NEAR_ACCOUNT_ID is an input to address derivation. Changing it after
       # users exist repoints every one of them at fresh, empty wallets.
       AUTH_SECRET: ${AUTH_SECRET:-}
-      NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
       NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
       NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
       NEAR_RPC_URL: ${NEAR_RPC_URL:-}

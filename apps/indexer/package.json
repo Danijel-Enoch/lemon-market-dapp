@@ -12,6 +12,7 @@
 	},
 	"dependencies": {
 		"@lemon/contracts": "workspace:*",
+		"@lemon/core": "workspace:*",
 		"hono": "^4.13.5",
 		"ponder": "^0.17.9",
 		"viem": "^2.44.2"

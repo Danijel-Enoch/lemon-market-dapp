@@ -23,7 +23,6 @@ import {
 } from "./types";
 
 export const PACIFICA_MAINNET = "https://api.pacifica.fi/api/v1";
-export const PACIFICA_TESTNET = "https://test-api.pacifica.fi/api/v1";
 
 export interface PacificaClientOptions {
 	baseUrl?: string;

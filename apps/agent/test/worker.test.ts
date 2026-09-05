@@ -1,5 +1,5 @@
-import { adlRisk } from "@lemon/core";
 import { describe, expect, it, mock } from "bun:test";
+import { adlRisk } from "@lemon/core";
 import { ValuationError } from "../src/valuation";
 import type { ActivityInput } from "../src/vault";
 import { type QueueEntry, tick, type VenueAdapter, type WorkerDeps } from "../src/worker";
@@ -287,7 +287,13 @@ describe("auto-deleveraging awareness", () => {
 			observe: async () =>
 				observation({
 					// Mark above entry: the short is down, so it is not in the queue.
-					adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 110, size: 10, equityUsd: 300 }),
+					adl: adlRisk({
+						side: "short",
+						entryPrice: 100,
+						markPrice: 110,
+						size: 10,
+						equityUsd: 300,
+					}),
 				}),
 		});
 		await tick(h.deps);

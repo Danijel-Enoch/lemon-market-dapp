@@ -4,15 +4,15 @@
 #
 # Every service already reads `.env` on its own, so the only thing this adds is
 # an *overlay*: a second file whose values win. Shell variables take precedence
-# over `--env-file` in Bun, so exporting the overlay here is enough to repoint
-# the whole stack at a fork or a testnet without editing `.env` — which matters,
-# because `.env` holds the mainnet addresses and a half-reverted edit to it is
-# how a test run ends up pointed at production.
+# over `--env-file` in Bun, so exporting the overlay here is enough to run the
+# stack against a second set of addresses without editing `.env` — which
+# matters, because `.env` holds the mainnet addresses this app deploys against
+# and a half-reverted edit to it is how a run ends up pointed somewhere else.
 #
 # Usage:
 #   scripts/dev.sh                    # .env alone
-#   scripts/dev.sh .env.fork          # .env with .env.fork on top
-#   scripts/dev.sh .env.sepolia web api    # only some services
+#   scripts/dev.sh .env.local         # .env with .env.local on top
+#   scripts/dev.sh .env.local web api # only some services
 
 set -euo pipefail
 

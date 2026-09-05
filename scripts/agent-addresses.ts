@@ -4,8 +4,8 @@
  * A vault's agent address is immutable once the factory has been called, and it
  * has to be the address the MPC network will actually sign for — otherwise the
  * vault is created with an agent nobody controls and can never trade again.
- * Deriving it here, before the deploy, is what lets `fork-up.sh` and
- * `testnet-up.sh` create vaults the live agent process can pick up.
+ * Deriving it here, before the deploy, is what lets a scripted deployment create
+ * vaults the live agent process can pick up.
  *
  * Reads only. Derivation is pure computation against pinned root keys; the one
  * RPC call confirms those keys still match the contract.
@@ -30,7 +30,6 @@ if (!accountId || !privateKey) {
 }
 
 const client = new NearMpcClient({
-	network: process.env.NEAR_NETWORK === "testnet" ? "testnet" : "mainnet",
 	accountId,
 	privateKey,
 	rpcUrl: process.env.NEAR_RPC_URL,

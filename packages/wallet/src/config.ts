@@ -44,11 +44,10 @@ export interface WalletConfigOptions {
 /**
  * One wagmi config, built the same way for both apps.
  *
- * `chains` is a single entry on purpose. Both apps trade on exactly one chain,
- * and listing several would make wagmi's chain switching a user-facing choice
- * rather than the "you are on the wrong network, fix it" prompt it should be.
- * Which one that is comes from the environment, so a fork or testnet build is a
- * configuration change rather than a code change.
+ * `chains` is a single entry on purpose. Both apps trade on exactly one chain —
+ * Base mainnet — and listing several would make wagmi's chain switching a
+ * user-facing choice rather than the "you are on the wrong network, fix it"
+ * prompt it should be.
  */
 export function createWalletConfig({ appName, extraWallets = [] }: WalletConfigOptions) {
 	const projectId =

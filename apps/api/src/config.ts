@@ -1,6 +1,6 @@
 import { BASE_CHAIN_ID, isValidBps, MAX_SPOT_FEE_BPS, type SpotFeeConfig } from "@lemon/core";
 import { KyberAggregatorClient, KyberLimitOrderClient } from "@lemon/kyber";
-import { NearMpcClient, type NearNetwork } from "@lemon/near-mpc";
+import { NearMpcClient } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
 import { RelayClient } from "@lemon/relay";
 
@@ -39,7 +39,8 @@ function readSpotFee(): SpotFeeConfig | null {
 }
 
 export const config = {
-	chainId: Number(env("CHAIN_ID", String(BASE_CHAIN_ID))),
+	/** Base mainnet. Pinned: the vault contracts exist on one chain and no other. */
+	chainId: BASE_CHAIN_ID,
 	baseRpcUrl: env("BASE_RPC_URL", "https://mainnet.base.org"),
 	kyberBaseUrl: env("KYBER_BASE_URL", "https://aggregator-api.kyberswap.com"),
 	kyberClientId: env("KYBER_CLIENT_ID", "lemon-markets"),
@@ -55,7 +56,6 @@ export const config = {
 	 * can be edited later.
 	 */
 	near: {
-		network: (optionalEnv("NEAR_NETWORK") === "testnet" ? "testnet" : "mainnet") as NearNetwork,
 		accountId: optionalEnv("NEAR_ACCOUNT_ID"),
 		privateKey: optionalEnv("NEAR_PRIVATE_KEY"),
 		rpcUrl: optionalEnv("NEAR_RPC_URL"),
@@ -145,7 +145,6 @@ export const clients = {
 	nearMpc:
 		config.near.accountId && config.near.privateKey
 			? new NearMpcClient({
-					network: config.near.network,
 					accountId: config.near.accountId,
 					privateKey: config.near.privateKey,
 					rpcUrl: config.near.rpcUrl,

@@ -188,7 +188,7 @@ the bucket leaks, it does not seize.
 | Oracle dependencies | **Pass, by design** | No oracle; the agent's report is the input, bounded per report and per epoch |
 | MEV exposure | **Pass** | Exit price fixed at fulfilment, not request — no free option on other holders' capital |
 | ERC compliance | **Pass** | ERC-4626 + ERC-7540 async redeem; sync previews revert as the standard requires |
-| Contract size | **Pass** | `VaultFactory` 22,758 B, 1,818 B under EIP-170. The fixes cost 111,754 gas of Vibenet's 6M constructor headroom |
+| Contract size | **Pass** | `VaultFactory` 22,758 B, 1,818 B under EIP-170. The fixes cost 111,754 gas of constructor headroom |
 
 ## Recommendation
 

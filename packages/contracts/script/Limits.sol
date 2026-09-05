@@ -6,11 +6,11 @@ import {LemonVault} from "../src/LemonVault.sol";
 /**
  * @notice The limit templates a new vault inherits, one per risk tier.
  *
- * Extracted from `Deploy.s.sol` so the fork and testnet scripts configure their
- * factories with the *same* numbers production gets. A fork run whose vaults are
- * looser than mainnet's does not test mainnet — it tests a vault that does not
- * exist, and the NAV bounds are exactly the part most worth exercising against
- * real prices.
+ * Kept in its own library rather than inlined into `Deploy.s.sol` so the tests
+ * assert against the same numbers the deployment uses. A test whose vaults are
+ * looser than the deployed ones does not test the deployment — it tests a vault
+ * that does not exist, and the NAV bounds are exactly the part most worth
+ * exercising.
  */
 library VaultLimits {
     /**

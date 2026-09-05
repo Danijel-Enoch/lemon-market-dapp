@@ -49,7 +49,7 @@ export default async function globalSetup() {
 	}
 
 	if (!CONFIG.factory) {
-		problems.push("no VAULT_FACTORY_ADDRESS in .env/.env.fork — has fork:up been run?");
+		problems.push("no VAULT_FACTORY_ADDRESS in .env — the contracts have not been deployed");
 	}
 
 	if (problems.length > 0) {
@@ -59,8 +59,8 @@ export default async function globalSetup() {
 				...problems.map((p) => `  - ${p}`),
 				"",
 				"Bring it up with:",
-				"  bun run fork:up",
-				"  bun run dev:fork admin        # web :3002, admin :3004, indexer :42069",
+				"  bun run dev:stack             # web :3002, api, indexer :42069",
+				"  bun run dev:admin             # admin :3004",
 			].join("\n"),
 		);
 	}

@@ -1,4 +1,5 @@
 import { lemonVaultAbi, vaultFactoryAbi } from "@lemon/contracts";
+import { BASE_CHAIN_ID } from "@lemon/core";
 import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
 
@@ -58,15 +59,14 @@ export default createConfig({
 	chains: {
 		base: {
 			/**
-			 * Base mainnet unless a deployment says otherwise.
+			 * Base mainnet, pinned.
 			 *
-			 * Read from the environment rather than pinned so the same indexer
-			 * follows a Base Sepolia or Vibenet deployment, and so an anvil fork
-			 * reporting id 8453 is indexed as the Base it is pretending to be.
-			 * Changing it invalidates the indexed tables — the ids in them are
-			 * chain-scoped — so Ponder will rebuild from `startBlock`.
+			 * The vault contracts exist on one chain, so an id read from the
+			 * environment could only ever point this at a chain with no factory on
+			 * it — and the failure mode is an indexer that runs cleanly and serves
+			 * an empty app. Only the endpoint is configurable.
 			 */
-			id: Number(process.env.CHAIN_ID ?? 8453),
+			id: BASE_CHAIN_ID,
 			rpc:
 				process.env.PONDER_RPC_URL_BASE ?? process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
 		},

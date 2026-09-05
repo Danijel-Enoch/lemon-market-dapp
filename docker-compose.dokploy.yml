@@ -52,10 +52,7 @@ x-image: &image
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
       VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
       VITE_BASE_RPC_URL: ${VITE_BASE_RPC_URL:-}
-      VITE_CHAIN_ID: ${VITE_CHAIN_ID:-}
-      VITE_CHAIN_NAME: ${VITE_CHAIN_NAME:-}
       VITE_CHAIN_RPC_URL: ${VITE_CHAIN_RPC_URL:-}
-      VITE_CHAIN_EXPLORER_URL: ${VITE_CHAIN_EXPLORER_URL:-}
       VITE_VAULT_FACTORY_ADDRESS: ${VITE_VAULT_FACTORY_ADDRESS:-}
       VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-https://${DOMAIN}}
   image: lemon-app:${IMAGE_TAG:-latest}
@@ -69,9 +66,8 @@ x-app-env: &app-env
   NODE_ENV: production
   DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
 
-  # Chain. CHAIN_ID is what the server signs and indexes against; the browser's
-  # copy is a build arg above and the two must name the same chain.
-  CHAIN_ID: ${CHAIN_ID:-8453}
+  # Chain. Base mainnet is pinned in code on both sides; only the endpoint is a
+  # deployment choice, and the browser's copy is the build arg above.
   BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
 
   # Deployed contracts. Without the factory the admin console can read the
@@ -85,15 +81,16 @@ x-app-env: &app-env
   # it directly, the API proxies it.
   INDEXER_URL: http://indexer:42069
 
-  # Venues. Pacifica's testnet is the same API on a different host — but it runs
-  # on Solana devnet, so SOLANA_RPC_URL has to follow it or balances are read on
-  # the wrong chain.
+  # Venues. Spot is KyberSwap on Base, the perp is Pacifica on Solana
+  # mainnet-beta, and Relay carries USDC between the two.
   KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
   KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
   PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
   SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
   RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
-  # Deposits stay disabled (with an explanatory message) until this is set.
+  # Required for the agent, which bridges every trade's margin over Relay
+  # deposit addresses; without it the agent refuses to start. For the API it is
+  # softer — user deposits stay disabled, with an explanatory message.
   RELAY_API_KEY: ${RELAY_API_KEY:-}
 
   # Sign-in, and the admin allowlist this seeds at boot. Membership lives in the
@@ -106,15 +103,16 @@ x-app-env: &app-env
   # NEAR_ACCOUNT_ID is an input to address derivation, and a vault's agent
   # address is immutable — changing it after vaults exist leaves them permanently
   # unable to trade. Choose it once and treat it as permanent.
-  NEAR_NETWORK: ${NEAR_NETWORK:-mainnet}
   NEAR_ACCOUNT_ID: ${NEAR_ACCOUNT_ID:-}
   NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY:-}
   NEAR_RPC_URL: ${NEAR_RPC_URL:-}
   NEAR_MPC_CONTRACT_ID: ${NEAR_MPC_CONTRACT_ID:-}
 
   # An agent's derived Solana wallet holds USDC and no SOL, so it cannot pay for
-  # its own transactions. This covers that and the one-off rent for its first
-  # USDC token account. It is never an authority over vault funds.
+  # its own transactions. This covers those, and the one-off rent for a token
+  # account, on every Pacifica deposit and every bridge home. It is never an
+  # authority over vault funds — but keep it funded, because an empty fee payer
+  # stalls an unwind that has already closed both legs.
   SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
 
   # Fees this deployment collects. Spot rides inside the KyberSwap route, so it
@@ -302,9 +300,8 @@ services:
   # `AGENT_ENABLED=true` starts it, because an agent moving real capital should
   # be switched on deliberately rather than by deploying.
   #
-  # `AGENT_PAPER_TRADING=true` reads both venues and fills neither, which is
-  # what a testnet deployment wants — KyberSwap's aggregator serves Base mainnet
-  # only, so the spot leg cannot execute anywhere else.
+  # It trades for real: KyberSwap on Base, Pacifica on Solana, Relay in between.
+  # It refuses to start without RELAY_API_KEY and SOLANA_FEE_PAYER_SECRET.
   agent:
     <<: [*image, *restart]
     profiles: ["agent"]
@@ -316,7 +313,11 @@ services:
       # path and venue configuration are deliberately off-chain, and the raw
       # index would hand the agent vaults it has no way to act on.
       AGENT_API_URL: http://web:3002/api
-      AGENT_PAPER_TRADING: ${AGENT_PAPER_TRADING:-false}
+      # How long a crossing may take before a tick gives up on it. Giving up
+      # does not cancel anything: the transfer stays recorded as in flight and
+      # keeps counting towards NAV.
+      BRIDGE_FILL_TIMEOUT_MS: ${BRIDGE_FILL_TIMEOUT_MS:-1200000}
+      VENUE_WITHDRAWAL_TIMEOUT_MS: ${VENUE_WITHDRAWAL_TIMEOUT_MS:-900000}
       # Each tick reads both venues and may report a valuation, so this
       # interacts with the vault's own minNavReportInterval.
       AGENT_TICK_INTERVAL_MS: ${AGENT_TICK_INTERVAL_MS:-60000}

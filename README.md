@@ -188,7 +188,10 @@ The board and docs work with no configuration. Beyond that:
 - **Creating vaults** additionally needs a funded NEAR account
   (`NEAR_ACCOUNT_ID`, `NEAR_PRIVATE_KEY`) — an agent wallet is derived before
   the vault exists.
-- **The agent** (`bun run dev:agent`) needs all of the above plus venue access.
+- **The agent** (`bun run dev:agent`) needs all of the above, plus `RELAY_API_KEY`
+  and `SOLANA_FEE_PAYER_SECRET`. It refuses to start without either: every trade
+  it places crosses a chain, and the first crossing of a deployment happens with
+  a depositor's capital already drawn out of a vault.
 
 ### Deploying the contracts
 
@@ -204,98 +207,52 @@ network and the derivation has to happen alongside the transaction.
 ### Connecting a wallet
 
 Both apps use the same RainbowKit modal, built once in `@lemon/wallet`. That
-package also owns the chain the browser targets, and it builds it from `VITE_`
-variables rather than pinning Base:
+package also owns the chain the browser targets, and it is Base mainnet — pinned
+in code, not read from a build variable:
 
 ```bash
-VITE_CHAIN_ID=84532                       # Base Sepolia and Vibenet are known by id
-VITE_CHAIN_ID=8453                        # a fork also needs the rest:
-VITE_CHAIN_NAME="Base Fork (local)"
-VITE_CHAIN_RPC_URL=http://127.0.0.1:8545
-VITE_CHAIN_EXPLORER_URL=https://basescan.org
+VITE_CHAIN_RPC_URL=https://...            # optional: a dedicated Base endpoint
 ```
 
-Why it is built rather than patched: a wallet that has never heard of the chain
-is asked to add it with `wallet_addEthereumChain`, and that call needs a full
-name, native currency, RPC URL and explorer. `base` with a swapped transport
-does not carry those, and the call fails with an error most wallets do not
-explain — the app appears to connect and then every write goes nowhere. The
-scripts write these into their overlay files, so a fork or a testnet is
-connectable without hand-adding a network.
+The chain is a fact about the deployment rather than a setting. The vault
+contracts, Circle's USDC, KyberSwap's aggregator and the Relay routes the agent
+bridges over all exist on Base mainnet and nowhere else, so an id read from the
+environment could only ever produce a build where every write reverts while the
+UI carried on looking healthy. Only the endpoint is a real choice, and the same
+reasoning is applied server-side: the API, the indexer and the agent all pin the
+chain and configure the RPC.
 
-One caveat on the fork: MetaMask keys networks by chain id, and the fork reports
-8453 so the venue APIs keep working. It is therefore offered as a *separate*
-network named "Base Fork (local)" rather than rewriting your real Base RPC.
-MetaMask will warn about the duplicate id; that warning is the intended
-behaviour, not a misconfiguration.
+A wallet that has never been on Base is asked to add it with
+`wallet_addEthereumChain`, and that call needs a full name, native currency, RPC
+URL and explorer. `APP_CHAIN` keeps viem's whole Base definition rather than an
+id with a transport bolted on, because a partial chain object fails that call
+with an error most wallets do not explain.
 
-### Testing against real chains
-
-Three environments, answering different questions. `scripts/dev.sh` runs the
-stack against any of them by loading an overlay file on top of `.env`, so a test
-run never edits the mainnet configuration.
+### Testing
 
 ```bash
-bun run fork:up          # anvil forking Base mainnet, protocol deployed and seeded
-bun run dev:fork         # the stack against that fork
-bun run fork:down        # stop it
+bun test                 # TypeScript tests + 128 Foundry tests
+bun run contracts:test   # Foundry only
+bun run test:e2e         # Playwright, against a running stack
 ```
 
-**The mainnet fork is the only place the whole thing runs.** It has Circle's real
-USDC — minted by impersonating the token's own master minter, so `totalSupply`
-stays consistent — and the real Base pools behind KyberSwap's routes. It is the
-only environment where the agent's spot leg can actually fill. `fork-up.sh`
-deploys with production's limit templates, seeds two vaults, funds two
-depositors, leaves a withdrawal in the queue, and warps the chain through eight
-NAV rounds over two days so the share-price chart and the fee high-water mark
-have something real to read.
+The contract tests are where the write paths are covered — deposits, the
+redemption queue, NAV bounds, fee accrual, and the limits that bound a
+compromised agent key. They run against a fresh in-memory chain, so they are the
+only place a deposit can be made without spending money.
+
+The Playwright suite is deliberately read-only. There is no throwaway chain to
+sign against any more: the app trades on Base mainnet, so a spec that deposited
+would be spending real capital against real contracts. What it does cover is
+everything that needs no signature — the pages render, the indexer serves them,
+and what the page shows agrees with what the API returns.
 
 ```bash
-echo 'DEPLOYER_PRIVATE_KEY=0x...' > .env.deployer   # gitignored
-bun run testnet:up sepolia         # Base Sepolia, Circle's test USDC
-bun run testnet:up vibenet         # Base Vibenet, own faucet token
-scripts/dev.sh .env.sepolia        # the stack against it
-```
-
-**Base Sepolia** is the shareable one: persistent, wallet-connectable, and it has
-Circle's test USDC at `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (faucet at
-faucet.circle.com). **Vibenet** (chain 84538453) is Base's ephemeral preview net
-for in-flight chain features; nothing is deployed there, so the script deploys
-its own faucet token. Its block gas limit is 6,000,000 and `VaultFactory`'s
-constructor costs 5,240,730 — which fits, but only with forge's gas estimation
-buffer trimmed to 1.05x, and it stops fitting if the factory grows by 9%. (The
-audit fixes cost 111,754 of that headroom; the factory embeds `LemonVault`'s
-creation bytecode, so anything added to the vault is paid for here.)
-
-Neither testnet can run the spot leg: KyberSwap's aggregator serves Base mainnet
-only. The perp leg does work on both, because it is not on the same chain —
-point `PACIFICA_API_URL` at `https://test-api.pacifica.fi/api/v1` and the agent
-trades Pacifica's own testnet, which carries every market mainnet does.
-
-`fork-up.sh` creates its vaults with the wallets the NEAR MPC network actually
-derives, whenever `NEAR_ACCOUNT_ID` and `NEAR_PRIVATE_KEY` are set. That matters
-for more than tidiness: a vault's agent address is immutable, and it is the only
-thing the Solana address can be derived from. Point a vault at a throwaway EOA
-and the vault page has no Solana leg to show and no derivation to check — an
-anvil account has no Ed25519 sibling.
-
-Nothing can sign for an MPC-derived agent, which is the whole design. On a fork
-we own the node, so anvil runs with `--auto-impersonate` and the seed scripts
-broadcast as the agent by address. That is what lets the seeded chain name the
-real wallets and still be played forward.
-
-```bash
-bun run scripts/agent-addresses.ts    # the wallets, and the paths they come from
+bun run scripts/agent-addresses.ts    # the agent wallets, and the paths they come from
 ```
 
 Without NEAR configured it falls back to two local keys. Everything still works;
 the Solana column is simply blank, because there is nothing true to put in it.
-
-Testnet deploys take the same override explicitly:
-
-```bash
-eval "$(bun run scripts/agent-addresses.ts --env)" && bun run testnet:up sepolia
-```
 
 ### Docker
 
@@ -312,73 +269,45 @@ bun run dev:admin        # the operator console (:3004)
 bun run dev:indexer      # Ponder
 bun run dev:agent        # the vault agents
 bun run dev:stack        # api + indexer + web together (add `admin` for the console)
-bun run dev:fork         # the same, against the local Base fork
-bun run fork:up          # fork Base mainnet, deploy and seed
-bun run fork:down        # stop the fork
-bun run testnet:up <sepolia|vibenet>   # deploy to a public testnet
 bun run typecheck        # all workspaces
 bun run lint             # biome
 bun test                 # TypeScript tests + 128 Foundry tests
 bun run contracts:test   # Foundry only
-bun run test:e2e         # Playwright, against a running fork stack
+bun run test:e2e         # Playwright, against a running stack
 bun run test:e2e:report  # the last run's HTML report
 bun run contracts:build  # compile and regenerate ABIs
 ```
 
 ## End-to-end tests
 
-Playwright, against the fork — nothing is mocked. A deposit is a transaction, the
-indexer picks it up, and the assertion afterwards reads the same API the page
-reads. The interesting failures in this system live *between* the contract, the
-indexer and the page, and a suite that stubs any of the three cannot see them.
+Playwright, against the running stack — nothing is mocked. The data comes from
+the indexer through the real API, and the assertions read what a visitor reads.
+The interesting failures in this system live *between* the contract, the indexer
+and the page, and a suite that stubs any of the three cannot see them.
 
 ```bash
-bun run fork:up
-bun run dev:fork admin       # web :3002, admin :3004, indexer :42069
+bun run dev:stack admin      # web :3002, admin :3004, indexer :42069
 bun run test:e2e
 ```
 
-Two projects: `desktop` on Chromium, and `mobile` on WebKit with an iPhone 14
-Pro profile. The mobile one is WebKit deliberately — `env(safe-area-inset-*)`,
-the input-zoom threshold and `pointer: coarse` all behave differently on
-Chromium, and those are exactly what the mobile suite asserts.
-
-**Signing.** There is no browser extension. `e2e/fixtures/wallet.ts` installs an
-EIP-1193 provider on `window`, announces it over EIP-6963 as MetaMask so
-RainbowKit offers it, and forwards every call to a `viem` wallet holding one of
-anvil's keys. The page's wagmi, its SIWE sign-in and its `writeContract` calls
-all take the ordinary path; the only thing that changed is who holds the key.
-
-The provider reports **no accounts until `eth_requestAccounts`**, the same as a
-wallet that has never seen the site. That matters: a shim answering
-`eth_accounts` unconditionally makes wagmi reconnect on load, so the app is
-already connected before any test clicks anything — and the connect flow, the
-part most likely to be broken, is never exercised.
-
-What the suite covers:
-
-| Spec | What it holds to account |
-|---|---|
-| `landing` | The front page quotes live protocol figures, and states the risks |
-| `board` | Every indexed vault is listed; filters partition rather than hide; an unmeasurable yield renders as a dash |
-| `deposit` | Approve → deposit → shares minted → queued redemption, as real transactions |
-| `admin` | Sign-in is a signature, not a connection; deriving, deploying and recording a vault; the new vault reaching the public board |
-| `mobile` | No horizontal scroll on any route, 44px touch targets, tab bar above the home indicator, no iOS input zoom |
-| `onboarding` | The intro appears once, on the board rather than the landing page, and is dismissible |
-
-`e2e/global-setup.ts` refuses to start against a stack that is not up, and names
-which part is missing. It also warms every route first: both apps are Vite dev
-servers, so the first request to a route pays for compiling it — comfortably
-more than a per-assertion timeout, and a cold start failing one spec while the
-rest pass reads as a flaky suite rather than a slow one.
+Read-only, and that is a real limit rather than a preference. The app trades on
+Base mainnet, so there is nowhere to sign a test deposit that does not cost
+money. Vault creation, deposits and the redemption queue are covered by the
+Foundry suite instead.
 
 ## Agent gas
 
-The one running cost the protocol cannot cover for itself. Each agent's wallets
-hold the position but are ordinary accounts on their chains: the Base one needs
-ETH to send a transaction, the Solana one needs SOL. The vault holds USDC and may
-only ever send USDC to one address, so neither can be funded from protocol
-capital — an operator tops them up.
+The one running cost the protocol cannot cover for itself. An agent's Base wallet
+is an ordinary account and needs ETH to send a transaction; the vault holds USDC
+and may only ever send USDC to one address, so it cannot be funded from protocol
+capital — an operator tops it up.
+
+The Solana side is covered differently. A derived wallet never holds SOL, so it
+could not pay for its own transaction even in principle; one shared keypair
+(`SOLANA_FEE_PAYER_SECRET`) pays for every agent's Pacifica deposits and bridge
+legs instead. It is only ever a fee payer — never an authority over a token
+account — but it has to stay funded, because an empty one stalls an unwind whose
+legs have already closed.
 
 The failure is silent, which is why the console watches it. An agent out of gas
 does not crash; it fails every write, stops reporting a valuation, and its vault
@@ -389,6 +318,13 @@ The Gas tab shows both balances per vault and funds the Base side directly from
 the operator's wallet. Solana is shown with its address and no button: a Base
 wallet cannot send SOL, and a button that opens a wallet which then cannot sign
 is worse than none.
+
+**Bridged USDC is counted while it is in the air.** A Relay fill takes minutes,
+and for those minutes the money has left one chain's balance and not arrived in
+the other. Every crossing is written to `BridgeTransfer` before the origin
+transaction is sent, so the valuation adds it back — and so an agent restarted
+mid-bridge does not report a NAV missing the whole transfer, which would print a
+dip and a recovery that never happened into every holder's share price.
 
 ## Things worth knowing
 

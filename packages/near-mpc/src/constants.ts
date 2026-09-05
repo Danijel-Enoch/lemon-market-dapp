@@ -1,20 +1,21 @@
 import type { NajPublicKey } from "./derivation";
 
-export type NearNetwork = "mainnet" | "testnet";
+/**
+ * NEAR mainnet, and only NEAR mainnet.
+ *
+ * The signer network is not a deployment choice: an agent wallet's address is
+ * derived from a root key that differs per network, so a process that signed
+ * against testnet would derive addresses no vault has ever named as its agent
+ * and every write would revert. There is one signer this app can use.
+ */
 
-/** The MPC signer contract, per network. */
-export const MPC_CONTRACT: Record<NearNetwork, string> = {
-	mainnet: "v1.signer",
-	testnet: "v1.signer-prod.testnet",
-};
+/** The MPC signer contract. */
+export const MPC_CONTRACT = "v1.signer";
 
-export const NEAR_RPC_URL: Record<NearNetwork, string> = {
-	mainnet: "https://rpc.mainnet.near.org",
-	testnet: "https://rpc.testnet.near.org",
-};
+export const NEAR_RPC_URL = "https://rpc.mainnet.near.org";
 
 /**
- * Root public keys of each MPC deployment, one per curve.
+ * The MPC deployment's root public keys, one per curve.
  *
  * These are the contract's own `public_key` view values (domain 0 = secp256k1,
  * domain 1 = ed25519). They are pinned rather than fetched so address
@@ -23,20 +24,10 @@ export const NEAR_RPC_URL: Record<NearNetwork, string> = {
  * sign for. `NearMpcClient.verifyRootKeys()` checks them against the live
  * contract when a deployment wants belt and braces.
  */
-export const MPC_ROOT_KEYS: Record<
-	NearNetwork,
-	{ secp256k1: NajPublicKey; ed25519: NajPublicKey }
-> = {
-	mainnet: {
-		secp256k1:
-			"secp256k1:3tFRbMqmoa6AAALMrEFAYCEoHcqKxeW38YptwowBVBtXK1vo36HDbUWuR6EZmoK4JcH6HDkNMGGqP1ouV7VZUWya",
-		ed25519: "ed25519:G9hwngxWNKdmqMCmU1Yt6LPhFpayJeKFxyAV1HqMNLtF",
-	},
-	testnet: {
-		secp256k1:
-			"secp256k1:4NfTiv3UsGahebgTaHyD9vF8KYKMBnfd6kh94mK6xv8fGBiJB8TBtFMP5WWXz6B89Ac1fbpzPwAvoyQebemHFwx3",
-		ed25519: "ed25519:6vSEtQxrQj6txUMh33WC4ERyCWmNMRTdufDWAaDY3Un2",
-	},
+export const MPC_ROOT_KEYS: { secp256k1: NajPublicKey; ed25519: NajPublicKey } = {
+	secp256k1:
+		"secp256k1:3tFRbMqmoa6AAALMrEFAYCEoHcqKxeW38YptwowBVBtXK1vo36HDbUWuR6EZmoK4JcH6HDkNMGGqP1ouV7VZUWya",
+	ed25519: "ed25519:G9hwngxWNKdmqMCmU1Yt6LPhFpayJeKFxyAV1HqMNLtF",
 };
 
 /** `domain_id` selects the curve on the signer contract. */

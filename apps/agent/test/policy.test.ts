@@ -1,5 +1,5 @@
-import { adlRisk } from "@lemon/core";
 import { describe, expect, it } from "bun:test";
+import { adlRisk } from "@lemon/core";
 import {
 	decide,
 	deployableAmount,

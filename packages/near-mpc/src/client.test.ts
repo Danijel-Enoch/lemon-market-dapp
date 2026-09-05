@@ -5,7 +5,6 @@ import { MPC_CONTRACT, MPC_ROOT_KEYS } from "./constants";
 import { deriveEd25519PublicKey, deriveEvmAddress } from "./derivation";
 
 const config = {
-	network: "mainnet" as const,
 	accountId: "lemon-markets.near",
 	// Never used: every test here stays off the network.
 	privateKey:
@@ -46,7 +45,7 @@ describe("NearMpcClient", () => {
 	const client = new NearMpcClient(config);
 
 	test("targets the mainnet signer contract by default", () => {
-		expect(client.contractId).toBe(MPC_CONTRACT.mainnet);
+		expect(client.contractId).toBe(MPC_CONTRACT);
 	});
 
 	test("derives both chains from one path, matching the standalone helpers", () => {
@@ -54,10 +53,10 @@ describe("NearMpcClient", () => {
 		const derived = client.derive(path);
 
 		expect(derived.solanaAddress).toBe(
-			deriveEd25519PublicKey(MPC_ROOT_KEYS.mainnet.ed25519, config.accountId, path),
+			deriveEd25519PublicKey(MPC_ROOT_KEYS.ed25519, config.accountId, path),
 		);
 		expect(derived.evmAddress).toBe(
-			deriveEvmAddress(MPC_ROOT_KEYS.mainnet.secp256k1, config.accountId, path),
+			deriveEvmAddress(MPC_ROOT_KEYS.secp256k1, config.accountId, path),
 		);
 		expect(derived.path).toBe(path);
 	});
@@ -69,7 +68,7 @@ describe("NearMpcClient", () => {
 	});
 
 	test("a custom contract id overrides the network default", () => {
-		const custom = new NearMpcClient({ ...config, contractId: "signer.testnet" });
-		expect(custom.contractId).toBe("signer.testnet");
+		const custom = new NearMpcClient({ ...config, contractId: "custom.signer.near" });
+		expect(custom.contractId).toBe("custom.signer.near");
 	});
 });
