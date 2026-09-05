@@ -81,12 +81,20 @@ test.describe("vault board", () => {
 			outlook: { available: boolean; netApyPercent?: number };
 		};
 
-		// The projected column exists so a vault with no track record still has
-		// something to show the person deciding whether to be its first
-		// depositor. It is a different claim from the realised columns and is
-		// labelled as one.
+		// The projection exists so a vault with no track record still has something
+		// to show the person deciding whether to be its first depositor. It is a
+		// different claim from the realised columns and is labelled as one.
+		//
+		// Case-insensitive because the label is not one element: the desktop grid
+		// has a "Projected" column header, and the mobile card — where there are
+		// no columns to head — carries a lowercase "projected" under the figure
+		// instead. Matching only the desktop casing passed on desktop and failed
+		// on mobile against a board that was rendering correctly in both.
 		await expect(
-			page.getByText("Projected", { exact: true }).filter({ visible: true }).first(),
+			page
+				.getByText(/^projected$/i)
+				.filter({ visible: true })
+				.first(),
 		).toBeVisible();
 
 		const projected: Row[] = vaults.filter((v: Row) => v.outlook?.available);
@@ -99,8 +107,14 @@ test.describe("vault board", () => {
 		// One decimal place, matching `formatPercent(value, 1)`. Asserting the
 		// number rather than merely that a number is present is what catches the
 		// projection being computed on the wrong vault's terms.
+		//
+		// Filtered to the visible node for the same reason the label above is:
+		// the row exists twice, and `.first()` alone resolves the desktop cell,
+		// which is `display:none` at a phone viewport.
 		const expected = `${(vault.outlook.netApyPercent ?? 0).toFixed(1)}%`;
-		await expect(row.getByText(expected, { exact: false }).first()).toBeVisible();
+		await expect(
+			row.getByText(expected, { exact: false }).filter({ visible: true }).first(),
+		).toBeVisible();
 	});
 
 	test("opens a vault and shows its position", async ({ page }) => {

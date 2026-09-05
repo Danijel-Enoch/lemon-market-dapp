@@ -3,25 +3,35 @@ import { join } from "node:path";
 import { test as base, expect, type Page } from "@playwright/test";
 
 /**
- * Configuration is read from the same `.env` the stack reads.
+ * Configuration is read the same way the stack reads it: `.env`, then any
+ * `.env.local` on top.
  *
- * Reading the file rather than hardcoding addresses means the suite follows
- * whatever this deployment is actually pointed at — the factory address is a
+ * The overlay matters, and leaving it out is how this suite failed with "the
+ * contracts have not been deployed" against a stack that was running perfectly
+ * — `scripts/dev.sh` layers the same two files, so a fixture that reads only
+ * the base file is looking at different configuration from the app it is
+ * testing.
+ *
+ * Reading the files rather than hardcoding addresses means the suite follows
+ * whatever this deployment is actually pointed at. The factory address is a
  * deployment fact, and a test pinned to a stale one fails for the least
  * interesting possible reason.
  */
 function loadEnv(): Record<string, string> {
 	const root = join(import.meta.dirname, "..", "..");
 	const out: Record<string, string> = {};
-	let text: string;
-	try {
-		text = readFileSync(join(root, ".env"), "utf8");
-	} catch {
-		return out;
-	}
-	for (const line of text.split("\n")) {
-		const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-		if (match) out[match[1]] = match[2].replace(/^["']|["']$/g, "");
+	// Later files win, matching the shell's precedence in `scripts/dev.sh`.
+	for (const file of [".env", ".env.local"]) {
+		let text: string;
+		try {
+			text = readFileSync(join(root, file), "utf8");
+		} catch {
+			continue;
+		}
+		for (const line of text.split("\n")) {
+			const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+			if (match) out[match[1]] = match[2].replace(/^["']|["']$/g, "");
+		}
 	}
 	return out;
 }
