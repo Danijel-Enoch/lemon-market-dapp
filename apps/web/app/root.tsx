@@ -15,7 +15,7 @@ export const meta: Route.MetaFunction = () => {
 		{
 			name: "description",
 			content:
-				"Trade tokenized stocks and FX on Base — leveraged perps, spot, and delta-neutral cash-and-carry.",
+				"Earn from stocks and crypto on Base without betting on the price. Deposit USDC into a vault that owns the asset and hedges it one-for-one, and collect what the market pays to hold it.",
 		},
 		{
 			property: "og:title",
@@ -23,7 +23,8 @@ export const meta: Route.MetaFunction = () => {
 		},
 		{
 			property: "og:description",
-			content: "Stocks and FX on Base — perps, spot, and cash-and-carry.",
+			content:
+				"Stocks and crypto on Base, fully hedged. Earn what the market pays, not the price move.",
 		},
 		{
 			property: "og:image",

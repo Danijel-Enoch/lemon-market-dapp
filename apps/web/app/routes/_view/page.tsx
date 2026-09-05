@@ -17,17 +17,17 @@ import type { MetaFunction } from "react-router";
 import { Link, useNavigate } from "react-router";
 
 export const meta: MetaFunction = () => [
-	{ title: "Lemon — delta-neutral basis vaults on Base" },
+	{ title: "Lemon — earn from stocks and crypto without picking a side" },
 	{
 		name: "description",
 		content:
-			"Deposit USDC into a delta-neutral basis vault on Base. An agent runs the spot-and-perp position, the contract bounds what it can do with your capital, and every trade it makes is published for anyone to check.",
+			"Deposit USDC. Each vault owns a real asset on Base and hedges it one-for-one, so your return comes from what these markets pay to be held — not from guessing where the price goes. An agent runs it, and publishes every trade.",
 	},
-	{ property: "og:title", content: "Lemon — basis vaults on Base" },
+	{ property: "og:title", content: "Lemon — earn from stocks and crypto, no side taken" },
 	{
 		property: "og:description",
 		content:
-			"One vault, one market, one agent. Long the spot token, short the matching perp, collect the funding — with every move on a public ledger.",
+			"Own the asset, hedge it one-for-one, collect what the market pays. No bet up, no bet against — and every move on a public ledger.",
 	},
 ];
 
@@ -88,7 +88,7 @@ function Hero({ stats }: { stats: ReturnType<typeof useProtocolStats>["data"] })
 		<section className="pt-4 md:pt-10">
 			<span className="inline-flex items-center gap-2 rounded-full border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3 py-1.5 text-[11px] font-medium tracking-wide text-[var(--pon-fg-2)] uppercase">
 				<span className="size-1.5 rounded-full bg-[var(--pon-lime)]" aria-hidden />
-				Delta neutral · Base · USDC
+				Fully hedged · Base · USDC
 			</span>
 
 			{/*
@@ -100,16 +100,17 @@ function Hero({ stats }: { stats: ReturnType<typeof useProtocolStats>["data"] })
 				className="mt-5 font-semibold tracking-[-0.03em] text-[var(--pon-fg-0)]"
 				style={{ fontSize: "clamp(2.25rem, 7vw, 4.5rem)", lineHeight: 1.02 }}
 			>
-				Earn the funding rate,
+				Earn from stocks and crypto
 				<br />
-				<span className="text-[var(--pon-lime)]">not the price move.</span>
+				<span className="text-[var(--pon-lime)]">without betting either way.</span>
 			</h1>
 
 			<p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[var(--pon-fg-2)] md:text-lg">
-				A basis vault holds the spot token and shorts the matching perp at the same size. The two
-				legs cancel, so the position does not care which way the market goes — what it collects is
-				the funding longs pay shorts. You deposit USDC and hold a share token. An agent runs the
-				trade, and publishes every move it makes.
+				Each vault buys a real asset — NVDA on Base, or BTC — and hedges the same size against it,
+				so its value stops following the price. You are not long and you are not short. What is left
+				is the fee traders pay each other to keep their positions open, and the hedged side is the
+				side that collects it. You deposit USDC, hold a share token, and an agent runs it in public.
+				The trade is honest: no drawdown, and no upside either.
 			</p>
 
 			<div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -165,8 +166,8 @@ const STEPS = [
 	},
 	{
 		icon: Landmark,
-		title: "An agent runs the trade",
-		body: "It buys the spot token on Base, bridges margin, shorts the matching perp at the same size, and collects funding. It rebalances when the two legs drift apart.",
+		title: "An agent owns and hedges it",
+		body: "It buys the asset on Base and hedges the same size against it, so the two cancel out and the vault stops caring where the price goes. It collects the funding that pays, and re-hedges as the sizes drift.",
 	},
 	{
 		icon: Timer,
@@ -178,7 +179,11 @@ const STEPS = [
 function HowItWorks() {
 	return (
 		<section>
-			<SectionHeading eyebrow="How it works" title="Three steps, two of which are not yours" />
+			<SectionHeading
+				eyebrow="How it works"
+				title="Three steps, two of which are not yours"
+				description="Nothing here asks you to have a view. You put USDC in; the vault takes both sides of the same trade so no side is being taken at all."
+			/>
 			<ol className="mt-7 grid gap-3 md:grid-cols-3 md:gap-4">
 				{STEPS.map((step, i) => {
 					const Icon = step.icon;
@@ -221,8 +226,8 @@ function FeaturedVaults({
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<SectionHeading
 					eyebrow="Open now"
-					title="What the vaults have actually done"
-					description="The percentage is this vault's own share price over the last seven days, annualised — measured, not projected from today's funding rate."
+					title="What the vaults have actually paid"
+					description="The percentage is this vault's own share price over the last seven days, annualised — measured, not projected from today's funding rate. Every vault also carries a projection for what it would pay if funding held, which is the figure to look at where there is no history yet."
 				/>
 				<Link
 					to="/vaults"
@@ -337,16 +342,18 @@ function TrustBoundary() {
 function Risks() {
 	return (
 		<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-8">
-			<h2 className="font-medium text-[var(--pon-fg-0)]">Delta-neutral is not risk-free</h2>
+			<h2 className="font-medium text-[var(--pon-fg-0)]">
+				Taking no side is not the same as no risk
+			</h2>
 			<p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--pon-fg-2)]">
-				Cancelling the price exposure removes one risk. It does not remove the others, and this is
-				the part a landing page usually leaves out.
+				The hedge removes the price risk and only the price risk. Everything below is still yours,
+				and this is the part a landing page usually leaves out.
 			</p>
 			<ul className="mt-5 grid gap-x-8 gap-y-3 text-sm leading-relaxed text-[var(--pon-fg-2)] md:grid-cols-2">
 				{[
 					"Funding can turn negative, in which case the position pays rather than earns.",
-					"The spot leg can become illiquid, and a vault whose pool has dried up cannot be exited at the marked price.",
-					"A leveraged vault's short carries a liquidation price. The conservative tier does not.",
+					"The asset can become illiquid to sell, and a vault whose pool has dried up cannot be exited at the marked price.",
+					"A leveraged vault's hedge carries a liquidation price. The conservative tier does not.",
 					"The vault is custodial. Your USDC is held by a contract and traded by an agent.",
 				].map((line) => (
 					<li key={line} className="flex gap-2.5">
@@ -378,10 +385,11 @@ function ClosingCta() {
 				className="font-semibold tracking-[-0.02em] text-[var(--pon-fg-0)]"
 				style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", lineHeight: 1.1 }}
 			>
-				Deposit USDC. That is the whole interaction.
+				Put your USDC to work. Pick no side.
 			</h2>
 			<p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--pon-fg-2)] md:text-base">
-				Pick a market and a risk tier. The agent does the rest, in public.
+				Choose a market, and how hard you want that capital working. The agent does the rest, in
+				public.
 			</p>
 			<div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
 				<Button asChild size="lg" className="w-full sm:w-auto">

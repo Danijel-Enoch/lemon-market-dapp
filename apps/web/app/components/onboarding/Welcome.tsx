@@ -25,20 +25,29 @@ interface Slide {
 	art: ReactNode;
 }
 
-/** Two offsetting bars — the whole idea, drawn rather than described. */
+/**
+ * Two offsetting bars — the whole idea, drawn rather than described.
+ *
+ * Labelled by what each side *is for* rather than by its venue mechanics. "LONG
+ * SPOT" beside a red "SHORT PERP" reads as a bullish bet next to a bearish one,
+ * which is the single most common misreading of this product: the second side
+ * is not a view on the asset, it is what cancels the first. Both bars are drawn
+ * in the neutral tone for the same reason — one green and one red says somebody
+ * is winning and somebody is losing, when the point is that neither happens.
+ */
 function LegsArt() {
 	return (
 		<div className="flex w-full items-end justify-center gap-3" aria-hidden>
 			<div className="flex flex-1 flex-col items-center gap-2">
-				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-up)]/10 to-[var(--pon-up)]/45" />
-				<span className="t-micro text-[var(--pon-up)]">LONG SPOT</span>
+				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-lime)]/10 to-[var(--pon-lime)]/45" />
+				<span className="t-micro text-[var(--pon-fg-2)]">OWN IT</span>
 			</div>
 			<div className="mb-7 shrink-0 rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-1.5">
 				<ArrowLeftRight size={14} className="text-[var(--pon-fg-3)]" />
 			</div>
 			<div className="flex flex-1 flex-col items-center gap-2">
-				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-down)]/10 to-[var(--pon-down)]/45" />
-				<span className="t-micro text-[var(--pon-down)]">SHORT PERP</span>
+				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-lime)]/10 to-[var(--pon-lime)]/45" />
+				<span className="t-micro text-[var(--pon-fg-2)]">HEDGE IT</span>
 			</div>
 		</div>
 	);
@@ -50,7 +59,7 @@ function YieldArt() {
 		<div className="w-full space-y-3" aria-hidden>
 			<div className="space-y-1.5">
 				<div className="flex justify-between t-micro text-[var(--pon-fg-3)]">
-					<span>FUNDING</span>
+					<span>WHAT THE MARKET PAYS</span>
 					<span className="text-[var(--pon-up)]">+10.95%</span>
 				</div>
 				<div className="h-3 w-full rounded-full bg-[var(--pon-up)]/40" />
@@ -120,12 +129,12 @@ const SLIDES: Slide[] = [
 	{
 		icon: Scale,
 		eyebrow: "What this is",
-		title: "Two legs that cancel out",
+		title: "Owned, and hedged one for one",
 		body: (
 			<>
-				Each vault holds a token on Base and shorts the matching perp at the same size. When the
-				price moves, one leg gains what the other loses — so the position is not a bet on direction
-				at all.
+				Each vault buys a real asset on Base — NVDA, BTC — and hedges the same size against it. When
+				the price moves, one side gains exactly what the other loses. You are not long, and you are
+				not betting against it either.
 			</>
 		),
 		art: <LegsArt />,
@@ -133,11 +142,12 @@ const SLIDES: Slide[] = [
 	{
 		icon: TrendingUp,
 		eyebrow: "Where the yield comes from",
-		title: "You get paid the funding",
+		title: "The market pays you to hold it",
 		body: (
 			<>
-				Perp traders pay each other an hourly funding rate. Holding the short side collects it while
-				longs are crowded. That stream, minus what it costs to get in and out, is the whole return.
+				Traders pay an hourly fee to keep a position open, and while the crowd is leaning one way,
+				the hedged side is the side that gets paid. That stream, minus what it costs to get in and
+				out, is the whole return — no price move required.
 			</>
 		),
 		art: <YieldArt />,
@@ -148,9 +158,9 @@ const SLIDES: Slide[] = [
 		title: "Deposit USDC. That is all.",
 		body: (
 			<>
-				You never touch either leg. Deposit USDC into a vault, receive a share token immediately,
-				and an agent runs the position for you — buying the spot, placing the hedge, and rebalancing
-				it as it drifts. Every move it makes is published for anyone to check.
+				You never touch either side. Deposit USDC into a vault, receive a share token immediately,
+				and an agent runs it for you — buying the asset, placing the hedge, and re-hedging as they
+				drift. Every move it makes is published for anyone to check.
 			</>
 		),
 		art: <FundingArt />,
@@ -162,8 +172,8 @@ const SLIDES: Slide[] = [
 		body: (
 			<>
 				Withdrawals take 3 to 7 days, because a real position has to be unwound to pay you. And
-				delta neutral is not risk free: funding can turn negative, a thin pool can be expensive to
-				exit, and a leveraged vault's short can be liquidated.
+				taking no side is not the same as no risk: funding can turn negative, a thin market can be
+				expensive to exit, and a leveraged vault's hedge can be liquidated.
 			</>
 		),
 		art: <RiskArt />,

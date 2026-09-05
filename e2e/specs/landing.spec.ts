@@ -14,12 +14,18 @@ test.describe("landing page", () => {
 	});
 
 	test("leads with what the product does", async ({ page }) => {
-		await expect(page.getByRole("heading", { level: 1 })).toContainText("Earn the funding rate");
-		await expect(page.getByText(/short(s)? the matching perp/i).first()).toBeVisible();
+		await expect(page.getByRole("heading", { level: 1 })).toContainText(
+			"Earn from stocks and crypto",
+		);
+		// The mechanism, not only the pitch. A headline about earning with no
+		// explanation of the hedge underneath it is the failure mode here.
+		await expect(page.getByText(/hedges the same size/i).first()).toBeVisible();
+		// And the half of the trade a pitch is tempted to leave out.
+		await expect(page.getByText(/no upside either/i).first()).toBeVisible();
 	});
 
 	test("states the risks rather than burying them", async ({ page }) => {
-		const risks = page.getByRole("heading", { name: /not risk-free/i });
+		const risks = page.getByRole("heading", { name: /not the same as no risk/i });
 		await expect(risks).toBeVisible();
 
 		// The four that actually apply to a basis vault. A landing page that
@@ -70,7 +76,7 @@ test.describe("landing page", () => {
 		const measured = vaults.filter((v: { apy7d?: { apy: number | null } }) => v.apy7d?.apy != null);
 		test.skip(measured.length === 0, "no vault on this chain has a 7d track record yet");
 
-		const shelf = page.getByRole("heading", { name: /what the vaults have actually done/i });
+		const shelf = page.getByRole("heading", { name: /what the vaults have actually paid/i });
 		await expect(shelf).toBeVisible();
 
 		// A dash is what an unmeasurable vault renders. None of them belong here.

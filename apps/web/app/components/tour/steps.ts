@@ -36,7 +36,7 @@ export const TOUR_STEPS: TourStep[] = [
 		path: "/vaults",
 		target: "board-filters",
 		title: "Two risk levels",
-		body: "A no-leverage vault holds a fully collateralised short — it cannot be liquidated by a price move. A leveraged one runs 2–3x, which multiplies the yield and introduces a liquidation price. The tier is fixed when the vault is created.",
+		body: "A no-leverage vault holds a fully collateralised hedge — no price move can liquidate it. A leveraged one runs 2–3x, which multiplies what the same capital earns and introduces a liquidation price. The tier is fixed when the vault is created.",
 		placement: "bottom",
 	},
 	{

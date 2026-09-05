@@ -10,9 +10,9 @@ export const meta: MetaFunction = () => [
 	{
 		name: "description",
 		content:
-			"Deposit USDC into a delta-neutral basis vault on Base. An agent runs the spot-and-perp position; you hold a share token and can watch every trade it makes.",
+			"Deposit USDC. Each vault owns a real asset on Base and hedges it one-for-one, so you earn what the market pays to hold it rather than a bet on the price. You hold a share token and can watch every trade the agent makes.",
 	},
-	{ property: "og:title", content: "Lemon — basis vaults on Base" },
+	{ property: "og:title", content: "Lemon — earn from stocks and crypto, no side taken" },
 ];
 
 type TierFilter = "all" | "CONSERVATIVE" | "LEVERAGED";
@@ -58,9 +58,9 @@ export default function VaultBoardPage() {
 	return (
 		<div className="space-y-6 md:space-y-8">
 			<PageHeader
-				eyebrow="Delta neutral"
+				eyebrow="Fully hedged"
 				title="Vaults"
-				description="Deposit USDC and hold a share token. Each vault runs one basis position — long the spot token on Base, short the matching perp — through an agent whose every trade is published below. Withdrawals take 3 to 7 days, because the position has to be unwound to pay you."
+				description="Deposit USDC and hold a share token. Each vault owns one asset on Base and hedges the same size against it, so what you earn is what that market pays to be held — not a call on where it goes. An agent runs it and publishes every trade below. Withdrawals take 3 to 7 days, because a real position has to be unwound to pay you."
 			/>
 
 			<div data-tour="board-headline" className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -139,10 +139,10 @@ export default function VaultBoardPage() {
 						</p>
 					</div>
 					<div>
-						<p className="font-medium text-[var(--pon-fg)]">An agent trades it</p>
+						<p className="font-medium text-[var(--pon-fg)]">An agent owns and hedges it</p>
 						<p className="mt-1">
-							It buys the spot token on Base, shorts the matching perp on Pacifica at the same size,
-							and collects funding. Every move it makes is published.
+							It buys the asset on Base and hedges the same size on Pacifica, so the two cancel and
+							the price stops mattering. What it collects is the funding. Every move is published.
 						</p>
 					</div>
 					<div>
@@ -154,10 +154,10 @@ export default function VaultBoardPage() {
 					</div>
 				</div>
 				<p className="mt-4 text-xs leading-relaxed text-[var(--pon-fg-4)]">
-					Delta-neutral is not risk-free. Funding can turn negative, the spot leg can become
-					illiquid, and a leveraged vault's short can be liquidated by a sharp move. The vault
-					contract limits what the agent can do with your capital, but it cannot make the trade
-					profitable.
+					Taking no side is not the same as no risk. Funding can turn negative, the asset can become
+					illiquid to sell, and a leveraged vault's hedge can be liquidated by a sharp move. The
+					vault contract limits what the agent can do with your capital, but it cannot make the
+					trade profitable.
 				</p>
 			</section>
 		</div>

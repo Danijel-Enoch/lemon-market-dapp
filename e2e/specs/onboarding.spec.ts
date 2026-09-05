@@ -17,7 +17,9 @@ test.describe("first run", () => {
 		// Someone still reading the pitch has not asked to be walked around an
 		// app they have not entered. The intro belongs on the board.
 		await expect(page.getByRole("dialog", { name: /welcome to lemon/i })).toBeHidden();
-		await expect(page.getByRole("heading", { level: 1 })).toContainText("Earn the funding rate");
+		await expect(page.getByRole("heading", { level: 1 })).toContainText(
+			"Earn from stocks and crypto",
+		);
 	});
 
 	test("the intro explains the trade before the app asks for anything", async ({ page }) => {

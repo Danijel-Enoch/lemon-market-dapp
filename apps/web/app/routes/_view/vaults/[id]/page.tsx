@@ -46,7 +46,7 @@ export const meta: MetaFunction = ({ params }) => {
 		{
 			name: "description",
 			content:
-				"A delta-neutral basis vault on Base. Deposit USDC, hold a share token, and watch every trade the agent makes across Base and Solana.",
+				"A fully hedged vault on Base. Deposit USDC, hold a share token, and earn what the market pays to hold this asset — with every trade the agent makes across Base and Solana published for you to check.",
 		},
 	];
 };

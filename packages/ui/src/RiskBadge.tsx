@@ -49,6 +49,6 @@ export function RiskBadge({
  */
 export function riskDescription(tier: "CONSERVATIVE" | "LEVERAGED"): string {
 	return tier === "CONSERVATIVE"
-		? "The short leg is fully collateralised, so a move in the underlying cannot liquidate it. Yield is funding on capital deployed one-for-one."
-		: "The short leg runs at 2–3x, which multiplies the funding yield and introduces a liquidation price. A sharp move against the hedge can lose capital.";
+		? "The hedge is fully collateralised, so no price move can liquidate it. You earn what the market pays on capital put to work one-for-one."
+		: "The hedge runs at 2–3x, which multiplies what the same capital earns and introduces a liquidation price. A sharp move against it can lose capital.";
 }
