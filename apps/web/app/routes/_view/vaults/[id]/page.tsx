@@ -152,12 +152,24 @@ export default function VaultDetailPage() {
 			</div>
 
 			{/* --- headline numbers ------------------------------------------ */}
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
 				<StatCard
 					label="Share price"
 					value={formatUsd(vault.pricePerShare, 4)}
 					delta={change30d === null ? undefined : `${formatPercent(change30d, 2)} over 30d`}
 					tone={change30d === null ? "neutral" : change30d >= 0 ? "positive" : "negative"}
+				/>
+				<StatCard
+					label="Projected"
+					value={vault.outlook.available ? formatPercent(vault.outlook.netApyPercent, 1) : "—"}
+					delta={vault.outlook.available ? "if funding holds" : undefined}
+					tone={
+						!vault.outlook.available
+							? "neutral"
+							: vault.outlook.netApyPercent > 0
+								? "positive"
+								: "negative"
+					}
 				/>
 				<StatCard
 					label="7d realised"

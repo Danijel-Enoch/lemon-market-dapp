@@ -73,6 +73,36 @@ test.describe("vault board", () => {
 		await expect(row.getByText("—").filter({ visible: true }).first()).toBeVisible();
 	});
 
+	test("projects a yield where it can, and says why where it cannot", async ({ page, request }) => {
+		const { vaults } = await (await request.get(`${CONFIG.webUrl}/api/vaults`)).json();
+		type Row = {
+			ticker: string | null;
+			symbol: string;
+			outlook: { available: boolean; netApyPercent?: number };
+		};
+
+		// The projected column exists so a vault with no track record still has
+		// something to show the person deciding whether to be its first
+		// depositor. It is a different claim from the realised columns and is
+		// labelled as one.
+		await expect(
+			page.getByText("Projected", { exact: true }).filter({ visible: true }).first(),
+		).toBeVisible();
+
+		const projected: Row[] = vaults.filter((v: Row) => v.outlook?.available);
+		test.skip(projected.length === 0, "no vault on this deployment has a live funding rate");
+
+		const vault = projected[0];
+		const row = page.locator('a[href^="/vaults/0x"]', {
+			hasText: vault.ticker ?? vault.symbol,
+		});
+		// One decimal place, matching `formatPercent(value, 1)`. Asserting the
+		// number rather than merely that a number is present is what catches the
+		// projection being computed on the wrong vault's terms.
+		const expected = `${(vault.outlook.netApyPercent ?? 0).toFixed(1)}%`;
+		await expect(row.getByText(expected, { exact: false }).first()).toBeVisible();
+	});
+
 	test("opens a vault and shows its position", async ({ page }) => {
 		await page.locator('a[href^="/vaults/0x"]').first().click();
 		await expect(page).toHaveURL(/\/vaults\/0x[0-9a-fA-F]{40}/);

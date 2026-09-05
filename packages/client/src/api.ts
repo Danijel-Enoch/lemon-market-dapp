@@ -103,7 +103,52 @@ export interface Vault {
 	apy7d?: { apy: number | null; samples: number } | null;
 	apy30d?: { apy: number | null; samples: number } | null;
 	apyAll?: { apy: number | null; samples: number } | null;
+
+	/** Forward-looking yield from the current funding rate, or why there is none. */
+	outlook: VaultOutlook;
 }
+
+/**
+ * What a vault would pay if today's funding rate held.
+ *
+ * A union rather than a nullable number, so the UI cannot render a figure
+ * without the label that says it is a projection, and always has something to
+ * put in the slot when there is no figure. Every field is annualised percent
+ * unless it says otherwise.
+ */
+export type VaultOutlook =
+	| {
+			available: true;
+			observedAt: number;
+			/** Short-side funding, percent per hour, as the venue quotes it. */
+			fundingShortPercentPerHour: number;
+			/** That rate annualised, on notional. The biggest number here, and not the one to show. */
+			fundingAprPercent: number;
+			/** Funding measured against the capital that has to be posted for it. */
+			grossApyPercent: number;
+			/** After the idle buffer the vault keeps for its redemption queue. */
+			afterBufferApyPercent: number;
+			/** After the venue round trip. */
+			afterCostsApyPercent: number;
+			/** After the streaming management fee. */
+			afterManagementApyPercent: number;
+			/** What a depositor keeps. The one to show. */
+			netApyPercent: number;
+			roundTripDragPercent: number;
+			managementFeePercent: number;
+			performanceFeeDragPercent: number;
+			breakevenDays: number | null;
+			fundingPositive: boolean;
+			assumptions: {
+				leverage: number;
+				deployedFraction: number;
+				managementFeeBps: number;
+				performanceFeeBps: number;
+				roundTripsPerYear: number;
+				spotImpactPercent: number;
+			};
+	  }
+	| { available: false; reason: string };
 
 export interface Activity {
 	id: string;

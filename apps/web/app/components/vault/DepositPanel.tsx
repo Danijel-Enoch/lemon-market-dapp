@@ -7,6 +7,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi } from "viem";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { ProjectedYieldBreakdown } from "./ProjectedYield";
 
 /**
  * Deposit USDC, receive shares.
@@ -19,6 +20,12 @@ import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteCont
  * The shares are minted immediately at the current price, so the panel shows
  * that price and what it buys before anything is signed. A deposit that lands as
  * an opaque share balance is one the user has to trust rather than check.
+ *
+ * The projected yield sits here for the same reason. This is the only screen
+ * where somebody is deciding to part with money, and until they do the vault
+ * has no realised figure to show them — so the funding-rate projection, with
+ * every deduction between the venue's rate and what they keep, belongs above
+ * the button rather than a page away from it.
  */
 export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress: `0x${string}` }) {
 	const { address, isConnected } = useAccount();
@@ -151,6 +158,8 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 						</div>
 					</div>
 
+					<ProjectedYieldBreakdown vault={vault} outlook={vault.outlook} />
+
 					<dl className="space-y-1.5 text-sm">
 						<Row label="Share price" value={`${formatUsd(vault.pricePerShare)} per share`} />
 						<Row label="You receive" value={`${formatUnits(sharesOut, 18, 4)} ${vault.symbol}`} />
@@ -207,9 +216,9 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 					)}
 
 					<p className="text-xs leading-relaxed text-[var(--pon-fg-4)]">
-						Shares are minted the moment your deposit lands. Their value moves with the vault: a 2%
-						annual management fee and 20% of gains above the vault's previous high accrue to the
-						protocol, and both are already reflected in the share price shown above.
+						Shares are minted the moment your deposit lands, and their value moves with the vault.
+						Both fees in the projection above are charged inside the share price rather than billed
+						separately, so the price shown is already net of them.
 					</p>
 				</>
 			)}

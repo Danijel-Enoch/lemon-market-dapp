@@ -28,6 +28,25 @@ export const vault = onchainTable(
 		targetLeverageBps: t.integer().notNull(),
 		maxLeverageBps: t.integer().notNull(),
 
+		// --- the vault's own terms, read from `limits()` --------------------
+		//
+		// Nullable rather than defaulted. These feed the projected yield a
+		// depositor is shown before they commit, and a missing value defaulted to
+		// zero would quietly present a gross number as a net one — the fees would
+		// simply not be subtracted. Null propagates to "we cannot project this".
+		/** Streaming management fee, bps per year. 200 = 2%. */
+		managementFeeBps: t.integer(),
+		/** Performance fee above the high-water mark, bps. 2000 = 20%. */
+		performanceFeeBps: t.integer(),
+		/**
+		 * Ceiling on how much of the vault may be at the venues at once.
+		 *
+		 * Part of the yield a depositor should expect, not just a risk control:
+		 * the remainder is held idle for the redemption queue and earns nothing,
+		 * so a 9000 vault's funding accrues on 90% of its capital.
+		 */
+		maxDeployedBps: t.integer(),
+
 		// --- live state, updated on every event that moves it ---------------
 		totalAssets: t.bigint().notNull().default(0n),
 		totalSupply: t.bigint().notNull().default(0n),

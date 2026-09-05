@@ -3,25 +3,39 @@ import { formatPercent, formatUsdCompact } from "@lemon/client";
 import { cn, RiskBadge } from "@lemon/ui";
 import { AlertTriangle, ChevronRight, Pause } from "lucide-react";
 import { Link } from "react-router";
+import { ProjectedYieldCell } from "./ProjectedYield";
 
 /**
  * The board.
  *
- * Ranked by realised yield, and the yield column is deliberately the *measured*
- * one — the change in this vault's own share price over the last seven days,
- * annualised. Not a projection from the current funding rate. A funding-based
- * estimate is a much larger number and describes a vault that has not existed
- * for a day as if it had a track record.
+ * Three yield columns, and the split between them is the point. The realised
+ * ones are *measured* — the change in this vault's own share price, annualised
+ * — and a vault with too little history shows a dash there, because that is the
+ * honest answer. It is why those headers say "realised" rather than "APY".
  *
- * A vault with too little history shows a dash. That is the honest answer, and
- * it is why the column header says "7d realised" rather than "APY".
+ * The projected column is the opposite kind of claim: what the vault would pay
+ * if the current funding rate held, net of its buffer, venue costs and both
+ * fees. It exists because the realised columns cannot serve the person the
+ * board is for. Someone choosing where to put money into a vault that nobody
+ * has deposited into yet is looking at two dashes, and a projection is the only
+ * thing that can be said to them at all.
+ *
+ * Ranking still follows realised yield. A projection is an extrapolation from a
+ * rate that reprices hourly, and sorting the board by it would let a market
+ * having an unusual afternoon top a list that reads as a track record.
  */
 export function VaultTable({ vaults }: { vaults: Vault[] }) {
 	return (
 		<div className="overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
 			{/* Header, desktop only — the mobile layout is cards, below. */}
-			<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-[var(--pon-line)] px-5 py-3 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase md:grid">
+			<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-[var(--pon-line)] px-5 py-3 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase md:grid">
 				<div>Vault</div>
+				<div
+					className="text-right"
+					title="What this vault would pay if the current funding rate held, after its idle buffer, venue costs and both fees. A projection, not a measurement."
+				>
+					Projected
+				</div>
 				<div className="text-right">7d realised</div>
 				<div className="text-right">30d realised</div>
 				<div className="text-right">TVL</div>
@@ -36,7 +50,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 							className="block px-5 py-4 transition-colors hover:bg-[var(--pon-surface)] focus-visible:bg-[var(--pon-surface)] focus-visible:outline-none"
 						>
 							{/* Desktop row. */}
-							<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 md:grid">
+							<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 md:grid">
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
 										<span className="truncate font-medium text-[var(--pon-fg-0)]">
@@ -52,6 +66,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 									</p>
 								</div>
 
+								<ProjectedYieldCell outlook={vault.outlook} />
 								<YieldCell value={vault.apy7d?.apy ?? null} />
 								<YieldCell value={vault.apy30d?.apy ?? null} />
 
@@ -85,8 +100,9 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 										</div>
 									</div>
 									<div className="text-right">
-										<YieldCell value={vault.apy7d?.apy ?? null} />
-										<div className="mt-0.5 text-xs text-[var(--pon-fg-3)]">
+										<ProjectedYieldCell outlook={vault.outlook} />
+										<div className="mt-0.5 text-[11px] text-[var(--pon-fg-4)]">projected</div>
+										<div className="mt-1 text-xs text-[var(--pon-fg-3)]">
 											{formatUsdCompact(vault.totalAssets)} TVL
 										</div>
 									</div>

@@ -72,6 +72,7 @@ async function tickerFor(marketId: string, keccak: (s: string) => string): Promi
 ponder.on("VaultFactory:VaultCreated", async ({ event, context }) => {
 	const { keccak256, toBytes } = await import("viem");
 	const ticker = await tickerFor(event.args.marketId, (s) => keccak256(toBytes(s)));
+	const limits = await readLimits(context, event.args.vault);
 
 	await context.db.insert(schema.vault).values({
 		address: event.args.vault,
@@ -83,11 +84,53 @@ ponder.on("VaultFactory:VaultCreated", async ({ event, context }) => {
 		riskTier: Number(event.args.tier),
 		targetLeverageBps: Number(event.args.targetLeverageBps),
 		maxLeverageBps: Number(event.args.maxLeverageBps),
+		managementFeeBps: limits?.managementFeeBps ?? null,
+		performanceFeeBps: limits?.performanceFeeBps ?? null,
+		maxDeployedBps: limits?.maxDeployedBps ?? null,
 		createdAt: Number(event.block.timestamp),
 		createdBlock: event.block.number,
 		updatedAt: Number(event.block.timestamp),
 	});
 });
+
+/**
+ * The three numbers from `limits()` a depositor's expected yield depends on.
+ *
+ * Read once at creation and again whenever the operator changes them, rather
+ * than on every `syncVault`. They move approximately never, and `syncVault`
+ * already makes nine calls per event — a tenth for a value that has not changed
+ * since the vault was deployed is a permanent cost for a one-off read.
+ *
+ * `limits()` is Solidity's generated getter for a public struct, so it comes
+ * back as a flat tuple in declaration order rather than as an object. Indices
+ * 0, 1 and 4 are the management fee, the performance fee and the deployment
+ * ceiling; the rest are timing and NAV bounds this does not need.
+ *
+ * Returns null rather than throwing. A failed read must not stop the vault from
+ * being indexed at all — the columns stay null and the projection says it
+ * cannot be computed, which is true.
+ */
+async function readLimits(
+	context: IndexingContext,
+	address: `0x${string}`,
+): Promise<{ managementFeeBps: number; performanceFeeBps: number; maxDeployedBps: number } | null> {
+	try {
+		const raw = (await context.client.readContract({
+			abi: context.contracts.LemonVault.abi,
+			address,
+			functionName: "limits",
+			args: [],
+		})) as readonly (number | bigint)[];
+
+		return {
+			managementFeeBps: Number(raw[0]),
+			performanceFeeBps: Number(raw[1]),
+			maxDeployedBps: Number(raw[4]),
+		};
+	} catch {
+		return null;
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Vault state
@@ -475,4 +518,22 @@ ponder.on("LemonVault:EmergencyExitSet", async ({ event, context }) => {
 	await context.db
 		.update(schema.vault, { address: event.log.address })
 		.set({ emergencyExit: event.args.enabled, updatedAt: Number(event.block.timestamp) });
+});
+
+/**
+ * The operator changed the vault's terms.
+ *
+ * Taken from the event rather than re-read, because the event is the record: a
+ * read at this block would agree, but a read is a second source that can
+ * disagree with the log a user is auditing against. The struct arrives whole
+ * here, so it is addressed by field rather than by tuple index.
+ */
+ponder.on("LemonVault:LimitsUpdated", async ({ event, context }) => {
+	const limits = event.args.limits;
+	await context.db.update(schema.vault, { address: event.log.address }).set({
+		managementFeeBps: Number(limits.managementFeeBps),
+		performanceFeeBps: Number(limits.performanceFeeBps),
+		maxDeployedBps: Number(limits.maxDeployedBps),
+		updatedAt: Number(event.block.timestamp),
+	});
 });

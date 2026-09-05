@@ -5,3 +5,4 @@ export * from "./pairing";
 export * from "./points";
 export * from "./routability";
 export * from "./tokens";
+export * from "./vault-yield";

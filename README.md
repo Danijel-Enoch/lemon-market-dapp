@@ -334,10 +334,20 @@ Behaviours that look like bugs and are not.
 keeping the earlier timestamp would let a one-wei request ripen for three days
 and then carry an arbitrarily large addition out with it.
 
-**A new vault shows a dash, not 0%.** The yield column is the vault's *measured*
-share-price change annualised, not a projection from the current funding rate.
-Too little history is reported as unknown, because rendering it as zero is a
-claim about performance where none exists.
+**A new vault shows a dash in the realised columns, not 0%.** Those columns are
+the vault's *measured* share-price change annualised. Too little history is
+reported as unknown, because rendering it as zero is a claim about performance
+where none exists.
+
+**The projected column is a different kind of claim, and is labelled as one.**
+It answers the question the realised columns cannot: what a vault would pay if
+the current funding rate held. A vault nobody has deposited into has no measured
+figure and never will until somebody goes first, and asking that person to
+commit against a dash is an absence of information rather than caution. It is
+net of the idle buffer, the venue round trip and both fees — skipping any of
+those roughly doubles the number — and the board still *ranks* by realised
+yield, because a rate that reprices hourly should not sort a list that reads as
+a track record.
 
 **Funding sign is inverted from most venues.** Pacifica quotes one hourly rate
 where a *positive* number means longs pay shorts. A basis position holds the

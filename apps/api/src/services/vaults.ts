@@ -7,7 +7,10 @@ import {
 	assetGroupFor,
 } from "@lemon/core";
 import { prisma } from "@lemon/db";
+import { projectVaultApy, type VaultYieldProjection } from "@lemon/registry";
 import { config } from "../config";
+import { listBasisMarkets } from "./basis-markets";
+import { getMarkets } from "./markets";
 
 /**
  * The vault read layer.
@@ -70,6 +73,12 @@ export interface IndexedVault {
 	apy7d?: RealisedYield | null;
 	apy30d?: RealisedYield | null;
 	apyAll?: RealisedYield | null;
+
+	/** The vault's own terms, from `limits()`. Null on a vault indexed before
+	 * they were read, in which case no projection is offered. */
+	managementFeeBps?: number | null;
+	performanceFeeBps?: number | null;
+	maxDeployedBps?: number | null;
 }
 
 /**
@@ -107,7 +116,37 @@ export interface VaultView extends IndexedVault {
 	assetClass: AssetClass;
 	assetClassLabel: string;
 	assetGroup: AssetGroup;
+
+	/**
+	 * What this vault would pay if today's funding rate held — or why it cannot
+	 * be said.
+	 *
+	 * The realised columns cannot answer the question a depositor actually has,
+	 * because they measure a share price this vault may not have moved yet. A
+	 * new vault, or one nobody has deposited into, has no realised figure and
+	 * never will until somebody goes first. This is the number for that moment,
+	 * and it is a projection rather than a measurement — see `VaultOutlook`.
+	 */
+	outlook: VaultOutlook;
 }
+
+/**
+ * The forward-looking yield estimate, or the reason there isn't one.
+ *
+ * Modelled as a union rather than as a nullable number with a separate reason
+ * field, so a caller cannot render a figure and a "why not" at the same time,
+ * and cannot show a projection without also carrying the label that says it is
+ * one. `available: false` always has something to display in the same slot.
+ */
+export type VaultOutlook =
+	| ({
+			available: true;
+			/** Unix seconds. A funding rate is a snapshot and ages quickly. */
+			observedAt: number;
+			/** Short-side funding, percent per hour, exactly as the venue quotes it. */
+			fundingShortPercentPerHour: number;
+	  } & VaultYieldProjection)
+	| { available: false; reason: string };
 
 const NAV_STALENESS_SECONDS = 6 * 3600;
 
@@ -131,17 +170,18 @@ async function vaultConfigs(): Promise<Map<string, VaultConfigRecord>> {
 }
 
 export async function listVaults(): Promise<VaultView[]> {
-	const [{ vaults }, byAddress] = await Promise.all([
+	const [{ vaults }, byAddress, outlooks] = await Promise.all([
 		fromIndexer<{ vaults: IndexedVault[] }>("/vaults"),
 		vaultConfigs(),
+		yieldInputs(),
 	]);
 
-	return vaults.map((v) => decorate(v, byAddress.get(v.address.toLowerCase())));
+	return vaults.map((v) => decorate(v, byAddress.get(v.address.toLowerCase()), outlooks));
 }
 
 export async function getVault(address: string): Promise<VaultView | null> {
 	try {
-		const [{ vault, apy7d, apy30d, apyAll }, byAddress] = await Promise.all([
+		const [{ vault, apy7d, apy30d, apyAll }, byAddress, outlooks] = await Promise.all([
 			fromIndexer<{
 				vault: IndexedVault;
 				apy7d: RealisedYield | null;
@@ -149,13 +189,18 @@ export async function getVault(address: string): Promise<VaultView | null> {
 				apyAll: RealisedYield | null;
 			}>(`/vaults/${address}`),
 			vaultConfigs(),
+			yieldInputs(),
 		]);
 		// The two indexer endpoints disagree about where the yield windows live:
 		// `/vaults` embeds them on each row, `/vaults/:address` returns them
 		// beside the vault. Destructuring only `vault` dropped them silently, so
 		// the vault page's "7d realised" card was blank on every vault while the
 		// board showed a figure for the same one.
-		return decorate({ ...vault, apy7d, apy30d, apyAll }, byAddress.get(address.toLowerCase()));
+		return decorate(
+			{ ...vault, apy7d, apy30d, apyAll },
+			byAddress.get(address.toLowerCase()),
+			outlooks,
+		);
 	} catch (error) {
 		if (error instanceof IndexerUnavailableError && error.message.includes("404")) return null;
 		throw error;
@@ -164,7 +209,11 @@ export async function getVault(address: string): Promise<VaultView | null> {
 
 type VaultConfigRecord = Awaited<ReturnType<typeof prisma.vaultConfig.findMany>>[number];
 
-function decorate(v: IndexedVault, record?: VaultConfigRecord): VaultView {
+function decorate(
+	v: IndexedVault,
+	record: VaultConfigRecord | undefined,
+	outlooks: YieldInputs,
+): VaultView {
 	const tier = (RISK_TIERS[v.riskTier] ?? "CONSERVATIVE") as "CONSERVATIVE" | "LEVERAGED";
 	const now = Math.floor(Date.now() / 1000);
 	const ticker = record?.ticker ?? v.ticker;
@@ -191,6 +240,113 @@ function decorate(v: IndexedVault, record?: VaultConfigRecord): VaultView {
 		assetClass,
 		assetClassLabel: ASSET_CLASS_LABELS[assetClass],
 		assetGroup: assetGroupFor(assetClass),
+		outlook: outlookFor(v, ticker, outlooks),
+	};
+}
+
+// ---------------------------------------------------------------------------
+// The forward-looking yield
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything the projection needs from the venues, fetched once per request.
+ *
+ * `null` means the venues could not be reached. That is deliberately different
+ * from "this vault has no market": an outage must not be reported to every
+ * depositor as though the funding rate were zero, and it must not take the
+ * board down either — the balances, the queue and the realised columns all come
+ * from the chain and are unaffected.
+ */
+type YieldInputs = Awaited<ReturnType<typeof yieldInputs>>;
+
+async function yieldInputs() {
+	try {
+		const [{ markets: basis }, perps] = await Promise.all([listBasisMarkets(), getMarkets()]);
+		const byPacificaSymbol = new Map(perps.map((p) => [p.pacifica.pacificaSymbol, p]));
+
+		return {
+			ok: true as const,
+			observedAt: Math.floor(Date.now() / 1000),
+			byTicker: new Map(basis.map((m) => [m.ticker.toUpperCase(), m])),
+			byPacificaSymbol,
+		};
+	} catch (error) {
+		console.warn("[api] venue data unavailable; vaults will carry no yield projection", error);
+		return { ok: false as const };
+	}
+}
+
+/**
+ * Project one vault's yield, or say why not.
+ *
+ * Every branch that returns `available: false` is a case where a number could
+ * technically be produced and would be misleading. A blocked market has a
+ * funding rate, but it is a rate on a position the agent cannot actually open;
+ * a vault with unread fee limits would report a gross figure as a net one.
+ * Showing the reason is the point — a depositor who sees a dash with no
+ * explanation cannot tell an unlisted market from a broken one.
+ */
+function outlookFor(v: IndexedVault, ticker: string | null, inputs: YieldInputs): VaultOutlook {
+	if (!inputs.ok) {
+		return { available: false, reason: "Venue data is unavailable, so no yield can be projected." };
+	}
+	if (!ticker) {
+		return {
+			available: false,
+			reason: "This vault's market has not been identified, so its funding rate is unknown.",
+		};
+	}
+
+	const basis = inputs.byTicker.get(ticker.toUpperCase());
+	if (!basis) {
+		return {
+			available: false,
+			reason: `No live ${ticker} basis market, so there is no funding rate to project from.`,
+		};
+	}
+	if (basis.blockers.length > 0) {
+		// The rate exists; the position it would be earned on does not. Quoting it
+		// would advertise a yield on a trade the agent is currently unable to
+		// place, which is the most expensive kind of wrong number here.
+		return {
+			available: false,
+			reason: `The ${ticker} market cannot be entered right now: ${basis.blockers[0]}`,
+		};
+	}
+
+	const perp = inputs.byPacificaSymbol.get(basis.perp.pacificaSymbol);
+	if (!perp) {
+		return {
+			available: false,
+			reason: `${basis.perp.symbol} is no longer listed, so its funding rate cannot be read.`,
+		};
+	}
+
+	// The vault's own terms. Refusing without them is the whole reason they are
+	// nullable in the index: a projection missing the fees is not a rougher
+	// estimate, it is a different and much larger number.
+	if (v.managementFeeBps == null || v.performanceFeeBps == null || v.maxDeployedBps == null) {
+		return {
+			available: false,
+			reason: "This vault's fee terms have not been read from the chain yet.",
+		};
+	}
+
+	const projection = projectVaultApy({
+		fundingShortPercentPerHour: basis.perp.fundingShortPercentPerHour,
+		leverage: v.targetLeverageBps / 10_000,
+		deployedFraction: v.maxDeployedBps / 10_000,
+		managementFeeBps: v.managementFeeBps,
+		performanceFeeBps: v.performanceFeeBps,
+		spotImpactPercent: basis.spot.priceImpactPercent ?? 0,
+		market: perp,
+	});
+
+	return {
+		available: true,
+		observedAt: inputs.observedAt,
+		fundingShortPercentPerHour: basis.perp.fundingShortPercentPerHour,
+		...projection,
 	};
 }
 
