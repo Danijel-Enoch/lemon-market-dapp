@@ -13,7 +13,7 @@
 		"test:gas": "forge test --gas-report",
 		"coverage": "forge coverage --no-match-coverage '(script|test)'",
 		"fmt": "forge fmt",
-		"abi": "bun run scripts/export-abi.ts",
+		"abi": "bun run scripts/export-abi.ts && biome format --write ts/abi.ts",
 		"deploy": "forge script script/Deploy.s.sol:Deploy --broadcast --verify",
 		"typecheck": "tsc --noEmit"
 	},

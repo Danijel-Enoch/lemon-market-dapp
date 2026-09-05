@@ -13,6 +13,7 @@
 			"**/*.tsx",
 			"**/*.json",
 			"!!**/node_modules",
+			"!!packages/contracts/lib",
 			"!!**/.next",
 			"!!**/dist",
 			"!!**/build",
