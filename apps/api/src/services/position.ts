@@ -1,4 +1,4 @@
-import { USDC_ADDRESS as BASE_USDC_ADDRESS } from "@lemon/core";
+import { type AdlRisk, adlRisk, USDC_ADDRESS as BASE_USDC_ADDRESS } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import { findTokenByTicker } from "@lemon/registry";
@@ -58,6 +58,15 @@ export interface PerpLeg {
 	marginUsd: number | null;
 	leverage: number | null;
 	fundingRateHourlyPercent: number | null;
+	/**
+	 * Where this short sits in Pacifica's auto-deleveraging queue.
+	 *
+	 * Computed here rather than fetched — Pacifica publishes no ADL endpoint —
+	 * from the same quantity venues rank by. Present even when the position is
+	 * not in the queue, because "not eligible, and here is why" is the answer
+	 * most of the time and a depositor should be able to see it holding.
+	 */
+	adl: AdlRisk;
 }
 
 export interface LivePosition {
@@ -183,10 +192,11 @@ async function readPaperLegs(
 	const equity =
 		unrealised === null ? null : Number(margin) / 1e6 + unrealised + Number(funding) / 1e6;
 
+	const size = Number(perpUnits) / Number(scale);
 	const perp: PerpLeg = {
 		symbol: record.perpSymbol,
 		// Negative: a basis position is short the perp.
-		size: -(Number(perpUnits) / Number(scale)),
+		size: -size,
 		entryPrice: entryE6 === 0n ? null : Number(entryE6) / 1e6,
 		markPrice: price?.mark ?? null,
 		notionalUsd: notional,
@@ -194,6 +204,18 @@ async function readPaperLegs(
 		marginUsd: equity,
 		leverage: equity && notional ? notional / equity : null,
 		fundingRateHourlyPercent: price === null ? null : price.funding * 100,
+		// Scored against the same live mark and oracle the real path uses. The
+		// sizes behind it are simulated; the queue position they would occupy is
+		// not, which is the point of running paper at all.
+		adl: adlRisk({
+			side: "short",
+			entryPrice: entryE6 === 0n ? null : Number(entryE6) / 1e6,
+			markPrice: price?.mark ?? null,
+			size,
+			equityUsd: equity,
+			oraclePrice: price?.oracle ?? null,
+			price24hAgo: price?.yesterday ?? null,
+		}),
 	};
 
 	return { spot, perp };
@@ -230,11 +252,16 @@ async function paperSpotPriceE6(
 	}
 }
 
-/** Mark and funding, from `prices()` — `markets()` carries no mark at all. */
+/** Mark, oracle, funding and yesterday's close, from `prices()`. */
 async function paperMark(
 	symbol: string,
 	notes: string[],
-): Promise<{ mark: number; funding: number } | null> {
+): Promise<{
+	mark: number;
+	funding: number;
+	oracle: number | null;
+	yesterday: number | null;
+} | null> {
 	try {
 		const prices = await clients.pacifica.prices();
 		const price = prices.find((p) => p.symbol === symbol);
@@ -242,11 +269,23 @@ async function paperMark(
 			notes.push(`Pacifica does not list ${symbol}, so the perp leg is unpriced.`);
 			return null;
 		}
-		return { mark: Number(price.mark), funding: Number(price.funding) };
+		return {
+			mark: Number(price.mark),
+			funding: Number(price.funding),
+			oracle: finite(price.oracle),
+			yesterday: finite(price.yesterday_price),
+		};
 	} catch (error) {
 		notes.push(`The perp leg could not be priced: ${message(error)}`);
 		return null;
 	}
+}
+
+/** A venue decimal string as a number, or null when it is missing or junk. */
+function finite(raw: string | number | null | undefined): number | null {
+	if (raw === null || raw === undefined) return null;
+	const n = Number(raw);
+	return Number.isFinite(n) ? n : null;
 }
 
 type VaultConfigRecord = Awaited<ReturnType<typeof prisma.vaultConfig.findUnique>>;
@@ -394,47 +433,69 @@ async function readPerpLeg(
 		marginUsd: null,
 		leverage: null,
 		fundingRateHourlyPercent: null,
+		adl: adlRisk({
+			side: "short",
+			entryPrice: null,
+			markPrice: null,
+			size: 0,
+			equityUsd: null,
+		}),
 	};
 
 	if (!solanaAddress) return empty;
 
 	try {
-		const [account, positions, markets] = await Promise.all([
+		// `prices()`, not `markets()`. The latter returns the market's *spec* —
+		// tick size, lot size, leverage caps, funding rate — and carries no mark
+		// at all, so the mark read here was undefined on every live vault and the
+		// notional, the leverage and now the ADL score all fell out as null.
+		const [account, positions, prices] = await Promise.all([
 			clients.pacifica.accountInfo(solanaAddress),
 			clients.pacifica.positions(solanaAddress),
-			clients.pacifica.markets(),
+			clients.pacifica.prices(),
 		]);
 
 		const symbol = record?.perpSymbol ?? null;
 		const position = symbol ? positions.find((p) => p.symbol === symbol) : positions[0];
-		const market = markets.find((m) => m.symbol === (position?.symbol ?? symbol));
+		const price = prices.find((q) => q.symbol === (position?.symbol ?? symbol));
 
 		// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 		const p = position as any;
 		// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-		const m = market as any;
-		// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 		const a = account as any;
 
 		const size = Number(p?.amount ?? 0);
-		const entry = p?.entry_price ? Number(p.entry_price) : null;
-		const mark = m?.mark_price ? Number(m.mark_price) : null;
-		const margin = a?.account_equity ? Number(a.account_equity) : null;
+		const entry = finite(p?.entry_price);
+		const mark = finite(price?.mark);
+		const margin = finite(a?.account_equity);
 		const notional = mark !== null ? Math.abs(size) * mark : null;
+		const short = p?.side === "ask" || p?.side === "short";
 
 		return {
 			symbol: position?.symbol ?? symbol,
 			// Negative for a short, which is what a basis position holds. Pacifica
 			// reports side separately, so the sign is applied here rather than
 			// leaving the reader to work out which way round it is.
-			size: p?.side === "ask" || p?.side === "short" ? -Math.abs(size) : size,
+			size: short ? -Math.abs(size) : size,
 			entryPrice: entry,
 			markPrice: mark,
 			notionalUsd: notional,
-			unrealisedPnlUsd: p?.unrealized_pnl ? Number(p.unrealized_pnl) : null,
+			unrealisedPnlUsd: finite(p?.unrealized_pnl),
 			marginUsd: margin,
 			leverage: notional !== null && margin ? notional / margin : null,
-			fundingRateHourlyPercent: m?.funding_rate ? Number(m.funding_rate) * 100 : null,
+			fundingRateHourlyPercent:
+				finite(price?.funding) === null ? null : Number(price?.funding) * 100,
+			adl: adlRisk({
+				side: short ? "short" : "long",
+				entryPrice: entry,
+				markPrice: mark,
+				size,
+				// Account equity, which already carries the unrealised profit that
+				// puts the position in the queue in the first place.
+				equityUsd: margin,
+				oraclePrice: finite(price?.oracle),
+				price24hAgo: finite(price?.yesterday_price),
+			}),
 		};
 	} catch (error) {
 		notes.push(`The perp leg could not be read from Pacifica: ${message(error)}`);

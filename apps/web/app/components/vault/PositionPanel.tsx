@@ -1,7 +1,15 @@
-import type { LivePosition } from "@lemon/client";
+import type { AdlRisk, LivePosition } from "@lemon/client";
 import { formatRelative, formatUnits, formatUsd, toBigInt } from "@lemon/client";
 import { cn } from "@lemon/ui";
-import { AlertTriangle, ArrowDownLeft, Check, Copy, ExternalLink, TrendingUp } from "lucide-react";
+import {
+	AlertTriangle,
+	ArrowDownLeft,
+	Check,
+	Copy,
+	ExternalLink,
+	ShieldAlert,
+	TrendingUp,
+} from "lucide-react";
 import { useState } from "react";
 
 /**
@@ -150,6 +158,8 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 				</div>
 			</div>
 
+			<AdlPanel adl={position.perp.adl} spotSymbol={position.spot.symbol} />
+
 			{/* --- the two wallets ---------------------------------------------- */}
 			<div className="space-y-2 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line)] p-4">
 				<div className="flex items-center justify-between gap-2">
@@ -223,6 +233,158 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 				</div>
 			)}
 		</section>
+	);
+}
+
+/**
+ * Auto-deleveraging exposure, stated as a risk to the *hedge* rather than as a
+ * venue curiosity.
+ *
+ * The framing is deliberate. A depositor reading "ADL" learns nothing; what they
+ * need to know is that the venue can close the short — the leg protecting them —
+ * without asking, and that it becomes able to do so precisely when the spot leg
+ * is falling. So the panel leads with the plain-language consequence and keeps
+ * the score underneath it.
+ *
+ * It is shown when the position is idle too, reading "not in the queue". A risk
+ * indicator that only appears once the risk is live teaches nobody what it means
+ * and looks like an alarm when it finally shows up.
+ */
+function AdlPanel({ adl, spotSymbol }: { adl: AdlRisk; spotSymbol: string | null }) {
+	const alarming = adl.lamps >= 3;
+	const tone = alarming
+		? "border-[var(--pon-down)]/40 bg-[var(--pon-down)]/10"
+		: adl.lamps > 0
+			? "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/[0.07]"
+			: "border-[var(--pon-line)]";
+
+	return (
+		<div className={cn("space-y-3 rounded-[var(--pon-r-md,12px)] border p-4", tone)}>
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex items-center gap-2">
+					<ShieldAlert
+						className={cn(
+							"size-4",
+							alarming
+								? "text-[var(--pon-down)]"
+								: adl.lamps > 0
+									? "text-[var(--pon-amber)]"
+									: "text-[var(--pon-fg-3)]",
+						)}
+					/>
+					<h3 className="text-sm font-medium text-[var(--pon-fg-0)]">Auto-deleveraging risk</h3>
+				</div>
+				<div className="flex items-center gap-2">
+					<Lamps lit={adl.lamps} />
+					<span
+						className={cn(
+							"text-xs font-medium uppercase tracking-wide",
+							alarming
+								? "text-[var(--pon-down)]"
+								: adl.lamps > 0
+									? "text-[var(--pon-amber)]"
+									: "text-[var(--pon-fg-3)]",
+						)}
+					>
+						{adl.band === "none" ? "Not in the queue" : adl.band}
+					</span>
+				</div>
+			</div>
+
+			<p className="text-xs leading-relaxed text-[var(--pon-fg-2)]">
+				{adl.eligible ? (
+					<>
+						Pacifica can close this short without warning to cover a trader it could not liquidate
+						cleanly. It only takes <em>winning</em> positions — so the hedge becomes eligible
+						exactly when {spotSymbol ?? "the spot leg"} is falling and the hedge is what is
+						protecting you. If that happens, the vault is left holding spot that is down, unhedged,
+						until the agent can re-open the short.
+					</>
+				) : (
+					<>
+						Pacifica can close a short without warning to cover a trader it could not liquidate
+						cleanly, but it only takes <em>winning</em> positions. This one is not winning, so it is
+						not in the queue. That changes the moment {spotSymbol ?? "the spot leg"} falls below the
+						short's entry — which is also when the hedge starts mattering most.
+					</>
+				)}
+			</p>
+
+			<dl className="space-y-1 text-xs">
+				<Row
+					label="Queue score"
+					value={adl.eligible ? adl.score.toFixed(3) : "—"}
+					hint="Unrealised profit as a fraction of entry, times effective leverage. This is what venues rank the queue by."
+				/>
+				<Row
+					label="Leg profit"
+					value={`${adl.profitPercent >= 0 ? "+" : ""}${adl.profitPercent.toFixed(2)}%`}
+					tone={adl.profitPercent > 0 ? "down" : undefined}
+					hint="Profit on the short. Counterintuitively this is the risk direction: only profitable positions are auto-deleveraged."
+				/>
+				<Row
+					label="Effective leverage"
+					value={adl.effectiveLeverage === null ? "—" : `${adl.effectiveLeverage.toFixed(2)}x`}
+					hint="The only input the vault controls. The score is linear in it, so a 3x vault sits three times deeper in the queue than a 1x vault at the same drawdown."
+				/>
+				{adl.nextBand &&
+					(adl.nextBandReachable ? (
+						<Row
+							label={`Until "${adl.nextBand}"`}
+							value={
+								adl.headroomPercent === null
+									? "—"
+									: `${adl.headroomPercent.toFixed(2)}% further fall`
+							}
+							hint="How much further the mark has to fall to reach the next band, accounting for the equity that fall adds along the way."
+						/>
+					) : (
+						<Row
+							label={`Until "${adl.nextBand}"`}
+							value="Unreachable"
+							hint="Profit adds equity faster than it adds rank, so this position's score peaks below that band at any price."
+						/>
+					))}
+				{adl.stress.markVsOraclePercent !== null && (
+					<Row
+						label="Mark vs oracle"
+						value={`${adl.stress.markVsOraclePercent >= 0 ? "+" : ""}${adl.stress.markVsOraclePercent.toFixed(3)}%`}
+						tone={adl.stress.markVsOraclePercent < -0.5 ? "down" : undefined}
+						hint="Mark below oracle means forced selling is under way — the conditions in which the queue actually gets processed. Context, not part of the score."
+					/>
+				)}
+			</dl>
+
+			<p className="text-[11px] leading-relaxed text-[var(--pon-fg-4)]">
+				The queue is ranked against every other position on Pacifica, and those are not public. This
+				score is where the vault sits <em>if</em> the queue is processed — not the chance that it
+				will be. Pacifica publishes no ADL endpoint; this is computed from the public position and
+				price data shown above.
+			</p>
+		</div>
+	);
+}
+
+/** Five lamps, the convention every venue uses for this. */
+function Lamps({ lit }: { lit: number }) {
+	return (
+		// Decorative. The band name is rendered as text directly beside these, so
+		// a screen reader gets the meaning without having to interpret lamps.
+		<span className="flex items-center gap-0.5" aria-hidden="true">
+			{[1, 2, 3, 4, 5].map((n) => (
+				<span
+					key={n}
+					className={cn(
+						"h-3 w-1.5 rounded-[1px]",
+						n > lit
+							? "bg-[var(--pon-line-2)]"
+							: lit >= 3
+								? "bg-[var(--pon-down)]"
+								: "bg-[var(--pon-amber)]",
+					)}
+				/>
+			))}
+		</span>
 	);
 }
 

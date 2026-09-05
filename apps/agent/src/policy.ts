@@ -1,4 +1,5 @@
 import { BPS } from "@lemon/contracts";
+import type { AdlRisk } from "@lemon/core";
 
 /**
  * What the agent does next, and who decides.
@@ -61,6 +62,19 @@ export interface VaultSnapshot {
 	/** Whether the spot leg can currently be routed in and out. */
 	spotBuyable: boolean;
 	spotSellable: boolean;
+
+	/**
+	 * Auto-deleveraging exposure on the short.
+	 *
+	 * Carried in the snapshot but deliberately *not* gated on by
+	 * `permittedActions`. There is no safe rule to write here: the score rises as
+	 * the hedge wins, so refusing to deploy on a high score would stop the vault
+	 * working precisely during the drawdowns when its funding is usually best,
+	 * and there is no "reduce leverage" action to offer — leverage is fixed by
+	 * the vault's mandate at creation. So it is surfaced to the advisor as
+	 * judgement material and to the operator as a warning, and left there.
+	 */
+	adl: AdlRisk;
 }
 
 export interface Decision {
@@ -75,7 +89,20 @@ export interface Decision {
 /** Below 1% the correction costs more in fees than the drift costs in exposure. */
 export const REBALANCE_DRIFT_BPS = 100;
 
-/** Deploying dust burns two round trips of fees to earn funding on nothing. */
+/**
+ * The smallest spot leg worth opening.
+ *
+ * Measured on the *spot leg*, not on the deployment that funds it, because the
+ * spot leg is what the venue has to route: below this a Kyber swap pays more in
+ * fees and pool slippage than the hedge it buys can earn back in funding.
+ *
+ * The distinction is not pedantry. A deployment splits into `spot + margin`, so
+ * a $100 deployment at 1x buys a $50 spot leg — and a gate written against the
+ * total would wave through deployments the venue adapter then rejects at
+ * `venue.ts`, *after* the margin has bridged to Solana. That failure strands
+ * capital on the wrong chain to enforce a minimum the policy layer could have
+ * enforced for free. So both layers now measure the same leg.
+ */
 export const MIN_DEPLOY_USDC = 100_000_000n; // $100
 
 /** Unwinding is never skipped for being small — someone is waiting on it. */
@@ -154,7 +181,10 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	// --- growth -----------------------------------------------------------
 
 	const deployable = deployableAmount(snapshot);
-	if (deployable >= MIN_DEPLOY_USDC && snapshot.spotBuyable) {
+	// Sized through the same split the worker will apply, so the gate is asked
+	// about the leg the venue actually checks rather than about the total.
+	const { spotNotional } = splitDeployment(deployable, snapshot.targetLeverageBps);
+	if (spotNotional >= MIN_DEPLOY_USDC && snapshot.spotBuyable) {
 		options.push({
 			kind: "DEPLOY",
 			amount: deployable,

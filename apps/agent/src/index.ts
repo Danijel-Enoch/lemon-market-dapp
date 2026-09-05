@@ -286,12 +286,15 @@ async function resolveVenue(
 	if (!record) return null;
 
 	if (!PAPER_TRADING) {
-		// The live adapter needs a bridge, a Pacifica signer and a wallet client
-		// wired through; that is the remaining integration step. Refusing beats
-		// half-executing a two-legged trade.
+		// What is still missing is the bridge: `BridgeAdapter` has no
+		// implementation in this repo, and both halves of the live adapter depend
+		// on one — `deploy` to get margin to Solana, `unwind` to bring it home.
+		// The Pacifica signer and the wallet client exist above; the bridge is the
+		// remaining integration step. Refusing beats half-executing a two-legged
+		// trade.
 		log(
 			"warn",
-			`${indexed.address}: live trading is not wired up yet. Set AGENT_PAPER_TRADING=true to run this vault against read-only venues.`,
+			`${indexed.address}: live trading is not wired up yet — no bridge adapter. Set AGENT_PAPER_TRADING=true to run this vault against read-only venues.`,
 		);
 		return null;
 	}

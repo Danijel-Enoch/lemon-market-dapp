@@ -5,7 +5,7 @@ import {
 	type Chain,
 	lemonVaultAbi,
 } from "@lemon/contracts";
-import type { Abi, Address, Hex } from "viem";
+import { type Abi, type Address, erc20Abi, type Hex } from "viem";
 
 /**
  * Loosely-typed clients.
@@ -154,8 +154,53 @@ export class VaultClient {
 		return this.write("agentWithdraw", [amount]);
 	}
 
+	/**
+	 * Hand USDC back to the vault.
+	 *
+	 * `agentReturn` pulls with `transferFrom`, so the vault has to hold an
+	 * allowance on the agent's USDC before the call can do anything. The approval
+	 * lives here rather than at the call sites because every caller needs it and
+	 * none of them knows the asset address — and without it the simulation
+	 * reverts, which surfaces as a redemption that cannot be paid for a reason
+	 * that has nothing to do with the position.
+	 *
+	 * Approved for exactly this return, not infinitely, on the same reasoning the
+	 * venue adapter applies to routers: the agent key signs continuously, and a
+	 * standing allowance is a standing liability for no gain — the approval costs
+	 * one transaction on a path that is already sending several.
+	 */
 	async agentReturn(amount: bigint): Promise<Hex> {
+		await this.ensureAssetAllowance(amount);
 		return this.write("agentReturn", [amount]);
+	}
+
+	private async ensureAssetAllowance(amount: bigint): Promise<void> {
+		const account = this.walletClient.account;
+		if (!account) throw new Error("The wallet client has no account");
+
+		const asset = (await this.publicClient.readContract({
+			abi: lemonVaultAbi as Abi,
+			address: this.address,
+			functionName: "asset",
+		})) as Address;
+
+		const allowance = (await this.publicClient.readContract({
+			abi: erc20Abi,
+			address: asset,
+			functionName: "allowance",
+			args: [account.address, this.address],
+		})) as bigint;
+		if (allowance >= amount) return;
+
+		const hash = await this.walletClient.writeContract({
+			account,
+			chain: null,
+			abi: erc20Abi,
+			address: asset,
+			functionName: "approve",
+			args: [this.address, amount],
+		});
+		await this.publicClient.waitForTransactionReceipt({ hash });
 	}
 
 	/**

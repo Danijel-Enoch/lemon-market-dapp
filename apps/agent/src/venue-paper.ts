@@ -1,10 +1,10 @@
+import { adlRisk } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import type { KyberAggregatorClient } from "@lemon/kyber";
 import type { PacificaClient } from "@lemon/pacifica";
 import type { Address, Hex } from "viem";
 import { keccak256, toHex } from "viem";
 import { toUnits, type Valuation, value } from "./valuation";
-import type { ActivityInput } from "./vault";
 import type { VenueAdapter } from "./worker";
 
 /**
@@ -174,7 +174,13 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 	 * mark at all, so reading a price off it silently yields undefined and the
 	 * whole leg reads as unpriceable.
 	 */
-	async function perpMarket(): Promise<{ markE6: bigint; fundingHourlyPercent: number } | null> {
+	async function perpMarket(): Promise<{
+		markE6: bigint;
+		mark: number;
+		fundingHourlyPercent: number;
+		oracle: number | null;
+		yesterday: number | null;
+	} | null> {
 		const prices = await pacifica.prices();
 		const price = prices.find((p) => p.symbol === config.perpSymbol);
 		if (!price) return null;
@@ -183,10 +189,20 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 		if (!Number.isFinite(mark) || mark <= 0) return null;
 		return {
 			markE6: BigInt(Math.round(mark * 1e6)),
+			mark,
 			// Pacifica quotes one rate where positive means longs pay shorts, so
 			// the short side receives exactly this. See the README.
 			fundingHourlyPercent: Number.isFinite(funding) ? funding * 100 : 0,
+			oracle: finiteOrNull(price.oracle),
+			yesterday: finiteOrNull(price.yesterday_price),
 		};
+	}
+
+	/** A venue decimal string as a number, or null when missing or unparseable. */
+	function finiteOrNull(raw: string | number | null | undefined): number | null {
+		if (raw === null || raw === undefined) return null;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : null;
 	}
 
 	/**
@@ -258,6 +274,15 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 					spotBuyable: false,
 					spotSellable: false,
 					symbol: config.symbol,
+					// Unpriced, so unscored. Reporting "not in the queue" here would
+					// read as reassurance drawn from a price we could not fetch.
+					adl: adlRisk({
+						side: "short",
+						entryPrice: null,
+						markPrice: null,
+						size: 0,
+						equityUsd: null,
+					}),
 				};
 			}
 
@@ -281,6 +306,7 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 				inFlightUsdc: 0n,
 			});
 
+			const scale = 10 ** config.spotTokenDecimals;
 			return {
 				valuation,
 				spotUnits: toUnits(p.spotUnits, config.spotTokenDecimals),
@@ -289,6 +315,17 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 				spotBuyable: true,
 				spotSellable: p.spotUnits > 0n,
 				symbol: config.symbol,
+				// The sizes are simulated; the queue position they would occupy is
+				// scored off the same live mark and oracle the real adapter uses.
+				adl: adlRisk({
+					side: "short",
+					entryPrice: p.perpEntryPriceE6 === 0n ? null : Number(p.perpEntryPriceE6) / 1e6,
+					markPrice: market.mark,
+					size: Number(p.perpUnits) / scale,
+					equityUsd: Number(equity) / 1e6,
+					oraclePrice: market.oracle,
+					price24hAgo: market.yesterday,
+				}),
 			};
 		},
 
@@ -321,18 +358,12 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 			await save(vaultAddress, p);
 
 			const notional = spotValue(unitsBought, priceE6);
+			// Bridge, short, then spot — the same order the live adapter executes
+			// in, so the paper feed reads like the real one. Paper fills are
+			// instantaneous, so the ordering buys no risk reduction here; it exists
+			// so an operator reading a paper vault's activity is reading the
+			// sequence they will see in production.
 			return [
-				{
-					kind: "SPOT_BUY",
-					chain: "BASE",
-					symbol: config.symbol,
-					baseAmount: unitsBought,
-					notionalAssets: notional,
-					pnlAssets: 0n,
-					feeAssets: spotNotional - filled,
-					txRef: paperRef(vaultAddress, "spot-buy", at),
-					occurredAt: at,
-				},
 				{
 					kind: "BRIDGE_OUT",
 					chain: "BASE",
@@ -353,6 +384,17 @@ export function createPaperVenueAdapter(deps: PaperVenueDeps): VenueAdapter {
 					pnlAssets: 0n,
 					feeAssets: 0n,
 					txRef: paperRef(vaultAddress, `perp-open-${leverageBps}`, at),
+					occurredAt: at,
+				},
+				{
+					kind: "SPOT_BUY",
+					chain: "BASE",
+					symbol: config.symbol,
+					baseAmount: unitsBought,
+					notionalAssets: notional,
+					pnlAssets: 0n,
+					feeAssets: spotNotional - filled,
+					txRef: paperRef(vaultAddress, "spot-buy", at),
 					occurredAt: at,
 				},
 			];

@@ -1,8 +1,10 @@
+import { adlRisk } from "@lemon/core";
 import { describe, expect, it } from "bun:test";
 import {
 	decide,
 	deployableAmount,
 	driftBps,
+	MIN_DEPLOY_USDC,
 	permittedActions,
 	perpMarginFor,
 	splitDeployment,
@@ -29,6 +31,9 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		spotUnits: 0n,
 		perpUnits: 0n,
 		fundingShortPercentPerHour: 0.002,
+		// Flat by default: entry equals mark, so the short is neither winning nor
+		// in the auto-deleveraging queue. Tests that care set their own.
+		adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 100, size: 10, equityUsd: 1000 }),
 		spotBuyable: true,
 		spotSellable: true,
 		...overrides,
@@ -123,6 +128,38 @@ describe("permittedActions", () => {
 	it("does not offer to deploy dust", () => {
 		const s = snapshot({ freeAssets: 50n * USDC, totalAssets: 50n * USDC });
 		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	/**
+	 * The venue checks the *spot leg* against the same minimum, and only after
+	 * the margin has bridged to Solana. A gate measured on the total would wave
+	 * through a deployment the adapter then rejects with the margin already on
+	 * the wrong chain — enforcing, at the cost of a stranded bridge, a limit this
+	 * layer can enforce for nothing.
+	 */
+	it("measures the deploy minimum on the spot leg, not the whole deployment", () => {
+		// $180 is deployable out of $200, which buys a $90 spot leg at 1x and $120 at 2x.
+		const idle = { freeAssets: 200n * USDC, totalAssets: 200n * USDC };
+		expect(permittedActions(snapshot(idle), NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+		expect(
+			permittedActions(snapshot({ ...idle, targetLeverageBps: 20_000 }), NOW).map((o) => o.kind),
+		).toContain("DEPLOY");
+	});
+
+	it("never offers a deployment the venue would reject", () => {
+		for (const targetLeverageBps of [10_000, 15_000, 20_000, 25_000, 30_000]) {
+			for (const size of [100n, 150n, 200n, 250n, 400n, 1_000n]) {
+				const s = snapshot({
+					targetLeverageBps,
+					freeAssets: size * USDC,
+					totalAssets: size * USDC,
+				});
+				const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
+				if (!deploy) continue;
+				const { spotNotional } = splitDeployment(deploy.amount, targetLeverageBps);
+				expect(spotNotional).toBeGreaterThanOrEqual(MIN_DEPLOY_USDC);
+			}
+		}
 	});
 
 	it("does not offer to deploy into a leg it cannot buy", () => {

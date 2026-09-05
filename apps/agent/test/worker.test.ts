@@ -1,3 +1,4 @@
+import { adlRisk } from "@lemon/core";
 import { describe, expect, it, mock } from "bun:test";
 import { ValuationError } from "../src/valuation";
 import type { ActivityInput } from "../src/vault";
@@ -43,6 +44,8 @@ function observation(overrides = {}) {
 		spotBuyable: true,
 		spotSellable: true,
 		symbol: "NVDA",
+		// Flat by default — entry equals mark, so the short is out of the queue.
+		adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 100, size: 10, equityUsd: 1000 }),
 		...overrides,
 	};
 }
@@ -88,16 +91,19 @@ function harness(options: {
 		rebalance: options.venue?.rebalance ?? (async () => [activityRow()]),
 	};
 
+	const logs: string[] = [];
 	const deps: WorkerDeps = {
 		vault,
 		venue,
 		advisor: null,
 		queue: async () => options.queue ?? [],
 		now: () => NOW,
-		log: () => undefined,
+		log: (level, message) => {
+			logs.push(`${level}:${message}`);
+		},
 	};
 
-	return { deps, vault, calls };
+	return { deps, vault, calls, logs };
 }
 
 function activityRow(): ActivityInput {
@@ -272,5 +278,33 @@ describe("tick", () => {
 		const { deps, vault } = harness({ state: vaultState({ emergencyExit: true }) });
 		await tick(deps);
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+	});
+});
+
+describe("auto-deleveraging awareness", () => {
+	it("says nothing while the short is losing, which is most of the time", async () => {
+		const h = harness({
+			observe: async () =>
+				observation({
+					// Mark above entry: the short is down, so it is not in the queue.
+					adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 110, size: 10, equityUsd: 300 }),
+				}),
+		});
+		await tick(h.deps);
+		expect(h.logs.filter((l) => l.includes("auto-deleveraging"))).toHaveLength(0);
+	});
+
+	it("warns once the short is far enough up the queue to be reached", async () => {
+		const h = harness({
+			observe: async () =>
+				observation({
+					// Mark 12% below entry at 3x: winning, and well into the queue.
+					adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 88, size: 10, equityUsd: 300 }),
+				}),
+		});
+		await tick(h.deps);
+		const warned = h.logs.filter((l) => l.includes("auto-deleveraging"));
+		expect(warned).toHaveLength(1);
+		expect(warned[0]).toContain("in profit");
 	});
 });

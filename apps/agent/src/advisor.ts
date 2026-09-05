@@ -104,6 +104,7 @@ Rules:
 - Prefer HOLD when nothing is urgent and conditions are poor. Doing nothing is a real and often correct answer; every trade costs roughly 0.2% of notional per leg round trip.
 - Never delay an UNWIND when redemptions are eligible. People are waiting on that money. Only choose against it if another listed action is strictly more urgent.
 - A negative funding rate means the position is paying rather than earning. That argues against DEPLOY, not for panic.
+- Auto-deleveraging risk is the venue's ability to close the short without warning. It rises as the short *wins*, because only profitable positions are taken — so a high reading means the hedge may be removed exactly when the spot leg is falling and the hedge is what is protecting depositors. You cannot reduce it; leverage is fixed by the vault's mandate. Treat a high reading as a reason to prefer keeping capital free — favour HOLD over DEPLOY, and do not delay an UNWIND on account of it.
 
 Answer with JSON only: {"action": "<ACTION>", "rationale": "<one or two sentences>"}`;
 
@@ -132,6 +133,7 @@ function renderSituation(request: AdviceRequest): string {
 		`Redemptions: ${usd(s.ripeRedeemAssets)} eligible now, ${usd(s.pendingRedeemAssets)} still in the delay window. Nearest deadline ${deadline}.`,
 		`Funding on the short side: ${s.fundingShortPercentPerHour.toFixed(4)}% per hour (${annualFunding}% annualised).`,
 		`Hedge: ${s.spotUnits} spot units against ${s.perpUnits} perp units.`,
+		`Auto-deleveraging: ${s.adl.summary}`,
 		`Spot leg is ${s.spotBuyable ? "buyable" : "not buyable"} and ${s.spotSellable ? "sellable" : "not sellable"}.`,
 		"",
 		"Permitted actions:",

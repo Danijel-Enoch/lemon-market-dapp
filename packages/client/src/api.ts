@@ -156,6 +156,42 @@ export interface PendingWithdrawal {
 	fulfilledAt: number | null;
 }
 
+/** How near the front of the venue's auto-deleveraging queue a position sits. */
+export type AdlBand = "none" | "low" | "elevated" | "high" | "severe" | "critical";
+
+/**
+ * Auto-deleveraging exposure for the perp leg.
+ *
+ * Mirrors `AdlRisk` in `@lemon/core`, where the model and its reasoning live.
+ * The short one of these describes is only eligible for auto-deleveraging while
+ * it is *winning* — which for a short means the price has fallen, which is also
+ * what liquidates the longs whose bankruptcy triggers ADL. So the venue takes
+ * the hedge away exactly when the spot leg is down and the hedge was doing its
+ * job. That is what this object exists to make visible.
+ *
+ * `score` ranks against the rest of the book, and the rest of the book is not
+ * visible. Read it as exposure, never as a probability.
+ */
+export interface AdlRisk {
+	eligible: boolean;
+	score: number;
+	/** 0–5. Zero means not in the queue at all. */
+	lamps: number;
+	band: AdlBand;
+	profitPercent: number;
+	effectiveLeverage: number | null;
+	/** Further move, as a percent of mark, before the next band. */
+	headroomPercent: number | null;
+	nextBand: AdlBand | null;
+	/** False when no price reaches the next band — see the core model. */
+	nextBandReachable: boolean;
+	stress: {
+		markVsOraclePercent: number | null;
+		change24hPercent: number | null;
+	};
+	summary: string;
+}
+
 export interface LivePosition {
 	vault: string;
 	wallets: {
@@ -182,6 +218,7 @@ export interface LivePosition {
 		marginUsd: number | null;
 		leverage: number | null;
 		fundingRateHourlyPercent: number | null;
+		adl: AdlRisk;
 	};
 	idleAtAgentUsd: string;
 	observedValueUsd: string | null;
