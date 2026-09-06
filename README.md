@@ -123,6 +123,12 @@ packages/
   relay/      Bridge deposit addresses and status
   registry/   Spot-asset registry, pairing, basis maths
   db/         Prisma schema and client
+scripts/
+  dev.sh                Run the stack against one environment, with an optional overlay
+  deploy-contracts.sh   Deploy to Base, verify, write the addresses back to an env file
+  indexer-reset.sh      Drop the read model so the next start reindexes
+  seed-venue-config.ts  Backfill venue config for vaults made outside the admin flow
+  agent-addresses.ts    The agent wallets, and the derivation paths they come from
 ```
 
 **Why `client` and `wallet` are separate.** `client` is transport and
@@ -193,16 +199,70 @@ The board and docs work with no configuration. Beyond that:
   it places crosses a chain, and the first crossing of a deployment happens with
   a depositor's capital already drawn out of a vault.
 
+### Running against a second deployment
+
+`bun run dev:stack` takes an optional env file as its first argument and sources
+it on top of `.env`, so its values win:
+
+```bash
+bun run dev:stack                      # .env alone
+bun run dev:stack .env.local           # .env with .env.local over it
+bun run dev:stack .env.local web api   # only some services
+```
+
+Shell variables beat `--env-file` in Bun, which is what makes the overlay work
+without touching anything. It exists because `.env` holds the mainnet addresses
+this app deploys against, and a half-reverted edit to that file is how a run
+ends up pointed somewhere nobody intended. The banner it prints on start — the
+chain, the RPC and the factory address — is there so a run against the wrong
+deployment is visible in the first line rather than in the data twenty minutes
+later.
+
 ### Deploying the contracts
+
+```bash
+scripts/deploy-contracts.sh    # deploy, verify, write the addresses back
+```
+
+It asks for a deployer key and an Etherscan key, checks the key and the chain
+before spending anything, simulates against real chain state, prints what it is
+about to do and what it will cost, and only then asks for confirmation. Neither
+key is written to disk or to your shell history. Afterwards it verifies both
+contracts on Basescan.
+
+The last step is the point of the script. Four variables —
+`VAULT_FACTORY_ADDRESS`, `VITE_VAULT_FACTORY_ADDRESS`, `INSURANCE_FUND_ADDRESS`
+and `VAULT_FACTORY_START_BLOCK` — have to name the same deployment before the
+app, the admin console and the indexer agree about which protocol they are
+looking at. The script writes all four itself, keeping a timestamped backup of
+the file it edited.
+
+```bash
+scripts/deploy-contracts.sh .env.local     # write the results there instead
+VERIFY_ONLY=1 scripts/deploy-contracts.sh  # re-verify a finished deploy, no key needed
+```
+
+`--verify` on the broadcast fails often enough for reasons that have nothing to
+do with the contracts — a cold index, a rate limit — that `VERIFY_ONLY=1` is
+worth knowing about. It is idempotent; an already-verified contract just says
+so.
+
+The command underneath, if you would rather drive it by hand:
 
 ```bash
 cd packages/contracts
 forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_RPC_URL --broadcast --verify
 ```
 
-Deploys the insurance fund and the factory only. Vaults are created from the
-admin dashboard, because a vault needs an agent wallet derived from the NEAR MPC
-network and the derivation has to happen alongside the transaction.
+Either way this deploys the insurance fund and the factory only. Vaults are
+created from the admin dashboard, because a vault needs an agent wallet derived
+from the NEAR MPC network and the derivation has to happen alongside the
+transaction. Then:
+
+```bash
+bun run contracts:build   # regenerate ts/abi.ts from the new artifacts
+bun run indexer:reset     # vault addresses repeat across deployments
+```
 
 ### Connecting a wallet
 
@@ -264,19 +324,38 @@ docker compose --profile split up    # + standalone API on :3003
 ## Commands
 
 ```bash
-bun run dev              # the public app, with the API mounted
+bun run dev              # the public app, with the API mounted (:3002)
 bun run dev:admin        # the operator console (:3004)
-bun run dev:indexer      # Ponder
+bun run dev:api          # the API standalone (:3003)
+bun run dev:indexer      # Ponder (:42069)
 bun run dev:agent        # the vault agents
 bun run dev:stack        # api + indexer + web together (add `admin` for the console)
 bun run typecheck        # all workspaces
-bun run lint             # biome
+bun run lint             # biome, writing fixes
 bun test                 # TypeScript tests + 128 Foundry tests
 bun run contracts:test   # Foundry only
 bun run test:e2e         # Playwright, against a running stack
+bun run test:e2e:ui      # the same suite, interactively
 bun run test:e2e:report  # the last run's HTML report
 bun run contracts:build  # compile and regenerate ABIs
 ```
+
+Operational, needed less often:
+
+```bash
+bun run db:generate      # Prisma client, after a schema change
+bun run db:push          # schema to the database without a migration
+bun run db:migrate       # create and apply one
+bun run indexer:reset    # drop the read model; the next start reindexes
+bun run seed:venues      # backfill venue config for vaults created outside the admin flow
+```
+
+`indexer:reset` is the answer whenever the chain underneath changes — a new
+deployment, a fresh fork. Vault addresses repeat across deployments, so without
+it Ponder tries to insert a primary key it already holds. It drops only the
+`ponder` schema, and Prisma's tables live in `public`, so it cannot reach
+sessions or operator configuration. It reaches Postgres through the compose
+container, so set `POSTGRES_CONTAINER` if yours is not the default one.
 
 ## End-to-end tests
 
