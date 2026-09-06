@@ -55,6 +55,18 @@ function selectorFor(step: TourStep): string {
 	return `[data-tour="${step.target}"]`;
 }
 
+/**
+ * The next index, or null at the end.
+ *
+ * Null rather than a number past the last step: the overlay renders on `step`,
+ * so an out-of-range index unmounts the card while `isRunning` stays true on a
+ * non-null index — a dimmed, scroll-locked page with nothing left to dismiss.
+ */
+function nextIndex(value: number | null): number | null {
+	if (value === null) return null;
+	return value + 1 < TOUR_STEPS.length ? value + 1 : null;
+}
+
 /** Does this step's route match where we are? `:id` matches any single segment. */
 function pathMatches(pattern: string, pathname: string): boolean {
 	if (pattern === pathname) return true;
@@ -128,6 +140,22 @@ export function TourProvider({ children }: { children: ReactNode }) {
 		setIndex(0);
 	}, [reset]);
 
+	/**
+	 * Advance, or end the tour and mark it seen.
+	 *
+	 * Every path that moves forward goes through this — the button, the arrow
+	 * key, the backdrop, and a step whose target never showed. Defined above the
+	 * effect that calls it so it can be a dependency of one.
+	 */
+	const next = useCallback(() => {
+		setRect(null);
+		setIndex((value) => {
+			const target = nextIndex(value);
+			if (target === null && value !== null) markSeen();
+			return target;
+		});
+	}, [markSeen]);
+
 	// Resolve the current step: navigate if needed, wait for the target, then
 	// scroll it into view and measure. Skips forward when a target never shows.
 	useEffect(() => {
@@ -140,13 +168,17 @@ export function TourProvider({ children }: { children: ReactNode }) {
 		async function resolve() {
 			if (!pathMatches(current.path, window.location.pathname)) {
 				// ":id" cannot be navigated to literally — substitute the first
-				// market the board is showing, which is what the previous step
-				// just pointed the user at.
+				// vault the board is showing, which is what the previous step
+				// just pointed the user at. Read off the row's own link rather
+				// than a stored address, so it follows whatever the active
+				// filters left on screen.
 				const concrete = current.path.includes(":id")
-					? (findVisible('[data-tour="market-row"]')?.getAttribute("href") ?? null)
+					? (findVisible('[data-tour="vault-link"]')?.getAttribute("href") ?? null)
 					: current.path;
 				if (!concrete) {
-					if (!stale) setIndex((value) => (value === null ? null : value + 1));
+					// No vault to visit — this deployment has none, or a filter
+					// emptied the board. Skip, and end cleanly if that was last.
+					if (!stale) next();
 					return;
 				}
 				navigate(concrete);
@@ -157,10 +189,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
 			if (!element) {
 				// A missing target is a skip, never a deadlock.
-				setIndex((value) => {
-					if (value === null) return null;
-					return value + 1 < TOUR_STEPS.length ? value + 1 : null;
-				});
+				next();
 				return;
 			}
 
@@ -178,7 +207,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
 		return () => {
 			stale = true;
 		};
-	}, [index, navigate]);
+	}, [index, navigate, next]);
 
 	// Keep the spotlight on the element while the page moves under it.
 	useEffect(() => {
@@ -204,11 +233,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
 		if (!isRunning) return;
 		function onKey(event: KeyboardEvent) {
 			if (event.key === "Escape") stop();
-			if (event.key === "ArrowRight") setIndex((value) => (value === null ? null : value + 1));
+			if (event.key === "ArrowRight") next();
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [isRunning, stop]);
+	}, [isRunning, stop, next]);
 
 	// The page behind a spotlight must not scroll out from under it.
 	useEffect(() => {
@@ -219,18 +248,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
 			document.body.style.overflow = previous;
 		};
 	}, [isRunning]);
-
-	const next = useCallback(() => {
-		setIndex((value) => {
-			if (value === null) return null;
-			if (value + 1 >= TOUR_STEPS.length) {
-				markSeen();
-				return null;
-			}
-			setRect(null);
-			return value + 1;
-		});
-	}, [markSeen]);
 
 	const back = useCallback(() => {
 		setIndex((value) => {
@@ -334,6 +351,9 @@ function TourOverlay({
 		const spaceBelow = viewportHeight - (hole.top + hole.height) - GAP - MARGIN;
 		const fitsAbove = spaceAbove >= cardHeight;
 		const fitsBelow = spaceBelow >= cardHeight;
+		// Set only when the card ends up beside the target rather than over or
+		// under it, in which case it stops being horizontally centred on the hole.
+		let besideLeft: number | null = null;
 
 		if (step.placement === "top" && fitsAbove) {
 			cardTop = hole.top - GAP - cardHeight;
@@ -342,18 +362,32 @@ function TourOverlay({
 		} else if (fitsAbove) {
 			cardTop = hole.top - GAP - cardHeight;
 		} else {
-			// Neither side can hold it — a tall target on a short screen, which is
-			// the normal case on a phone. Pin to the edge furthest from the target
-			// so the spotlight stays visible, rather than centring the card over
-			// the middle of the thing it is pointing at.
+			// Neither above nor below can hold it. Try beside it before giving up:
+			// the deposit panel is a sidebar that runs nearly the full height of
+			// the page, so it has no vertical room and a wide column of free space
+			// to one side. Pinning to a vertical edge here would lay the card over
+			// the panel it is describing.
+			const spaceLeft = hole.left - GAP - MARGIN;
+			const spaceRight = viewportWidth - (hole.left + hole.width) - GAP - MARGIN;
+			if (spaceLeft >= cardWidth) {
+				besideLeft = hole.left - GAP - cardWidth;
+			} else if (spaceRight >= cardWidth) {
+				besideLeft = hole.left + hole.width + GAP;
+			}
+
 			cardTop =
-				hole.top + hole.height / 2 < viewportHeight / 2
-					? viewportHeight - cardHeight - MARGIN
-					: MARGIN;
+				besideLeft !== null
+					? hole.top + hole.height / 2 - cardHeight / 2
+					: // Nowhere to go — a tall target on a phone. Pin to the edge
+						// furthest from the target so the spotlight stays visible,
+						// rather than centring the card over the middle of it.
+						hole.top + hole.height / 2 < viewportHeight / 2
+						? viewportHeight - cardHeight - MARGIN
+						: MARGIN;
 		}
 
 		cardTop = Math.max(MARGIN, Math.min(cardTop, viewportHeight - cardHeight - MARGIN));
-		cardLeft = hole.left + hole.width / 2 - cardWidth / 2;
+		cardLeft = besideLeft ?? hole.left + hole.width / 2 - cardWidth / 2;
 		cardLeft = Math.max(MARGIN, Math.min(cardLeft, viewportWidth - cardWidth - MARGIN));
 	}
 

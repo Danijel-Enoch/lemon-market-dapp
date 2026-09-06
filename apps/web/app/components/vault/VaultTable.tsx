@@ -47,6 +47,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 					<li key={vault.address}>
 						<Link
 							to={`/vaults/${vault.address}`}
+							data-tour="vault-link"
 							className="block px-5 py-4 transition-colors hover:bg-[var(--pon-surface)] focus-visible:bg-[var(--pon-surface)] focus-visible:outline-none"
 						>
 							{/* Desktop row. */}

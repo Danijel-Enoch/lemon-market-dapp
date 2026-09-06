@@ -124,6 +124,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	return (
 		<div
 			data-testid="deposit-panel"
+			data-tour="deposit-panel"
 			className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5"
 		>
 			<div className="flex items-baseline justify-between">
