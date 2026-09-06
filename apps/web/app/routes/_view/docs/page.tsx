@@ -22,7 +22,7 @@ const SECTIONS = [
 	{ id: "fees", label: "Fees" },
 	{ id: "limits", label: "What the contract enforces" },
 	{ id: "transparency", label: "Checking it yourself" },
-	{ id: "api", label: "API" },
+	{ id: "developers", label: "Developers" },
 	{ id: "risks", label: "Risks" },
 	{ id: "faq", label: "FAQ" },
 ] as const;
@@ -62,18 +62,6 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 				<p className="text-[13.5px] font-semibold text-[var(--pon-fg)]">{title}</p>
 				<p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">{children}</p>
 			</div>
-		</li>
-	);
-}
-
-function Endpoint({ method, path, children }: { method: string; path: string; children: string }) {
-	return (
-		<li className="border-b border-[var(--pon-line)] py-2.5 last:border-b-0">
-			<p className="font-fono text-[12.5px] text-[var(--pon-fg)]">
-				<span className="mr-2 text-[var(--pon-lime)]">{method}</span>
-				{path}
-			</p>
-			<p className="mt-1 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">{children}</p>
 		</li>
 	);
 }
@@ -379,37 +367,12 @@ export default function DocsPage() {
 						</p>
 					</Section>
 
-					<Section id="api" title="API">
+					<Section id="developers" title="Developers">
 						<p>
-							No key, no session. Everything a vault does is public, and gating it would mean the
-							only people who could audit the system are the ones already inside it.
+							Developer documentation and an SDK are coming soon. Until they are published, the
+							section above is the way to check a vault yourself: every position, valuation and
+							transfer is on-chain, and every agent action links to the transaction it came from.
 						</p>
-						<ul className="mt-1">
-							<Endpoint method="GET" path="/api/vaults">
-								Every vault with its balances, tier, leverage and realised yield.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/:address">
-								One vault, with 7-day, 30-day and all-time realised return.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/:address/nav">
-								The share-price series every yield figure is computed from.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/:address/activity">
-								That agent's actions, newest first. Filterable by kind and chain.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/activity">
-								The same feed across every vault — the protocol-wide ledger.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/:address/transfers">
-								USDC crossing the vault boundary in either direction.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/queue">
-								The withdrawal queue: what is ripe, what is waiting, what is overdue.
-							</Endpoint>
-							<Endpoint method="GET" path="/api/vaults/portfolio/:owner">
-								Any address's holdings and queue position.
-							</Endpoint>
-						</ul>
 					</Section>
 
 					<Section id="risks" title="Risks">
