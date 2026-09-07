@@ -3,7 +3,10 @@ import { adlRisk } from "@lemon/core";
 import {
 	decide,
 	deployableAmount,
+	deploymentFor,
 	driftBps,
+	isFlat,
+	type MarketSnapshot,
 	MIN_DEPLOY_USDC,
 	permittedActions,
 	perpMarginFor,
@@ -13,6 +16,31 @@ import {
 
 const USDC = 1_000_000n;
 const NOW = 1_800_000_000;
+
+/** Flat: entry equals mark, so the short is neither winning nor in the queue. */
+const CALM_ADL = adlRisk({
+	side: "short",
+	entryPrice: 100,
+	markPrice: 100,
+	size: 10,
+	equityUsd: 1000,
+});
+
+function market(overrides: Partial<MarketSnapshot> = {}): MarketSnapshot {
+	return {
+		ticker: "NVDA",
+		symbol: "NVDAc",
+		targetWeightBps: 10_000,
+		spotValueUsdc: 0n,
+		spotUnits: 0n,
+		perpUnits: 0n,
+		fundingShortPercentPerHour: 0.002,
+		spotBuyable: true,
+		spotSellable: true,
+		adl: CALM_ADL,
+		...overrides,
+	};
+}
 
 function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 	return {
@@ -28,16 +56,19 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		ripeRedeemAssets: 0n,
 		pendingRedeemAssets: 0n,
 		earliestDeadline: null,
-		spotUnits: 0n,
-		perpUnits: 0n,
-		fundingShortPercentPerHour: 0.002,
-		// Flat by default: entry equals mark, so the short is neither winning nor
-		// in the auto-deleveraging queue. Tests that care set their own.
-		adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 100, size: 10, equityUsd: 1000 }),
-		spotBuyable: true,
-		spotSellable: true,
+		markets: [market()],
+		closeRequested: false,
+		adl: CALM_ADL,
 		...overrides,
 	};
+}
+
+/** A snapshot whose single market carries the given per-market overrides. */
+function withMarket(
+	marketOverrides: Partial<MarketSnapshot>,
+	vaultOverrides: Partial<VaultSnapshot> = {},
+): VaultSnapshot {
+	return snapshot({ markets: [market(marketOverrides)], ...vaultOverrides });
 }
 
 describe("deployableAmount", () => {
@@ -164,17 +195,17 @@ describe("permittedActions", () => {
 
 	it("does not offer to deploy into a leg it cannot buy", () => {
 		expect(
-			permittedActions(snapshot({ spotBuyable: false }), NOW).map((o) => o.kind),
+			permittedActions(withMarket({ spotBuyable: false }), NOW).map((o) => o.kind),
 		).not.toContain("DEPLOY");
 	});
 
 	it("offers a rebalance once drift clears the threshold", () => {
-		const s = snapshot({ spotUnits: 100n * 10n ** 18n, perpUnits: 98n * 10n ** 18n });
+		const s = withMarket({ spotUnits: 100n * 10n ** 18n, perpUnits: 98n * 10n ** 18n });
 		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("REBALANCE");
 	});
 
 	it("ignores drift too small to be worth the fees", () => {
-		const s = snapshot({ spotUnits: 10_000n * 10n ** 18n, perpUnits: 9_995n * 10n ** 18n });
+		const s = withMarket({ spotUnits: 10_000n * 10n ** 18n, perpUnits: 9_995n * 10n ** 18n });
 		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
 	});
 
@@ -185,11 +216,14 @@ describe("permittedActions", () => {
 	// -- the queue ---------------------------------------------------------
 
 	it("unwinds only the shortfall, not the whole redemption", () => {
-		const s = snapshot({
-			freeAssets: 1_000n * USDC,
-			deployedAssets: 9_000n * USDC,
-			ripeRedeemAssets: 3_000n * USDC,
-		});
+		const s = withMarket(
+			{ spotValueUsdc: 9_000n * USDC },
+			{
+				freeAssets: 1_000n * USDC,
+				deployedAssets: 9_000n * USDC,
+				ripeRedeemAssets: 3_000n * USDC,
+			},
+		);
 		const unwind = permittedActions(s, NOW).find((o) => o.kind === "UNWIND");
 		// 2,000 short, plus the 0.5% buffer.
 		expect(unwind?.amount).toBe(2_010n * USDC);
@@ -201,12 +235,35 @@ describe("permittedActions", () => {
 	});
 
 	it("never asks to unwind more than is deployed", () => {
+		const s = withMarket(
+			{ spotValueUsdc: 500n * USDC },
+			{ freeAssets: 0n, deployedAssets: 500n * USDC, ripeRedeemAssets: 5_000n * USDC },
+		);
+		expect(permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount).toBe(500n * USDC);
+	});
+
+	/**
+	 * A market whose pool has dried up holds value the NAV still counts and an
+	 * unwind cannot reach. Sizing against `deployedAssets` would ask the venue
+	 * adapter to raise more than every routable leg put together contains, and
+	 * the shortfall would surface as a failed unwind rather than a small one.
+	 */
+	it("never asks for more than the sellable legs are worth", () => {
 		const s = snapshot({
 			freeAssets: 0n,
-			deployedAssets: 500n * USDC,
+			deployedAssets: 9_000n * USDC,
 			ripeRedeemAssets: 5_000n * USDC,
+			markets: [
+				market({ ticker: "BTC", spotValueUsdc: 2_000n * USDC, targetWeightBps: 5_000 }),
+				market({
+					ticker: "NVDA",
+					spotValueUsdc: 7_000n * USDC,
+					targetWeightBps: 5_000,
+					spotSellable: false,
+				}),
+			],
 		});
-		expect(permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount).toBe(500n * USDC);
+		expect(permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount).toBe(2_000n * USDC);
 	});
 
 	/**
@@ -215,14 +272,15 @@ describe("permittedActions", () => {
 	 * interesting does not get to weigh in on it.
 	 */
 	it("forces the unwind and offers nothing else near the deadline", () => {
-		const s = snapshot({
-			freeAssets: 0n,
-			deployedAssets: 9_000n * USDC,
-			ripeRedeemAssets: 3_000n * USDC,
-			earliestDeadline: NOW + 3600,
-			spotUnits: 100n * 10n ** 18n,
-			perpUnits: 90n * 10n ** 18n,
-		});
+		const s = withMarket(
+			{ spotValueUsdc: 9_000n * USDC, spotUnits: 100n * 10n ** 18n, perpUnits: 90n * 10n ** 18n },
+			{
+				freeAssets: 0n,
+				deployedAssets: 9_000n * USDC,
+				ripeRedeemAssets: 3_000n * USDC,
+				earliestDeadline: NOW + 3600,
+			},
+		);
 		const options = permittedActions(s, NOW);
 		expect(options).toHaveLength(1);
 		expect(options[0].kind).toBe("UNWIND");
@@ -230,15 +288,223 @@ describe("permittedActions", () => {
 	});
 
 	it("still deliberates when the deadline is comfortably away", () => {
-		const s = snapshot({
-			freeAssets: 0n,
-			deployedAssets: 9_000n * USDC,
-			ripeRedeemAssets: 3_000n * USDC,
-			earliestDeadline: NOW + 5 * 86_400,
-		});
+		const s = withMarket(
+			{ spotValueUsdc: 9_000n * USDC },
+			{
+				freeAssets: 0n,
+				deployedAssets: 9_000n * USDC,
+				ripeRedeemAssets: 3_000n * USDC,
+				earliestDeadline: NOW + 5 * 86_400,
+			},
+		);
 		const options = permittedActions(s, NOW);
 		expect(options.length).toBeGreaterThan(1);
 		expect(options[0].forced).toBe(false);
+	});
+});
+
+describe("deploymentFor", () => {
+	/** The inverse of `splitDeployment`, which is what sizes a weighted deploy. */
+	it("round-trips through splitDeployment at every leverage", () => {
+		for (const leverage of [10_000, 15_000, 20_000, 25_000, 30_000]) {
+			for (const spot of [100n, 250n, 1_000n, 7_777n]) {
+				const total = deploymentFor(spot * USDC, leverage);
+				expect(splitDeployment(total, leverage).spotNotional).toBeGreaterThanOrEqual(spot * USDC);
+			}
+		}
+	});
+
+	it("asks for twice the spot at 1x and a third more at 3x", () => {
+		expect(deploymentFor(1_000n * USDC, 10_000)).toBe(2_000n * USDC);
+		expect(deploymentFor(3_000n * USDC, 30_000)).toBe(4_000n * USDC);
+	});
+});
+
+describe("permittedActions, across several markets", () => {
+	const even = () => [
+		market({ ticker: "BTC", symbol: "cbBTC", targetWeightBps: 5_000 }),
+		market({ ticker: "ETH", symbol: "WETH", targetWeightBps: 5_000 }),
+	];
+
+	it("deploys into the market furthest below its share", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", targetWeightBps: 5_000, spotValueUsdc: 4_000n * USDC }),
+				market({ ticker: "ETH", targetWeightBps: 5_000, spotValueUsdc: 1_000n * USDC }),
+			],
+		});
+		const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
+		expect(deploy?.market).toBe("ETH");
+	});
+
+	/**
+	 * One market per tick. The five steps of a deployment cross two chains and a
+	 * venue's matching engine and have no atomic form, so doing several at once
+	 * multiplies the ways to end up half-open. Ticks are a minute apart; the
+	 * weights converge on their own.
+	 */
+	it("offers exactly one deployment however many markets are underweight", () => {
+		const deploys = permittedActions(snapshot({ markets: even() }), NOW).filter(
+			(o) => o.kind === "DEPLOY",
+		);
+		expect(deploys).toHaveLength(1);
+	});
+
+	it("caps a deployment at the market's own room, not the whole idle balance", () => {
+		const s = snapshot({ markets: even() });
+		const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
+		// $9,000 deployable at 1x buys $4,500 of spot across both markets, so BTC's
+		// half is $2,250 — which needs a $4,500 deployment to buy.
+		expect(deploy?.amount).toBe(4_500n * USDC);
+	});
+
+	it("skips a market that cannot be bought and deploys into the next one", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", targetWeightBps: 8_000, spotBuyable: false }),
+				market({ ticker: "ETH", targetWeightBps: 2_000 }),
+			],
+		});
+		expect(permittedActions(s, NOW).find((o) => o.kind === "DEPLOY")?.market).toBe("ETH");
+	});
+
+	it("offers a rebalance per drifted market, worst first", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", spotUnits: 100n * 10n ** 18n, perpUnits: 98n * 10n ** 18n }),
+				market({ ticker: "ETH", spotUnits: 100n * 10n ** 18n, perpUnits: 90n * 10n ** 18n }),
+			],
+		});
+		const rebalances = permittedActions(s, NOW).filter((o) => o.kind === "REBALANCE");
+		expect(rebalances.map((o) => o.market)).toEqual(["ETH", "BTC"]);
+	});
+
+	/**
+	 * Two markets a percent out in opposite directions average to neutral. A
+	 * vault-level drift figure would report that as healthy, and both hedges
+	 * would stay wrong.
+	 */
+	it("does not let opposing drifts cancel each other out", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", spotUnits: 100n * 10n ** 18n, perpUnits: 97n * 10n ** 18n }),
+				market({ ticker: "ETH", spotUnits: 100n * 10n ** 18n, perpUnits: 103n * 10n ** 18n }),
+			],
+		});
+		expect(permittedActions(s, NOW).filter((o) => o.kind === "REBALANCE")).toHaveLength(2);
+	});
+
+	/**
+	 * Disabling a market is how one is retired, and a zero target is what drains
+	 * it: it becomes the most overweight market the vault has, so it is never
+	 * deployed into and is the first place the next unwind takes from.
+	 */
+	it("offers to unwind a market an operator has retired", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", targetWeightBps: 10_000, spotValueUsdc: 5_000n * USDC }),
+				market({ ticker: "NVDA", targetWeightBps: 0, spotValueUsdc: 2_000n * USDC }),
+			],
+		});
+		const unwind = permittedActions(s, NOW).find((o) => o.kind === "UNWIND");
+		expect(unwind?.amount).toBe(2_000n * USDC);
+		expect(unwind?.reason).toContain("NVDA");
+		// Offered, not forced: selling into a bad hour to satisfy a preference
+		// costs the depositors real money.
+		expect(unwind?.forced).toBe(false);
+	});
+
+	it("never deploys into a retired market", () => {
+		const s = snapshot({
+			markets: [market({ ticker: "NVDA", targetWeightBps: 0, spotValueUsdc: 2_000n * USDC })],
+		});
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+});
+
+describe("permittedActions, under a close order", () => {
+	const open = () =>
+		snapshot({
+			closeRequested: true,
+			deployedAssets: 9_000n * USDC,
+			markets: [
+				market({
+					ticker: "BTC",
+					targetWeightBps: 5_000,
+					spotValueUsdc: 5_000n * USDC,
+					spotUnits: 10n ** 18n,
+					perpUnits: 10n ** 18n,
+				}),
+				market({ ticker: "ETH", targetWeightBps: 5_000, spotValueUsdc: 4_000n * USDC }),
+			],
+		});
+
+	it("offers only CLOSE_ALL, forced, while anything is open", () => {
+		const options = permittedActions(open(), NOW);
+		expect(options).toHaveLength(1);
+		expect(options[0].kind).toBe("CLOSE_ALL");
+		expect(options[0].forced).toBe(true);
+	});
+
+	it("names what is still open in its reason", () => {
+		expect(permittedActions(open(), NOW)[0].reason).toContain("BTC");
+	});
+
+	/**
+	 * An order to return *all* of the capital already satisfies every request in
+	 * the queue, so there is nothing an urgent unwind would additionally do — and
+	 * an unwind that stopped at the amount owed would leave the rest of the
+	 * position open against an order to close it.
+	 */
+	it("outranks even a redemption inside its deadline", () => {
+		const s = {
+			...open(),
+			freeAssets: 0n,
+			ripeRedeemAssets: 3_000n * USDC,
+			earliestDeadline: NOW + 3600,
+		};
+		expect(permittedActions(s, NOW).map((o) => o.kind)).toEqual(["CLOSE_ALL"]);
+	});
+
+	/**
+	 * The order is standing, not one-shot. A flag that cleared itself on
+	 * completion would have the very next tick see idle USDC, decide it should be
+	 * earning, and undo the whole thing.
+	 */
+	it("holds rather than redeploying once the vault is flat", () => {
+		const s = snapshot({ closeRequested: true, deployedAssets: 0n });
+		const options = permittedActions(s, NOW);
+		expect(options).toHaveLength(1);
+		expect(options[0].kind).toBe("HOLD");
+		expect(options[0].forced).toBe(true);
+	});
+
+	it("deploys again once the order is lifted", () => {
+		const s = snapshot({ closeRequested: false, deployedAssets: 0n });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("DEPLOY");
+	});
+
+	/** Dust is not a position. Insisting on zero would never let an order finish. */
+	it("treats sub-dollar residue as flat", () => {
+		const s = snapshot({ closeRequested: true, deployedAssets: 900_000n });
+		expect(permittedActions(s, NOW)[0].kind).toBe("HOLD");
+	});
+
+	it("is not flat while capital is home but a leg is still open", () => {
+		const s = snapshot({
+			deployedAssets: 0n,
+			markets: [market({ spotUnits: 10n ** 18n })],
+		});
+		expect(isFlat(s)).toBe(false);
+	});
+
+	/**
+	 * The reverse, and the one that costs a depositor. Empty legs with the money
+	 * still at the agent's wallets is a position sold and not sent home, and
+	 * `freeAssets` cannot pay a redemption out of it.
+	 */
+	it("is not flat while the position is sold but the money is still out", () => {
+		expect(isFlat(snapshot({ deployedAssets: 5_000n * USDC }))).toBe(false);
 	});
 });
 
@@ -261,7 +527,7 @@ describe("decide", () => {
 		// Drift makes REBALANCE available, so there is a real choice to make —
 		// otherwise `decide` short-circuits on the single option and the advisor
 		// is never consulted, which would not exercise the guardrail at all.
-		const s = snapshot({
+		const s = withMarket({
 			spotBuyable: false,
 			spotUnits: 100n * 10n ** 18n,
 			perpUnits: 97n * 10n ** 18n,
@@ -294,12 +560,15 @@ describe("decide", () => {
 	/** No point paying for a round trip to confirm a foregone conclusion. */
 	it("does not consult the advisor on a forced action", async () => {
 		let called = false;
-		const s = snapshot({
-			freeAssets: 0n,
-			deployedAssets: 9_000n * USDC,
-			ripeRedeemAssets: 3_000n * USDC,
-			earliestDeadline: NOW + 3600,
-		});
+		const s = withMarket(
+			{ spotValueUsdc: 9_000n * USDC },
+			{
+				freeAssets: 0n,
+				deployedAssets: 9_000n * USDC,
+				ripeRedeemAssets: 3_000n * USDC,
+				earliestDeadline: NOW + 3600,
+			},
+		);
 		const result = await decide(s, NOW, async () => {
 			called = true;
 			return { kind: "HOLD" as const, rationale: "wait", fellBack: false };

@@ -1,4 +1,4 @@
-import { prisma } from "@lemon/db";
+import { prisma, type VaultMarketConfig, validateWeights, vaultMarkets } from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import { clients, config } from "../config";
 import { listBasisMarkets } from "./basis-markets";
@@ -353,22 +353,233 @@ export async function recordVault(params: {
 }) {
 	await assertVaultMatches(params.address, params.prepared);
 
-	return prisma.vaultConfig.create({
+	const address = params.address.toLowerCase();
+
+	// The founding market is written as a `VaultMarket` row in the same
+	// transaction as the vault's configuration, not left to be seeded on first
+	// read. A vault created through this flow has an operator watching it, and
+	// "the markets appear once the agent has ticked" is a worse thing to explain
+	// than one extra write.
+	const [record] = await prisma.$transaction([
+		prisma.vaultConfig.create({
+			data: {
+				address,
+				ticker: params.prepared.ticker,
+				riskTier: params.prepared.tier === "conservative" ? "CONSERVATIVE" : "LEVERAGED",
+				agentPath: params.prepared.agentPath,
+				agentEvmAddress: params.prepared.agentEvmAddress.toLowerCase(),
+				agentSolanaAddress: params.prepared.agentSolanaAddress,
+				spotTokenAddress: params.spotTokenAddress.toLowerCase(),
+				spotTokenDecimals: params.spotTokenDecimals,
+				spotTokenSymbol: params.spotTokenSymbol,
+				perpSymbol: params.perpSymbol,
+				assetClass: toVaultAssetClass(params.assetClass),
+				createdBy: params.createdBy.toLowerCase(),
+			},
+		}),
+		prisma.vaultMarket.create({
+			data: {
+				vaultAddress: address,
+				ticker: params.prepared.ticker,
+				spotTokenAddress: params.spotTokenAddress.toLowerCase(),
+				spotTokenDecimals: params.spotTokenDecimals,
+				spotTokenSymbol: params.spotTokenSymbol,
+				perpSymbol: params.perpSymbol,
+				targetWeightBps: 10_000,
+			},
+		}),
+	]);
+
+	return record;
+}
+
+// ---------------------------------------------------------------------------
+// The markets a vault runs
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a vault's markets, seeding the founding one if the vault predates them.
+ *
+ * The seeding lives in `@lemon/db` so the agent and this API cannot disagree
+ * about what a vault with no `VaultMarket` rows means.
+ */
+export async function listVaultMarkets(address: string): Promise<VaultMarketConfig[]> {
+	await assertConfigured(address);
+	return vaultMarkets(address);
+}
+
+/**
+ * Replace the set of markets a vault runs.
+ *
+ * The whole set at once rather than add/remove/reweight endpoints, because the
+ * weights are only meaningful together: three requests that each individually
+ * look reasonable can leave a vault weighted to 140% between the second and the
+ * third, and an agent ticking in that window deploys against it.
+ *
+ * **Removal is disabling, never deleting.** A vault can hold a position in a
+ * market an operator has changed their mind about, and a deleted row is a
+ * position the agent can no longer see, value, or sell — it would vanish from
+ * the NAV while the tokens sat in the agent's wallet. Disabled instead: the
+ * market keeps its row, its target weight is read as zero, and that makes it the
+ * most overweight market the vault has, so the next unwind drains it first and a
+ * close order sells it like any other. It comes back on with its old weight if
+ * an operator changes their mind again.
+ *
+ * The pairing is resolved here, from the same curated board the create flow
+ * uses. The caller sends tickers and weights and nothing else — a request that
+ * could name its own token address would be a way to point a live vault's agent
+ * at an arbitrary ERC-20.
+ */
+export async function setVaultMarkets(params: {
+	address: string;
+	markets: Array<{ ticker: string; targetWeightBps: number }>;
+}): Promise<VaultMarketConfig[]> {
+	const address = params.address.toLowerCase();
+	await assertConfigured(address);
+
+	const requested = params.markets.map((m) => ({
+		ticker: m.ticker.trim().toUpperCase(),
+		targetWeightBps: m.targetWeightBps,
+	}));
+
+	const invalid = validateWeights(requested);
+	if (invalid) throw new AdminError(invalid);
+
+	// Resolved before anything is written, so a set naming one unlistable market
+	// leaves the vault exactly as it was rather than half-applied.
+	const board = await listBasisMarkets();
+	const resolved = requested.map((market) => {
+		const listed = board.markets.find((m) => m.ticker.toUpperCase() === market.ticker);
+		if (!listed) {
+			throw new AdminError(
+				`${market.ticker} is not a listed basis market, so there is no curated pairing for it. A vault's agent must never resolve a token from a ticker.`,
+			);
+		}
+		if (listed.blockers.length > 0) {
+			throw new AdminError(
+				`${market.ticker} cannot be traded right now: ${listed.blockers[0]}. Adding it would give the vault a market it can take capital for and not deploy.`,
+			);
+		}
+		return { ...market, listed };
+	});
+
+	// Seeded first, so a vault that predates `VaultMarket` has its founding
+	// market as a row before the diff below decides what to disable — otherwise
+	// the founding market would be silently dropped rather than disabled.
+	await vaultMarkets(address);
+	const existing = await prisma.vaultMarket.findMany({ where: { vaultAddress: address } });
+	const keep = new Set(resolved.map((m) => m.ticker));
+
+	await prisma.$transaction([
+		...resolved.map((market) =>
+			prisma.vaultMarket.upsert({
+				where: { vaultAddress_ticker: { vaultAddress: address, ticker: market.ticker } },
+				update: {
+					targetWeightBps: market.targetWeightBps,
+					enabled: true,
+					seeded: false,
+					// Re-resolved on every write rather than left as it was. The
+					// curated pairing is the thing that must not go stale, and a
+					// re-listing under a new token address should reach a live vault.
+					spotTokenAddress: market.listed.spot.address.toLowerCase(),
+					spotTokenDecimals: market.listed.spot.decimals,
+					spotTokenSymbol: market.listed.spot.symbol,
+					perpSymbol: market.listed.perp.pacificaSymbol,
+				},
+				create: {
+					vaultAddress: address,
+					ticker: market.ticker,
+					targetWeightBps: market.targetWeightBps,
+					spotTokenAddress: market.listed.spot.address.toLowerCase(),
+					spotTokenDecimals: market.listed.spot.decimals,
+					spotTokenSymbol: market.listed.spot.symbol,
+					perpSymbol: market.listed.perp.pacificaSymbol,
+				},
+			}),
+		),
+		...existing
+			.filter((row) => !keep.has(row.ticker) && row.enabled)
+			.map((row) => prisma.vaultMarket.update({ where: { id: row.id }, data: { enabled: false } })),
+	]);
+
+	return vaultMarkets(address);
+}
+
+// ---------------------------------------------------------------------------
+// Closing a vault's positions
+// ---------------------------------------------------------------------------
+
+/**
+ * Tell a vault's agent to close every position and send all of it back.
+ *
+ * Deliberately not the same lever as `setAgentEnabled`. A stopped agent stops
+ * *reporting*, which stales the NAV and blocks deposits and — worse — blocks the
+ * withdrawal queue that an operator unwinding a vault is usually trying to
+ * serve. Under a close order the agent keeps ticking: it reports NAV, it fulfils
+ * redemptions, it simply holds no position and opens no new one.
+ *
+ * The order stands until it is lifted. Nothing here waits for the close to
+ * happen — it cannot, because closing is minutes of venue round trips across two
+ * chains — so this records the instruction and the agent acts on its next tick.
+ * `closeCompletedAt` is stamped by the agent when it first finds the vault flat.
+ */
+export async function setCloseOrder(params: {
+	address: string;
+	closing: boolean;
+	reason?: string;
+	by: string;
+}) {
+	const address = params.address.toLowerCase();
+	const existing = await assertConfigured(address);
+
+	if (!params.closing) {
+		return prisma.vaultConfig.update({
+			where: { address },
+			data: {
+				closeRequestedAt: null,
+				closeRequestedBy: null,
+				closeCompletedAt: null,
+				// The reason survives the order being lifted. "Who unwound this vault
+				// in March and why" is a question that gets asked long after the
+				// answer has left anyone's memory.
+				closeReason: existing.closeReason,
+			},
+		});
+	}
+
+	return prisma.vaultConfig.update({
+		where: { address },
 		data: {
-			address: params.address.toLowerCase(),
-			ticker: params.prepared.ticker,
-			riskTier: params.prepared.tier === "conservative" ? "CONSERVATIVE" : "LEVERAGED",
-			agentPath: params.prepared.agentPath,
-			agentEvmAddress: params.prepared.agentEvmAddress.toLowerCase(),
-			agentSolanaAddress: params.prepared.agentSolanaAddress,
-			spotTokenAddress: params.spotTokenAddress.toLowerCase(),
-			spotTokenDecimals: params.spotTokenDecimals,
-			spotTokenSymbol: params.spotTokenSymbol,
-			perpSymbol: params.perpSymbol,
-			assetClass: toVaultAssetClass(params.assetClass),
-			createdBy: params.createdBy.toLowerCase(),
+			closeRequestedAt: new Date(),
+			closeRequestedBy: params.by.toLowerCase(),
+			closeReason: params.reason?.trim() || null,
+			// Cleared, because this is a fresh order. A vault re-opened and closed
+			// again should not report itself already satisfied from last time.
+			closeCompletedAt: null,
 		},
 	});
+}
+
+/**
+ * The vault's configuration, or the error that explains its absence.
+ *
+ * Shared by everything an operator can do to a live vault. Letting Prisma's
+ * "record not found" escape instead reaches the generic handler as a database
+ * fault and is reported as "the database is unavailable or out of date", which
+ * is both wrong and actively misleading — the database is fine, the vault simply
+ * has no configuration because it was deployed outside this dashboard.
+ */
+async function assertConfigured(address: string) {
+	const existing = await prisma.vaultConfig.findUnique({
+		where: { address: address.toLowerCase() },
+	});
+	if (!existing) {
+		throw new AdminError(
+			`No venue configuration exists for ${address}. The vault is deployed and holding funds, but it was created outside this dashboard — record its spot token and perp symbol before an agent can trade it.`,
+			409,
+		);
+	}
+	return existing;
 }
 
 /**
@@ -382,14 +593,7 @@ export async function recordVault(params: {
  */
 export async function setAgentEnabled(address: string, enabled: boolean) {
 	const normalised = address.toLowerCase();
-
-	const existing = await prisma.vaultConfig.findUnique({ where: { address: normalised } });
-	if (!existing) {
-		throw new AdminError(
-			`No venue configuration exists for ${address}, so there is no agent to start or stop. The vault is deployed and holding funds, but it was created outside this dashboard — record its spot token and perp symbol before an agent can trade it.`,
-			409,
-		);
-	}
+	await assertConfigured(normalised);
 
 	return prisma.vaultConfig.update({
 		where: { address: normalised },

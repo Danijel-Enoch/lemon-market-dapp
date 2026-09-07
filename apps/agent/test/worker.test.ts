@@ -2,7 +2,14 @@ import { describe, expect, it, mock } from "bun:test";
 import { adlRisk } from "@lemon/core";
 import { ValuationError } from "../src/valuation";
 import type { ActivityInput } from "../src/vault";
-import { type QueueEntry, tick, type VenueAdapter, type WorkerDeps } from "../src/worker";
+import {
+	type MarketObservation,
+	type QueueEntry,
+	tick,
+	type VenueAdapter,
+	VenueExecutionError,
+	type WorkerDeps,
+} from "../src/worker";
 
 const USDC = 1_000_000n;
 const NOW = 1_800_000_000;
@@ -31,21 +38,42 @@ function vaultState(overrides = {}) {
 	};
 }
 
+// Flat by default — entry equals mark, so the short is out of the queue.
+const CALM_ADL = adlRisk({
+	side: "short",
+	entryPrice: 100,
+	markPrice: 100,
+	size: 10,
+	equityUsd: 1000,
+});
+
+function observedMarket(overrides: Partial<MarketObservation> = {}): MarketObservation {
+	return {
+		ticker: "NVDA",
+		symbol: "NVDAc",
+		perpSymbol: "NVDA",
+		targetWeightBps: 10_000,
+		spotValueUsdc: 0n,
+		spotUnits: 0n,
+		perpUnits: 0n,
+		fundingShortPercentPerHour: 0.002,
+		spotBuyable: true,
+		spotSellable: true,
+		adl: CALM_ADL,
+		...overrides,
+	};
+}
+
 function observation(overrides = {}) {
 	return {
 		valuation: {
 			deployedAssets: 0n,
 			leverageBps: 10_000,
 			components: { spot: 0n, perpEquity: 0n, idleAtAgent: 0n, inFlight: 0n },
+			spotByMarket: {},
 		},
-		spotUnits: 0n,
-		perpUnits: 0n,
-		fundingShortPercentPerHour: 0.002,
-		spotBuyable: true,
-		spotSellable: true,
-		symbol: "NVDA",
-		// Flat by default — entry equals mark, so the short is out of the queue.
-		adl: adlRisk({ side: "short", entryPrice: 100, markPrice: 100, size: 10, equityUsd: 1000 }),
+		markets: [observedMarket()],
+		adl: CALM_ADL,
 		...overrides,
 	};
 }
@@ -55,6 +83,7 @@ function harness(options: {
 	observe?: () => Promise<ReturnType<typeof observation>>;
 	queue?: QueueEntry[];
 	venue?: Partial<VenueAdapter>;
+	closeRequested?: boolean;
 }) {
 	const calls: string[] = [];
 	let state = options.state ?? vaultState();
@@ -86,9 +115,30 @@ function harness(options: {
 
 	const venue: VenueAdapter = {
 		observe: options.observe ?? (async () => observation()),
-		deploy: options.venue?.deploy ?? (async () => [activityRow()]),
-		unwind: options.venue?.unwind ?? (async () => [activityRow()]),
-		rebalance: options.venue?.rebalance ?? (async () => [activityRow()]),
+		deploy:
+			options.venue?.deploy ??
+			mock(async ({ market }: { market: string }) => {
+				calls.push(`deploy:${market}`);
+				return [activityRow()];
+			}),
+		unwind:
+			options.venue?.unwind ??
+			mock(async ({ amount }: { amount: bigint }) => {
+				calls.push(`unwind:${amount}`);
+				return [activityRow()];
+			}),
+		rebalance:
+			options.venue?.rebalance ??
+			mock(async ({ market, targetUnits }: { market: string; targetUnits: bigint }) => {
+				calls.push(`rebalance:${market}:${targetUnits}`);
+				return [activityRow()];
+			}),
+		closeAll:
+			options.venue?.closeAll ??
+			mock(async () => {
+				calls.push("closeAll");
+				return [activityRow()];
+			}),
 	};
 
 	const logs: string[] = [];
@@ -97,13 +147,14 @@ function harness(options: {
 		venue,
 		advisor: null,
 		queue: async () => options.queue ?? [],
+		closeRequested: options.closeRequested ?? false,
 		now: () => NOW,
 		log: (level, message) => {
 			logs.push(`${level}:${message}`);
 		},
 	};
 
-	return { deps, vault, calls, logs };
+	return { deps, vault, venue, calls, logs };
 }
 
 function activityRow(): ActivityInput {
@@ -218,6 +269,10 @@ describe("tick", () => {
 	it("unwinds when the queue is short of liquidity", async () => {
 		const { deps } = harness({
 			state: vaultState({ freeAssets: 0n, deployedAssets: 10_000n * USDC }),
+			// The unwind is sized against what can actually be sold, so the leg has
+			// to be worth something for there to be anything to sell.
+			observe: async () =>
+				observation({ markets: [observedMarket({ spotValueUsdc: 10_000n * USDC })] }),
 			queue: [queueEntry({ pendingAssets: 3_000n * USDC })],
 		});
 		const result = await tick(deps);
@@ -312,5 +367,145 @@ describe("auto-deleveraging awareness", () => {
 		const warned = h.logs.filter((l) => l.includes("auto-deleveraging"));
 		expect(warned).toHaveLength(1);
 		expect(warned[0]).toContain("in profit");
+	});
+});
+
+describe("tick, across several markets", () => {
+	const twoMarkets = [
+		observedMarket({ ticker: "BTC", symbol: "cbBTC", perpSymbol: "BTC", targetWeightBps: 5_000 }),
+		observedMarket({ ticker: "ETH", symbol: "WETH", perpSymbol: "ETH", targetWeightBps: 5_000 }),
+	];
+
+	it("tells the venue which market a deployment is for", async () => {
+		const { deps, calls } = harness({
+			observe: async () => observation({ markets: twoMarkets }),
+		});
+		const result = await tick(deps);
+		expect(result.action).toBe("DEPLOY");
+		expect(result.market).toBeTruthy();
+		expect(calls).toContain(`deploy:${result.market}`);
+	});
+
+	/**
+	 * A rebalance names a market *and* the unit target for that market's spot
+	 * leg. Handing over the wrong market's target would trade one hedge to the
+	 * size of another, which is the failure the per-market lookup exists to stop.
+	 */
+	it("rebalances against the named market's own spot leg", async () => {
+		const markets = [
+			observedMarket({
+				ticker: "BTC",
+				targetWeightBps: 5_000,
+				spotUnits: 7n * 10n ** 18n,
+				perpUnits: 7n * 10n ** 18n,
+			}),
+			observedMarket({
+				ticker: "ETH",
+				targetWeightBps: 5_000,
+				spotUnits: 100n * 10n ** 18n,
+				perpUnits: 90n * 10n ** 18n,
+			}),
+		];
+		const { deps, calls } = harness({
+			state: vaultState({ freeAssets: 0n, deployedAssets: 9_000n * USDC }),
+			observe: async () => observation({ markets }),
+		});
+		const result = await tick(deps);
+		expect(result.action).toBe("REBALANCE");
+		expect(result.market).toBe("ETH");
+		expect(calls).toContain(`rebalance:ETH:${100n * 10n ** 18n}`);
+	});
+
+	it("refuses to deploy without a market rather than guessing one", async () => {
+		const { deps, vault } = harness({
+			observe: async () => observation({ markets: [] }),
+		});
+		// An empty market list is not something the adapter produces, so this is
+		// really a check that the worker fails before `agentWithdraw` rather than
+		// after it — capital stays in the vault when there is nothing to do with it.
+		const result = await tick(deps);
+		expect(result.action).not.toBe("DEPLOY");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+	});
+});
+
+describe("tick, under a close order", () => {
+	it("closes everything and does not deploy", async () => {
+		const { deps, calls, vault } = harness({
+			closeRequested: true,
+			state: vaultState({ freeAssets: 10_000n * USDC, deployedAssets: 5_000n * USDC }),
+			observe: async () => observation({ markets: [observedMarket({ spotUnits: 10n ** 18n })] }),
+		});
+		const result = await tick(deps);
+		expect(result.action).toBe("CLOSE_ALL");
+		expect(calls).toContain("closeAll");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * The order is standing. Once the position is flat the agent keeps reporting
+	 * NAV and settling the queue — stopping either would stale the vault and block
+	 * the very withdrawals an operator usually closes a vault to serve — but it
+	 * never puts capital back to work.
+	 */
+	it("keeps reporting and settling once flat, without redeploying", async () => {
+		const { deps, calls, vault } = harness({
+			closeRequested: true,
+			state: vaultState({ freeAssets: 10_000n * USDC, deployedAssets: 0n }),
+			queue: [queueEntry()],
+		});
+		const result = await tick(deps);
+		expect(result.action).toBe("HOLD");
+		expect(vault.reportNav).toHaveBeenCalled();
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(calls.some((c) => c.startsWith("fulfillRedeem:"))).toBe(true);
+	});
+
+	/**
+	 * Reported on the tick that *observes* the vault flat, not the one that
+	 * closes it. The legs have to be seen empty and the NAV reported at zero
+	 * before the position is flat by any measure a depositor could check.
+	 */
+	it("reports the order satisfied only once the position is observably flat", async () => {
+		const closing = harness({
+			closeRequested: true,
+			state: vaultState({ freeAssets: 0n, deployedAssets: 5_000n * USDC }),
+			observe: async () => observation({ markets: [observedMarket({ spotUnits: 10n ** 18n })] }),
+		});
+		expect((await tick(closing.deps)).closeSatisfied).toBe(false);
+
+		const settled = harness({
+			closeRequested: true,
+			state: vaultState({ freeAssets: 10_000n * USDC, deployedAssets: 0n }),
+		});
+		expect((await tick(settled.deps)).closeSatisfied).toBe(true);
+	});
+
+	it("does not report a close satisfied when no order stands", async () => {
+		const { deps } = harness({ state: vaultState({ deployedAssets: 0n }) });
+		expect((await tick(deps)).closeSatisfied).toBe(false);
+	});
+
+	/**
+	 * A close that gets most of the way there has not served its purpose. The
+	 * legs that did land are still published, the order stays outstanding, and
+	 * the next tick tries the remainder.
+	 */
+	it("publishes what it closed when part of the close fails", async () => {
+		const { deps, calls } = harness({
+			closeRequested: true,
+			state: vaultState({ freeAssets: 0n, deployedAssets: 5_000n * USDC }),
+			observe: async () => observation({ markets: [observedMarket({ spotUnits: 10n ** 18n })] }),
+			venue: {
+				closeAll: async () => {
+					throw new VenueExecutionError("NVDA has no route", [activityRow()]);
+				},
+			},
+		});
+		const result = await tick(deps);
+		expect(result.action).toBe("CLOSE_ALL");
+		expect(result.closeSatisfied).toBe(false);
+		expect(result.error).toContain("no route");
+		expect(calls).toContain("reportActivity:1");
 	});
 });

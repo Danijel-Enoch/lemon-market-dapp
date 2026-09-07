@@ -1,10 +1,11 @@
+import { BPS } from "@lemon/contracts";
 import { adlRisk } from "@lemon/core";
 import type { KyberAggregatorClient } from "@lemon/kyber";
 import type { PacificaClient } from "@lemon/pacifica";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi, parseUnits } from "viem";
 import { MIN_DEPLOY_USDC } from "./policy";
-import { toUnits, type Valuation, value } from "./valuation";
+import { fromUnits, toUnits, type Valuation, value } from "./valuation";
 import type { ActivityInput } from "./vault";
 import { type VenueAdapter, VenueExecutionError } from "./worker";
 
@@ -27,15 +28,36 @@ import { type VenueAdapter, VenueExecutionError } from "./worker";
  * is the one a depositor depends on: until USDC is back inside the contract it
  * is not `freeAssets`, and a redemption cannot be fulfilled out of a position
  * that has already been sold to pay for it.
+ *
+ * **Several markets, one account.** A vault may run a basis position in more
+ * than one market, and the split between what is per-market and what is shared
+ * is the thing to keep straight here. Each market has its own Base token
+ * balance, its own Kyber route and its own Pacifica symbol; all of them share
+ * one Pacifica account, one Base wallet, one Solana wallet and one bridge. So
+ * spot legs are read, priced and traded per market, while equity, idle USDC,
+ * in-flight capital and margin repatriation happen once for the vault. Building
+ * this as N independent single-market adapters would have counted the shared
+ * balances N times and reported a three-market vault as worth roughly three
+ * times its margin.
  */
-export interface VenueConfig {
+export interface VenueMarket {
+	/** The market's ticker, e.g. "NVDA". How every caller names it. */
+	ticker: string;
+	/** The Base token's own symbol, e.g. "NVDAc". What the activity feed shows. */
 	symbol: string;
-	/** The Base ERC-20 that is the spot leg. */
+	/** The Base ERC-20 that is this market's spot leg. */
 	spotToken: Address;
 	spotTokenDecimals: number;
-	usdc: Address;
-	/** Pacifica's wire symbol, e.g. "NVDA". */
+	/** Pacifica's wire symbol for this market's perp leg, e.g. "NVDA". */
 	perpSymbol: string;
+	/** The share of the vault's spot notional this market should carry, in bps. */
+	targetWeightBps: number;
+}
+
+export interface VenueConfig {
+	/** Every market the vault holds or may deploy into. Never empty. */
+	markets: VenueMarket[];
+	usdc: Address;
 	/** The agent's Solana address, which is also its Pacifica account id. */
 	solanaAddress: string;
 	agentAddress: Address;
@@ -96,17 +118,39 @@ export interface BridgeAdapter {
 export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	const { config, publicClient, kyber, pacifica } = deps;
 
-	async function spotBalance(): Promise<bigint> {
+	if (config.markets.length === 0) {
+		throw new Error("A venue adapter needs at least one market to trade.");
+	}
+
+	/**
+	 * The configuration for one market, or a refusal.
+	 *
+	 * Every entry point that names a market comes through here. Throwing on an
+	 * unknown ticker rather than falling back to the first market is the point: a
+	 * silent fallback would execute a BTC-sized deployment against NVDA's pool
+	 * and hedge it with NVDA's perp, and every dashboard would read healthy.
+	 */
+	function marketFor(ticker: string): VenueMarket {
+		const market = config.markets.find((m) => m.ticker === ticker);
+		if (!market) {
+			throw new Error(
+				`${ticker} is not one of this vault's markets (${config.markets.map((m) => m.ticker).join(", ")}).`,
+			);
+		}
+		return market;
+	}
+
+	async function spotBalance(market: VenueMarket): Promise<bigint> {
 		return publicClient.readContract({
 			abi: erc20Abi,
-			address: config.spotToken,
+			address: market.spotToken,
 			functionName: "balanceOf",
 			args: [config.agentAddress],
 		});
 	}
 
 	/**
-	 * What the whole spot holding would fetch if sold now.
+	 * What one market's whole spot holding would fetch if sold now.
 	 *
 	 * Quoted at the full size rather than a unit price scaled up. A tokenized
 	 * equity on a thin Aerodrome pool moves several percent against a real-sized
@@ -114,11 +158,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	 * actually liquidate at that price — and that error lands directly in every
 	 * holder's share value.
 	 */
-	async function spotSellQuote(balance: bigint): Promise<bigint | null> {
+	async function spotSellQuote(market: VenueMarket, balance: bigint): Promise<bigint | null> {
 		if (balance === 0n) return 0n;
 		try {
 			const route = await kyber.getRoute({
-				tokenIn: config.spotToken,
+				tokenIn: market.spotToken,
 				tokenOut: config.usdc,
 				amountIn: balance.toString(),
 				slippagePercent: config.slippagePercent,
@@ -146,85 +190,130 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	}
 
 	return {
+		/**
+		 * Read every market's legs and the account they share, and price the lot.
+		 *
+		 * The venue reads happen once and are reused across markets: `accountInfo`,
+		 * `positions`, `prices` and `markets` are all account- or exchange-wide, so
+		 * fetching them per market would multiply the request count by the number
+		 * of markets and get the agent rate-limited for no new information. Only the
+		 * Base token balance and the Kyber sell quote are genuinely per market, and
+		 * those run concurrently.
+		 */
 		async observe() {
 			// `prices()`, not `markets()`. Market info is the venue's *spec* — tick
 			// size, lot size, leverage caps, funding rate — and carries no mark at
 			// all, so the old fallback to `market.mark_price` was reading undefined
 			// and the position was being valued at its entry price forever.
-			const [balance, account, positions, prices, markets] = await Promise.all([
-				spotBalance(),
+			const [account, positions, prices, venueMarkets, baseIdle, solanaIdle] = await Promise.all([
 				pacifica.accountInfo(config.solanaAddress),
 				pacifica.positions(config.solanaAddress),
 				pacifica.prices(),
 				pacifica.markets(),
-			]);
-
-			const [sellQuote, baseIdle, solanaIdle] = await Promise.all([
-				spotSellQuote(balance),
 				usdcBalance(config.agentAddress),
 				deps.solanaIdleUsdc(),
 			]);
+
 			// Both wallets, because the vault owns both. Idle USDC on either side is
 			// capital the vault holds and has not deployed, and counting only Base
-			// would price a stalled bridge as a loss.
+			// would price a stalled bridge as a loss. Counted once for the vault,
+			// never once per market — see the note at the top of this file.
 			const idleUsdc = baseIdle + solanaIdle;
-
-			const position = positions.find((p) => p.symbol === config.perpSymbol);
-			const market = markets.find((m) => m.symbol === config.perpSymbol);
-			const price = prices.find((q) => q.symbol === config.perpSymbol);
 
 			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 			const equityUsd = Number((account as any).account_equity ?? 0);
 			const equity = BigInt(Math.round(equityUsd * 1e6));
-			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-			const perpSize = Number((position as any)?.amount ?? 0);
-			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-			const entryPrice = Number((position as any)?.entry_price ?? 0);
-			const mark = Number(price?.mark ?? 0);
-			// Mark for the notional, with entry as the fallback: an unpriced mark
-			// should not silently value the leg at zero.
-			const markPrice = Number.isFinite(mark) && mark > 0 ? mark : entryPrice;
-			const notional = BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6));
 
+			const legs = await Promise.all(
+				config.markets.map(async (market) => {
+					const balance = await spotBalance(market);
+					const sellQuote = await spotSellQuote(market, balance);
+
+					const position = positions.find((p) => p.symbol === market.perpSymbol);
+					const spec = venueMarkets.find((m) => m.symbol === market.perpSymbol);
+					const price = prices.find((q) => q.symbol === market.perpSymbol);
+
+					// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+					const perpSize = Number((position as any)?.amount ?? 0);
+					// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+					const entryPrice = Number((position as any)?.entry_price ?? 0);
+					const mark = Number(price?.mark ?? 0);
+					// Mark for the notional, with entry as the fallback: an unpriced mark
+					// should not silently value the leg at zero.
+					const markPrice = Number.isFinite(mark) && mark > 0 ? mark : entryPrice;
+
+					return {
+						market,
+						balance,
+						sellQuote,
+						perpSize,
+						notional: BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6)),
+						// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+						fundingHourly: Number((spec as any)?.funding_rate ?? 0) * 100,
+						// Scored off the live mark, not the entry fallback. A stale mark
+						// would report zero profit and so zero queue position — silence in
+						// exactly the state that most warrants a warning.
+						//
+						// Per market because the venue deleverages per symbol: one leg can
+						// be near the front of its queue while the rest are nowhere near
+						// theirs, and an account-wide average would hide it.
+						adl: adlRisk({
+							side: "short",
+							entryPrice: entryPrice > 0 ? entryPrice : null,
+							markPrice: Number.isFinite(mark) && mark > 0 ? mark : null,
+							size: perpSize,
+							// The account's equity, because that is what backs this leg.
+							// Pacifica margins the account, not the symbol.
+							equityUsd: equityUsd > 0 ? equityUsd : null,
+							oraclePrice: numberOrNull(price?.oracle),
+							price24hAgo: numberOrNull(price?.yesterday_price),
+						}),
+					};
+				}),
+			);
+
+			// Throws if any leg holds tokens it cannot price, which stales the whole
+			// vault rather than reporting a NAV short by that leg.
 			const valuation: Valuation = value({
-				spotTokenBalance: balance,
-				spotTokenDecimals: config.spotTokenDecimals,
-				spotSellQuoteUsdc: sellQuote,
+				legs: legs.map((leg) => ({
+					ticker: leg.market.ticker,
+					spotTokenBalance: leg.balance,
+					spotTokenDecimals: leg.market.spotTokenDecimals,
+					spotSellQuoteUsdc: leg.sellQuote,
+				})),
 				perpEquityUsdc: equity,
-				perpNotionalUsdc: notional,
+				// Every short's notional together, against the one equity backing them.
+				perpNotionalUsdc: legs.reduce((total, leg) => total + leg.notional, 0n),
 				idleAtAgentUsdc: idleUsdc,
 				inFlightUsdc: deps.inFlight(),
 			});
 
-			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-			const fundingHourly = Number((market as any)?.funding_rate ?? 0) * 100;
-
-			// Scored off the live mark, not the entry fallback. A stale mark would
-			// report zero profit and so zero queue position — silence in exactly
-			// the state that most warrants a warning.
-			const adl = adlRisk({
-				side: "short",
-				entryPrice: entryPrice > 0 ? entryPrice : null,
-				markPrice: Number.isFinite(mark) && mark > 0 ? mark : null,
-				size: perpSize,
-				equityUsd: equityUsd > 0 ? equityUsd : null,
-				oraclePrice: numberOrNull(price?.oracle),
-				price24hAgo: numberOrNull(price?.yesterday_price),
-			});
+			const markets = legs.map((leg) => ({
+				ticker: leg.market.ticker,
+				symbol: leg.market.symbol,
+				perpSymbol: leg.market.perpSymbol,
+				targetWeightBps: leg.market.targetWeightBps,
+				spotValueUsdc: leg.sellQuote ?? 0n,
+				spotUnits: toUnits(leg.balance, leg.market.spotTokenDecimals),
+				// Perp size is a decimal count of units; scale it to the same 1e18
+				// basis so the two legs are comparable.
+				perpUnits: BigInt(Math.round(Math.abs(leg.perpSize) * 1e18)),
+				// Pacifica quotes one rate where positive means longs pay shorts,
+				// so the short side receives exactly this. See the README.
+				fundingShortPercentPerHour: leg.fundingHourly,
+				spotBuyable: leg.sellQuote !== null,
+				spotSellable: leg.sellQuote !== null,
+				adl: leg.adl,
+			}));
 
 			return {
 				valuation,
-				spotUnits: toUnits(balance, config.spotTokenDecimals),
-				// Perp size is a decimal count of units; scale it to the same 1e18
-				// basis so the two legs are comparable.
-				perpUnits: BigInt(Math.round(Math.abs(perpSize) * 1e18)),
-				// Pacifica quotes one rate where positive means longs pay shorts,
-				// so the short side receives exactly this. See the README.
-				fundingShortPercentPerHour: fundingHourly,
-				spotBuyable: sellQuote !== null,
-				spotSellable: sellQuote !== null,
-				symbol: config.symbol,
-				adl,
+				markets,
+				// The worst leg, because a warning about the vault should be about the
+				// leg most likely to be deleveraged out from under it rather than an
+				// average that never describes any actual position.
+				adl: markets.reduce((worst, m) => (m.adl.lamps > worst.adl.lamps ? m : worst), markets[0])
+					.adl,
 			};
 		},
 
@@ -262,8 +351,16 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		 * Bridging first costs nothing directionally — USDC in flight is not
 		 * exposure — and opening the short immediately before the swap leaves a
 		 * naked leg for exactly one Base transaction.
+		 *
+		 * **One market per call.** A vault running several deploys into one of them
+		 * at a time, chosen by the policy as whichever is furthest below its target
+		 * weight. The five steps below have no atomic form across two chains and a
+		 * venue's matching engine, so doing them for several markets in one call
+		 * would multiply the ways to end up half-open without buying anything the
+		 * next tick does not.
 		 */
-		async deploy({ spotNotional, perpMargin, leverageBps }) {
+		async deploy({ market: ticker, spotNotional, perpMargin, leverageBps }) {
+			const market = marketFor(ticker);
 			const activity: ActivityInput[] = [];
 
 			// 0. Prove the spot leg is routable before any money leaves Base.
@@ -271,11 +368,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// strands the margin on Solana with nothing to hedge and a slow way back.
 			const probe = await kyber.getRoute({
 				tokenIn: config.usdc,
-				tokenOut: config.spotToken,
+				tokenOut: market.spotToken,
 				amountIn: spotNotional.toString(),
 				slippagePercent: config.slippagePercent,
 			});
-			if (!probe.ok) throw new Error(`No spot route for ${config.symbol}: ${probe.message}`);
+			if (!probe.ok) throw new Error(`No spot route for ${market.symbol}: ${probe.message}`);
 
 			// 1. Margin across to Solana. Nothing is exposed while it flies.
 			const bridged = await deps.bridge.toSolana(perpMargin);
@@ -307,7 +404,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// corrected, paying taker fees twice.
 			await pacifica.updateLeverage(deps.signPacifica, {
 				account: config.solanaAddress,
-				symbol: config.perpSymbol,
+				symbol: market.perpSymbol,
 				leverage: Math.round(leverageBps / 10_000),
 			});
 
@@ -335,13 +432,13 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// off it would bake the bridge's duration into the hedge ratio as drift.
 			const route = await kyber.getRoute({
 				tokenIn: config.usdc,
-				tokenOut: config.spotToken,
+				tokenOut: market.spotToken,
 				amountIn: spend.toString(),
 				slippagePercent: config.slippagePercent,
 			});
 			if (!route.ok) {
 				throw new VenueExecutionError(
-					`Margin bridged but no spot route for ${config.symbol}: ${route.message}`,
+					`Margin bridged but no spot route for ${market.symbol}: ${route.message}`,
 					activity,
 				);
 			}
@@ -354,7 +451,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const expectedUnits = BigInt(built.amountOut ?? 0);
 			if (expectedUnits === 0n) {
 				throw new VenueExecutionError(
-					`Margin bridged but the ${config.symbol} route quoted zero output; refusing to short against nothing.`,
+					`Margin bridged but the ${market.symbol} route quoted zero output; refusing to short against nothing.`,
 					activity,
 				);
 			}
@@ -366,15 +463,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 4. The short, sized on that quote.
 			const receipt = await pacifica.createMarketOrder(deps.signPacifica, {
 				account: config.solanaAddress,
-				symbol: config.perpSymbol,
+				symbol: market.perpSymbol,
 				side: "ask",
-				amount: formatUnitsForVenue(expectedUnits, config.spotTokenDecimals),
+				amount: formatUnitsForVenue(expectedUnits, market.spotTokenDecimals),
 				slippagePercent: String(config.slippagePercent),
 			});
 			activity.push({
 				kind: "PERP_OPEN",
 				chain: "SOLANA",
-				symbol: config.perpSymbol,
+				symbol: market.perpSymbol,
 				baseAmount: expectedUnits,
 				notionalAssets: spend,
 				pnlAssets: 0n,
@@ -387,7 +484,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 5. The spot leg, immediately. Balances are read either side of the swap
 			// because the quote is a promise and the fill is the fact — and the gap
 			// between them is the residual delta the next tick has to rebalance away.
-			const before = await spotBalance();
+			const before = await spotBalance(market);
 			let swapTx: Hex;
 			try {
 				swapTx = await deps.walletClient.sendTransaction({
@@ -404,19 +501,19 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// is not tidiness — leaving it until the next tick means holding a
 				// leveraged naked short across a tick interval, which is the exposure
 				// this whole ordering exists to avoid.
-				await closeNaked(deps, expectedUnits, activity);
+				await closeNaked(deps, market, expectedUnits, activity);
 				throw new VenueExecutionError(
-					`Spot buy failed for ${config.symbol}; the short opened against it was closed.`,
+					`Spot buy failed for ${market.symbol}; the short opened against it was closed.`,
 					activity,
 					{ cause: error },
 				);
 			}
 
-			const received = (await spotBalance()) - before;
+			const received = (await spotBalance(market)) - before;
 			activity.push({
 				kind: "SPOT_BUY",
 				chain: "BASE",
-				symbol: config.symbol,
+				symbol: market.symbol,
 				baseAmount: received,
 				notionalAssets: spend,
 				pnlAssets: 0n,
@@ -431,116 +528,81 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		/**
 		 * Turn part of the position back into USDC *in the vault*.
 		 *
-		 * The last step is the one that matters. Closing both legs leaves the
-		 * proceeds at the agent's own wallets, where `freeAssets` does not count
-		 * them and `fulfillRedeem` cannot pay from them — so an unwind that stops
-		 * at the venues has sold a depositor's position without moving them any
-		 * closer to being paid, and the queue stalls with the money already out of
-		 * the market. `returnToVault` is what closes that loop.
+		 * The last step is the one that matters. Closing legs leaves the proceeds at
+		 * the agent's own wallets, where `freeAssets` does not count them and
+		 * `fulfillRedeem` cannot pay from them — so an unwind that stops at the
+		 * venues has sold a depositor's position without moving them any closer to
+		 * being paid, and the queue stalls with the money already out of the market.
+		 * `returnToVault` is what closes that loop.
+		 *
+		 * **Where the money comes from is decided here, not by the policy.** The
+		 * caller asks for an amount; the allocation across markets needs live sell
+		 * quotes, and a quote the policy fetched a moment earlier would be stale by
+		 * the time the order was placed. It comes out of whichever markets are
+		 * furthest above their target weight, so raising cash and correcting the
+		 * weights are the same trade rather than two.
+		 *
+		 * The venue-side steps — repatriating margin and returning to the vault —
+		 * happen once at the end however many markets were touched. They are
+		 * account-level operations, and doing them per market would pay a bridge fee
+		 * per market to move USDC that is already sitting in one wallet.
 		 */
 		async unwind({ amount }) {
 			const activity: ActivityInput[] = [];
 
-			// Close the perp first. Selling spot first would leave the short
-			// unhedged and directionally exposed for the length of a bridge —
-			// which is minutes, on a leveraged position.
-			const balance = await spotBalance();
-			const total = await spotSellQuote(balance);
-			if (total === null || total === 0n) {
-				throw new Error("Cannot price the spot leg, so cannot size an unwind against it.");
-			}
+			const legs = await Promise.all(
+				config.markets.map(async (market) => {
+					const balance = await spotBalance(market);
+					return { market, balance, value: await spotSellQuote(market, balance) };
+				}),
+			);
 
-			const fraction = amount > total ? 1 : Number(amount) / Number(total);
-			const closeUnits = BigInt(Math.floor(Number(balance) * fraction));
-
-			const closeReceipt = await pacifica.createMarketOrder(deps.signPacifica, {
-				account: config.solanaAddress,
-				symbol: config.perpSymbol,
-				side: "bid",
-				amount: formatUnitsForVenue(closeUnits, config.spotTokenDecimals),
-				slippagePercent: String(config.slippagePercent),
-				reduceOnly: true,
-			});
-			activity.push({
-				kind: "PERP_CLOSE",
-				chain: "SOLANA",
-				symbol: config.perpSymbol,
-				baseAmount: closeUnits,
-				notionalAssets: amount,
-				pnlAssets: 0n,
-				feeAssets: 0n,
-				// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
-				txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
-				occurredAt: deps.now(),
-			});
-
-			// Sell the matching spot.
-			const route = await kyber.getRoute({
-				tokenIn: config.spotToken,
-				tokenOut: config.usdc,
-				amountIn: closeUnits.toString(),
-				slippagePercent: config.slippagePercent,
-			});
-			if (!route.ok) throw new Error(`No spot route to exit ${config.symbol}: ${route.message}`);
-			const built = await kyber.buildRoute({
-				routeSummary: route.quote.routeSummary,
-				sender: config.agentAddress,
-				recipient: config.agentAddress,
-				slippagePercent: config.slippagePercent,
-			});
-			await ensureAllowance(deps, config.spotToken, built.routerAddress as Address, closeUnits);
-
-			// Measured either side of the swap rather than taken from the quote.
-			// The quote is a promise and the fill is the fact, and the fact is what
-			// has to be handed to `returnToVault` — that call moves real tokens, so
-			// naming a number the wallet does not hold reverts an unwind whose legs
-			// have already been closed.
-			const usdcBefore = await usdcBalance(config.agentAddress);
-			let sellTx: Hex;
-			try {
-				sellTx = await deps.walletClient.sendTransaction({
-					// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
-					account: deps.walletClient.account as any,
-					chain: null,
-					to: built.routerAddress as Address,
-					data: built.data as Hex,
-					value: 0n,
-				});
-				await publicClient.waitForTransactionReceipt({ hash: sellTx });
-			} catch (error) {
-				// The short has been reduced and the spot behind it has not. The
-				// position is long-biased until the next tick rebalances it, which
-				// is a state the operator has to be able to see.
-				throw new VenueExecutionError(
-					`Spot sell failed for ${config.symbol}; the short was already reduced, so the position is long by ${closeUnits} units until the next tick.`,
-					activity,
-					{ cause: error },
+			const priced = legs.filter((leg) => leg.value !== null && leg.value > 0n);
+			if (priced.length === 0) {
+				throw new Error(
+					"No spot leg can be priced, so an unwind cannot be sized against any of them.",
 				);
 			}
-			const proceeds = (await usdcBalance(config.agentAddress)) - usdcBefore;
 
-			activity.push({
-				kind: "SPOT_SELL",
-				chain: "BASE",
-				symbol: config.symbol,
-				baseAmount: closeUnits,
-				notionalAssets: proceeds,
-				pnlAssets: 0n,
-				feeAssets: 0n,
-				txRef: sellTx,
-				occurredAt: deps.now(),
-			});
+			const allocations = allocateUnwind(
+				legs.map((leg) => ({
+					ticker: leg.market.ticker,
+					value: leg.value ?? 0n,
+					targetWeightBps: leg.market.targetWeightBps,
+					// An unpriceable leg is one nothing can be raised from. It still
+					// counts toward the weights, so a market whose pool has dried up does
+					// not make every other market look overweight.
+					sellable: leg.value !== null,
+				})),
+				amount,
+			);
 
-			// Bring the margin the close just freed back to Base — best-effort, and
+			let proceeds = 0n;
+			for (const allocation of allocations) {
+				const leg = legs.find((l) => l.market.ticker === allocation.ticker);
+				// Only ever produced from `legs`, so this is unreachable — but the
+				// alternative to checking is a non-null assertion on a value that
+				// decides how many tokens get sold.
+				if (!leg || leg.value === null || leg.value === 0n) continue;
+
+				const fraction =
+					allocation.amount >= leg.value ? 1 : Number(allocation.amount) / Number(leg.value);
+				const closeUnits = BigInt(Math.floor(Number(leg.balance) * fraction));
+				if (closeUnits === 0n) continue;
+
+				proceeds += await closeLeg(deps, leg.market, closeUnits, allocation.amount, activity);
+			}
+
+			// Bring the margin the closes just freed back to Base — best-effort, and
 			// deliberately not fatal.
 			//
-			// `closeUnits` was sized so that the *spot* proceeds alone cover the
-			// requested amount, so the queue is already payable by this point. A
-			// venue withdrawal that has not settled, or a bridge that is down, must
-			// not throw away the half that is home and leave the redemption unpaid
-			// after the position has been sold. What does not make it stays as idle
-			// USDC on Solana, which the valuation still counts, and comes back with
-			// the next unwind.
+			// The closes were sized so that the *spot* proceeds alone cover the
+			// requested amount, so the queue is already payable by this point. A venue
+			// withdrawal that has not settled, or a bridge that is down, must not throw
+			// away the half that is home and leave the redemption unpaid after the
+			// position has been sold. What does not make it stays as idle USDC on
+			// Solana, which the valuation still counts, and comes back with the next
+			// unwind.
 			let repatriated = 0n;
 			try {
 				repatriated = await repatriateMargin(deps, activity);
@@ -551,32 +613,113 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				repatriated = 0n;
 			}
 
-			// The one call that actually clears the redemption queue. Everything
-			// above this line moved value between the agent's own accounts.
-			const returned = proceeds + repatriated;
-			if (returned > 0n) {
-				const returnTx = await deps.returnToVault(returned);
-				activity.push({
-					kind: "BRIDGE_IN",
-					chain: "BASE",
-					symbol: "USDC",
-					baseAmount: returned,
-					notionalAssets: returned,
-					pnlAssets: 0n,
-					feeAssets: 0n,
-					txRef: returnTx,
-					occurredAt: deps.now(),
-				});
+			// The one call that actually clears the redemption queue. Everything above
+			// this line moved value between the agent's own accounts.
+			await returnAll(deps, proceeds + repatriated, activity);
+
+			return activity;
+		},
+
+		/**
+		 * Sell everything, everywhere, and send all of it home.
+		 *
+		 * What an operator's close order means. Distinct from `unwind` in three ways
+		 * that matter, and each of them is why this is not just a very large unwind:
+		 *
+		 *  - **Every market, in full.** No allocation, no target weights, no stopping
+		 *    when enough has been raised. A leg left open because the ones before it
+		 *    happened to fetch more than expected is exactly the residual exposure the
+		 *    order was given to remove.
+		 *  - **The margin account is swept, not trimmed.** `repatriateMargin` takes
+		 *    what the venue says is free at the account's configured leverage, which
+		 *    with every position closed is all of it — and the sweep also picks up USDC
+		 *    stranded in the Solana wallet by an earlier failure, which an ordinary
+		 *    unwind leaves for next time because there will be a next time.
+		 *  - **Failures are loud.** An unwind that gets most of the way there has still
+		 *    served its purpose; a close that gets most of the way there has not, and
+		 *    the operator has to be told which part is still open.
+		 *
+		 * Markets are closed one at a time rather than concurrently. The Pacifica
+		 * account is shared and its margin moves with every close, so overlapping
+		 * reduce-only orders against one account are ordered by the venue anyway — and
+		 * sequentially, a leg that fails leaves the ones before it already home.
+		 */
+		async closeAll() {
+			const activity: ActivityInput[] = [];
+			const failures: string[] = [];
+
+			for (const market of config.markets) {
+				const balance = await spotBalance(market);
+				// Rescaled into the spot token's own decimals before it is compared with
+				// anything. `perpPosition` answers in the 1e18 basis the two legs are
+				// made comparable in, and every number below this line — the order
+				// amount, the swap input, the balance cap — is denominated in the token.
+				// An 8-decimal token confused between the two is off by ten orders of
+				// magnitude, which is an order for a size nobody holds.
+				const position = fromUnits(await perpPosition(deps, market), market.spotTokenDecimals);
+
+				if (balance === 0n && position === 0n) continue;
+
+				try {
+					// The venue's own position size, not the spot balance, because the two
+					// disagree after drift and it is the perp that has to reach zero. A
+					// reduce-only order for more than is open closes the position and stops,
+					// so the larger of the two is the safe number to name.
+					const closeUnits = balance > position ? balance : position;
+					// The proceeds are deliberately not accumulated. Unlike an unwind,
+					// which returns exactly what it raised, a close sweeps the wallet at
+					// the end — so the number that matters is the balance, not the sum of
+					// what each leg was expected to contribute to it.
+					await closeLeg(deps, market, closeUnits, 0n, activity);
+				} catch (error) {
+					// Recorded and carried on. One market whose pool has dried up must not
+					// leave the other four open — a close order is about reducing exposure,
+					// and stopping at the first failure keeps the most of it.
+					failures.push(`${market.ticker}: ${message(error)}`);
+					if (error instanceof VenueExecutionError) activity.push(...error.activity);
+				}
+			}
+
+			try {
+				await repatriateMargin(deps, activity, { sweepIdle: true });
+			} catch (error) {
+				failures.push(`the margin account: ${message(error)}`);
+			}
+
+			// The whole Base balance, not just what this call raised.
+			//
+			// An unwind returns its own proceeds and leaves anything else alone,
+			// because "anything else" is usually capital mid-deployment that the next
+			// tick will use. A close order has no next tick to use it, and idle USDC
+			// at the agent still counts toward the vault's reported NAV — so leaving
+			// a dollar behind leaves `deployedAssets` above the dust threshold, the
+			// order never reads as satisfied, and the agent retries a close that has
+			// nothing left to close on every tick from then on.
+			//
+			// Read after the repatriation rather than added to it, so USDC that
+			// arrived by some other route — a bridge that landed late, a deployment
+			// that failed after drawing down — is swept too.
+			const onBase = await usdcBalance(config.agentAddress);
+			await returnAll(deps, onBase, activity);
+
+			if (failures.length > 0) {
+				// Thrown *after* everything that could be sent home has been, and
+				// carrying the legs that did land. The order stays outstanding, so the
+				// next tick tries the remainder again; what the operator gets in the
+				// meantime is a named list of what is still open rather than a vault
+				// that reports itself closed while holding a position.
+				throw new VenueExecutionError(
+					`Closed what could be closed and returned ${onBase} USDC, but ${failures.length} part${failures.length === 1 ? "" : "s"} of the position could not be closed — ${failures.join("; ")}.`,
+					activity,
+				);
 			}
 
 			return activity;
 		},
 
-		async rebalance({ targetUnits }) {
-			const positions = await pacifica.positions(config.solanaAddress);
-			const position = positions.find((p) => p.symbol === config.perpSymbol);
-			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-			const current = BigInt(Math.round(Math.abs(Number((position as any)?.amount ?? 0)) * 1e18));
+		async rebalance({ market: ticker, targetUnits }) {
+			const market = marketFor(ticker);
+			const current = await perpPosition(deps, market);
 
 			const delta = targetUnits - current;
 			if (delta === 0n) return [];
@@ -586,7 +729,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// usually a lot-grid rounding artifact.
 			const receipt = await pacifica.createMarketOrder(deps.signPacifica, {
 				account: config.solanaAddress,
-				symbol: config.perpSymbol,
+				symbol: market.perpSymbol,
 				side: delta > 0n ? "ask" : "bid",
 				amount: formatUnitsForVenue(abs(delta), 18),
 				slippagePercent: String(config.slippagePercent),
@@ -597,7 +740,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				{
 					kind: "PERP_REBALANCE",
 					chain: "SOLANA",
-					symbol: config.perpSymbol,
+					symbol: market.perpSymbol,
 					baseAmount: abs(delta),
 					notionalAssets: 0n,
 					pnlAssets: 0n,
@@ -632,46 +775,341 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
  * its depositors. If a buffer is ever wanted it belongs in `policy.ts` as a
  * named fraction, with the rest of the numbers that move money — not as a
  * constant invented here.
+ *
+ * `sweepIdle` additionally brings home whatever is sitting in the agent's Solana
+ * wallet outside the venue. Ordinarily that is nothing, and an unwind leaves it
+ * alone on purpose: it is there because a previous crossing fell below the
+ * venue's deposit minimum or a deposit failed after the money arrived, and it
+ * will be picked up by the next deployment for free. A close order has no next
+ * deployment, so it sweeps.
  */
-async function repatriateMargin(deps: VenueDeps, activity: ActivityInput[]): Promise<bigint> {
+async function repatriateMargin(
+	deps: VenueDeps,
+	activity: ActivityInput[],
+	options: { sweepIdle?: boolean } = {},
+): Promise<bigint> {
 	const account = await deps.pacifica.accountInfo(deps.config.solanaAddress);
 	const available = numberOrNull(account.available_to_withdraw) ?? 0;
-	if (available <= 0) return 0n;
-	const withdrawable = BigInt(Math.round(available * 1e6));
+	const withdrawable = available > 0 ? BigInt(Math.round(available * 1e6)) : 0n;
 
-	await deps.pacifica.requestWithdrawal(deps.signPacifica, {
-		account: deps.config.solanaAddress,
-		amount: formatUnitsForVenue(withdrawable, 6),
-	});
-	activity.push({
-		kind: "VENUE_WITHDRAW",
-		chain: "SOLANA",
-		symbol: "USDC",
-		baseAmount: withdrawable,
-		notionalAssets: withdrawable,
-		pnlAssets: 0n,
-		feeAssets: 0n,
-		// Pacifica returns no identifier for a withdrawal, so the row is keyed by
-		// the account and the moment instead. The arrival is findable on Solana as
-		// an incoming transfer to that wallet, which is the reference that exists.
-		txRef: refToHex(`pacifica-withdraw:${deps.config.solanaAddress}:${deps.now()}`),
-		occurredAt: deps.now(),
-	});
+	// Read before the withdrawal so the sweep is the balance that was *already*
+	// stranded. Reading afterwards would race the venue's settlement and either
+	// double-count what the withdrawal is about to deliver or miss it entirely,
+	// depending on how fast Pacifica happened to settle.
+	const stranded = options.sweepIdle ? await deps.solanaIdleUsdc().catch(() => 0n) : 0n;
 
-	const bridged = await deps.bridge.toBase(withdrawable);
+	if (withdrawable === 0n && stranded === 0n) return 0n;
+
+	if (withdrawable > 0n) {
+		await deps.pacifica.requestWithdrawal(deps.signPacifica, {
+			account: deps.config.solanaAddress,
+			amount: formatUnitsForVenue(withdrawable, 6),
+		});
+		activity.push({
+			kind: "VENUE_WITHDRAW",
+			chain: "SOLANA",
+			symbol: "USDC",
+			baseAmount: withdrawable,
+			notionalAssets: withdrawable,
+			pnlAssets: 0n,
+			feeAssets: 0n,
+			// Pacifica returns no identifier for a withdrawal, so the row is keyed by
+			// the account and the moment instead. The arrival is findable on Solana as
+			// an incoming transfer to that wallet, which is the reference that exists.
+			txRef: refToHex(`pacifica-withdraw:${deps.config.solanaAddress}:${deps.now()}`),
+			occurredAt: deps.now(),
+		});
+	}
+
+	// One crossing for both, because a bridge charges per crossing rather than
+	// per dollar. `toBase` waits for the destination balance to cover the whole
+	// amount, which is also what makes the withdrawal's settlement delay
+	// something this can simply wait out rather than poll for itself.
+	const crossing = withdrawable + stranded;
+	const bridged = await deps.bridge.toBase(crossing);
 	activity.push({
 		kind: "BRIDGE_OUT",
 		chain: "SOLANA",
 		symbol: "USDC",
-		baseAmount: withdrawable,
-		notionalAssets: withdrawable,
+		baseAmount: crossing,
+		notionalAssets: crossing,
 		pnlAssets: 0n,
-		feeAssets: withdrawable > bridged.landed ? withdrawable - bridged.landed : 0n,
+		feeAssets: crossing > bridged.landed ? crossing - bridged.landed : 0n,
 		txRef: bridged.txRef,
 		occurredAt: deps.now(),
 	});
 
 	return bridged.landed;
+}
+
+/**
+ * How much of one market's perp leg is open, scaled to 1e18.
+ *
+ * Reads the whole position list and picks the symbol out, because Pacifica has
+ * no per-symbol position endpoint. Absent means flat, which is the ordinary
+ * state for a market a vault has been configured for and not yet deployed into.
+ */
+async function perpPosition(deps: VenueDeps, market: VenueMarket): Promise<bigint> {
+	const positions = await deps.pacifica.positions(deps.config.solanaAddress);
+	const position = positions.find((p) => p.symbol === market.perpSymbol);
+	// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+	return BigInt(Math.round(Math.abs(Number((position as any)?.amount ?? 0)) * 1e18));
+}
+
+/**
+ * Close `units` of one market's position: the short first, then the spot.
+ *
+ * The order is the same as it has always been, and for the same reason. Selling
+ * spot first would leave the short unhedged and directionally exposed for the
+ * length of a bridge — minutes, on a leveraged position — whereas reducing the
+ * short first leaves the position long-biased for exactly one Base transaction.
+ *
+ * Returns the USDC the sale actually produced, measured either side of the swap
+ * rather than taken from the quote. The quote is a promise and the fill is the
+ * fact, and the fact is what gets handed to `agentReturn`: that call moves real
+ * tokens, so naming a number the wallet does not hold reverts a return whose
+ * legs have already been closed.
+ */
+async function closeLeg(
+	deps: VenueDeps,
+	market: VenueMarket,
+	closeUnits: bigint,
+	/** What this close was meant to raise, for the activity row. Zero when closing in full. */
+	notionalHint: bigint,
+	activity: ActivityInput[],
+): Promise<bigint> {
+	const { config, publicClient, kyber, pacifica } = deps;
+
+	const closeReceipt = await pacifica.createMarketOrder(deps.signPacifica, {
+		account: config.solanaAddress,
+		symbol: market.perpSymbol,
+		side: "bid",
+		amount: formatUnitsForVenue(closeUnits, market.spotTokenDecimals),
+		slippagePercent: String(config.slippagePercent),
+		reduceOnly: true,
+	});
+	activity.push({
+		kind: "PERP_CLOSE",
+		chain: "SOLANA",
+		symbol: market.perpSymbol,
+		baseAmount: closeUnits,
+		notionalAssets: notionalHint,
+		pnlAssets: 0n,
+		feeAssets: 0n,
+		// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
+		txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
+		occurredAt: deps.now(),
+	});
+
+	// The spot side is capped at what is actually held. `closeUnits` can exceed
+	// it — a close order names the larger of the two legs so the perp reaches
+	// zero — and a swap for tokens the wallet does not have reverts.
+	const balance = (await publicClient.readContract({
+		abi: erc20Abi,
+		address: market.spotToken,
+		functionName: "balanceOf",
+		args: [config.agentAddress],
+	})) as bigint;
+	const sellUnits = closeUnits < balance ? closeUnits : balance;
+	if (sellUnits === 0n) return 0n;
+
+	const route = await kyber.getRoute({
+		tokenIn: market.spotToken,
+		tokenOut: config.usdc,
+		amountIn: sellUnits.toString(),
+		slippagePercent: config.slippagePercent,
+	});
+	if (!route.ok) {
+		throw new VenueExecutionError(
+			`No spot route to exit ${market.symbol}: ${route.message}. The short was already reduced, so the position is long by ${sellUnits} units until this is retried.`,
+			activity,
+		);
+	}
+	const built = await kyber.buildRoute({
+		routeSummary: route.quote.routeSummary,
+		sender: config.agentAddress,
+		recipient: config.agentAddress,
+		slippagePercent: config.slippagePercent,
+	});
+	await ensureAllowance(deps, market.spotToken, built.routerAddress as Address, sellUnits);
+
+	const usdcBefore = (await publicClient.readContract({
+		abi: erc20Abi,
+		address: config.usdc,
+		functionName: "balanceOf",
+		args: [config.agentAddress],
+	})) as bigint;
+
+	let sellTx: Hex;
+	try {
+		sellTx = await deps.walletClient.sendTransaction({
+			// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
+			account: deps.walletClient.account as any,
+			chain: null,
+			to: built.routerAddress as Address,
+			data: built.data as Hex,
+			value: 0n,
+		});
+		await publicClient.waitForTransactionReceipt({ hash: sellTx });
+	} catch (error) {
+		// The short has been reduced and the spot behind it has not. The position
+		// is long-biased until the next tick rebalances it, which is a state the
+		// operator has to be able to see.
+		throw new VenueExecutionError(
+			`Spot sell failed for ${market.symbol}; the short was already reduced, so the position is long by ${sellUnits} units until the next tick.`,
+			activity,
+			{ cause: error },
+		);
+	}
+
+	const proceeds =
+		((await publicClient.readContract({
+			abi: erc20Abi,
+			address: config.usdc,
+			functionName: "balanceOf",
+			args: [config.agentAddress],
+		})) as bigint) - usdcBefore;
+
+	activity.push({
+		kind: "SPOT_SELL",
+		chain: "BASE",
+		symbol: market.symbol,
+		baseAmount: sellUnits,
+		notionalAssets: proceeds,
+		pnlAssets: 0n,
+		feeAssets: 0n,
+		txRef: sellTx,
+		occurredAt: deps.now(),
+	});
+
+	return proceeds;
+}
+
+/**
+ * Hand USDC back to the vault, and record it.
+ *
+ * The only call in this file that makes money `freeAssets` again. Everything
+ * else moves value between accounts the agent controls, and a depositor cannot
+ * be paid out of any of them.
+ */
+async function returnAll(
+	deps: VenueDeps,
+	amount: bigint,
+	activity: ActivityInput[],
+): Promise<void> {
+	if (amount <= 0n) return;
+
+	const returnTx = await deps.returnToVault(amount);
+	activity.push({
+		kind: "BRIDGE_IN",
+		chain: "BASE",
+		symbol: "USDC",
+		baseAmount: amount,
+		notionalAssets: amount,
+		pnlAssets: 0n,
+		feeAssets: 0n,
+		txRef: returnTx,
+		occurredAt: deps.now(),
+	});
+}
+
+/**
+ * Decide which markets an unwind comes out of.
+ *
+ * Two passes, and the first is the one that does the work. Taking from whichever
+ * markets are furthest *above* their target weight means raising cash and
+ * correcting the weights are the same trade: a vault that has drifted to
+ * 60/40 against a 50/50 mandate pays its next redemption entirely out of the
+ * heavy side and comes back to neutral for free.
+ *
+ * The second pass only runs when the overweight alone is not enough, and it
+ * takes greedily from the largest remaining leg rather than proportionally
+ * across all of them. Proportional is the tidier-looking answer and the more
+ * expensive one — it touches every market, and each market touched is a perp
+ * order and a swap through its own pool, paying two sets of fees to preserve
+ * ratios that the next deployment restores anyway.
+ *
+ * Exported for its tests. The allocation decides which depositors' exposure gets
+ * sold, and it is worth being able to state what it does in cases that are hard
+ * to reach through a live venue.
+ */
+/**
+ * The smallest slice worth taking out of one market during an unwind.
+ *
+ * Every market an unwind touches is a perp order and a swap through that
+ * market's own pool, so the fixed cost of reaching into a market is the same
+ * whether it gives up ten dollars or ten thousand. Correcting a fifty-dollar
+ * overweight is not worth a round trip; the drift stays, and the next
+ * deployment — which pays no extra fee to prefer the underweight side — removes
+ * it for nothing.
+ */
+export const MIN_UNWIND_LEG_USDC = 100_000_000n; // $100
+
+export function allocateUnwind(
+	legs: Array<{ ticker: string; value: bigint; targetWeightBps: number; sellable: boolean }>,
+	amount: bigint,
+): Array<{ ticker: string; amount: bigint }> {
+	// Targets are measured against every leg, including ones that cannot be sold
+	// today. Leaving an unroutable market out would inflate every other market's
+	// share of the total and report the whole vault as overweight.
+	const total = legs.reduce((sum, leg) => sum + leg.value, 0n);
+	if (total === 0n || amount <= 0n) return [];
+
+	const allocated = new Map<string, bigint>();
+	const capacity = new Map<string, bigint>();
+	for (const leg of legs) {
+		allocated.set(leg.ticker, 0n);
+		capacity.set(leg.ticker, leg.sellable ? leg.value : 0n);
+	}
+
+	let remaining = amount;
+
+	// Pass 1: the overweight, heaviest first.
+	const overweight = legs
+		.filter((leg) => leg.sellable)
+		.map((leg) => ({
+			leg,
+			over: leg.value - (total * BigInt(leg.targetWeightBps)) / BigInt(BPS),
+		}))
+		.filter(({ over }) => over > 0n)
+		.sort((a, b) => (a.over === b.over ? 0 : a.over < b.over ? 1 : -1));
+
+	for (const { leg, over } of overweight) {
+		if (remaining === 0n) break;
+		const take = min(min(remaining, over), capacity.get(leg.ticker) ?? 0n);
+		// Below the floor the correction costs more in fees than the drift costs
+		// in exposure, and the second pass will reach whichever leg is largest
+		// anyway. Skipped rather than rounded up, because rounding up would take
+		// a market *below* its target to save a trip.
+		if (take < MIN_UNWIND_LEG_USDC) continue;
+		allocated.set(leg.ticker, (allocated.get(leg.ticker) ?? 0n) + take);
+		capacity.set(leg.ticker, (capacity.get(leg.ticker) ?? 0n) - take);
+		remaining -= take;
+	}
+
+	// Pass 2: whatever is still needed, from the largest legs first.
+	if (remaining > 0n) {
+		const byRemaining = legs
+			.filter((leg) => (capacity.get(leg.ticker) ?? 0n) > 0n)
+			.sort((a, b) => {
+				const left = capacity.get(a.ticker) ?? 0n;
+				const right = capacity.get(b.ticker) ?? 0n;
+				return left === right ? 0 : left < right ? 1 : -1;
+			});
+
+		for (const leg of byRemaining) {
+			if (remaining === 0n) break;
+			const take = min(remaining, capacity.get(leg.ticker) ?? 0n);
+			if (take <= 0n) continue;
+			allocated.set(leg.ticker, (allocated.get(leg.ticker) ?? 0n) + take);
+			capacity.set(leg.ticker, (capacity.get(leg.ticker) ?? 0n) - take);
+			remaining -= take;
+		}
+	}
+
+	return legs
+		.map((leg) => ({ ticker: leg.ticker, amount: allocated.get(leg.ticker) ?? 0n }))
+		.filter((entry) => entry.amount > 0n);
 }
 
 /**
@@ -685,22 +1123,23 @@ async function repatriateMargin(deps: VenueDeps, activity: ActivityInput[]): Pro
  */
 async function closeNaked(
 	deps: VenueDeps,
+	market: VenueMarket,
 	units: bigint,
 	activity: ActivityInput[],
 ): Promise<void> {
 	try {
 		const receipt = await deps.pacifica.createMarketOrder(deps.signPacifica, {
 			account: deps.config.solanaAddress,
-			symbol: deps.config.perpSymbol,
+			symbol: market.perpSymbol,
 			side: "bid",
-			amount: formatUnitsForVenue(units, deps.config.spotTokenDecimals),
+			amount: formatUnitsForVenue(units, market.spotTokenDecimals),
 			slippagePercent: String(deps.config.slippagePercent),
 			reduceOnly: true,
 		});
 		activity.push({
 			kind: "PERP_CLOSE",
 			chain: "SOLANA",
-			symbol: deps.config.perpSymbol,
+			symbol: market.perpSymbol,
 			baseAmount: units,
 			notionalAssets: 0n,
 			pnlAssets: 0n,
@@ -777,6 +1216,14 @@ function numberOrNull(raw: string | number | null | undefined): number | null {
 
 function abs(value: bigint): bigint {
 	return value < 0n ? -value : value;
+}
+
+function min(a: bigint, b: bigint): bigint {
+	return a < b ? a : b;
+}
+
+function message(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 export { parseUnits };

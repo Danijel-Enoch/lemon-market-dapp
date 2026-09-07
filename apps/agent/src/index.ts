@@ -1,5 +1,5 @@
 import { USDC_ADDRESS } from "@lemon/core";
-import { prisma } from "@lemon/db";
+import { prisma, type VaultMarketConfig, vaultMarkets } from "@lemon/db";
 import { KyberAggregatorClient } from "@lemon/kyber";
 import { NearMpcClient } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
@@ -96,6 +96,7 @@ async function recordRun(vaultAddress: string, result: TickResult): Promise<void
 			data: {
 				vaultAddress: vaultAddress.toLowerCase(),
 				action: result.action,
+				market: result.market,
 				rationale: result.rationale,
 				advised: result.advised,
 				navReported: result.navReported,
@@ -106,6 +107,31 @@ async function recordRun(vaultAddress: string, result: TickResult): Promise<void
 		});
 	} catch (error) {
 		log("warn", `Could not record the run for ${vaultAddress}`, error);
+	}
+}
+
+/**
+ * Stamp the moment an agent first found a vault flat under a close order.
+ *
+ * Only ever writes the timestamp, never clears the order. Lifting it is an
+ * operator's decision — an agent that stood itself down and then let itself back
+ * up would make the order a suggestion — so the vault stays flat, reporting NAV
+ * and settling its queue, until a human says otherwise.
+ *
+ * Conditional on the column still being null so the recorded time is when the
+ * position *became* flat rather than the most recent tick that noticed.
+ */
+async function recordCloseSatisfied(vaultAddress: string): Promise<void> {
+	try {
+		const { count } = await prisma.vaultConfig.updateMany({
+			where: { address: vaultAddress.toLowerCase(), closeCompletedAt: null },
+			data: { closeCompletedAt: new Date() },
+		});
+		if (count > 0) {
+			log("info", `${vaultAddress}: the close order is satisfied — the vault is flat.`);
+		}
+	} catch (error) {
+		log("warn", `Could not record the close for ${vaultAddress}`, error);
 	}
 }
 
@@ -273,7 +299,7 @@ async function main() {
 		// The venue adapter needs per-market configuration — token addresses, the
 		// Pacifica symbol — which the operator owns. No trade is placed against an
 		// unconfigured market.
-		const venue = await resolveVenue({
+		const resolved = await resolveVenue({
 			indexed,
 			vault,
 			wallet,
@@ -281,41 +307,52 @@ async function main() {
 			publicClient,
 			solana,
 		});
-		if (!venue) {
+		if (!resolved) {
 			log("warn", `${indexed.address}: no venue configuration for ${indexed.ticker ?? "?"}`);
 			return;
 		}
 
 		const deps: WorkerDeps = {
 			vault,
-			venue,
+			venue: resolved.venue,
 			advisor,
 			queue: () => loadQueue(indexed.address),
+			closeRequested: resolved.closeRequested,
 			now: () => Math.floor(Date.now() / 1000),
 			log,
 		};
 
 		const result = await tick(deps);
 		await recordRun(indexed.address, result);
+		if (result.closeSatisfied) await recordCloseSatisfied(indexed.address);
 		log(
 			"info",
-			`${indexed.address}: ${result.action}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`,
+			`${indexed.address}: ${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`,
 		);
 	}
 }
 
 /**
- * Resolve the venue adapter for one vault.
+ * Resolve the venue adapter for one vault, and read the operator's orders.
  *
- * Returns null rather than guessing when a market is not configured. A wrong
+ * Returns null rather than guessing when a vault has no configuration. A wrong
  * token address here hedges a position against a different asset while every
  * dashboard reads healthy — the exact failure the registry's by-asset curation
  * exists to prevent, so it must not be undone by a fallback here.
  *
+ * The market list comes from `vaultMarkets`, which seeds a vault created before
+ * vaults could have more than one from the founding-market columns it already
+ * has. So a vault configured a year ago and a vault given four markets this
+ * morning arrive here in the same shape, and nothing downstream has a
+ * single-market path left to drift out of date.
+ *
  * Built fresh on every tick, and that is deliberate: `createRelayBridge` reads
  * the unfinished crossings back from the database as it is constructed, so a
  * process restarted mid-bridge picks the in-flight amount up again rather than
- * reporting a NAV with the transfer missing from both sides.
+ * reporting a NAV with the transfer missing from both sides. Reading the close
+ * order here rather than caching it is the same reasoning applied to an
+ * operator's instruction: it has to take effect on the next tick, not on the
+ * next deploy.
  */
 async function resolveVenue(params: {
 	indexed: IndexedVault;
@@ -324,7 +361,7 @@ async function resolveVenue(params: {
 	walletClient: ReturnType<typeof createWalletClient>;
 	publicClient: PublicClient;
 	solana: SolanaExecutor;
-}): Promise<VenueAdapter | null> {
+}): Promise<{ venue: VenueAdapter; closeRequested: boolean } | null> {
 	const { indexed, vault, wallet, walletClient, publicClient, solana } = params;
 
 	const record = await prisma.vaultConfig
@@ -332,6 +369,15 @@ async function resolveVenue(params: {
 		.catch(() => null);
 
 	if (!record) return null;
+
+	const markets = await vaultMarkets(indexed.address).catch((error) => {
+		log("warn", `${indexed.address}: could not read the market list`, error);
+		return [] as VaultMarketConfig[];
+	});
+	if (markets.length === 0) {
+		log("warn", `${indexed.address}: configured but has no markets, so there is nothing to trade.`);
+		return null;
+	}
 
 	const bridge = await createRelayBridge({
 		vaultAddress: indexed.address,
@@ -345,13 +391,17 @@ async function resolveVenue(params: {
 		log,
 	});
 
-	return createVenueAdapter({
+	const venue = createVenueAdapter({
 		config: {
-			symbol: record.spotTokenSymbol,
-			spotToken: record.spotTokenAddress as `0x${string}`,
-			spotTokenDecimals: record.spotTokenDecimals,
+			markets: markets.map((market) => ({
+				ticker: market.ticker,
+				symbol: market.spotTokenSymbol,
+				spotToken: market.spotTokenAddress as `0x${string}`,
+				spotTokenDecimals: market.spotTokenDecimals,
+				perpSymbol: market.perpSymbol,
+				targetWeightBps: market.targetWeightBps,
+			})),
 			usdc: USDC_ADDRESS,
-			perpSymbol: record.perpSymbol,
 			solanaAddress: wallet.solanaAddress,
 			agentAddress: indexed.agentWallet,
 			slippagePercent: record.slippagePercent,
@@ -370,6 +420,8 @@ async function resolveVenue(params: {
 		solanaIdleUsdc: () => solana.usdcBalance(wallet.solanaAddress),
 		now: () => Math.floor(Date.now() / 1000),
 	});
+
+	return { venue, closeRequested: record.closeRequestedAt !== null };
 }
 
 main().catch((error) => {

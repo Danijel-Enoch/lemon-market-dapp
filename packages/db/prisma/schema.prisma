@@ -216,6 +216,12 @@ model VaultConfig {
   agentSolanaAddress String @unique
 
   /// The Base ERC-20 that is the spot leg, and its decimals.
+  ///
+  /// The vault's *founding* market. A vault may now run several — see
+  /// `VaultMarket`, which is what the agent actually reads — but these columns
+  /// stay because they are how every vault created before that existed is
+  /// described, and `markets` is seeded from them the first time a vault is
+  /// loaded. Treat them as the seed, not as the position.
   spotTokenAddress  String
   spotTokenDecimals Int
   spotTokenSymbol   String
@@ -230,13 +236,112 @@ model VaultConfig {
   /// without pausing the contract, which would also stop users depositing.
   agentEnabled Boolean @default(true)
 
+  // -------------------------------------------------------------------------
+  // The standing close order
+  //
+  // An operator telling the agent to flatten everything and send the money home
+  // is not the same instruction as `agentEnabled = false`, and conflating them
+  // was the tempting mistake. A stopped agent stops *reporting*, which stales
+  // the NAV and blocks deposits and — worse — blocks the withdrawal queue it was
+  // stopped in order to serve. An agent under a close order keeps ticking: it
+  // reports NAV, it fulfils redemptions, it simply holds no position and opens
+  // no new one.
+  //
+  // The order also has to be *standing* rather than a one-shot task. A flag that
+  // cleared itself the moment the position went flat would have the very next
+  // tick see idle USDC, decide it should be earning, and undo the whole thing.
+  // So it stays set until an operator lifts it, and `closeCompletedAt` records
+  // when the agent first reported the position actually flat.
+  // -------------------------------------------------------------------------
+
+  /// When an operator ordered every position closed and all capital returned.
+  /// Null means no order stands.
+  closeRequestedAt DateTime?
+  /// The admin address that gave the order, lowercased.
+  closeRequestedBy String?
+  /// Why, in the operator's own words. Shown beside the order and kept after it
+  /// is lifted, because "who unwound this vault in March and why" is a question
+  /// that gets asked long after the answer has left anyone's memory.
+  closeReason      String?
+  /// When the agent first found the position flat under this order. Cleared
+  /// whenever a new order is given.
+  closeCompletedAt DateTime?
+
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  runs  AgentRun[]
+  runs    AgentRun[]
+  markets VaultMarket[]
 
   @@index([ticker])
+}
+
+/// One market a vault runs a basis position in.
+///
+/// A vault used to be one market by construction, and on-chain it still looks
+/// like one: `marketId` is set in the constructor and is immutable. That has
+/// always been a *label* rather than a constraint — the contract holds USDC,
+/// bounds what the agent may withdraw, and checks the leverage it reports, and
+/// none of that is per-market. So which markets the capital is spread across is
+/// an off-chain decision, and this is where it is recorded.
+///
+/// A vault whose row set is `[BTC 40%, ETH 40%, NVDA 20%]` runs three spot legs
+/// on Base against three shorts in the *same* Pacifica account. The account is
+/// shared deliberately: margin is fungible across symbols there, so splitting it
+/// would leave each leg thinly collateralised against its own liquidation price
+/// while the account as a whole was comfortable.
+///
+/// The pairing is by asset and curated, exactly as it is for a single-market
+/// vault. Nothing here is resolved from a ticker at trade time.
+model VaultMarket {
+  id String @id @default(cuid())
+
+  /// The vault this market belongs to, lowercased.
+  vaultAddress String
+  vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
+
+  /// The market's ticker, e.g. "NVDA". Unique within the vault.
+  ticker String
+
+  /// The Base ERC-20 that is this market's spot leg, and its decimals.
+  spotTokenAddress  String
+  spotTokenDecimals Int
+  spotTokenSymbol   String
+
+  /// What Pacifica accepts on the wire for this market's perp leg.
+  perpSymbol String
+
+  /// The share of the vault's spot notional this market should carry, in basis
+  /// points. The enabled rows sum to 10000.
+  ///
+  /// A target rather than a holding. The agent deploys into whichever enabled
+  /// market is furthest below its share, one market per tick, which converges on
+  /// these weights without ever needing an atomic multi-market trade — there is
+  /// no such thing across two chains and a third venue's matching engine.
+  targetWeightBps Int @default(10000)
+
+  /// Whether new capital may go into this market.
+  ///
+  /// Disabling is how a market is retired, and deleting the row is not offered.
+  /// A vault can hold a position in a market an operator has changed their mind
+  /// about, and a deleted row is a position the agent can no longer see, value,
+  /// or sell. Disabled instead: its target weight is treated as zero, which
+  /// makes it the most overweight market there is, so the next unwind drains it
+  /// first and a close order sells it like any other.
+  enabled Boolean @default(true)
+
+  /// Set when this row was seeded from `VaultConfig`'s founding-market columns
+  /// rather than chosen by an operator, so a vault created before vaults had
+  /// more than one market is distinguishable from one deliberately given a
+  /// single market.
+  seeded Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vaultAddress, ticker])
+  @@index([vaultAddress, enabled])
 }
 
 /// One leg of a cross-chain USDC move, while it is in the air.
@@ -299,8 +404,13 @@ model AgentRun {
   vaultAddress String
   vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
 
-  /// DEPLOY, UNWIND, REBALANCE, HOLD or NONE.
+  /// DEPLOY, UNWIND, REBALANCE, CLOSE_ALL, HOLD or NONE.
   action String
+  /// Which of the vault's markets the action was aimed at, when it was aimed at
+  /// one. Null for the actions that are about the vault rather than a market —
+  /// HOLD, and an UNWIND, which takes from whichever markets are furthest above
+  /// their target weight rather than from a market the policy named.
+  market String?
   /// The reason given — by the policy, or by the advisory model when consulted.
   rationale String
 

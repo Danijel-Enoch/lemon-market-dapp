@@ -1,5 +1,7 @@
+import { CloseVaultDialog } from "@app/components/CloseVaultDialog";
 import { CreateVaultDialog } from "@app/components/CreateVaultDialog";
 import { GasPanel } from "@app/components/GasPanel";
+import { VaultMarketsDialog } from "@app/components/VaultMarketsDialog";
 import {
 	adminApi,
 	formatPercent,
@@ -11,6 +13,7 @@ import {
 	useAgentGas,
 	useAgentRuns,
 	useVaultableMarkets,
+	type Vault,
 	type VaultableMarket,
 } from "@lemon/client";
 import {
@@ -52,10 +55,20 @@ export default function AdminPage() {
 	const { data: session, isLoading } = useAdminSession();
 	const [tab, setTab] = useState<Tab>("vaults");
 
+	// Declared above the queries because one of them is gated on whether the
+	// market editor is open — the editor's "add a market" list comes from the
+	// same curated board the Create tab uses.
+	const [creating, setCreating] = useState<VaultableMarket | null>(null);
+	const [editingMarkets, setEditingMarkets] = useState<Vault | null>(null);
+	const [closingVault, setClosingVault] = useState<Vault | null>(null);
+
 	const isAdmin = session?.isAdmin ?? false;
 	const { data: vaultData } = useAdminVaults(isAdmin);
+	// Also fetched while a market editor is open, which is on the Vaults tab: the
+	// editor offers markets to add and the pairing comes from this board, never
+	// from a ticker the browser typed.
 	const { data: marketData, isFetching: marketsFetching } = useVaultableMarkets(
-		isAdmin && tab === "markets",
+		isAdmin && (tab === "markets" || editingMarkets !== null),
 	);
 	const { data: runData } = useAgentRuns(undefined, isAdmin && tab === "runs");
 	// Fetched on every tab, not just its own: an agent out of gas is the failure
@@ -63,7 +76,6 @@ export default function AdminPage() {
 	// is found after the vault has already gone stale.
 	const { data: gasData } = useAgentGas(isAdmin);
 
-	const [creating, setCreating] = useState<VaultableMarket | null>(null);
 	// A failed mutation used to be an unhandled rejection and a button that did
 	// nothing. An operator has no way to tell that apart from a no-op.
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -210,6 +222,17 @@ export default function AdminPage() {
 												{vault.paused && <Pill tone="muted">Paused</Pill>}
 												{!vault.agentEnabled && <Pill tone="muted">Agent off</Pill>}
 												{!vault.perpSymbol && <Pill tone="danger">No venue config</Pill>}
+												{/* The most consequential state a vault can be in short of a
+												    pause, so it is a badge rather than something an operator has
+												    to open a dialog to discover. The two phases are separated
+												    because "ordered" and "actually flat" are minutes to hours
+												    apart, and that gap is what an operator who has just given
+												    the order is watching for. */}
+												{vault.closeRequestedAt && (
+													<Pill tone={vault.closeCompletedAt ? "muted" : "warning"}>
+														{vault.closeCompletedAt ? "Closed out" : "Closing"}
+													</Pill>
+												)}
 											</div>
 											<p className="mt-1 text-xs text-[var(--pon-fg-3)]">
 												Agent {shortAddress(vault.agentWallet)} ·{" "}
@@ -218,6 +241,19 @@ export default function AdminPage() {
 													: "never reported"}{" "}
 												· leverage {(vault.lastObservedLeverageBps / 10_000).toFixed(2)}x
 											</p>
+											{/* A vault runs one basis position per market. On the row rather
+											    than behind the editor, because otherwise a three-market vault
+											    is indistinguishable from a one-market vault at a glance. */}
+											{vault.markets.length > 0 && (
+												<p className="mt-1 text-xs text-[var(--pon-fg-4)]">
+													{vault.markets
+														.filter((m) => m.enabled)
+														.map((m) => `${m.ticker} ${(m.targetWeightBps / 100).toFixed(0)}%`)
+														.join(" · ")}
+													{vault.markets.some((m) => !m.enabled) &&
+														` · ${vault.markets.filter((m) => !m.enabled).length} retired`}
+												</p>
+											)}
 										</div>
 
 										<div className="flex items-center gap-4">
@@ -229,18 +265,30 @@ export default function AdminPage() {
 													{formatUsdCompact(vault.idleAssets)} idle
 												</p>
 											</div>
-											<Button
-												variant="outline"
-												size="sm"
-												disabled={busyVault === vault.address}
-												onClick={() => toggleAgent(vault.address, !vault.agentEnabled)}
-											>
-												{busyVault === vault.address
-													? "Working…"
-													: vault.agentEnabled
-														? "Stop agent"
-														: "Start agent"}
-											</Button>
+											<div className="flex flex-wrap justify-end gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => setEditingMarkets(vault)}
+												>
+													Markets
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													disabled={busyVault === vault.address}
+													onClick={() => toggleAgent(vault.address, !vault.agentEnabled)}
+												>
+													{busyVault === vault.address
+														? "Working…"
+														: vault.agentEnabled
+															? "Stop agent"
+															: "Start agent"}
+												</Button>
+												<Button variant="outline" size="sm" onClick={() => setClosingVault(vault)}>
+													{vault.closeRequestedAt ? "Resume trading" : "Close positions"}
+												</Button>
+											</div>
 										</div>
 									</div>
 								</li>
@@ -341,6 +389,7 @@ export default function AdminPage() {
 										>
 											{run.action}
 										</span>
+										{run.market && <Pill tone="muted">{run.market}</Pill>}
 										{run.advised && <Pill tone="muted">advised</Pill>}
 										<span className="text-xs text-[var(--pon-fg-4)]">
 											{shortAddress(run.vaultAddress)} · {new Date(run.createdAt).toLocaleString()}
@@ -361,6 +410,18 @@ export default function AdminPage() {
 					factoryAddress={FACTORY_ADDRESS}
 					onClose={() => setCreating(null)}
 				/>
+			)}
+
+			{editingMarkets && (
+				<VaultMarketsDialog
+					vault={editingMarkets}
+					board={allMarkets}
+					onClose={() => setEditingMarkets(null)}
+				/>
+			)}
+
+			{closingVault && (
+				<CloseVaultDialog vault={closingVault} onClose={() => setClosingVault(null)} />
 			)}
 		</div>
 	);

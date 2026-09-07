@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { Hex } from "viem";
-import { createVenueAdapter, type VenueDeps } from "../src/venue";
+import { allocateUnwind, createVenueAdapter, type VenueDeps } from "../src/venue";
 
 /**
  * The unwind path, which is the half of the adapter a depositor depends on.
@@ -21,8 +21,15 @@ const AGENT = "0x0000000000000000000000000000000000000004" as const;
 const ROUTER = "0x0000000000000000000000000000000000000005" as const;
 
 interface HarnessOptions {
-	/** Spot tokens the agent holds, at 1e18. */
+	/** Spot tokens the agent holds, in `spotTokenDecimals`. */
 	spotBalance?: bigint;
+	/**
+	 * The spot token's decimals. Eighteen by default; the Coinbase equity tokens
+	 * are eight, which is where a units mix-up actually bites.
+	 */
+	spotTokenDecimals?: number;
+	/** The open perp size, as the venue's own decimal string. */
+	perpSize?: string;
 	/** What an executable sell of the whole holding returns. */
 	spotValueUsdc?: bigint;
 	/** What the swap actually delivers, which need not be what was quoted. */
@@ -33,6 +40,8 @@ interface HarnessOptions {
 	bridgeFeeUsdc?: bigint;
 	bridgeFails?: boolean;
 	withdrawalFails?: boolean;
+	/** USDC stranded in the agent's Solana wallet, outside the venue. */
+	solanaIdleUsdc?: bigint;
 }
 
 function harness(options: HarnessOptions = {}) {
@@ -92,23 +101,36 @@ function harness(options: HarnessOptions = {}) {
 			account_equity: "500",
 		}),
 		requestWithdrawal,
-		positions: async () => [],
+		positions: async () =>
+			options.perpSize ? [{ symbol: "NVDA", amount: options.perpSize, entry_price: "100" }] : [],
 	};
 
+	// Credits the agent's Base balance, because that is what a bridge does — and
+	// `closeAll` sweeps that balance rather than adding up what each step was
+	// expected to contribute. A mock that reported a landing without moving the
+	// balance would let a sweep that reads the wrong account pass.
 	const toBase = mock(async (amount: bigint) => {
 		if (options.bridgeFails) throw new Error("bridge is down");
-		return { txRef: "0xbridge" as Hex, landed: amount - bridgeFee };
+		const landed = amount - bridgeFee;
+		balances.usdc += landed;
+		return { txRef: "0xbridge" as Hex, landed };
 	});
 
 	const returnToVault = mock(async () => "0xreturn" as Hex);
 
 	const deps = {
 		config: {
-			symbol: "NVDA",
-			spotToken: SPOT_TOKEN,
-			spotTokenDecimals: 18,
+			markets: [
+				{
+					ticker: "NVDA",
+					symbol: "NVDAc",
+					spotToken: SPOT_TOKEN,
+					spotTokenDecimals: options.spotTokenDecimals ?? 18,
+					perpSymbol: "NVDA",
+					targetWeightBps: 10_000,
+				},
+			],
 			usdc: USDC_TOKEN,
-			perpSymbol: "NVDA",
 			solanaAddress: "SoLanaAgent1111111111111111111111111111111",
 			agentAddress: AGENT,
 			slippagePercent: 0.5,
@@ -121,10 +143,18 @@ function harness(options: HarnessOptions = {}) {
 		bridge: { toSolana: async () => ({ txRef: "0xout" as Hex, landed: 0n }), toBase },
 		returnToVault,
 		inFlight: () => 0n,
+		solanaIdleUsdc: async () => options.solanaIdleUsdc ?? 0n,
 		now: () => 1_800_000_000,
 	} as unknown as VenueDeps;
 
-	return { adapter: createVenueAdapter(deps), returnToVault, requestWithdrawal, toBase, balances };
+	return {
+		adapter: createVenueAdapter(deps),
+		returnToVault,
+		requestWithdrawal,
+		toBase,
+		balances,
+		createMarketOrder: pacifica.createMarketOrder,
+	};
 }
 
 describe("unwind", () => {
@@ -204,5 +234,256 @@ describe("unwind", () => {
 
 		expect(requestWithdrawal).not.toHaveBeenCalled();
 		expect(returnToVault).toHaveBeenCalled();
+	});
+});
+
+/**
+ * Which markets an unwind comes out of.
+ *
+ * The allocation decides whose exposure gets sold, so it is worth being able to
+ * state what it does in cases that are awkward to reach through a live venue.
+ */
+describe("allocateUnwind", () => {
+	const leg = (ticker: string, value: bigint, targetWeightBps: number, sellable = true) => ({
+		ticker,
+		value,
+		targetWeightBps,
+		sellable,
+	});
+
+	/**
+	 * Raising cash and correcting the weights are the same trade. A vault that
+	 * has drifted to 60/40 against a 50/50 mandate pays its next redemption
+	 * entirely out of the heavy side and comes back to neutral for free.
+	 */
+	it("takes from the overweight side first", () => {
+		const allocation = allocateUnwind(
+			[leg("BTC", 6_000n * USDC, 5_000), leg("ETH", 4_000n * USDC, 5_000)],
+			1_000n * USDC,
+		);
+		expect(allocation).toEqual([{ ticker: "BTC", amount: 1_000n * USDC }]);
+	});
+
+	it("stops at the overweight rather than draining the heavy leg", () => {
+		const allocation = allocateUnwind(
+			[leg("BTC", 6_000n * USDC, 5_000), leg("ETH", 4_000n * USDC, 5_000)],
+			1_500n * USDC,
+		);
+		// BTC is $1,000 over its half; the remaining $500 comes from the largest
+		// leg with room left, which is still BTC.
+		expect(allocation.find((a) => a.ticker === "BTC")?.amount).toBe(1_500n * USDC);
+	});
+
+	/**
+	 * Greedy from the largest, not proportional across all. Proportional is the
+	 * tidier-looking answer and the more expensive one: every market touched is a
+	 * perp order and a swap through its own pool, paying two sets of fees to
+	 * preserve ratios the next deployment restores anyway.
+	 */
+	it("touches as few markets as it can", () => {
+		const allocation = allocateUnwind(
+			[
+				leg("BTC", 5_000n * USDC, 3_400),
+				leg("ETH", 5_000n * USDC, 3_300),
+				leg("SOL", 5_000n * USDC, 3_300),
+			],
+			1_000n * USDC,
+		);
+		// ETH and SOL are $50 over their share each — real drift, and not worth a
+		// perp order and a swap apiece to correct. The whole amount comes out of
+		// one leg instead, and the next deployment removes the drift for free.
+		expect(allocation).toHaveLength(1);
+	});
+
+	/** A retired market has a target of zero, so it is entirely overweight. */
+	it("drains a retired market before touching anything else", () => {
+		const allocation = allocateUnwind(
+			[leg("NVDA", 2_000n * USDC, 0), leg("BTC", 8_000n * USDC, 10_000)],
+			2_000n * USDC,
+		);
+		expect(allocation).toEqual([{ ticker: "NVDA", amount: 2_000n * USDC }]);
+	});
+
+	/**
+	 * An unroutable market still counts toward the weights — leaving it out would
+	 * inflate every other market's share and report the whole vault as overweight
+	 * — but nothing can be raised from it.
+	 */
+	it("never allocates to a market it cannot sell", () => {
+		const allocation = allocateUnwind(
+			[leg("NVDA", 6_000n * USDC, 5_000, false), leg("BTC", 4_000n * USDC, 5_000)],
+			2_000n * USDC,
+		);
+		expect(allocation).toEqual([{ ticker: "BTC", amount: 2_000n * USDC }]);
+	});
+
+	it("gives back everything it can when asked for more than exists", () => {
+		const allocation = allocateUnwind(
+			[leg("BTC", 3_000n * USDC, 5_000), leg("ETH", 1_000n * USDC, 5_000)],
+			10_000n * USDC,
+		);
+		expect(allocation.reduce((sum, a) => sum + a.amount, 0n)).toBe(4_000n * USDC);
+	});
+
+	it("allocates nothing against an empty position", () => {
+		expect(allocateUnwind([leg("BTC", 0n, 10_000)], 1_000n * USDC)).toEqual([]);
+	});
+});
+
+describe("closeAll", () => {
+	it("closes the leg, sweeps the margin, and sends everything home", async () => {
+		const { adapter, returnToVault, requestWithdrawal } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		const activity = await adapter.closeAll();
+
+		expect(requestWithdrawal).toHaveBeenCalled();
+		expect(returnToVault).toHaveBeenCalledWith(1_500n * USDC);
+		expect(activity.map((a) => a.kind)).toEqual([
+			"PERP_CLOSE",
+			"SPOT_SELL",
+			"VENUE_WITHDRAW",
+			"BRIDGE_OUT",
+			"BRIDGE_IN",
+		]);
+	});
+
+	/**
+	 * The sweep is what makes this different from a large unwind. USDC stranded
+	 * in the Solana wallet by a failed deposit is picked up by the next
+	 * deployment for free — but a close order has no next deployment.
+	 */
+	it("brings home USDC stranded outside the venue", async () => {
+		const { adapter, toBase } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+			solanaIdleUsdc: 40n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(toBase).toHaveBeenCalledWith(540n * USDC);
+	});
+
+	it("leaves the stranded balance alone on an ordinary unwind", async () => {
+		const { adapter, toBase } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+			solanaIdleUsdc: 40n * USDC,
+		});
+
+		await adapter.unwind({ amount: 1_000n * USDC });
+
+		expect(toBase).toHaveBeenCalledWith(500n * USDC);
+	});
+
+	/**
+	 * The regression this exists for.
+	 *
+	 * A close order names the *larger* of the two legs so the perp reaches zero,
+	 * and the two legs are measured in different bases: the venue reports its
+	 * position in a 1e18 unit count, the wallet holds an 8-decimal token. Compared
+	 * without rescaling, the perp figure wins every time by ten orders of
+	 * magnitude — and that number goes straight into the order amount and the swap
+	 * input. The assertion is on the order the venue actually receives, because
+	 * that is where the mistake would be spent.
+	 */
+	it("sizes the close in the token's decimals, not the perp's unit basis", async () => {
+		// 100 tokens at 8dp against an open short of 100.
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			spotBalance: 100n * 10n ** 8n,
+			perpSize: "100",
+			fillUsdc: 1_000n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ symbol: "NVDA", side: "bid", reduceOnly: true, amount: "100" }),
+		);
+	});
+
+	/** The perp leg is the one that has to reach zero, even when spot has drifted. */
+	it("closes against the perp size when it is the larger leg", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			spotBalance: 90n * 10n ** 8n,
+			perpSize: "100",
+			fillUsdc: 900n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ amount: "100" }),
+		);
+	});
+
+	/**
+	 * The sweep, and why a close is not a large unwind.
+	 *
+	 * Idle USDC at the agent counts toward the vault's reported NAV, so a close
+	 * that returned only what it raised would leave `deployedAssets` above the
+	 * dust threshold — the order would never read as satisfied, and the agent
+	 * would retry a close with nothing left to close on every tick from then on.
+	 */
+	it("sweeps USDC already at the agent, not just what this close raised", async () => {
+		const { adapter, returnToVault, balances } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "0",
+		});
+		// Left over from a deployment that drew capital down and then failed.
+		balances.usdc += 250n * USDC;
+
+		await adapter.closeAll();
+
+		expect(returnToVault).toHaveBeenCalledWith(1_250n * USDC);
+	});
+
+	it("leaves that same balance alone on an ordinary unwind", async () => {
+		const { adapter, returnToVault, balances } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "0",
+		});
+		balances.usdc += 250n * USDC;
+
+		await adapter.unwind({ amount: 1_000n * USDC });
+
+		// An unwind returns what it raised. The rest is usually capital
+		// mid-deployment that the next tick will put to work.
+		expect(returnToVault).toHaveBeenCalledWith(1_000n * USDC);
+	});
+
+	it("does nothing to a position that is already flat", async () => {
+		const { adapter, returnToVault, createMarketOrder } = harness({
+			spotBalance: 0n,
+			spotValueUsdc: 0n,
+			availableToWithdraw: "0",
+		});
+
+		expect(await adapter.closeAll()).toEqual([]);
+		expect(createMarketOrder).not.toHaveBeenCalled();
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * A close that gets most of the way there has not served its purpose. What
+	 * could be sent home is, and the operator is told by name which part is
+	 * still open rather than being shown a vault that reports itself closed.
+	 */
+	it("returns what it could and names what it could not", async () => {
+		const { adapter, returnToVault } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+			bridgeFails: true,
+		});
+
+		await expect(adapter.closeAll()).rejects.toThrow(/margin account/);
+		expect(returnToVault).toHaveBeenCalledWith(1_000n * USDC);
 	});
 });

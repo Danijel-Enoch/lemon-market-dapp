@@ -63,9 +63,43 @@ async function request<T>(
 const post = <T>(path: string, body: unknown) =>
 	request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
+/**
+ * PUT, for the one endpoint that genuinely replaces a whole collection.
+ *
+ * A vault's market list is set as a set rather than a market at a time, because
+ * the target weights only mean anything together — so the verb that says
+ * "this is the collection now" is the honest one.
+ */
+const put = <T>(path: string, body: unknown) =>
+	request<T>(path, { method: "PUT", body: JSON.stringify(body) });
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+/**
+ * One market a vault runs a basis position in.
+ *
+ * A vault used to be one market by construction, and on-chain it still looks
+ * like one — `marketId` is set in the constructor and never changes. That was
+ * always a label rather than a constraint: the contract holds USDC, bounds what
+ * the agent may withdraw, and checks the leverage it reports, and none of that
+ * is per-market. Which markets the capital is spread across is decided off-chain.
+ */
+export interface VaultMarket {
+	ticker: string;
+	spotTokenSymbol: string;
+	spotTokenAddress: string;
+	perpSymbol: string;
+	/** Share of the vault's spot notional this market should carry, in bps. */
+	targetWeightBps: number;
+	/**
+	 * False for a market an operator has retired. It keeps its row because the
+	 * vault may still hold a position in it — which the agent has to be able to
+	 * see, value and sell — but no new capital goes into it.
+	 */
+	enabled: boolean;
+}
 
 export interface Vault {
 	address: `0x${string}`;
@@ -88,9 +122,19 @@ export interface Vault {
 	pricePerShare: string;
 	depositorCount: number;
 
+	/** The founding market. `markets[0]` says the same thing properly. */
 	spotTokenSymbol: string | null;
 	perpSymbol: string | null;
+	/** Every market this vault runs, enabled first and heaviest first. */
+	markets: VaultMarket[];
 	agentEnabled: boolean;
+	/**
+	 * Set while an operator has ordered every position closed and the capital
+	 * returned; `closeCompletedAt` is when the agent first found the vault flat.
+	 * Both null in the ordinary case.
+	 */
+	closeRequestedAt: string | null;
+	closeCompletedAt: string | null;
 	assetClass: string;
 	assetClassLabel: string;
 	/** One of "crypto" | "stocks" | "rwa" | "fx" — the board's tabs. */
@@ -508,10 +552,25 @@ export interface PacificaAccountSetup {
 	summary: string;
 }
 
+/** A vault's market as the admin console reads and writes it. */
+export interface VaultMarketConfig {
+	ticker: string;
+	spotTokenAddress: string;
+	spotTokenDecimals: number;
+	spotTokenSymbol: string;
+	perpSymbol: string;
+	targetWeightBps: number;
+	enabled: boolean;
+	/** True when the row was derived from the vault's founding market columns. */
+	seeded: boolean;
+}
+
 export interface AgentRun {
 	id: string;
 	vaultAddress: string;
 	action: string;
+	/** Which market the action was aimed at, when it was aimed at one. */
+	market: string | null;
 	rationale: string;
 	advised: boolean;
 	navReported: boolean;
@@ -557,6 +616,28 @@ export const adminApi = {
 
 	setAgent: (address: string, enabled: boolean) =>
 		post<{ vault: unknown }>(`/admin/vaults/${address}/agent`, { enabled }),
+
+	vaultMarkets: (address: string) =>
+		request<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`),
+
+	/**
+	 * Replace the whole set at once.
+	 *
+	 * The whole set rather than one market at a time, because the weights only
+	 * mean anything together — a vault weighted to 140% between two requests is a
+	 * vault an agent can tick against.
+	 */
+	setVaultMarkets: (address: string, markets: Array<{ ticker: string; targetWeightBps: number }>) =>
+		put<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, { markets }),
+
+	/**
+	 * Order every position closed and all capital returned — or lift that order.
+	 *
+	 * Returns as soon as the instruction is recorded. The close itself is minutes
+	 * of venue round trips on the agent's next tick.
+	 */
+	setCloseOrder: (address: string, closing: boolean, reason?: string) =>
+		post<{ vault: unknown }>(`/admin/vaults/${address}/close`, { closing, reason }),
 
 	withdrawableGas: (address: string) =>
 		request<VaultGasWithdrawable>(`/admin/gas/${address}/withdrawable`),

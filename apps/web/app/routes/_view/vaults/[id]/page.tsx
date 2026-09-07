@@ -310,6 +310,56 @@ export default function VaultDetailPage() {
 					<DepositPanel vault={vault} usdcAddress={USDC_ADDRESS} />
 					<WithdrawPanel vault={vault} pending={pending} />
 
+					{/* What the vault actually holds, and in what proportion. A vault may
+					    run several markets at once — one spot leg and one short each,
+					    sharing a margin account — and a depositor choosing between vaults
+					    is choosing between these lists more than anything else on the
+					    page. */}
+					{vault.markets.length > 0 && (
+						<div className="space-y-2 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 text-xs leading-relaxed text-[var(--pon-fg-3)]">
+							<h3 className="text-sm font-medium text-[var(--pon-fg-0)]">
+								{vault.markets.length === 1 ? "Market" : "Markets"}
+							</h3>
+							<ul className="space-y-1.5 pt-0.5">
+								{vault.markets
+									.filter((market) => market.enabled)
+									.map((market) => (
+										<li key={market.ticker} className="flex items-baseline justify-between gap-3">
+											<span className="text-[var(--pon-fg)]">{market.ticker}</span>
+											<span className="font-mono text-[11px] text-[var(--pon-fg-4)]">
+												{market.spotTokenSymbol} / {market.perpSymbol}
+											</span>
+											{vault.markets.filter((m) => m.enabled).length > 1 && (
+												<span className="tabular-nums text-[var(--pon-fg-2)]">
+													{(market.targetWeightBps / 100).toFixed(0)}%
+												</span>
+											)}
+										</li>
+									))}
+							</ul>
+							<p className="pt-1">
+								{vault.markets.filter((m) => m.enabled).length === 1
+									? "Long the spot token on Base against an equal-notional short on Pacifica."
+									: "Each market is long its spot token on Base against an equal-notional short on Pacifica. The percentages are targets the agent works towards one market at a time, not a promise about any given moment."}
+							</p>
+						</div>
+					)}
+
+					{/* A vault standing down is the most material thing that can happen to
+					    a position short of a pause, and it shows up in the activity feed
+					    either way — so it is said plainly rather than left to be inferred
+					    from a position that quietly went to zero. */}
+					{vault.closeRequestedAt && (
+						<div className="space-y-2 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-5 text-xs leading-relaxed text-[var(--pon-fg-2)]">
+							<h3 className="text-sm font-medium text-[var(--pon-fg-0)]">Standing down</h3>
+							<p>
+								{vault.closeCompletedAt
+									? "An operator has wound this vault's positions down. The capital is back in the contract and is not earning funding; deposits and withdrawals work as normal."
+									: "An operator has asked the agent to close every position and return the capital to the vault. It is being unwound now."}
+							</p>
+						</div>
+					)}
+
 					<div className="space-y-2 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 text-xs leading-relaxed text-[var(--pon-fg-3)]">
 						<h3 className="text-sm font-medium text-[var(--pon-fg-0)]">Mandate</h3>
 						<p>
@@ -321,8 +371,8 @@ export default function VaultDetailPage() {
 							enforces on every valuation the agent reports.
 						</p>
 						<p>
-							Depositing adds to this position rather than starting a new one: the agent buys more
-							of the spot leg and puts more margin behind the existing short.
+							Depositing adds to the existing position rather than starting a new one: the agent
+							buys more of a spot leg and puts more margin behind the short already open against it.
 						</p>
 						<p className="pt-1">
 							The agent's wallets and both legs are shown in full under Open position.

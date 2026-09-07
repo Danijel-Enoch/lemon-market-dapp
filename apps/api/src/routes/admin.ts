@@ -4,10 +4,13 @@ import {
 	assertAdmin,
 	assertCanCreateVaults,
 	listVaultableMarkets,
+	listVaultMarkets,
 	prepareVault,
 	recentRuns,
 	recordVault,
 	setAgentEnabled,
+	setCloseOrder,
+	setVaultMarkets,
 } from "../services/admin";
 import { readSession, SESSION_COOKIE } from "../services/auth";
 import { getAllVaultGas, getVaultGas } from "../services/gas";
@@ -285,5 +288,86 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 		{
 			params: t.Object({ address: addressSchema }),
 			body: t.Object({ enabled: t.Boolean() }),
+		},
+	)
+
+	/** The markets this vault runs a basis position in, and their target weights. */
+	.get(
+		"/vaults/:address/markets",
+		async ({ admin, params }) => {
+			await assertAdmin(admin);
+			return { markets: await listVaultMarkets(params.address) };
+		},
+		{ params: t.Object({ address: addressSchema }) },
+	)
+
+	/**
+	 * Set the whole list at once.
+	 *
+	 * The whole list rather than add/remove/reweight, because the weights are only
+	 * meaningful together — three individually reasonable requests can leave a
+	 * vault weighted to 140% between the second and the third, and an agent
+	 * ticking in that window deploys against it.
+	 *
+	 * The body carries tickers and weights and nothing else. Letting a request
+	 * name its own token address would be a way to point a live vault's agent at
+	 * an arbitrary ERC-20; the pairing is resolved server-side from the same
+	 * curated board the create flow uses.
+	 */
+	.put(
+		"/vaults/:address/markets",
+		async ({ admin, params, body }) => {
+			await assertCanCreateVaults(admin);
+			return { markets: await setVaultMarkets({ address: params.address, markets: body.markets }) };
+		},
+		{
+			params: t.Object({ address: addressSchema }),
+			body: t.Object({
+				markets: t.Array(
+					t.Object({
+						ticker: t.String({ minLength: 1, maxLength: 16 }),
+						targetWeightBps: t.Integer({ minimum: 1, maximum: 10_000 }),
+					}),
+					{ minItems: 1, maxItems: 20 },
+				),
+			}),
+		},
+	)
+
+	/**
+	 * Order every position closed and all capital returned to the vault — or lift
+	 * that order.
+	 *
+	 * Not the same lever as stopping the agent, and the difference is the point. A
+	 * stopped agent stops reporting, which stales the NAV and blocks the
+	 * withdrawal queue an operator unwinding a vault is usually trying to serve.
+	 * Under a close order the agent keeps ticking, keeps reporting, and keeps
+	 * paying redemptions — it simply holds no position and opens no new one.
+	 *
+	 * Returns as soon as the instruction is recorded. Closing is minutes of venue
+	 * round trips across two chains, so nothing here waits for it; the agent acts
+	 * on its next tick and stamps `closeCompletedAt` when it first finds the vault
+	 * flat. `assertCanCreateVaults` rather than `assertAdmin`, on the same
+	 * reasoning as every other route that moves money.
+	 */
+	.post(
+		"/vaults/:address/close",
+		async ({ admin, params, body }) => {
+			await assertCanCreateVaults(admin);
+			return {
+				vault: await setCloseOrder({
+					address: params.address,
+					closing: body.closing,
+					reason: body.reason,
+					by: admin as string,
+				}),
+			};
+		},
+		{
+			params: t.Object({ address: addressSchema }),
+			body: t.Object({
+				closing: t.Boolean(),
+				reason: t.Optional(t.String({ maxLength: 500 })),
+			}),
 		},
 	);

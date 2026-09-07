@@ -209,3 +209,20 @@ export function useAgentRuns(vault: string | undefined, enabled: boolean) {
 		refetchInterval: 30_000,
 	});
 }
+
+/**
+ * The markets one vault runs.
+ *
+ * Per vault rather than for the whole list, because it is only ever wanted for
+ * the vault whose market editor is open. Not polled: an operator is about to
+ * edit these, and a list that reorders itself under a half-filled form is worse
+ * than a slightly stale one.
+ */
+export function useVaultMarkets(vault: string | undefined, enabled: boolean) {
+	return useQuery({
+		queryKey: ["admin-vault-markets", vault],
+		queryFn: () => adminApi.vaultMarkets(vault as string),
+		enabled: enabled && Boolean(vault),
+		staleTime: 30_000,
+	});
+}

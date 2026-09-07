@@ -1,6 +1,6 @@
 import type { AdlRisk } from "@lemon/core";
-import type { Advisor, VaultSnapshot } from "./policy";
-import { decide, driftBps, splitDeployment } from "./policy";
+import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
+import { decide, driftBps, isFlat, splitDeployment } from "./policy";
 import { type Valuation, ValuationError } from "./valuation";
 import type { ActivityInput, VaultClient } from "./vault";
 
@@ -25,41 +25,82 @@ import type { ActivityInput, VaultClient } from "./vault";
  * partial failure much harder to reason about.
  */
 
+/**
+ * One market, as the venue reports it.
+ *
+ * Everything the policy needs to reason about a market, plus the shape the
+ * snapshot is built from. Note what is *not* here: equity, idle USDC and
+ * in-flight capital are all shared across a vault's markets — one Pacifica
+ * account, one Base wallet, one Solana wallet — so they live on the valuation
+ * and are counted once. See `valuation.ts`.
+ */
+export interface MarketObservation {
+	ticker: string;
+	symbol: string;
+	perpSymbol: string;
+	targetWeightBps: number;
+	/** What this market's spot leg would fetch if sold now, in USDC. */
+	spotValueUsdc: bigint;
+	spotUnits: bigint;
+	perpUnits: bigint;
+	fundingShortPercentPerHour: number;
+	spotBuyable: boolean;
+	spotSellable: boolean;
+	/**
+	 * Where this market's short sits in the venue's auto-deleveraging queue.
+	 *
+	 * Observed rather than acted on. The agent has no action that reduces it —
+	 * leverage is the vault's mandate, not the agent's choice — so this exists
+	 * to be logged, shown, and handed to the advisor as the one risk that can
+	 * remove the hedge without either the agent or the depositor doing
+	 * anything. When it fires, it arrives as drift on the next tick.
+	 */
+	adl: AdlRisk;
+}
+
 /** Everything the worker needs from the outside world, so it can be tested without one. */
 export interface VenueAdapter {
 	/** Read venue state and price the position. Throws `ValuationError` if unpriceable. */
 	observe(): Promise<{
 		valuation: Valuation;
-		spotUnits: bigint;
-		perpUnits: bigint;
-		fundingShortPercentPerHour: number;
-		spotBuyable: boolean;
-		spotSellable: boolean;
-		symbol: string;
-		/**
-		 * Where the short sits in the venue's auto-deleveraging queue.
-		 *
-		 * Observed rather than acted on. The agent has no action that reduces it —
-		 * leverage is the vault's mandate, not the agent's choice — so this exists
-		 * to be logged, shown, and handed to the advisor as the one risk that can
-		 * remove the hedge without either the agent or the depositor doing
-		 * anything. When it fires, it arrives as drift on the next tick.
-		 */
+		/** One entry per market the vault runs. Never empty. */
+		markets: MarketObservation[];
+		/** The worst auto-deleveraging exposure across those markets. */
 		adl: AdlRisk;
 	}>;
 
-	/** Buy the spot leg and open the matching short. Returns what it did. */
+	/** Buy one market's spot leg and open the matching short. Returns what it did. */
 	deploy(params: {
+		/** The market's ticker. The adapter refuses one it has no configuration for. */
+		market: string;
 		spotNotional: bigint;
 		perpMargin: bigint;
 		leverageBps: number;
 	}): Promise<ActivityInput[]>;
 
-	/** Close enough of both legs to free `amount` USDC, and send it back. */
+	/**
+	 * Close enough of the position to free `amount` USDC, and send it back.
+	 *
+	 * Which markets it comes out of is the adapter's decision, not the policy's:
+	 * it takes from whichever are furthest above their target weight, which needs
+	 * live quotes the policy does not have and would leave stale by the time the
+	 * order was placed.
+	 */
 	unwind(params: { amount: bigint }): Promise<ActivityInput[]>;
 
-	/** Trade the perp leg back to the spot leg's size. */
-	rebalance(params: { targetUnits: bigint }): Promise<ActivityInput[]>;
+	/** Trade one market's perp leg back to its spot leg's size. */
+	rebalance(params: { market: string; targetUnits: bigint }): Promise<ActivityInput[]>;
+
+	/**
+	 * Sell everything, in every market, and send all of it back to the vault.
+	 *
+	 * Not `unwind` with a large number. An unwind is sized against a quote and
+	 * stops when it has raised what it was asked for; this closes each position in
+	 * full, sweeps the margin account, and does not stop early because a leg
+	 * happened to fetch more than expected. It is what an operator's close order
+	 * means.
+	 */
+	closeAll(): Promise<ActivityInput[]>;
 }
 
 /**
@@ -96,17 +137,33 @@ export interface WorkerDeps {
 	advisor: Advisor | null;
 	/** Ripe and pending redemptions, from the indexer. */
 	queue: () => Promise<QueueEntry[]>;
+	/**
+	 * Whether an operator has ordered every position closed and the capital
+	 * returned. See `VaultConfig.closeRequestedAt`.
+	 */
+	closeRequested: boolean;
 	now: () => number;
 	log: (level: "info" | "warn" | "error", message: string, extra?: unknown) => void;
 }
 
 export interface TickResult {
 	action: string;
+	/** The market the action was aimed at, when it was aimed at one. */
+	market: string | null;
 	rationale: string;
 	advised: boolean;
 	navReported: boolean;
 	activityReported: number;
 	fulfilled: number;
+	/**
+	 * True when a close order stands and the position is now flat.
+	 *
+	 * Reported rather than acted on here, because the flag it stamps lives in the
+	 * database and the worker has no business writing there — it is the one part
+	 * of a tick that is bookkeeping for an operator rather than a step in running
+	 * the vault. Read by the caller, which records it.
+	 */
+	closeSatisfied: boolean;
 	error?: string;
 }
 
@@ -130,11 +187,13 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			log("error", `Cannot price ${vault.address}; letting the NAV go stale.`, error);
 			return {
 				action: "NONE",
+				market: null,
 				rationale: error.message,
 				advised: false,
 				navReported: false,
 				activityReported: 0,
 				fulfilled: 0,
+				closeSatisfied: false,
 				error: error.message,
 			};
 		}
@@ -163,11 +222,13 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			log("error", `NAV report rejected for ${vault.address}`, error);
 			return {
 				action: "NONE",
+				market: null,
 				rationale: `NAV report rejected: ${message(error)}`,
 				advised: false,
 				navReported: false,
 				activityReported: 0,
 				fulfilled: 0,
+				closeSatisfied: false,
 				error: message(error),
 			};
 		}
@@ -192,11 +253,24 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		ripeRedeemAssets: sum(ripe.map((q) => q.pendingAssets)),
 		pendingRedeemAssets: sum(queue.filter((q) => q.eligibleAt > now).map((q) => q.pendingAssets)),
 		earliestDeadline: ripe.length ? Math.min(...ripe.map((q) => q.fulfillBy)) : null,
-		spotUnits: observation.spotUnits,
-		perpUnits: observation.perpUnits,
-		fundingShortPercentPerHour: observation.fundingShortPercentPerHour,
-		spotBuyable: observation.spotBuyable && !fresh.paused && !fresh.emergencyExit,
-		spotSellable: observation.spotSellable,
+		markets: observation.markets.map(
+			(market): MarketSnapshot => ({
+				ticker: market.ticker,
+				symbol: market.symbol,
+				targetWeightBps: market.targetWeightBps,
+				spotValueUsdc: market.spotValueUsdc,
+				spotUnits: market.spotUnits,
+				perpUnits: market.perpUnits,
+				fundingShortPercentPerHour: market.fundingShortPercentPerHour,
+				// A paused or exiting vault buys nothing anywhere. Applied per market
+				// rather than once, because it has to survive the policy looking at
+				// each market on its own.
+				spotBuyable: market.spotBuyable && !fresh.paused && !fresh.emergencyExit,
+				spotSellable: market.spotSellable,
+				adl: market.adl,
+			}),
+		),
+		closeRequested: deps.closeRequested,
 		adl: observation.adl,
 	};
 
@@ -209,19 +283,39 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 	}
 
 	const decision = await decide(snapshot, now, advisor);
-	log("info", `${vault.address}: ${decision.kind} — ${decision.rationale}`);
+	log(
+		"info",
+		`${vault.address}: ${decision.kind}${decision.market ? ` ${decision.market}` : ""} — ${decision.rationale}`,
+	);
 
 	let activity: ActivityInput[] = [];
 
 	try {
 		if (decision.kind === "DEPLOY") {
+			// `decision.market` is set for every DEPLOY the policy produces; the
+			// check is here because the adapter cannot act on a deployment that does
+			// not say where it goes, and failing before `agentWithdraw` keeps the
+			// capital in the vault rather than at an agent with nothing to do.
+			if (!decision.market) throw new Error("A deployment named no market.");
 			const split = splitDeployment(decision.amount, fresh.targetLeverageBps);
 			await vault.agentWithdraw(decision.amount);
-			activity = await venue.deploy({ ...split, leverageBps: fresh.targetLeverageBps });
+			activity = await venue.deploy({
+				...split,
+				market: decision.market,
+				leverageBps: fresh.targetLeverageBps,
+			});
 		} else if (decision.kind === "UNWIND") {
 			activity = await venue.unwind({ amount: decision.amount });
 		} else if (decision.kind === "REBALANCE") {
-			activity = await venue.rebalance({ targetUnits: observation.spotUnits });
+			if (!decision.market) throw new Error("A rebalance named no market.");
+			const target = observation.markets.find((m) => m.ticker === decision.market);
+			if (!target) throw new Error(`No observation for ${decision.market} to rebalance against.`);
+			activity = await venue.rebalance({
+				market: decision.market,
+				targetUnits: target.spotUnits,
+			});
+		} else if (decision.kind === "CLOSE_ALL") {
+			activity = await venue.closeAll();
 		}
 	} catch (error) {
 		log("error", `${decision.kind} failed for ${vault.address}`, error);
@@ -237,11 +331,13 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		if (activity.length) await safeReport(vault, activity, log);
 		return {
 			action: decision.kind,
+			market: decision.market,
 			rationale: decision.rationale,
 			advised: decision.advised,
 			navReported,
 			activityReported: activity.length,
 			fulfilled: 0,
+			closeSatisfied: false,
 			error: message(error),
 		};
 	}
@@ -254,11 +350,18 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 
 	return {
 		action: decision.kind,
+		market: decision.market,
 		rationale: decision.rationale,
 		advised: decision.advised,
 		navReported,
 		activityReported: activity.length,
 		fulfilled,
+		// Read off the snapshot this tick acted on, which means the tick *after*
+		// the close is the one that reports it satisfied — the legs have to be
+		// observed empty and the NAV reported at zero before the position is flat
+		// by any measure a depositor could check. Claiming it on the closing tick
+		// itself would be recording an intention rather than an outcome.
+		closeSatisfied: deps.closeRequested && isFlat(snapshot),
 	};
 }
 

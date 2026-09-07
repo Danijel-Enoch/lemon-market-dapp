@@ -20,17 +20,66 @@ import type { AdlRisk } from "@lemon/core";
 
 export type ActionKind =
 	/**
-	 * Move idle vault USDC into the position — which means *adding to* the
-	 * existing legs, not opening new ones. A deposit deepens the book the vault
-	 * already runs.
+	 * Move idle vault USDC into one market's position — which means *adding to*
+	 * the legs already there, not opening new ones. A deposit deepens the book
+	 * the vault already runs.
 	 */
 	| "DEPLOY"
 	/** Close part of the position and return USDC so redemptions can be paid. */
 	| "UNWIND"
-	/** Trade the perp leg back to the spot leg's size. */
+	/** Trade one market's perp leg back to its spot leg's size. */
 	| "REBALANCE"
+	/**
+	 * Close every position in every market and send all of it back to the vault.
+	 *
+	 * Only ever reached under an operator's standing close order, and never
+	 * chosen by the advisory model — see `permittedActions`.
+	 */
+	| "CLOSE_ALL"
 	/** Report NAV and nothing else. */
 	| "HOLD";
+
+/**
+ * One market the vault runs, as the policy sees it.
+ *
+ * A vault used to be one market and the fields below sat directly on the
+ * snapshot. They are per-market now because the two that decide anything —
+ * hedge drift and routability — are properties of a market rather than of a
+ * vault, and a vault-level answer to either is a lie as soon as there is more
+ * than one: averaging drift across markets can report a neutral position made of
+ * two badly-mismatched legs pointing opposite ways, and a single `spotBuyable`
+ * flag cannot say which market is the one that cannot be routed.
+ */
+export interface MarketSnapshot {
+	/** The market's ticker, e.g. "NVDA". Identifies it in every decision. */
+	ticker: string;
+	/** The Base token's own symbol, e.g. "NVDAc". For the operator's benefit. */
+	symbol: string;
+	/**
+	 * The share of the vault's spot notional this market should carry, in bps.
+	 *
+	 * Zero for a market an operator has disabled, which is what drains it: a
+	 * target of zero makes it the most overweight market the vault has, so it is
+	 * both the first place an unwind takes from and never a place a deployment
+	 * goes.
+	 */
+	targetWeightBps: number;
+	/** What this market's spot leg is currently worth, in USDC. */
+	spotValueUsdc: bigint;
+
+	/** Units held on each leg, scaled to 1e18. Neutral means these match. */
+	spotUnits: bigint;
+	perpUnits: bigint;
+
+	/** Short-side funding, percent per hour. Positive means the position earns. */
+	fundingShortPercentPerHour: number;
+	/** Whether this market's spot leg can currently be routed in and out. */
+	spotBuyable: boolean;
+	spotSellable: boolean;
+
+	/** Auto-deleveraging exposure on this market's short. See `VaultSnapshot.adl`. */
+	adl: AdlRisk;
+}
 
 export interface VaultSnapshot {
 	address: `0x${string}`;
@@ -53,18 +102,21 @@ export interface VaultSnapshot {
 	/** The earliest `fulfillBy` among ripe requests, as a unix timestamp. */
 	earliestDeadline: number | null;
 
-	/** Units held on each leg, scaled to 1e18. Neutral means these match. */
-	spotUnits: bigint;
-	perpUnits: bigint;
-
-	/** Short-side funding, percent per hour. Positive means the position earns. */
-	fundingShortPercentPerHour: number;
-	/** Whether the spot leg can currently be routed in and out. */
-	spotBuyable: boolean;
-	spotSellable: boolean;
+	/** Every market the vault holds or may deploy into. Never empty. */
+	markets: MarketSnapshot[];
 
 	/**
-	 * Auto-deleveraging exposure on the short.
+	 * Whether an operator has ordered every position closed and all capital
+	 * returned to the vault.
+	 *
+	 * Outranks everything, including a redemption deadline — an order to return
+	 * *all* of the capital already covers every redemption in the queue, so there
+	 * is nothing the deadline would additionally ask for.
+	 */
+	closeRequested: boolean;
+
+	/**
+	 * The worst auto-deleveraging exposure across the vault's markets.
 	 *
 	 * Carried in the snapshot but deliberately *not* gated on by
 	 * `permittedActions`. There is no safe rule to write here: the score rises as
@@ -81,6 +133,15 @@ export interface Decision {
 	kind: ActionKind;
 	/** USDC for DEPLOY and UNWIND; zero otherwise. Always computed here. */
 	amount: bigint;
+	/**
+	 * The market this action is aimed at, or null when it is not aimed at one.
+	 *
+	 * Null for HOLD and CLOSE_ALL, which are about the vault, and for UNWIND,
+	 * which takes from whichever markets are furthest above their target weight
+	 * rather than from one the policy picked. Set for DEPLOY and REBALANCE, which
+	 * cannot be executed without knowing which market they mean.
+	 */
+	market: string | null;
 	reason: string;
 	/** True when the policy left no room for judgement. */
 	forced: boolean;
@@ -130,6 +191,20 @@ export const UNWIND_BUFFER_BPS = 50; // 0.5%
 export const DEADLINE_URGENCY_SECONDS = 24 * 3600;
 
 /**
+ * Below this, a vault under a close order counts as flat.
+ *
+ * A position never closes to exactly zero: a perp lot grid rounds, a swap leaves
+ * dust, and a bridge takes a cut nobody quotes in advance. Insisting on zero
+ * would leave a close order permanently unsatisfied, and the agent trying to
+ * sell a few cents of spot on every tick forever — each attempt costing more in
+ * gas than the dust is worth.
+ *
+ * A dollar is well below the deploy minimum, so nothing this small is capital
+ * the vault could put back to work anyway.
+ */
+export const CLOSE_DUST_USDC = 1_000_000n; // $1
+
+/**
  * Everything the agent is *allowed* to do right now, most urgent first.
  *
  * This is the complete option set. Anything not returned here cannot happen,
@@ -139,6 +214,43 @@ export const DEADLINE_URGENCY_SECONDS = 24 * 3600;
 export function permittedActions(snapshot: VaultSnapshot, now: number): Decision[] {
 	const options: Decision[] = [];
 
+	// --- the operator's standing order ------------------------------------
+	//
+	// First, and on its own. A close order is not a preference to be weighed
+	// against a funding rate, and it is the one instruction that outranks the
+	// redemption deadline — returning *all* of the capital already satisfies
+	// every request in the queue, so there is nothing an urgent unwind would
+	// additionally do.
+	//
+	// Returned as the only option in both branches, which means `decide` never
+	// consults the advisory model here. A model that could talk the agent out of
+	// an operator's order would make it something other than an order.
+
+	if (snapshot.closeRequested) {
+		if (!isFlat(snapshot)) {
+			return [
+				{
+					kind: "CLOSE_ALL",
+					amount: 0n,
+					market: null,
+					reason: `An operator has ordered every position closed. ${describeOpenMarkets(snapshot)} to sell, and ${fmt(snapshot.deployedAssets)} to bring home.`,
+					forced: true,
+				},
+			];
+		}
+
+		return [
+			{
+				kind: "HOLD",
+				amount: 0n,
+				market: null,
+				reason:
+					"An operator's close order stands and the vault is flat. Reporting NAV and settling the queue; no capital is deployed until the order is lifted.",
+				forced: true,
+			},
+		];
+	}
+
 	// --- obligations ------------------------------------------------------
 
 	const owed = snapshot.ripeRedeemAssets;
@@ -146,7 +258,12 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		const shortfall = owed > snapshot.freeAssets ? owed - snapshot.freeAssets : 0n;
 		if (shortfall > 0n) {
 			const withBuffer = shortfall + (shortfall * BigInt(UNWIND_BUFFER_BPS)) / BigInt(BPS);
-			const amount = withBuffer > snapshot.deployedAssets ? snapshot.deployedAssets : withBuffer;
+			// Capped by what can actually be sold, not by what is deployed. A market
+			// whose pool has dried up holds value the NAV still counts and an unwind
+			// cannot reach, and sizing against the total would ask the venue adapter
+			// for more than every routable leg put together contains.
+			const reachable = min(snapshot.deployedAssets, sellableValue(snapshot));
+			const amount = withBuffer > reachable ? reachable : withBuffer;
 			if (amount >= MIN_UNWIND_USDC) {
 				const urgent =
 					snapshot.earliestDeadline !== null &&
@@ -154,6 +271,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 				options.push({
 					kind: "UNWIND",
 					amount,
+					market: null,
 					reason: urgent
 						? `${fmt(owed)} of redemptions are due within a day and the vault holds ${fmt(snapshot.freeAssets)}.`
 						: `${fmt(owed)} of redemptions are eligible and the vault holds ${fmt(snapshot.freeAssets)}.`,
@@ -166,41 +284,161 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		}
 	}
 
-	// --- hedge health -----------------------------------------------------
+	// --- markets an operator has retired ----------------------------------
+	//
+	// A disabled market that still holds capital is a position nobody wants any
+	// more. Draining it is an ordinary unwind: the money lands back in the vault
+	// and the next deployment puts it into a market that is still wanted. It is
+	// offered rather than forced, because the timing is a judgement call — this
+	// is not an emergency, and selling into a bad hour to satisfy a preference
+	// costs the depositors real money.
 
-	const drift = driftBps(snapshot.spotUnits, snapshot.perpUnits);
-	if (Math.abs(drift) >= REBALANCE_DRIFT_BPS) {
+	const retired = snapshot.markets.filter(
+		(m) => m.targetWeightBps === 0 && m.spotValueUsdc > 0n && m.spotSellable,
+	);
+	if (retired.length > 0 && !options.some((o) => o.kind === "UNWIND")) {
+		const amount = sum(retired.map((m) => m.spotValueUsdc));
+		options.push({
+			kind: "UNWIND",
+			amount,
+			market: null,
+			reason: `${retired.map((m) => m.ticker).join(", ")} ${retired.length === 1 ? "has" : "have"} been retired but still ${retired.length === 1 ? "holds" : "hold"} ${fmt(amount)}; unwinding returns it to the vault for the markets that are still wanted.`,
+			forced: false,
+		});
+	}
+
+	// --- hedge health -----------------------------------------------------
+	//
+	// Per market, worst first. Drift is a property of a pair of legs, and there
+	// is no such thing as the vault's drift: two markets a percent out in
+	// opposite directions average to neutral and are both wrong.
+
+	const drifted = snapshot.markets
+		.map((market) => ({ market, drift: driftBps(market.spotUnits, market.perpUnits) }))
+		.filter(({ drift }) => Math.abs(drift) >= REBALANCE_DRIFT_BPS)
+		.sort((a, b) => Math.abs(b.drift) - Math.abs(a.drift));
+
+	for (const { market, drift } of drifted) {
 		options.push({
 			kind: "REBALANCE",
 			amount: 0n,
-			reason: `The hedge is ${(drift / 100).toFixed(2)}% off neutral; the perp leg needs to move to match the spot leg.`,
+			market: market.ticker,
+			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral; its perp leg needs to move to match its spot leg.`,
 			forced: false,
 		});
 	}
 
 	// --- growth -----------------------------------------------------------
 
-	const deployable = deployableAmount(snapshot);
-	// Sized through the same split the worker will apply, so the gate is asked
-	// about the leg the venue actually checks rather than about the total.
-	const { spotNotional } = splitDeployment(deployable, snapshot.targetLeverageBps);
-	if (spotNotional >= MIN_DEPLOY_USDC && snapshot.spotBuyable) {
-		options.push({
-			kind: "DEPLOY",
-			amount: deployable,
-			reason: `${fmt(deployable)} is idle and the market pays ${(snapshot.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
-			forced: false,
-		});
-	}
+	const deploy = nextDeployment(snapshot);
+	if (deploy) options.push(deploy);
 
 	options.push({
 		kind: "HOLD",
 		amount: 0n,
+		market: null,
 		reason: "Nothing needs doing; report NAV and wait.",
 		forced: false,
 	});
 
 	return options;
+}
+
+/**
+ * The deployment to make now, into the market that most needs it — or nothing.
+ *
+ * **One market per tick, not a slice into each.** The obvious alternative is to
+ * split the idle capital across every underweight market at once, and it is
+ * wrong for a reason that has nothing to do with tidiness: a deployment is a
+ * bridge, a leverage change, a perp order and a swap, across two chains and a
+ * third venue's matching engine, and there is no atomic form of it. Doing that
+ * four times in one tick means four independent ways to end up half-open, and a
+ * partial failure whose recovery depends on which of the four got how far.
+ *
+ * Filling the most underweight market each tick converges on the target weights
+ * anyway — ticks are a minute apart and capital arrives over hours — and every
+ * tick either completes one clean deployment or fails one, with nothing in
+ * between to reason about.
+ */
+function nextDeployment(snapshot: VaultSnapshot): Decision | null {
+	const deployable = deployableAmount(snapshot);
+	if (deployable <= 0n) return null;
+
+	// Weights are measured on spot notional, which is the exposure they are
+	// about. Margin is not divided per market — it is one Pacifica account —
+	// so weighting the deployment total instead would make a market's share
+	// depend on the vault's leverage rather than on what an operator chose.
+	const held = sum(snapshot.markets.map((m) => m.spotValueUsdc));
+	const { spotNotional: incoming } = splitDeployment(deployable, snapshot.targetLeverageBps);
+	const projected = held + incoming;
+
+	const candidates = snapshot.markets
+		.filter((market) => market.spotBuyable && market.targetWeightBps > 0)
+		.map((market) => {
+			const target = (projected * BigInt(market.targetWeightBps)) / BigInt(BPS);
+			return { market, room: target > market.spotValueUsdc ? target - market.spotValueUsdc : 0n };
+		})
+		.filter(({ room }) => room > 0n)
+		// Furthest below its share first. Ties go to the higher weight, which
+		// keeps the order stable rather than depending on the array's order.
+		.sort((a, b) =>
+			a.room === b.room
+				? b.market.targetWeightBps - a.market.targetWeightBps
+				: a.room < b.room
+					? 1
+					: -1,
+		);
+
+	for (const { market, room } of candidates) {
+		// Capped at the market's own room so a single tick cannot overshoot the
+		// weights, and at what is actually deployable so it cannot overshoot the
+		// contract's limits. Whatever is left over stays idle and goes into the
+		// next-most-underweight market on the following tick.
+		const spend = min(room, incoming);
+		if (spend < MIN_DEPLOY_USDC) continue;
+
+		const amount = deploymentFor(spend, snapshot.targetLeverageBps);
+		return {
+			kind: "DEPLOY",
+			amount: min(amount, deployable),
+			market: market.ticker,
+			reason: `${fmt(deployable)} is idle, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
+			forced: false,
+		};
+	}
+
+	return null;
+}
+
+/**
+ * Whether the vault holds nothing that a close order would still be asking for.
+ *
+ * Both halves have to be true, and each catches a state the other reads as done.
+ * Empty legs with capital still at the agent's wallets is a position sold and
+ * not sent home — the depositors' money is out of the vault, and `freeAssets`
+ * cannot pay a redemption out of it. Capital back in the vault while a leg is
+ * still open is the reverse, and the leg is exposure nobody asked to keep.
+ */
+export function isFlat(snapshot: VaultSnapshot): boolean {
+	const legsOpen = snapshot.markets.some((m) => m.spotUnits > 0n || m.perpUnits > 0n);
+	return !legsOpen && snapshot.deployedAssets <= CLOSE_DUST_USDC;
+}
+
+/** What every market whose spot leg can currently be sold is worth, together. */
+function sellableValue(snapshot: VaultSnapshot): bigint {
+	return sum(snapshot.markets.filter((m) => m.spotSellable).map((m) => m.spotValueUsdc));
+}
+
+/** "NVDA and BTC hold $12,400" — the open half of a close order, for its reason. */
+function describeOpenMarkets(snapshot: VaultSnapshot): string {
+	const open = snapshot.markets.filter((m) => m.spotUnits > 0n || m.perpUnits > 0n);
+	if (open.length === 0) return "There is nothing left";
+
+	const value = sum(open.map((m) => m.spotValueUsdc));
+	const names = open.map((m) => m.ticker);
+	const list =
+		names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+	return `${list} ${open.length === 1 ? "holds" : "hold"} ${fmt(value)}`;
 }
 
 /**
@@ -274,12 +512,41 @@ export function splitDeployment(
 	return { spotNotional, perpMargin: total - spotNotional };
 }
 
+/**
+ * The deployment that buys a given spot notional — `splitDeployment` backwards.
+ *
+ * Needed because a multi-market vault sizes its deployments from the target
+ * *weights*, which are shares of spot notional, while the vault is asked for a
+ * *total* that then gets split. Rearranging `spot = total * L / (L + 1)`:
+ *
+ *     total = spot * (L + 1) / L
+ *
+ * Rounded up, deliberately. Rounding down leaves the resulting split one unit
+ * short of the spot notional that was asked for, which is invisible on a single
+ * deployment and accumulates into a market that never quite reaches its weight.
+ */
+export function deploymentFor(spotNotional: bigint, leverageBps: number): bigint {
+	if (leverageBps <= 0) throw new Error("Leverage must be positive");
+	const l = BigInt(leverageBps);
+	const numerator = spotNotional * (l + BigInt(BPS));
+	return (numerator + l - 1n) / l;
+}
+
 // ---------------------------------------------------------------------------
 // The advisory layer
 // ---------------------------------------------------------------------------
 
 export interface Advice {
 	kind: ActionKind;
+	/**
+	 * Which market the answer meant, when the option list offered a choice.
+	 *
+	 * A multi-market vault can have several permitted actions of the same kind —
+	 * two markets both drifted past the rebalance threshold, say — and an answer
+	 * naming only "REBALANCE" cannot say which. Omitted or unrecognised falls
+	 * back to the policy's own ordering for that kind, which is worst-first.
+	 */
+	market?: string | null;
 	rationale: string;
 	/** True when the model was not consulted, or could not be reached. */
 	fellBack: boolean;
@@ -319,7 +586,14 @@ export async function decide(
 
 	try {
 		const advice = await advisor({ snapshot, options, now });
-		const chosen = options.find((o) => o.kind === advice.kind);
+		// Matched on the market when the answer named one and it is on the list,
+		// and on the kind alone otherwise. Never on a market the policy did not
+		// offer: an answer of "DEPLOY into a market that is fully weighted" is
+		// discarded the same way an unpermitted kind is.
+		const named = advice.market?.toUpperCase();
+		const chosen =
+			(named ? options.find((o) => o.kind === advice.kind && o.market === named) : undefined) ??
+			options.find((o) => o.kind === advice.kind);
 		if (!chosen) {
 			return {
 				...fallback,
@@ -341,6 +615,10 @@ export async function decide(
 
 function min(a: bigint, b: bigint): bigint {
 	return a < b ? a : b;
+}
+
+function sum(values: bigint[]): bigint {
+	return values.reduce((a, b) => a + b, 0n);
 }
 
 function fmt(usdc: bigint): string {

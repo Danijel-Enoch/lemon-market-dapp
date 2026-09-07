@@ -3,11 +3,19 @@ import { leverageBps, toUnits, ValuationError, value } from "../src/valuation";
 
 const USDC = 1_000_000n;
 
-function inputs(overrides = {}) {
+function leg(overrides = {}) {
 	return {
+		ticker: "NVDA",
 		spotTokenBalance: 10n * 10n ** 18n,
 		spotTokenDecimals: 18,
 		spotSellQuoteUsdc: 5_000n * USDC,
+		...overrides,
+	};
+}
+
+function inputs(overrides: Record<string, unknown> = {}) {
+	return {
+		legs: [leg()],
 		perpEquityUsdc: 5_000n * USDC,
 		perpNotionalUsdc: 5_000n * USDC,
 		idleAtAgentUsdc: 0n,
@@ -44,19 +52,77 @@ describe("value", () => {
 	 * whole would mark every holder down by the entire spot leg.
 	 */
 	it("refuses to price a spot leg it cannot route", () => {
-		expect(() => value(inputs({ spotSellQuoteUsdc: null }))).toThrow(ValuationError);
+		expect(() => value(inputs({ legs: [leg({ spotSellQuoteUsdc: null })] }))).toThrow(
+			ValuationError,
+		);
 	});
 
 	it("is happy with no spot leg at all", () => {
-		const v = value(inputs({ spotTokenBalance: 0n, spotSellQuoteUsdc: null }));
+		const v = value(inputs({ legs: [leg({ spotTokenBalance: 0n, spotSellQuoteUsdc: null })] }));
 		expect(v.deployedAssets).toBe(5_000n * USDC);
 	});
 
 	/** An executable sell quote, not a mid — the difference is what a thin pool costs. */
 	it("values the spot leg at what a sale would clear", () => {
-		const v = value(inputs({ spotSellQuoteUsdc: 4_700n * USDC }));
+		const v = value(inputs({ legs: [leg({ spotSellQuoteUsdc: 4_700n * USDC })] }));
 		expect(v.components.spot).toBe(4_700n * USDC);
 		expect(v.deployedAssets).toBe(9_700n * USDC);
+	});
+});
+
+describe("value, across several markets", () => {
+	const three = [
+		leg({ ticker: "BTC", spotSellQuoteUsdc: 4_000n * USDC }),
+		leg({ ticker: "ETH", spotSellQuoteUsdc: 3_000n * USDC }),
+		leg({ ticker: "NVDA", spotSellQuoteUsdc: 1_000n * USDC }),
+	];
+
+	it("adds the spot legs up and breaks them down by market", () => {
+		const v = value(inputs({ legs: three }));
+		expect(v.components.spot).toBe(8_000n * USDC);
+		expect(v.spotByMarket).toEqual({
+			BTC: 4_000n * USDC,
+			ETH: 3_000n * USDC,
+			NVDA: 1_000n * USDC,
+		});
+	});
+
+	/**
+	 * The mistake this shape exists to make impossible. One Pacifica account, one
+	 * Base wallet and one Solana wallet back every market, so a three-market vault
+	 * built by summing three single-market valuations would report three times its
+	 * margin and idle capital as NAV — and every holder's share price with it.
+	 */
+	it("counts the shared account once, not once per market", () => {
+		const v = value(
+			inputs({ legs: three, perpEquityUsdc: 6_000n * USDC, idleAtAgentUsdc: 500n * USDC }),
+		);
+		expect(v.components.perpEquity).toBe(6_000n * USDC);
+		expect(v.components.idleAtAgent).toBe(500n * USDC);
+		expect(v.deployedAssets).toBe(14_500n * USDC);
+	});
+
+	/**
+	 * A NAV is one number for one share price. Four of five legs priced is not a
+	 * rougher answer than five — it is a wrong one, and every holder is marked
+	 * down by the missing leg while deposits are struck against them at that price.
+	 */
+	it("stales the whole vault when any one market cannot be priced", () => {
+		expect(() =>
+			value(
+				inputs({
+					legs: [three[0], three[1], leg({ ticker: "NVDA", spotSellQuoteUsdc: null })],
+				}),
+			),
+		).toThrow(/NVDA/);
+	});
+
+	/** Leverage is an account-level fact, because that is what the venue margins. */
+	it("levers the summed notional against the one equity", () => {
+		const v = value(
+			inputs({ legs: three, perpEquityUsdc: 4_000n * USDC, perpNotionalUsdc: 8_000n * USDC }),
+		);
+		expect(v.leverageBps).toBe(20_000);
 	});
 });
 

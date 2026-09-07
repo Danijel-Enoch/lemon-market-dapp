@@ -5,7 +5,7 @@ share token. An agent runs the position — long the spot token, short the
 matching perp at equal size — and every move it makes is published for anyone to
 check.
 
-One vault, one market, one risk tier, one agent.
+One vault, one risk tier, one agent — and one or several markets.
 
 ```
 Admin dashboard ──creates──▶ VaultFactory ──deploys──▶ LemonVault  (Base, USDC)
@@ -17,11 +17,74 @@ Admin dashboard ──creates──▶ VaultFactory ──deploys──▶ Lemon
                                           ├─ pull idle USDC, buy spot (Kyber, Base)
                                           ├─ bridge margin (Relay) → short perp (Pacifica)
                                           ├─ value the position → reportNav (bounded)
-                                          ├─ rebalance on unit drift
+                                          ├─ rebalance on unit drift, per market
                                           └─ unwind → agentReturn → fulfillRedeem
                                                           │
                                      Ponder indexes ──────┴──▶ web + admin
 ```
+
+## Markets
+
+A vault can run a basis position in more than one market at once — BTC, ETH and
+NVDA against a single pool of depositor capital — and that is decided entirely
+off-chain. No contract knows about it.
+
+On-chain a vault still looks like one market: `marketId` is set in the
+constructor and never changes. That was always a *label* rather than a
+constraint. The contract holds USDC, bounds what the agent may withdraw, caps
+how much may be deployed, and checks the leverage reported back — and none of
+those are per-market. The one place the chain does carry a market is
+`reportActivity`, which already tags every row with its own symbol, so a
+three-market vault publishes a legible feed without a single contract change.
+
+Each market is a row in `VaultMarket` with a **target weight**, and the enabled
+weights add up to 100%. The agent deploys into whichever market is furthest
+below its share, **one market per tick**. That is not a simplification: a
+deployment is a bridge, a leverage change, a perp order and a swap, spread
+across two chains and a third venue's matching engine, and there is no atomic
+form of it. Doing four at once means four independent ways to end up half-open.
+Ticks are a minute apart, so the weights converge on their own.
+
+Retiring a market **disables its row rather than deleting it**. A vault can hold
+a position in a market an operator has changed their mind about, and a deleted
+row is a position the agent can no longer see, value, or sell — it would vanish
+from the NAV while the tokens sat in a wallet. A disabled market's target reads
+as zero, which makes it the most overweight market the vault has: the next
+unwind drains it first, and no new capital goes near it.
+
+What is emphatically *not* per-market is the money. One Pacifica account, one
+Base wallet, one Solana wallet, one bridge. So margin, idle USDC and in-flight
+capital are counted **once for the vault**, and leverage is the sum of every
+short's notional against the one equity — which is also what the venue
+liquidates against. Summing per-market valuations instead would report a
+three-market vault as worth roughly three times its margin, and write that into
+every holder's share price.
+
+## Standing a vault down
+
+An operator can tell an agent to close every position and send all of it back to
+the vault. It is its own lever, not a use of one of the existing two, because
+neither of those does this:
+
+| | Deposits | Withdrawal queue | The position |
+|---|---|---|---|
+| **Pause** (on-chain) | stopped | still served | stays open, still managed |
+| **Stop agent** | blocked by a stale NAV | **blocked** | stays open, unmanaged |
+| **Close order** | still open | still served | sold, capital returned |
+
+Stopping the agent is the tempting one and the wrong one: it stops the agent
+*reporting*, the NAV goes stale, and that blocks the very withdrawals an
+operator winding a vault down is usually trying to serve. Under a close order
+the agent keeps ticking — it reports NAV, it fulfils redemptions — it simply
+holds no position and opens no new one.
+
+The order is **standing**, not one-shot. A flag that cleared itself the moment
+the position went flat would have the very next tick see idle USDC, decide it
+should be earning, and undo the whole thing. So it stays until an operator lifts
+it, and `closeCompletedAt` records when the agent first reported the vault
+actually flat — which is the tick *after* the closing one, because the legs have
+to be observed empty and the NAV reported at zero before the position is flat by
+any measure a depositor could check.
 
 ## What a user does
 
@@ -148,7 +211,8 @@ surface and the same uptime.
 **Where state lives.** Vaults, shares, balances and the withdrawal queue are on
 Base, and the indexer is a disposable cache of them — drop it and a resync
 rebuilds it exactly. Postgres holds only what is not derivable from events:
-sessions, the admin allowlist, per-vault venue configuration, the agents'
+sessions, the admin allowlist, the markets each vault trades and in what
+proportion, any standing order to close a vault's positions, the agents'
 decision log, and verification verdicts (which come from other chains and would
 be discarded by a reindex).
 
@@ -159,14 +223,20 @@ anyone their funds.
 
 A deterministic policy decides what is permissible and **sizes every trade**. An
 OpenRouter model only picks among options the policy has already cleared. It
-cannot produce an amount, an answer naming an unpermitted action is discarded,
+cannot produce an amount, it cannot choose which market an action applies to
+beyond the ones offered, an answer naming an unpermitted action is discarded,
 and near a withdrawal deadline it is not consulted at all.
+
+It is also not consulted under an operator's close order, which is returned as
+the only permitted action. A model that could talk the agent out of an order
+would make it something other than an order.
 
 With no `OPENROUTER_API_KEY` the agent runs on the policy alone — less clever,
 equally safe.
 
-Every tick is recorded with its action and stated reason, so "why did the vault
-sit idle through a good funding window" has an answer on the admin dashboard.
+Every tick is recorded with its action, the market it was aimed at, and its
+stated reason, so "why did the vault sit idle through a good funding window" has
+an answer on the admin dashboard.
 
 ## Running it
 
@@ -207,7 +277,7 @@ it on top of `.env`, so its values win:
 ```bash
 bun run dev:stack                      # .env alone
 bun run dev:stack .env.local           # .env with .env.local over it
-bun run dev:stack .env.local web api   # only some services
+bun run dev:stack .env.local web api   # only these services, not these as well
 ```
 
 Shell variables beat `--env-file` in Bun, which is what makes the overlay work
@@ -329,7 +399,8 @@ bun run dev:admin        # the operator console (:3004)
 bun run dev:api          # the API standalone (:3003)
 bun run dev:indexer      # Ponder (:42069)
 bun run dev:agent        # the vault agents
-bun run dev:stack        # api + indexer + web together (add `admin` for the console)
+bun run dev:stack        # api + indexer + web together
+bun run dev:stack api indexer web admin   # …and the console
 bun run typecheck        # all workspaces
 bun run lint             # biome, writing fixes
 bun test                 # TypeScript tests + 128 Foundry tests
@@ -365,9 +436,17 @@ The interesting failures in this system live *between* the contract, the indexer
 and the page, and a suite that stubs any of the three cannot see them.
 
 ```bash
-bun run dev:stack admin      # web :3002, admin :3004, indexer :42069
+bun run dev:stack api indexer web admin   # :3003, :42069, :3002, :3004
 bun run test:e2e
 ```
+
+Every service is needed, and naming them is not optional: the argument list
+*replaces* the default set rather than adding to it, so `dev:stack admin` runs
+the console alone and every vault spec then fails on an empty board.
+
+The suite also needs the indexer to have **finished its backfill**. Until it
+has, `/vaults` is legitimately empty and roughly half the specs fail on a
+missing row — which reads as a broken build and is a cold cache.
 
 Read-only, and that is a real limit rather than a preference. The app trades on
 Base mainnet, so there is nowhere to sign a test deposit that does not cost

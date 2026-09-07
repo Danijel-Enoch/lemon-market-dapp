@@ -9,10 +9,10 @@ import { BPS } from "@lemon/contracts";
  *
  * Four components, each read from the venue that owns it:
  *
- *  - **Spot** — the token balance, valued at an *executable sell* quote rather
- *    than a mid or an oracle. A tokenized equity on a thin Aerodrome pool can
- *    show a mid several percent above what a sale would actually clear, and a
- *    NAV built on mids reports a vault richer than it can liquidate.
+ *  - **Spot** — the token balances, each valued at an *executable sell* quote
+ *    rather than a mid or an oracle. A tokenized equity on a thin Aerodrome pool
+ *    can show a mid several percent above what a sale would actually clear, and
+ *    a NAV built on mids reports a vault richer than it can liquidate.
  *  - **Perp equity** — the Pacifica account's own figure, which already nets
  *    unrealised P&L and accrued funding.
  *  - **Idle at the agent** — USDC that has left the vault but not yet reached a
@@ -20,8 +20,18 @@ import { BPS } from "@lemon/contracts";
  *    instant loss.
  *  - **In flight** — value mid-bridge, belonging to neither chain for a few
  *    minutes. This is the one that has to be tracked rather than read.
+ *
+ * **Only the spot component is per-market.** A vault running several markets
+ * holds several token balances on Base, but one Pacifica account, one Base
+ * wallet and one Solana wallet — so equity, idle USDC and in-flight capital are
+ * counted once for the vault and never once per market. Summing per-market
+ * valuations instead would multiply the shared balances by the number of
+ * markets, and a three-market vault would report roughly triple its margin as
+ * NAV. That is the mistake this shape exists to make impossible.
  */
-export interface ValuationInputs {
+export interface SpotLegInputs {
+	/** The market this leg belongs to, for the error message and the breakdown. */
+	ticker: string;
 	/** Spot tokens held by the agent wallet, in the token's own decimals. */
 	spotTokenBalance: bigint;
 	spotTokenDecimals: number;
@@ -31,10 +41,15 @@ export interface ValuationInputs {
 	 * than a zero.
 	 */
 	spotSellQuoteUsdc: bigint | null;
+}
 
-	/** Pacifica account equity, in USDC units. */
+export interface ValuationInputs {
+	/** One entry per market the vault holds a spot leg in. */
+	legs: SpotLegInputs[];
+
+	/** Pacifica account equity, in USDC units. Account-level, across every symbol. */
 	perpEquityUsdc: bigint;
-	/** Notional of the open short, for the leverage figure. */
+	/** Notional of every open short added together, for the leverage figure. */
 	perpNotionalUsdc: bigint;
 
 	/** USDC sitting at the agent's own wallets, on either chain. */
@@ -47,11 +62,14 @@ export interface Valuation {
 	deployedAssets: bigint;
 	leverageBps: number;
 	components: {
+		/** Every spot leg added together. */
 		spot: bigint;
 		perpEquity: bigint;
 		idleAtAgent: bigint;
 		inFlight: bigint;
 	};
+	/** What each market's spot leg is worth, keyed by ticker. Drives the weights. */
+	spotByMarket: Record<string, bigint>;
 }
 
 export class ValuationError extends Error {}
@@ -65,15 +83,37 @@ export class ValuationError extends Error {}
  * every holder by the value of the token nobody can currently price. Failing
  * here stales the NAV, which blocks deposits and fulfilments until a human
  * looks. That is the correct outcome; it is not a silent one.
+ *
+ * **One unpriceable market stales the whole vault**, and that stays true however
+ * many markets there are. The temptation with several is to price the ones that
+ * can be priced and carry on, since most of the vault is still knowable — but
+ * the NAV is a single number for a single share price, and a vault reporting
+ * four of its five legs is reporting a number that is wrong by the fifth. Every
+ * holder is marked down by it, and deposits at that price are struck against
+ * depositors who are already in.
  */
 export function value(inputs: ValuationInputs): Valuation {
-	if (inputs.spotTokenBalance > 0n && inputs.spotSellQuoteUsdc === null) {
+	const unpriceable = inputs.legs.filter(
+		(leg) => leg.spotTokenBalance > 0n && leg.spotSellQuoteUsdc === null,
+	);
+	if (unpriceable.length > 0) {
 		throw new ValuationError(
-			"The spot leg holds tokens but cannot be routed to a sell quote, so the position cannot be priced. Reporting the rest as the whole would understate NAV by the entire spot leg.",
+			`The ${unpriceable.map((leg) => leg.ticker).join(", ")} spot ${
+				unpriceable.length === 1 ? "leg holds tokens" : "legs hold tokens"
+			} but cannot be routed to a sell quote, so the position cannot be priced. Reporting the rest as the whole would understate NAV by ${
+				unpriceable.length === 1 ? "that leg" : "those legs"
+			}.`,
 		);
 	}
 
-	const spot = inputs.spotSellQuoteUsdc ?? 0n;
+	const spotByMarket: Record<string, bigint> = {};
+	let spot = 0n;
+	for (const leg of inputs.legs) {
+		const legValue = leg.spotSellQuoteUsdc ?? 0n;
+		spotByMarket[leg.ticker] = legValue;
+		spot += legValue;
+	}
+
 	const deployedAssets =
 		spot + inputs.perpEquityUsdc + inputs.idleAtAgentUsdc + inputs.inFlightUsdc;
 
@@ -86,11 +126,18 @@ export function value(inputs: ValuationInputs): Valuation {
 			idleAtAgent: inputs.idleAtAgentUsdc,
 			inFlight: inputs.inFlightUsdc,
 		},
+		spotByMarket,
 	};
 }
 
 /**
- * Leverage on the perp leg: notional over the margin backing it.
+ * Leverage on the perp legs: total notional over the margin backing them.
+ *
+ * Account-level, because Pacifica's margin is. A vault short three symbols in
+ * one account is levered on the sum of the three notionals against the one
+ * equity, which is also the number the venue liquidates against — measuring any
+ * symbol on its own would report a figure the contract's mandate check and the
+ * venue's margin engine both disagree with.
  *
  * Reported to the contract, which rejects anything above the vault's mandate.
  * Equity of zero with an open notional is not infinite leverage in any useful
@@ -116,4 +163,21 @@ export function toUnits(balance: bigint, decimals: number): bigint {
 	return decimals < 18
 		? balance * 10n ** BigInt(18 - decimals)
 		: balance / 10n ** BigInt(decimals - 18);
+}
+
+/**
+ * The inverse: a 1e18 unit count back into a token's own decimals.
+ *
+ * Needed wherever a size that came from the *perp* leg has to be handed to
+ * something denominated in the *spot* token — closing a position in full, most
+ * of all, where the number that has to reach zero is the venue's and the number
+ * that gets sold is the wallet's. Getting the direction wrong is not a rounding
+ * matter: an 8-decimal token off by ten orders of magnitude is an order for a
+ * size nobody holds, which either reverts or, worse, does not.
+ */
+export function fromUnits(units: bigint, decimals: number): bigint {
+	if (decimals === 18) return units;
+	return decimals < 18
+		? units / 10n ** BigInt(18 - decimals)
+		: units * 10n ** BigInt(decimals - 18);
 }

@@ -6,7 +6,7 @@ import {
 	assetClassForTicker,
 	assetGroupFor,
 } from "@lemon/core";
-import { prisma } from "@lemon/db";
+import { prisma, type VaultMarketConfig } from "@lemon/db";
 import { projectVaultApy, type VaultYieldProjection } from "@lemon/registry";
 import { config } from "../config";
 import { listBasisMarkets } from "./basis-markets";
@@ -93,14 +93,52 @@ export interface RealisedYield {
 	samples?: number;
 }
 
+/** One market a vault runs, as the apps show it. */
+export interface VaultMarketView {
+	ticker: string;
+	spotTokenSymbol: string;
+	spotTokenAddress: string;
+	perpSymbol: string;
+	/** Share of the vault's spot notional this market should carry, in bps. */
+	targetWeightBps: number;
+	/**
+	 * False for a market an operator has retired. It keeps its row because the
+	 * vault may still hold a position in it, which the agent has to be able to
+	 * see, value and sell — but no new capital goes into it.
+	 */
+	enabled: boolean;
+}
+
 /** A vault, with the label and configuration the chain does not carry. */
 export interface VaultView extends IndexedVault {
 	tier: "CONSERVATIVE" | "LEVERAGED";
 	tierLabel: string;
 	leverageLabel: string;
+	/**
+	 * The vault's founding market, kept for every caller that predates a vault
+	 * having more than one. `markets[0]` is the same thing said properly.
+	 */
 	spotTokenSymbol: string | null;
 	perpSymbol: string | null;
+	/**
+	 * Every market this vault runs, enabled first and heaviest first.
+	 *
+	 * Empty for a vault with no venue configuration — the same state that already
+	 * leaves `perpSymbol` null and has the agent refuse to trade it.
+	 */
+	markets: VaultMarketView[];
 	agentEnabled: boolean;
+	/**
+	 * When an operator ordered every position closed and all capital returned,
+	 * and when the agent first found the vault flat under that order.
+	 *
+	 * Public rather than admin-only. A vault standing down is the most material
+	 * thing that can happen to a depositor's position short of a pause, and they
+	 * find out from the activity feed either way — showing it plainly beats
+	 * leaving them to infer it from a position that quietly went to zero.
+	 */
+	closeRequestedAt: string | null;
+	closeCompletedAt: string | null;
 	/**
 	 * The NEAR path the vault's agent wallet was derived from.
 	 *
@@ -169,19 +207,64 @@ async function vaultConfigs(): Promise<Map<string, VaultConfigRecord>> {
 	}
 }
 
+/**
+ * Every vault's markets, in one query.
+ *
+ * Read directly rather than through `vaultMarkets`, which seeds a founding row
+ * for a vault that predates having several. Seeding is a write, and this is the
+ * public read path — a depositor loading the board should not be triggering
+ * database writes, and the agent and the admin console both seed on paths where
+ * a write is expected. A vault whose row has not been seeded yet falls back to
+ * its founding-market columns below, which say exactly the same thing.
+ */
+async function vaultMarketRows(): Promise<Map<string, VaultMarketConfig[]>> {
+	try {
+		const rows = await prisma.vaultMarket.findMany();
+		const byVault = new Map<string, VaultMarketConfig[]>();
+		for (const row of rows) {
+			const key = row.vaultAddress.toLowerCase();
+			const list = byVault.get(key) ?? [];
+			list.push({
+				ticker: row.ticker,
+				spotTokenAddress: row.spotTokenAddress,
+				spotTokenDecimals: row.spotTokenDecimals,
+				spotTokenSymbol: row.spotTokenSymbol,
+				perpSymbol: row.perpSymbol,
+				targetWeightBps: row.enabled ? row.targetWeightBps : 0,
+				enabled: row.enabled,
+				seeded: row.seeded,
+			});
+			byVault.set(key, list);
+		}
+		return byVault;
+	} catch {
+		// Same reasoning as `vaultConfigs`: labels are not worth a 503 on data that
+		// comes from the chain and is unaffected.
+		return new Map();
+	}
+}
+
 export async function listVaults(): Promise<VaultView[]> {
-	const [{ vaults }, byAddress, outlooks] = await Promise.all([
+	const [{ vaults }, byAddress, markets, outlooks] = await Promise.all([
 		fromIndexer<{ vaults: IndexedVault[] }>("/vaults"),
 		vaultConfigs(),
+		vaultMarketRows(),
 		yieldInputs(),
 	]);
 
-	return vaults.map((v) => decorate(v, byAddress.get(v.address.toLowerCase()), outlooks));
+	return vaults.map((v) =>
+		decorate(
+			v,
+			byAddress.get(v.address.toLowerCase()),
+			markets.get(v.address.toLowerCase()),
+			outlooks,
+		),
+	);
 }
 
 export async function getVault(address: string): Promise<VaultView | null> {
 	try {
-		const [{ vault, apy7d, apy30d, apyAll }, byAddress, outlooks] = await Promise.all([
+		const [{ vault, apy7d, apy30d, apyAll }, byAddress, markets, outlooks] = await Promise.all([
 			fromIndexer<{
 				vault: IndexedVault;
 				apy7d: RealisedYield | null;
@@ -189,6 +272,7 @@ export async function getVault(address: string): Promise<VaultView | null> {
 				apyAll: RealisedYield | null;
 			}>(`/vaults/${address}`),
 			vaultConfigs(),
+			vaultMarketRows(),
 			yieldInputs(),
 		]);
 		// The two indexer endpoints disagree about where the yield windows live:
@@ -199,6 +283,7 @@ export async function getVault(address: string): Promise<VaultView | null> {
 		return decorate(
 			{ ...vault, apy7d, apy30d, apyAll },
 			byAddress.get(address.toLowerCase()),
+			markets.get(address.toLowerCase()),
 			outlooks,
 		);
 	} catch (error) {
@@ -212,6 +297,7 @@ type VaultConfigRecord = Awaited<ReturnType<typeof prisma.vaultConfig.findMany>>
 function decorate(
 	v: IndexedVault,
 	record: VaultConfigRecord | undefined,
+	markets: VaultMarketConfig[] | undefined,
 	outlooks: YieldInputs,
 ): VaultView {
 	const tier = (RISK_TIERS[v.riskTier] ?? "CONSERVATIVE") as "CONSERVATIVE" | "LEVERAGED";
@@ -234,7 +320,10 @@ function decorate(
 		leverageLabel: formatLeverage(v.targetLeverageBps, v.maxLeverageBps),
 		spotTokenSymbol: record?.spotTokenSymbol ?? null,
 		perpSymbol: record?.perpSymbol ?? null,
+		markets: marketViews(record, markets),
 		agentEnabled: record?.agentEnabled ?? false,
+		closeRequestedAt: record?.closeRequestedAt?.toISOString() ?? null,
+		closeCompletedAt: record?.closeCompletedAt?.toISOString() ?? null,
 		agentPath: record?.agentPath ?? null,
 		navStale: v.lastNavReportAt !== null && now - v.lastNavReportAt > NAV_STALENESS_SECONDS,
 		assetClass,
@@ -242,6 +331,50 @@ function decorate(
 		assetGroup: assetGroupFor(assetClass),
 		outlook: outlookFor(v, ticker, outlooks),
 	};
+}
+
+/**
+ * A vault's markets, falling back to its founding one.
+ *
+ * The fallback covers a vault created before `VaultMarket` existed whose row has
+ * not been seeded yet — the columns on `VaultConfig` describe exactly the same
+ * single market, so the fallback is a restatement rather than a guess. Without
+ * it those vaults would show no markets at all until an agent ticked, which
+ * reads as a misconfigured vault rather than an ordinary one.
+ */
+function marketViews(
+	record: VaultConfigRecord | undefined,
+	markets: VaultMarketConfig[] | undefined,
+): VaultMarketView[] {
+	if (markets && markets.length > 0) {
+		return [...markets]
+			.sort((a, b) => {
+				if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+				if (a.targetWeightBps !== b.targetWeightBps) return b.targetWeightBps - a.targetWeightBps;
+				return a.ticker.localeCompare(b.ticker);
+			})
+			.map((market) => ({
+				ticker: market.ticker,
+				spotTokenSymbol: market.spotTokenSymbol,
+				spotTokenAddress: market.spotTokenAddress,
+				perpSymbol: market.perpSymbol,
+				targetWeightBps: market.targetWeightBps,
+				enabled: market.enabled,
+			}));
+	}
+
+	if (!record) return [];
+
+	return [
+		{
+			ticker: record.ticker,
+			spotTokenSymbol: record.spotTokenSymbol,
+			spotTokenAddress: record.spotTokenAddress,
+			perpSymbol: record.perpSymbol,
+			targetWeightBps: 10_000,
+			enabled: true,
+		},
+	];
 }
 
 // ---------------------------------------------------------------------------
