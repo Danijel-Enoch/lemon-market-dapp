@@ -226,3 +226,21 @@ export function useVaultMarkets(vault: string | undefined, enabled: boolean) {
 		staleTime: 30_000,
 	});
 }
+
+/**
+ * Whether the read model can be believed.
+ *
+ * Polled on every tab rather than behind one, and faster than the gas check,
+ * because this is the failure that makes every other number on the page wrong
+ * without making any of them look wrong. Twenty seconds is enough to catch an
+ * indexer that has fallen over between two glances at the dashboard.
+ */
+export function useIndexerHealth(enabled: boolean) {
+	return useQuery({
+		queryKey: ["admin-indexer"],
+		queryFn: () => adminApi.indexer(),
+		enabled,
+		refetchInterval: 20_000,
+		staleTime: 10_000,
+	});
+}

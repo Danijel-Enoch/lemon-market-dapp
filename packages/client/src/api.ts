@@ -580,6 +580,30 @@ export interface AgentRun {
 	createdAt: string;
 }
 
+/**
+ * Whether the read model can be believed.
+ *
+ * The indexer's failure mode is silence: it answers `200 []` rather than
+ * erroring, so an empty board looks identical to a protocol nobody has
+ * deposited into. Every vault figure on the console is downstream of this.
+ */
+export interface IndexerHealth {
+	/**
+	 * `incomplete` is the important one — finished indexing and still missing
+	 * vaults the chain says exist. That is not lag; waiting does not fix it.
+	 */
+	state: "unreachable" | "backfilling" | "incomplete" | "behind" | "synced";
+	summary: string;
+	remedy: string | null;
+	indexerUrl: string;
+	historicalComplete: boolean;
+	indexedBlock: number | null;
+	headBlock: number | null;
+	blocksBehind: number | null;
+	/** `expected` is null when it could not be asked — not the same as zero. */
+	vaults: { indexed: number | null; expected: number | null };
+}
+
 export const adminApi = {
 	session: () =>
 		request<{ isAdmin: boolean; canCreateVaults: boolean; address?: string }>("/admin/session"),
@@ -595,6 +619,7 @@ export const adminApi = {
 		}>("/admin/vaults"),
 	runs: (vault?: string) => request<{ runs: AgentRun[] }>("/admin/runs", { query: { vault } }),
 	gas: () => request<{ gas: VaultGas[]; needingTopUp: number }>("/admin/gas"),
+	indexer: () => request<IndexerHealth>("/admin/indexer"),
 
 	prepare: (body: {
 		ticker: string;

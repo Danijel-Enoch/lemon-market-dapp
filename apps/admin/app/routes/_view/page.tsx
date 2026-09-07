@@ -1,6 +1,7 @@
 import { CloseVaultDialog } from "@app/components/CloseVaultDialog";
 import { CreateVaultDialog } from "@app/components/CreateVaultDialog";
 import { GasPanel } from "@app/components/GasPanel";
+import { IndexerCard } from "@app/components/IndexerCard";
 import { VaultMarketsDialog } from "@app/components/VaultMarketsDialog";
 import {
 	adminApi,
@@ -12,6 +13,7 @@ import {
 	useAdminVaults,
 	useAgentGas,
 	useAgentRuns,
+	useIndexerHealth,
 	useVaultableMarkets,
 	type Vault,
 	type VaultableMarket,
@@ -75,6 +77,10 @@ export default function AdminPage() {
 	// an operator most needs told about, and burying it behind a click means it
 	// is found after the vault has already gone stale.
 	const { data: gasData } = useAgentGas(isAdmin);
+	// On every tab too, and for a stronger reason than gas: an indexer that has
+	// stopped makes every other figure on this page wrong without making any of
+	// them look wrong.
+	const { data: indexerHealth } = useIndexerHealth(isAdmin);
 
 	// A failed mutation used to be an unhandled rejection and a button that did
 	// nothing. An operator has no way to tell that apart from a no-op.
@@ -130,6 +136,11 @@ export default function AdminPage() {
 				title="Admin"
 				description="Create vaults, watch agent health, and see why each agent did what it did."
 			/>
+
+			{/* First, because everything below it is read through the indexer. A
+			    dashboard whose numbers are all wrong should say so at the top rather
+			    than let an operator read them and act. */}
+			<IndexerCard health={indexerHealth} />
 
 			{/* The two things that need a human today, before anything else. */}
 			{(overdue.length > 0 || stale.length > 0) && (

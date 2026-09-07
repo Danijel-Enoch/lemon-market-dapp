@@ -453,6 +453,37 @@ Base mainnet, so there is nowhere to sign a test deposit that does not cost
 money. Vault creation, deposits and the redemption queue are covered by the
 Foundry suite instead.
 
+## Watching the indexer
+
+The console leads with the indexer's state, and it is shown even when
+everything is fine — which is unusual for a status widget and is the point.
+
+The indexer's failure mode is silence. It does not crash and it does not 500; it
+answers every request with `200 []`. An empty board is then indistinguishable
+from a protocol nobody has deposited into, and every other figure on the page —
+TVL, the queue, agent health — is downstream of that distinction. A card that
+only appeared on failure would make the healthy case look exactly like the case
+where the card itself had failed to render.
+
+Five states, and the third is the one that earns the feature:
+
+| State | What it means |
+|---|---|
+| `synced` | Caught up, and holding every vault the factory has created. |
+| `backfilling` | Still replaying history. Ponder answers `/ready` with a 503 until it finishes, and its tables may not exist yet. |
+| `incomplete` | **Finished, and still missing vaults the chain says exist.** |
+| `behind` | Finished and complete, but lagging the head. Usually a rate-limited RPC. |
+| `unreachable` | Nothing is answering. |
+
+`incomplete` is the one nothing else catches. The chain knows exactly how many
+vaults the factory has created, so the read model can be checked against it
+rather than taken on trust — and a shortfall there is not lag. It means a stale
+`ponder` schema, a `VAULT_FACTORY_START_BLOCK` set after a vault was deployed
+(which misses it permanently), or an indexer pointed at a different factory. All
+three present as an empty board, none of them announce themselves, and waiting
+fixes none of them. The card says so, and says which of the two variables to
+check.
+
 ## Agent gas
 
 The one running cost the protocol cannot cover for itself. An agent's Base wallet

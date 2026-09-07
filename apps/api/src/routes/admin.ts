@@ -15,6 +15,7 @@ import {
 import { readSession, SESSION_COOKIE } from "../services/auth";
 import { getAllVaultGas, getVaultGas } from "../services/gas";
 import { withdrawableGas, withdrawGas } from "../services/gas-withdraw";
+import { indexerHealth } from "../services/indexer-health";
 import { pacificaAccountStatus, setUpPacificaAccount } from "../services/pacifica-account";
 import { getQueue, listVaults } from "../services/vaults";
 
@@ -143,6 +144,22 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 		await assertAdmin(admin);
 		const [vaults, queue] = await Promise.all([listVaults(), getQueue()]);
 		return { vaults, queue };
+	})
+
+	/**
+	 * Whether the read model can be believed.
+	 *
+	 * Deliberately the one admin route that does not touch the database or the
+	 * indexer's data — only its health. Everything else on the dashboard is
+	 * downstream of the indexer, so a route that needed the indexer to be working
+	 * in order to report that it was not would be no use on the day it mattered.
+	 *
+	 * `assertAdmin`, not `assertCanCreateVaults`: watching for a broken read model
+	 * is exactly what a read-only operator is for.
+	 */
+	.get("/indexer", async ({ admin }) => {
+		await assertAdmin(admin);
+		return await indexerHealth();
 	})
 
 	/**
