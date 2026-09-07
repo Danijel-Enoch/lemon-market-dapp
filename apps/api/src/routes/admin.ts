@@ -11,6 +11,8 @@ import {
 } from "../services/admin";
 import { readSession, SESSION_COOKIE } from "../services/auth";
 import { getAllVaultGas, getVaultGas } from "../services/gas";
+import { withdrawableGas, withdrawGas } from "../services/gas-withdraw";
+import { pacificaAccountStatus, setUpPacificaAccount } from "../services/pacifica-account";
 import { getQueue, listVaults } from "../services/vaults";
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
@@ -162,6 +164,97 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 			const gas = await getVaultGas(params.address);
 			if (!gas) return status(404, { error: `No vault at ${params.address}` });
 			return gas;
+		},
+		{ params: t.Object({ address: addressSchema }) },
+	)
+
+	/**
+	 * What an agent's wallets could send back, net of the fee for sending it.
+	 *
+	 * Read before the withdraw form is offered, because "everything" has to mean
+	 * a number the operator saw. These figures are lower than the balances on the
+	 * gas panel by exactly the cost of the transfer.
+	 */
+	.get(
+		"/gas/:address/withdrawable",
+		async ({ admin, params }) => {
+			await assertCanCreateVaults(admin);
+			return withdrawableGas(params.address);
+		},
+		{ params: t.Object({ address: addressSchema }) },
+	)
+
+	/**
+	 * Take an agent's gas back out.
+	 *
+	 * The counterpart to topping it up, and it exists mostly for redeployment: a
+	 * vault is immutable, so a new version of the protocol is a new set of agents
+	 * — and the ETH and SOL an operator put into the old ones is stranded at
+	 * wallets no private key exists for. This route is the only way to reach it.
+	 *
+	 * Native units only. Nothing here can move USDC, the spot token or a Pacifica
+	 * balance: depositor capital leaves an agent through the vault's own
+	 * `agentReturn` and nowhere else.
+	 *
+	 * `assertCanCreateVaults` rather than `assertAdmin`. A read-only admin
+	 * watching for stale NAVs has no business moving funds, and this is the same
+	 * permission that already gates deploying a vault.
+	 */
+	.post(
+		"/gas/:address/withdraw",
+		async ({ admin, params, body }) => {
+			await assertCanCreateVaults(admin);
+			return {
+				withdrawal: await withdrawGas({
+					vault: params.address,
+					chain: body.chain,
+					to: body.to,
+					// An absent amount is a sweep. An empty string is a form field
+					// nobody typed in, which means the same thing.
+					amount: body.amount?.trim() || undefined,
+				}),
+			};
+		},
+		{
+			params: t.Object({ address: addressSchema }),
+			body: t.Object({
+				chain: t.Union([t.Literal("BASE"), t.Literal("SOLANA")]),
+				to: t.String({ minLength: 32, maxLength: 64 }),
+				amount: t.Optional(t.String({ maxLength: 32 })),
+			}),
+		},
+	)
+
+	/**
+	 * Whether the agent's Pacifica side is ready, and what is missing.
+	 *
+	 * Pacifica keys accounts by Solana address and registers one on its first
+	 * deposit, so there is nothing to create there. What does need creating is
+	 * the USDC token account the deposit is signed from — rent the agent's own
+	 * wallet cannot pay, because it holds USDC and never SOL.
+	 */
+	.get(
+		"/vaults/:address/pacifica",
+		async ({ admin, params }) => {
+			await assertAdmin(admin);
+			return pacificaAccountStatus(params.address);
+		},
+		{ params: t.Object({ address: addressSchema }) },
+	)
+
+	/**
+	 * Create that token account, paid for by the deployment's fee payer.
+	 *
+	 * The bridge does this idempotently on the first crossing anyway, so this is
+	 * not load-bearing — it moves the discovery of an empty or misconfigured fee
+	 * payer from mid-bridge, with a depositor's capital already in the air, to
+	 * vault creation, where the fix is free.
+	 */
+	.post(
+		"/vaults/:address/pacifica",
+		async ({ admin, params }) => {
+			await assertCanCreateVaults(admin);
+			return { setup: await setUpPacificaAccount(params.address) };
 		},
 		{ params: t.Object({ address: addressSchema }) },
 	)

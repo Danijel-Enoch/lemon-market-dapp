@@ -441,6 +441,73 @@ export interface VaultGas {
 	needsTopUp: boolean;
 }
 
+/**
+ * What an agent wallet could send back, net of the fee for sending it.
+ *
+ * Lower than the balance on the gas panel by exactly the cost of the transfer,
+ * which is the point: "withdraw everything" has to mean a number the operator
+ * was shown rather than one computed after they clicked.
+ */
+export interface GasWithdrawable {
+	chain: "BASE" | "SOLANA";
+	address: string;
+	balance: string;
+	spendable: string;
+	formattedSpendable: string;
+	symbol: "ETH" | "SOL";
+	note: string | null;
+}
+
+export interface VaultGasWithdrawable {
+	vault: string;
+	agentEnabled: boolean;
+	base: GasWithdrawable;
+	solana: GasWithdrawable;
+}
+
+export interface GasWithdrawal {
+	chain: "BASE" | "SOLANA";
+	vault: string;
+	from: string;
+	to: string;
+	amount: string;
+	formatted: string;
+	symbol: "ETH" | "SOL";
+	feeReserved: string;
+	remaining: string;
+	hash: string;
+	explorerUrl: string;
+}
+
+/**
+ * The agent's Pacifica side.
+ *
+ * `registered` is Pacifica's own view and only becomes true after a deposit —
+ * the venue has no registration call. `tokenAccountExists` is the part an
+ * operator can actually do something about before then.
+ */
+export interface PacificaAccountStatus {
+	vault: string;
+	account: string;
+	tokenAccount: string;
+	tokenAccountExists: boolean;
+	usdcBalance: string;
+	equityUsd: string | null;
+	registered: boolean;
+	canSetUp: boolean;
+	blockedReason: string | null;
+	minimumDepositUsdc: number;
+}
+
+export interface PacificaAccountSetup {
+	vault: string;
+	account: string;
+	tokenAccount: string;
+	hash: string | null;
+	explorerUrl: string | null;
+	summary: string;
+}
+
 export interface AgentRun {
 	id: string;
 	vaultAddress: string;
@@ -490,6 +557,19 @@ export const adminApi = {
 
 	setAgent: (address: string, enabled: boolean) =>
 		post<{ vault: unknown }>(`/admin/vaults/${address}/agent`, { enabled }),
+
+	withdrawableGas: (address: string) =>
+		request<VaultGasWithdrawable>(`/admin/gas/${address}/withdrawable`),
+
+	/** `amount` is in ETH or SOL, not wei or lamports. Omit it to sweep. */
+	withdrawGas: (address: string, body: { chain: "BASE" | "SOLANA"; to: string; amount?: string }) =>
+		post<{ withdrawal: GasWithdrawal }>(`/admin/gas/${address}/withdraw`, body),
+
+	pacificaAccount: (address: string) =>
+		request<PacificaAccountStatus>(`/admin/vaults/${address}/pacifica`),
+
+	setUpPacificaAccount: (address: string) =>
+		post<{ setup: PacificaAccountSetup }>(`/admin/vaults/${address}/pacifica`, {}),
 };
 
 export const authApi = {

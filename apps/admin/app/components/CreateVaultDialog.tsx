@@ -1,8 +1,15 @@
-import { adminApi, type PreparedVault, shortAddress, type VaultableMarket } from "@lemon/client";
+import {
+	adminApi,
+	type PacificaAccountStatus,
+	type PreparedVault,
+	shortAddress,
+	usePacificaAccount,
+	type VaultableMarket,
+} from "@lemon/client";
 import { vaultFactoryAbi } from "@lemon/contracts";
 import { Button, Segmented } from "@lemon/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Copy, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { decodeEventLog } from "viem";
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
@@ -191,6 +198,9 @@ export function CreateVaultDialog({
 								</p>
 							</div>
 						</div>
+
+						<PacificaSetup vault={done} />
+
 						<Button className="w-full" onClick={onClose}>
 							Done
 						</Button>
@@ -319,6 +329,132 @@ export function CreateVaultDialog({
 			</div>
 		</div>
 	);
+}
+
+/**
+ * The last step of creating a vault: the agent's Pacifica side.
+ *
+ * Offered here rather than left to the agent because of what the first deposit
+ * looks like if it is not ready. Pacifica keys accounts by Solana address and
+ * registers one the first time USDC arrives — there is no account to create at
+ * the venue. What has to exist first is the USDC token account that deposit is
+ * signed from, which costs rent that the agent's own wallet cannot pay: it
+ * holds USDC and never SOL, so a separate fee payer covers it.
+ *
+ * The bridge already creates that account idempotently on the first crossing,
+ * so nothing here is load-bearing. What it buys is *when* a misconfigured or
+ * empty fee payer is discovered. Left alone, that discovery happens mid-bridge,
+ * with a depositor's capital already drawn out of the vault and in the air
+ * between two chains. Done here it costs a click and a few thousand lamports.
+ */
+function PacificaSetup({ vault }: { vault: string }) {
+	const queryClient = useQueryClient();
+	const { data: status, isLoading, error: loadError } = usePacificaAccount(vault, true);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [result, setResult] = useState<{ summary: string; url: string | null } | null>(null);
+
+	async function onSetUp() {
+		setBusy(true);
+		setError(null);
+		try {
+			const { setup } = await adminApi.setUpPacificaAccount(vault);
+			setResult({ summary: setup.summary, url: setup.explorerUrl });
+			queryClient.invalidateQueries({ queryKey: ["admin-pacifica-account", vault] });
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	if (isLoading) {
+		return (
+			<p className="flex items-center gap-2 text-xs text-[var(--pon-fg-4)]">
+				<Loader2 className="size-3.5 animate-spin" /> Checking the agent's Pacifica account…
+			</p>
+		);
+	}
+
+	// A vault that exists with an unchecked Pacifica side is still a working
+	// vault — the bridge sets it up on its own. So this reports and moves on
+	// rather than turning a successful creation into a failure screen.
+	if (loadError || !status) {
+		return (
+			<p className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] p-4 text-xs leading-relaxed text-[var(--pon-fg-3)]">
+				The agent's Pacifica account could not be checked from here:{" "}
+				{loadError instanceof Error ? loadError.message : "no answer"}. The vault is created and the
+				agent creates the account itself on its first bridge, so this is worth a look but not
+				blocking.
+			</p>
+		);
+	}
+
+	return (
+		<div className="space-y-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] p-4">
+			<div>
+				<p className="text-sm font-medium text-[var(--pon-fg-0)]">Pacifica account</p>
+				<p className="mt-1 text-xs leading-relaxed text-[var(--pon-fg-3)]">{describe(status)}</p>
+			</div>
+
+			<AddressLine label="Account" value={status.account} />
+			<AddressLine label="USDC account" value={status.tokenAccount} />
+
+			{status.blockedReason && !status.tokenAccountExists && (
+				<p className="text-xs leading-relaxed text-[var(--pon-amber)]">{status.blockedReason}</p>
+			)}
+
+			{result ? (
+				<p className="text-xs leading-relaxed text-[var(--pon-up)]">
+					{result.summary}
+					{result.url && (
+						<>
+							{" "}
+							<a
+								href={result.url}
+								target="_blank"
+								rel="noreferrer noopener"
+								className="inline-flex items-center gap-1 underline hover:text-[var(--pon-lime)]"
+							>
+								Transaction <ExternalLink className="size-3" />
+							</a>
+						</>
+					)}
+				</p>
+			) : (
+				<Button
+					variant="outline"
+					size="sm"
+					className="w-full"
+					disabled={busy || !status.canSetUp}
+					onClick={onSetUp}
+				>
+					{busy ? (
+						<>
+							<Loader2 className="mr-1.5 size-3.5 animate-spin" /> Creating…
+						</>
+					) : status.tokenAccountExists ? (
+						"Already set up"
+					) : (
+						"Create Pacifica account"
+					)}
+				</Button>
+			)}
+
+			{error && <p className="text-xs leading-relaxed text-[var(--pon-down)]">{error}</p>}
+		</div>
+	);
+}
+
+/** One sentence for whichever of the three states the account is in. */
+function describe(status: PacificaAccountStatus): string {
+	if (status.registered) {
+		return `Pacifica already knows this account${status.equityUsd ? `, holding ${status.equityUsd} USD of equity` : ""}. Nothing to do.`;
+	}
+	if (status.tokenAccountExists) {
+		return `The USDC account exists. Pacifica registers the account itself on the agent's first deposit of at least ${status.minimumDepositUsdc} USDC.`;
+	}
+	return `Pacifica has no account to create — it registers one on the first deposit. What this creates is the USDC account the agent deposits from, whose rent its own wallet cannot pay.`;
 }
 
 function AddressLine({ label, value }: { label: string; value: string }) {

@@ -168,6 +168,39 @@ export function useAgentGas(enabled: boolean) {
 	});
 }
 
+/**
+ * What one agent's wallets could send back.
+ *
+ * Not folded into `useAgentGas`: it costs a fee estimate per chain on top of
+ * the balance read, and it is only ever wanted for the one vault whose withdraw
+ * form is open. Not polled either — the operator is about to act on the figure,
+ * and a number that changes under a half-filled form is worse than a stale one.
+ */
+export function useWithdrawableGas(vault: string | undefined, enabled: boolean) {
+	return useQuery({
+		queryKey: ["admin-gas-withdrawable", vault],
+		queryFn: () => adminApi.withdrawableGas(vault as string),
+		enabled: enabled && Boolean(vault),
+		staleTime: 15_000,
+	});
+}
+
+/**
+ * Whether an agent's Pacifica side is set up.
+ *
+ * Enabled per vault rather than for the whole list: it is two round trips —
+ * Solana for the token account, Pacifica for the account itself — and the
+ * answer only matters where an operator is looking at one vault.
+ */
+export function usePacificaAccount(vault: string | undefined, enabled: boolean) {
+	return useQuery({
+		queryKey: ["admin-pacifica-account", vault],
+		queryFn: () => adminApi.pacificaAccount(vault as string),
+		enabled: enabled && Boolean(vault),
+		staleTime: 30_000,
+	});
+}
+
 export function useAgentRuns(vault: string | undefined, enabled: boolean) {
 	return useQuery({
 		queryKey: ["agent-runs", vault ?? "all"],
