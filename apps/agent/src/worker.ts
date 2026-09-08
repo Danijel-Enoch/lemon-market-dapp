@@ -1,8 +1,8 @@
 import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, splitDeployment } from "./policy";
-import { type Valuation, ValuationError } from "./valuation";
-import type { ActivityInput, VaultClient } from "./vault";
+import { leverageBps, type Valuation, ValuationError } from "./valuation";
+import type { ActivityInput, VaultClient, VaultState } from "./vault";
 
 /**
  * One vault's loop.
@@ -14,6 +14,9 @@ import type { ActivityInput, VaultClient } from "./vault";
  *  2. **Report** — post the NAV, always, before acting.
  *  3. **Act** — one action per tick, chosen by the policy.
  *  4. **Publish** — record what was done to the public feed.
+ *
+ * Ahead of all four is the case where none of them has anything to say: a vault
+ * nobody has deposited into. See `isDormant`.
  *
  * Reporting before acting matters. A stale NAV blocks deposits and fulfilments
  * on-chain, so an agent that traded first and reported afterwards would be
@@ -147,6 +150,13 @@ export interface WorkerDeps {
 }
 
 export interface TickResult {
+	/**
+	 * The policy's decision, or `IDLE` for a vault with nothing in it.
+	 *
+	 * `IDLE` is not a decision and is deliberately not recorded as one — see
+	 * `isDormant`. An `IDLE` result that also carries an `error` is still
+	 * recorded, because a keepalive that could not land is news.
+	 */
 	action: string;
 	/** The market the action was aimed at, when it was aimed at one. */
 	market: string | null;
@@ -176,6 +186,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		"debug",
 		`Read the vault — ${usd(state.totalAssets)} total, ${usd(state.freeAssets)} free, ${usd(state.deployedAssets)} deployed${state.paused ? ", paused" : ""}${state.emergencyExit ? ", emergency exit" : ""}.`,
 	);
+
+	// --- 0. nothing to run ------------------------------------------------
+
+	if (isDormant(state)) return idle(deps, state, now);
 
 	// --- 1. observe -------------------------------------------------------
 
@@ -407,6 +421,94 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		// itself would be recording an intention rather than an outcome.
 		closeSatisfied: deps.closeRequested && isFlat(snapshot),
 	};
+}
+
+/**
+ * A vault holding nothing, for nobody.
+ *
+ * No shares outstanding, no assets, nothing deployed and nothing owed — so
+ * there is no position to observe, no value to restate, and nobody to restate
+ * it for. Every number this tick would produce is zero, and the chain already
+ * holds those zeros: `reportNav` on a vault with nothing deployed is only
+ * allowed to say zero at all (`CannotReportNavWithNothingDeployed`), so the
+ * report carries no information, and the trade decision above it can only be
+ * HOLD. What the full tick would produce instead is cost — a round of venue
+ * quotes, a transaction every report interval, and a run in the operator's
+ * agent log every minute, all of it saying nothing happened to nothing.
+ *
+ * All four measures rather than just `totalAssets`, because any one of them
+ * non-zero means something is there to be looked after: a donated balance, a
+ * share left over from a redemption, capital still out at the venue, or a
+ * claim waiting to be collected. In any of those cases the full tick runs.
+ */
+function isDormant(state: VaultState): boolean {
+	return (
+		state.totalAssets === 0n &&
+		state.totalSupply === 0n &&
+		state.deployedAssets === 0n &&
+		state.claimableAssets === 0n
+	);
+}
+
+/**
+ * The tick an empty vault gets: a keepalive, and nothing else.
+ *
+ * The one thing such a vault still needs from its agent is a NAV fresh enough
+ * that the first deposit is possible at all — `maxDeposit` returns zero while
+ * the report is stale, so an agent that went completely silent here would have
+ * quietly closed the vault against the depositor it is waiting for.
+ *
+ * So the clock is kept, and only the clock: once per staleness window rather
+ * than once per report interval, which at production limits is a couple of
+ * transactions a day instead of ninety-odd. Half the window is the margin —
+ * whatever ticking is worth doing at all is worth doing with hours of slack
+ * against a restart, a stuck RPC or a reorg.
+ */
+async function idle(deps: WorkerDeps, state: VaultState, now: number): Promise<TickResult> {
+	const { vault, log } = deps;
+
+	const result: TickResult = {
+		action: "IDLE",
+		market: null,
+		rationale:
+			"No shares outstanding and nothing deployed, so there is nothing to price, trade or report.",
+		advised: false,
+		navReported: false,
+		activityReported: 0,
+		fulfilled: 0,
+		// Flat by every measure the chain has: nothing deployed, nothing owed,
+		// nothing held. Unlike the observed case below, there is no venue reading
+		// that could disagree, because no capital ever left.
+		closeSatisfied: deps.closeRequested,
+	};
+
+	// Never sooner than the contract's own floor, whatever the staleness window
+	// works out to — a report inside `minNavReportInterval` reverts.
+	const keepaliveAfter = Math.max(
+		state.minNavReportInterval,
+		Math.floor(state.maxNavStaleness / 2),
+	);
+
+	if (now < state.lastNavReportAt + keepaliveAfter) {
+		log(
+			"debug",
+			`Empty — no shares and nothing deployed. NAV is good for another ${formatDuration((state.lastNavReportAt + state.maxNavStaleness - now) * 1000)}; skipping the tick.`,
+		);
+		return result;
+	}
+
+	try {
+		// Zero, at one times leverage: the value and the leverage of a book that
+		// does not exist. The same pair a full tick would compute for it.
+		await vault.reportNav(0n, leverageBps(0n, 0n), now);
+		log("info", "Empty — posted a keepalive NAV so the vault stays open to deposits.");
+		return { ...result, navReported: true };
+	} catch (error) {
+		// Worth an error rather than a shrug: a keepalive that cannot land means
+		// the vault will go stale, and a stale vault cannot take the first deposit.
+		log("error", "Keepalive NAV rejected; the vault will go stale to depositors.", error);
+		return { ...result, error: message(error) };
+	}
 }
 
 /**

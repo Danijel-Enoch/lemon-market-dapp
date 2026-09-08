@@ -336,6 +336,127 @@ describe("tick", () => {
 	});
 });
 
+/**
+ * A vault nobody has deposited into has nothing to say, and saying it every
+ * minute costs venue quotes, gas and a run history that buries the vaults that
+ * are actually running.
+ */
+describe("tick, on an empty vault", () => {
+	function empty(overrides = {}) {
+		return vaultState({
+			totalAssets: 0n,
+			freeAssets: 0n,
+			deployedAssets: 0n,
+			claimableAssets: 0n,
+			totalSupply: 0n,
+			...overrides,
+		});
+	}
+
+	it("does not read the venues, report, or trade", async () => {
+		const observe = mock(async () => observation());
+		const { deps, vault } = harness({ state: empty(), observe });
+
+		const result = await tick(deps);
+
+		expect(observe).not.toHaveBeenCalled();
+		expect(vault.reportNav).not.toHaveBeenCalled();
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(vault.reportActivity).not.toHaveBeenCalled();
+		expect(result.action).toBe("IDLE");
+		expect(result.navReported).toBe(false);
+		expect(result.activityReported).toBe(0);
+		expect(result.error).toBeUndefined();
+	});
+
+	/**
+	 * The one thing it still owes the vault. `maxDeposit` is zero while the NAV
+	 * is stale, so an agent that went silent here would close the vault against
+	 * the first depositor it is waiting for.
+	 */
+	it("posts a keepalive NAV once the staleness window is half gone", async () => {
+		// Half of 21_600s, so a report at 12_000s ago is overdue.
+		const { deps, vault } = harness({ state: empty({ lastNavReportAt: NOW - 12_000 }) });
+
+		const result = await tick(deps);
+
+		expect(vault.reportNav).toHaveBeenCalledWith(0n, 10_000, NOW);
+		expect(result.navReported).toBe(true);
+		expect(result.action).toBe("IDLE");
+	});
+
+	it("keeps the keepalive behind the contract's own report interval", async () => {
+		// A short staleness window: half of it falls inside the interval a report
+		// sooner than which the contract reverts, so the interval wins.
+		const { deps, vault } = harness({
+			state: empty({
+				minNavReportInterval: 2400,
+				maxNavStaleness: 3600,
+				lastNavReportAt: NOW - 2000,
+			}),
+		});
+
+		await tick(deps);
+
+		expect(vault.reportNav).not.toHaveBeenCalled();
+	});
+
+	it("records a rejected keepalive, because the vault is about to go stale", async () => {
+		const { deps, vault } = harness({ state: empty({ lastNavReportAt: NOW - 12_000 }) });
+		vault.reportNav = mock(async () => {
+			throw new Error("NavReportTooSoon");
+		});
+
+		const result = await tick(deps);
+
+		expect(result.navReported).toBe(false);
+		expect(result.error).toContain("NavReportTooSoon");
+	});
+
+	// -- what still counts as occupied -------------------------------------
+
+	it("runs the full tick for a share that survived a redemption", async () => {
+		const observe = mock(async () => observation());
+		const { deps } = harness({ state: empty({ totalSupply: 10n ** 18n }), observe });
+
+		const result = await tick(deps);
+
+		expect(observe).toHaveBeenCalled();
+		expect(result.action).not.toBe("IDLE");
+	});
+
+	it("runs the full tick while capital is still out at the venue", async () => {
+		const observe = mock(async () => observation());
+		const { deps } = harness({
+			state: empty({ totalAssets: 5_000n * USDC, deployedAssets: 5_000n * USDC }),
+			observe,
+		});
+
+		await tick(deps);
+
+		expect(observe).toHaveBeenCalled();
+	});
+
+	it("runs the full tick while a claim is waiting to be collected", async () => {
+		const observe = mock(async () => observation());
+		const { deps } = harness({ state: empty({ claimableAssets: 100n * USDC }), observe });
+
+		await tick(deps);
+
+		expect(observe).toHaveBeenCalled();
+	});
+
+	/** Nothing deployed, nothing owed, nothing held: flat by every measure. */
+	it("satisfies a close order without observing anything", async () => {
+		const { deps } = harness({ state: empty(), closeRequested: true });
+
+		const result = await tick(deps);
+
+		expect(result.action).toBe("IDLE");
+		expect(result.closeSatisfied).toBe(true);
+	});
+});
+
 describe("auto-deleveraging awareness", () => {
 	it("says nothing while the short is losing, which is most of the time", async () => {
 		const h = harness({

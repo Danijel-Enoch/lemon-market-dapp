@@ -369,7 +369,20 @@ async function main() {
 			};
 
 			const result = await tick(deps);
-			await recordRun(indexed.address, result);
+
+			// A vault nobody has deposited into does not get a run history. It made
+			// no decision — there was nothing to decide — and a row a minute saying
+			// so would bury the vaults that did decide something under vaults that
+			// have never held a dollar. The cycle summary below still names it, so
+			// "is the agent seeing this vault at all" is answerable from the log.
+			//
+			// A failed keepalive is the exception: that one is recorded, because a
+			// vault about to go stale to its first depositor is exactly the kind of
+			// thing the agent log exists to surface.
+			if (result.action !== "IDLE" || result.error) {
+				await recordRun(indexed.address, result);
+			}
+
 			if (result.closeSatisfied) await recordCloseSatisfied(indexed.address);
 
 			const summary = `${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`;
