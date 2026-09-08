@@ -130,6 +130,12 @@ const ASSET_CLASS_BY_TICKER: Record<string, AssetClass> = {
 	AMZN: "equity",
 	INTC: "equity",
 	STRK: "equity",
+	// The rest of the B20 set. Absent until an SNDK vault existed and classified
+	// itself "unknown" — the token table in `@lemon/registry` listed all three,
+	// so they were tradable and unfilable at the same time.
+	SNDK: "equity",
+	CRCL: "equity",
+	SPCX: "equity",
 
 	// Metals and commodities, which the board groups as RWA.
 	XAU: "metal",

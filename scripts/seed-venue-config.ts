@@ -16,9 +16,10 @@
  * Usage: bun run scripts/seed-venue-config.ts
  */
 
+import { assetClassForTicker } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { agentDerivationPath, NearMpcClient } from "@lemon/near-mpc";
-import { PERP_CRYPTO_TOKENS } from "@lemon/registry";
+import { findTokenByTicker } from "@lemon/registry";
 
 const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
 
@@ -27,6 +28,20 @@ interface IndexedVault {
 	ticker: string | null;
 	riskTier: number;
 	agentWallet: `0x${string}`;
+}
+
+/**
+ * The ticker's asset class, in the spelling Prisma's enum uses.
+ *
+ * `assetClassForTicker` curates rather than infers and answers `"unknown"` for
+ * anything it does not recognise, which the enum spells `UNKNOWN` — so an
+ * unclassified ticker lands in the board's "Other" tab instead of being filed
+ * somewhere confidently wrong.
+ */
+function toVaultAssetClass(ticker: string) {
+	return assetClassForTicker(ticker).toUpperCase() as Uppercase<
+		ReturnType<typeof assetClassForTicker>
+	>;
 }
 
 const accountId = process.env.NEAR_ACCOUNT_ID?.trim();
@@ -92,7 +107,14 @@ for (const vault of vaults) {
 		continue;
 	}
 
-	const token = PERP_CRYPTO_TOKENS.find((t) => t.ticker.toUpperCase() === ticker);
+	// The whole spot universe, not just the crypto half. This looked up
+	// `PERP_CRYPTO_TOKENS` until an equity vault needed backfilling and was told
+	// its own ticker "is not in the curated token registry" — the B20 tokenized
+	// equities live in `COINBASE_STOCK_TOKENS`, and `findTokenByTicker` spans
+	// both. A vault whose spot leg is GOOGLc is exactly as configurable as one
+	// whose spot leg is WETH, and the seeder claiming otherwise stranded the
+	// equity vaults with no way to record them short of writing SQL by hand.
+	const token = findTokenByTicker(ticker);
 	if (!token) {
 		// Refusing beats guessing: a wrong spot token hedges the position against
 		// a different asset while every dashboard reads healthy.
@@ -117,7 +139,11 @@ for (const vault of vaults) {
 	const row = {
 		ticker,
 		riskTier: vault.riskTier === 1 ? ("LEVERAGED" as const) : ("CONSERVATIVE" as const),
-		assetClass: "CRYPTO" as const,
+		// Classified from the curated ticker table rather than assumed. Hardcoding
+		// CRYPTO here was harmless while only crypto vaults could be seeded, and
+		// became a lie the moment an equity one could be — it files GOOGL under
+		// the crypto tab on a board a depositor reads.
+		assetClass: toVaultAssetClass(ticker),
 		agentPath: path,
 		agentEvmAddress: derived.evmAddress.toLowerCase(),
 		agentSolanaAddress: derived.solanaAddress,
