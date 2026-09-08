@@ -55,6 +55,7 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		maxDeployedBps: 9000,
 		withdrawWindowRemaining: 500_000n * USDC,
 		idleOnBase: 0n,
+		unallocatedMargin: 0n,
 		ripeRedeemAssets: 0n,
 		pendingRedeemAssets: 0n,
 		earliestDeadline: null,
@@ -168,6 +169,77 @@ describe("a deployment stranded at the agent", () => {
 		const s = stranded({ ripeRedeemAssets: IDLE });
 		expect(resumableAmount(s)).toBe(0n);
 		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	/**
+	 * The state the vault reached after the bridge succeeded and the short did
+	 * not: $16.284168 of margin at Pacifica backing no position, $16.309370 idle
+	 * on Base, no spot leg anywhere.
+	 *
+	 * Splitting the idle balance again gives an $8.15 spot leg — under a $10
+	 * floor, so nothing happens, and under a lower floor something worse happens:
+	 * another $8.15 bridged into margin that is already unhedged. The position
+	 * needs its spot leg, so this source buys spot and bridges nothing.
+	 */
+	describe("with margin already at the venue", () => {
+		// Held at one and a half times the floor, which is the ratio that makes the
+		// bug bite at any setting of it: the margin on its own clears the floor,
+		// and half of it does not. The live numbers were $16.28 of margin against a
+		// $10 floor, with the halved figure landing at $8.15.
+		const MARGIN = (3n * MIN_DEPLOY_USDC) / 2n;
+		/** Slightly more USDC on hand than margin, as the relayer's cut leaves it. */
+		const IDLE_HERE = MARGIN + 25_202n;
+
+		const halfDeployed = (overrides: Partial<VaultSnapshot> = {}) =>
+			snapshot({
+				freeAssets: 0n,
+				totalAssets: IDLE_HERE + MARGIN,
+				deployedAssets: IDLE_HERE + MARGIN,
+				idleOnBase: IDLE_HERE,
+				unallocatedMargin: MARGIN,
+				...overrides,
+			});
+
+		it("buys the spot leg and bridges nothing", () => {
+			const deploy = permittedActions(halfDeployed(), NOW).find((o) => o.kind === "DEPLOY");
+			expect(deploy?.legs?.perpMargin).toBe(0n);
+			// Capped by what the margin already there can carry at 1x, not by half
+			// the idle balance — which is the whole point.
+			expect(deploy?.legs?.spotNotional).toBe(MARGIN);
+			expect(deploy?.amount).toBe(MARGIN);
+		});
+
+		it("says the margin is already there, so the log is not read as a fresh bridge", () => {
+			const deploy = permittedActions(halfDeployed(), NOW).find((o) => o.kind === "DEPLOY");
+			expect(deploy?.reason ?? "").toContain("already at the venue");
+		});
+
+		/** Halving the idle balance puts the spot leg under the floor, and nothing happens. */
+		it("clears a floor that halving the idle balance would not", () => {
+			expect(splitDeployment(IDLE_HERE, 10_000).spotNotional).toBeLessThan(MIN_DEPLOY_USDC);
+			const deploy = permittedActions(halfDeployed(), NOW).find((o) => o.kind === "DEPLOY");
+			expect(deploy?.legs?.spotNotional).toBeGreaterThanOrEqual(MIN_DEPLOY_USDC);
+		});
+
+		it("never buys more spot than the idle balance can pay for", () => {
+			// Margin far exceeding the USDC on hand: the spot leg is what is
+			// affordable, not what the margin could theoretically carry.
+			const deploy = permittedActions(
+				halfDeployed({ idleOnBase: 2n * MIN_DEPLOY_USDC, unallocatedMargin: 500n * USDC }),
+				NOW,
+			).find((o) => o.kind === "DEPLOY");
+			expect(deploy?.legs?.spotNotional).toBe(2n * MIN_DEPLOY_USDC);
+		});
+
+		it("splits normally once that margin is backing a position", () => {
+			// Sized off the floor so the ordinary half-and-half split clears it.
+			const deploy = permittedActions(
+				halfDeployed({ unallocatedMargin: 0n, idleOnBase: 4n * MIN_DEPLOY_USDC }),
+				NOW,
+			).find((o) => o.kind === "DEPLOY");
+			expect(deploy?.legs?.spotNotional).toBe(2n * MIN_DEPLOY_USDC);
+			expect(deploy?.legs?.perpMargin).toBe(2n * MIN_DEPLOY_USDC);
+		});
 	});
 
 	it("falls through to the vault when the stranded balance is below the floor", () => {

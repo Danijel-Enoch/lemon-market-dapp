@@ -109,6 +109,20 @@ export interface VaultSnapshot {
 	 * deployment against money the swap cannot reach.
 	 */
 	idleOnBase: bigint;
+	/**
+	 * Margin at the perp venue that is not backing any open position.
+	 *
+	 * Ordinarily zero: margin arrives and the short opens against it in the same
+	 * call. It is non-zero when a deployment got its margin across and then failed
+	 * before the short — capital that is fully committed, earning nothing, and
+	 * hedging nothing.
+	 *
+	 * The vault cannot fix that by deploying more. What the position needs is its
+	 * *spot* leg, and sizing a fresh `spot + margin` split against the remaining
+	 * idle USDC would bridge yet more margin instead — which is why this is a
+	 * field rather than something the deployment split could infer.
+	 */
+	unallocatedMargin: bigint;
 
 	/** Shares queued whose delay has elapsed, and what they are worth now. */
 	ripeRedeemAssets: bigint;
@@ -168,6 +182,24 @@ export interface Decision {
 	 * withdraws nothing — see `resumableAmount` for why that is a case at all.
 	 */
 	fundedFrom: "VAULT" | "AGENT" | null;
+	/**
+	 * How a DEPLOY's capital divides between the two legs. Null for every other kind.
+	 *
+	 * Carried rather than re-derived downstream, because the split is no longer a
+	 * function of the amount and the leverage. A deployment resuming against
+	 * margin already sitting at the venue spends its whole budget on spot and
+	 * bridges nothing; halving it again would send margin after margin while the
+	 * spot leg it is supposed to hedge never gets bought.
+	 */
+	legs: DeploymentLegs | null;
+}
+
+/** A deployment's two halves, as the amounts each venue is actually given. */
+export interface DeploymentLegs {
+	/** USDC to spend buying the spot leg on Base. */
+	spotNotional: bigint;
+	/** USDC to bridge to the perp venue as margin. Zero when it is already there. */
+	perpMargin: bigint;
 }
 
 /** Below 1% the correction costs more in fees than the drift costs in exposure. */
@@ -285,6 +317,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					reason: `An operator has ordered every position closed. ${describeOpenMarkets(snapshot)} to sell, and ${fmt(snapshot.deployedAssets)} to bring home.`,
 					forced: true,
 					fundedFrom: null,
+					legs: null,
 				},
 			];
 		}
@@ -298,6 +331,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					"An operator's close order stands and the vault is flat. Reporting NAV and settling the queue; no capital is deployed until the order is lifted.",
 				forced: true,
 				fundedFrom: null,
+				legs: null,
 			},
 		];
 	}
@@ -324,6 +358,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					amount,
 					market: null,
 					fundedFrom: null,
+					legs: null,
 					reason: urgent
 						? `${fmt(owed)} of redemptions are due within a day and the vault holds ${fmt(snapshot.freeAssets)}.`
 						: `${fmt(owed)} of redemptions are eligible and the vault holds ${fmt(snapshot.freeAssets)}.`,
@@ -357,6 +392,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			reason: `${retired.map((m) => m.ticker).join(", ")} ${retired.length === 1 ? "has" : "have"} been retired but still ${retired.length === 1 ? "holds" : "hold"} ${fmt(amount)}; unwinding returns it to the vault for the markets that are still wanted.`,
 			forced: false,
 			fundedFrom: null,
+			legs: null,
 		});
 	}
 
@@ -379,6 +415,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral; its perp leg needs to move to match its spot leg.`,
 			forced: false,
 			fundedFrom: null,
+			legs: null,
 		});
 	}
 
@@ -394,6 +431,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		reason: "Nothing needs doing; report NAV and wait.",
 		forced: false,
 		fundedFrom: null,
+		legs: null,
 	});
 
 	return options;
@@ -431,31 +469,88 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
  * used to be able to name that money, so nothing could spend it.
  */
 function nextDeployment(snapshot: VaultSnapshot): Decision | null {
-	for (const fundedFrom of ["AGENT", "VAULT"] as const) {
-		const available =
-			fundedFrom === "AGENT" ? resumableAmount(snapshot) : deployableAmount(snapshot);
-		const decision = deploymentFrom(snapshot, available, fundedFrom);
-		// Falls through rather than returning null: the agent's idle balance can
-		// be real and still too small for any market's floor, and that must not
-		// stop an ordinary deployment the vault can fund on its own.
+	for (const source of deploymentSources(snapshot)) {
+		const decision = deploymentFrom(snapshot, source);
+		// Falls through rather than returning null: a source can be real and still
+		// too small for any market's floor, and that must not stop a later source
+		// which is large enough.
 		if (decision) return decision;
 	}
 	return null;
 }
 
-function deploymentFrom(
-	snapshot: VaultSnapshot,
-	deployable: bigint,
-	fundedFrom: "VAULT" | "AGENT",
-): Decision | null {
-	if (deployable <= 0n) return null;
+/** Capital a deployment could be built from, best first. */
+interface DeploymentSource {
+	fundedFrom: "VAULT" | "AGENT";
+	legs: DeploymentLegs;
+	/** The opening clause of the decision's reason, naming where the money is. */
+	where: string;
+}
+
+/**
+ * Every way the vault could fund a deployment right now, in the order to try.
+ *
+ * Three, and the order is the whole point.
+ *
+ * **Margin already at the venue comes first.** It is the most committed capital
+ * the vault has — bridged, deposited, and hedging nothing — and the only thing
+ * that completes it is its spot leg. So that source spends its entire budget on
+ * spot and bridges nothing. Splitting it fresh would send *more* margin after
+ * the margin already stranded there, and every retry would skew the position
+ * further from neutral while never buying the spot it is missing.
+ *
+ * **Then the agent's own idle USDC**, which has left the vault and occupies the
+ * deployment ceiling without being withdrawable — see `resumableAmount`.
+ *
+ * **Then the vault**, the ordinary case, bounded by the three ceilings in
+ * `deployableAmount`.
+ */
+function deploymentSources(snapshot: VaultSnapshot): DeploymentSource[] {
+	const sources: DeploymentSource[] = [];
+	const leverage = BigInt(snapshot.targetLeverageBps);
+	const idle = resumableAmount(snapshot);
+
+	if (idle > 0n && snapshot.unallocatedMargin > 0n) {
+		// What that margin can hedge at the vault's leverage, capped by the USDC
+		// actually on hand to buy it with. Anything left over stays idle for the
+		// next tick rather than being bridged into margin nothing is hedging.
+		const carriable = (snapshot.unallocatedMargin * leverage) / BigInt(BPS);
+		sources.push({
+			fundedFrom: "AGENT",
+			legs: { spotNotional: min(idle, carriable), perpMargin: 0n },
+			where: `${fmt(snapshot.unallocatedMargin)} of margin is already at the venue with nothing hedging it`,
+		});
+	}
+
+	if (idle > 0n) {
+		sources.push({
+			fundedFrom: "AGENT",
+			legs: splitDeployment(idle, snapshot.targetLeverageBps),
+			where: `${fmt(idle)} drawn down by an earlier deployment is sitting in the agent's Base wallet`,
+		});
+	}
+
+	const deployable = deployableAmount(snapshot);
+	if (deployable > 0n) {
+		sources.push({
+			fundedFrom: "VAULT",
+			legs: splitDeployment(deployable, snapshot.targetLeverageBps),
+			where: `${fmt(deployable)} is idle`,
+		});
+	}
+
+	return sources;
+}
+
+function deploymentFrom(snapshot: VaultSnapshot, source: DeploymentSource): Decision | null {
+	const incoming = source.legs.spotNotional;
+	if (incoming <= 0n) return null;
 
 	// Weights are measured on spot notional, which is the exposure they are
 	// about. Margin is not divided per market — it is one Pacifica account —
 	// so weighting the deployment total instead would make a market's share
 	// depend on the vault's leverage rather than on what an operator chose.
 	const held = sum(snapshot.markets.map((m) => m.spotValueUsdc));
-	const { spotNotional: incoming } = splitDeployment(deployable, snapshot.targetLeverageBps);
 	const projected = held + incoming;
 
 	const candidates = snapshot.markets
@@ -483,18 +578,26 @@ function deploymentFrom(
 		const spend = min(room, incoming);
 		if (spend < MIN_DEPLOY_USDC) continue;
 
-		const amount = deploymentFor(spend, snapshot.targetLeverageBps);
-		const where =
-			fundedFrom === "AGENT"
-				? `${fmt(deployable)} drawn down by an earlier deployment is sitting in the agent's Base wallet`
-				: `${fmt(deployable)} is idle`;
+		// Trimming to the market's room shrinks the spot leg, and the margin has to
+		// follow it or the position opens over-hedged. A source that bridges
+		// nothing stays at zero: there is no margin to scale, and the spot leg is
+		// already bounded by what the existing margin can carry.
+		const legs: DeploymentLegs =
+			source.legs.perpMargin === 0n
+				? { spotNotional: spend, perpMargin: 0n }
+				: splitDeployment(
+						deploymentFor(spend, snapshot.targetLeverageBps),
+						snapshot.targetLeverageBps,
+					);
+
 		return {
 			kind: "DEPLOY",
-			amount: min(amount, deployable),
+			amount: legs.spotNotional + legs.perpMargin,
 			market: market.ticker,
-			reason: `${where}, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
+			reason: `${source.where}, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
 			forced: false,
-			fundedFrom,
+			fundedFrom: source.fundedFrom,
+			legs,
 		};
 	}
 

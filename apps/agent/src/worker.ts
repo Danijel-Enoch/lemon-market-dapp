@@ -1,6 +1,6 @@
 import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
-import { decide, driftBps, isFlat, splitDeployment } from "./policy";
+import { decide, driftBps, isFlat } from "./policy";
 import { leverageBps, type Valuation, ValuationError } from "./valuation";
 import type { ActivityInput, VaultClient, VaultState } from "./vault";
 
@@ -79,6 +79,8 @@ export interface VenueAdapter {
 		 * part a deployment can be sized against.
 		 */
 		idleOnBase: bigint;
+		/** Margin at the perp venue backing no open position. See `VaultSnapshot`. */
+		unallocatedMargin: bigint;
 	}>;
 
 	/** Buy one market's spot leg and open the matching short. Returns what it did. */
@@ -294,6 +296,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		maxDeployedBps: fresh.maxDeployedBps,
 		withdrawWindowRemaining: await vault.withdrawWindowRemaining(),
 		idleOnBase: observation.idleOnBase,
+		unallocatedMargin: observation.unallocatedMargin,
 		ripeRedeemAssets: sum(ripe.map((q) => q.pendingAssets)),
 		pendingRedeemAssets: sum(queue.filter((q) => q.eligibleAt > now).map((q) => q.pendingAssets)),
 		earliestDeadline: ripe.length ? Math.min(...ripe.map((q) => q.fulfillBy)) : null,
@@ -353,7 +356,11 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			// not say where it goes, and failing before `agentWithdraw` keeps the
 			// capital in the vault rather than at an agent with nothing to do.
 			if (!decision.market) throw new Error("A deployment named no market.");
-			const split = splitDeployment(decision.amount, fresh.targetLeverageBps);
+			// The policy's split, not one recomputed here. A resuming deployment
+			// spends everything on spot and bridges nothing, and re-deriving the
+			// halves from the total would undo exactly that.
+			if (!decision.legs) throw new Error("A deployment named no legs.");
+			const split = decision.legs;
 			// Only a vault-funded deployment draws anything down. An agent-funded
 			// one is spending capital a previous deployment already withdrew and
 			// failed to place, so withdrawing again would take a second helping out
@@ -361,7 +368,11 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			if (decision.fundedFrom === "AGENT") {
 				log(
 					"info",
-					`Resuming with ${usd(decision.amount)} already in the agent's Base wallet; nothing is drawn from the vault.`,
+					`Resuming with ${usd(decision.amount)} already in the agent's Base wallet; nothing is drawn from the vault.${
+						split.perpMargin === 0n
+							? " Margin is already at the venue, so this buys the spot leg only."
+							: ""
+					}`,
 				);
 			} else {
 				await vault.agentWithdraw(decision.amount);

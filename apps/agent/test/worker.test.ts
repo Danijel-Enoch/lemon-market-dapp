@@ -75,6 +75,7 @@ function observation(overrides = {}) {
 		markets: [observedMarket()],
 		adl: CALM_ADL,
 		idleOnBase: 0n,
+		unallocatedMargin: 0n,
 		...overrides,
 	};
 }
@@ -218,6 +219,37 @@ describe("tick", () => {
 		expect(result.action).toBe("DEPLOY");
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
 		expect(calls).toContain("deploy:NVDA");
+	});
+
+	/**
+	 * The legs reach the venue as the policy sized them. This is the step that was
+	 * halving them: the worker used to recompute `spot + margin` from the total,
+	 * which would have bridged margin to a venue that already had unhedged margin
+	 * sitting on it and left the spot leg unbought for another tick.
+	 */
+	it("passes a spot-only deployment through without re-splitting it", async () => {
+		const margin = 3_000n * USDC;
+		const idle = 4_000n * USDC;
+		const deploy = mock(async (_: Parameters<VenueAdapter["deploy"]>[0]) => [activityRow()]);
+
+		const { deps, vault } = harness({
+			state: vaultState({
+				totalAssets: idle + margin,
+				freeAssets: 0n,
+				deployedAssets: idle + margin,
+			}),
+			observe: async () => observation({ idleOnBase: idle, unallocatedMargin: margin }),
+			venue: { deploy },
+		});
+
+		await tick(deps);
+
+		// Spot sized to what the waiting margin carries at 1x, and nothing bridged.
+		expect(deploy.mock.calls[0]?.[0]).toMatchObject({
+			spotNotional: margin,
+			perpMargin: 0n,
+		});
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
 	});
 
 	it("skips the report when one is not yet due", async () => {

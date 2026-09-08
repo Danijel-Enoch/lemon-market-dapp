@@ -244,6 +244,23 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		}
 	}
 
+	/**
+	 * Margin at the venue that is not backing an open position.
+	 *
+	 * The venue's own figure rather than equity less something computed here.
+	 * `available_to_spend` is exactly this question asked of the account that
+	 * knows the answer, and it already nets off the maintenance margin every open
+	 * position holds — which a subtraction on this side would have to reconstruct
+	 * from position sizes and get wrong the first time the venue changed a
+	 * requirement.
+	 */
+	async function unallocatedMargin(): Promise<bigint> {
+		const account = await accountOrUnregistered();
+		// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+		const free = Number((account as any)?.available_to_spend ?? 0);
+		return free > 0 ? BigInt(Math.round(free * 1e6)) : 0n;
+	}
+
 	/** Positions for an account the venue has never seen: none, not an error. */
 	async function positionsOrNone(): Promise<PacificaPosition[]> {
 		try {
@@ -333,6 +350,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 			const equityUsd = Number((account as any)?.account_equity ?? 0);
 			const equity = BigInt(Math.round(equityUsd * 1e6));
+			// Read off the account already fetched above rather than through
+			// `unallocatedMargin`, which would repeat the request.
+			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
+			const freeMarginUsd = Math.max(0, Number((account as any)?.available_to_spend ?? 0));
 
 			const legs = await Promise.all(
 				config.markets.map(async (market) => {
@@ -423,6 +444,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// the Base side can buy a spot leg or fund a bridge, so it is the only
 				// side a deployment can be sized against.
 				idleOnBase: baseIdle,
+				unallocatedMargin: BigInt(Math.round(freeMarginUsd * 1e6)),
 				// The worst leg, because a warning about the vault should be about the
 				// leg most likely to be deleveraged out from under it rather than an
 				// average that never describes any actual position.
@@ -496,37 +518,53 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			if (!probe.ok) throw new Error(`No spot route for ${market.symbol}: ${probe.message}`);
 
 			// 1. Margin across to Solana. Nothing is exposed while it flies.
-			log(
-				"info",
-				`deploy ${market.ticker}: step 1/5 — bridging ${usd(perpMargin)} of margin to Solana.`,
-			);
-			const bridged = await deps.bridge.toSolana(perpMargin);
-			log(
-				"info",
-				`deploy ${market.ticker}: step 1/5 done — ${usd(bridged.landed)} arrived (${usd(perpMargin - bridged.landed)} lost in transit).`,
-			);
-			activity.push({
-				kind: "BRIDGE_OUT",
-				chain: "BASE",
-				symbol: "USDC",
-				baseAmount: perpMargin,
-				notionalAssets: perpMargin,
-				pnlAssets: 0n,
-				feeAssets: perpMargin > bridged.landed ? perpMargin - bridged.landed : 0n,
-				txRef: bridged.txRef,
-				occurredAt: deps.now(),
-			});
-			activity.push({
-				kind: "VENUE_DEPOSIT",
-				chain: "SOLANA",
-				symbol: "USDC",
-				baseAmount: bridged.landed,
-				notionalAssets: bridged.landed,
-				pnlAssets: 0n,
-				feeAssets: 0n,
-				txRef: bridged.txRef,
-				occurredAt: deps.now(),
-			});
+			//
+			// Skipped entirely when the policy asked for no margin, which means it
+			// is already at the venue: a previous deployment bridged it and failed
+			// before opening the short. Bridging again would add margin to margin
+			// that is already unhedged and leave the spot leg just as missing — so
+			// this deployment buys spot against what is there and sends nothing.
+			let backing: bigint;
+			if (perpMargin === 0n) {
+				backing = await unallocatedMargin();
+				log(
+					"info",
+					`deploy ${market.ticker}: step 1/5 skipped — ${usd(backing)} of margin is already at the venue, so this buys the spot leg only.`,
+				);
+			} else {
+				log(
+					"info",
+					`deploy ${market.ticker}: step 1/5 — bridging ${usd(perpMargin)} of margin to Solana.`,
+				);
+				const bridged = await deps.bridge.toSolana(perpMargin);
+				backing = bridged.landed;
+				log(
+					"info",
+					`deploy ${market.ticker}: step 1/5 done — ${usd(bridged.landed)} arrived (${usd(perpMargin - bridged.landed)} lost in transit).`,
+				);
+				activity.push({
+					kind: "BRIDGE_OUT",
+					chain: "BASE",
+					symbol: "USDC",
+					baseAmount: perpMargin,
+					notionalAssets: perpMargin,
+					pnlAssets: 0n,
+					feeAssets: perpMargin > bridged.landed ? perpMargin - bridged.landed : 0n,
+					txRef: bridged.txRef,
+					occurredAt: deps.now(),
+				});
+				activity.push({
+					kind: "VENUE_DEPOSIT",
+					chain: "SOLANA",
+					symbol: "USDC",
+					baseAmount: bridged.landed,
+					notionalAssets: bridged.landed,
+					pnlAssets: 0n,
+					feeAssets: 0n,
+					txRef: bridged.txRef,
+					occurredAt: deps.now(),
+				});
+			}
 
 			// 2. Leverage is set before the order, not after — an order placed at the
 			// account's previous leverage would open at the wrong size and have to be
@@ -556,11 +594,13 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// Whatever is not spent stays as idle USDC at the agent wallet. The
 			// valuation already counts it, so no NAV moves; it is simply deployed on
 			// a later tick once it is worth another round trip of fees.
-			const carriable = (bridged.landed * BigInt(leverageBps)) / 10_000n;
+			const carriable = (backing * BigInt(leverageBps)) / 10_000n;
 			const spend = carriable < spotNotional ? carriable : spotNotional;
 			if (spend < MIN_DEPLOY_USDC) {
 				throw new VenueExecutionError(
-					`Only ${bridged.landed} of ${perpMargin} USDC survived the bridge, which carries ${spend} of hedge — below the deploy minimum. Margin is on Solana and no position was opened.`,
+					perpMargin === 0n
+						? `The ${backing} USDC of margin already at the venue carries ${spend} of hedge — below the deploy minimum. Nothing was sent and no position was opened.`
+						: `Only ${backing} of ${perpMargin} USDC survived the bridge, which carries ${spend} of hedge — below the deploy minimum. Margin is on Solana and no position was opened.`,
 					activity,
 				);
 			}
