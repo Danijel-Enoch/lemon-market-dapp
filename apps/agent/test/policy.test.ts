@@ -8,9 +8,12 @@ import {
 	isFlat,
 	type MarketSnapshot,
 	MIN_DEPLOY_USDC,
+	MIN_TOP_UP_USDC,
 	permittedActions,
 	perpMarginFor,
 	resumableAmount,
+	sizingLeverageBps,
+	spareMargin,
 	splitDeployment,
 	type VaultSnapshot,
 } from "../src/policy";
@@ -56,6 +59,8 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		withdrawWindowRemaining: 500_000n * USDC,
 		idleOnBase: 0n,
 		unallocatedMargin: 0n,
+		perpNotionalUsdc: 0n,
+		perpEquityUsdc: 0n,
 		ripeRedeemAssets: 0n,
 		pendingRedeemAssets: 0n,
 		earliestDeadline: null,
@@ -203,10 +208,14 @@ describe("a deployment stranded at the agent", () => {
 		it("buys the spot leg and bridges nothing", () => {
 			const deploy = permittedActions(halfDeployed(), NOW).find((o) => o.kind === "DEPLOY");
 			expect(deploy?.legs?.perpMargin).toBe(0n);
-			// Capped by what the margin already there can carry at 1x, not by half
-			// the idle balance — which is the whole point.
-			expect(deploy?.legs?.spotNotional).toBe(MARGIN);
-			expect(deploy?.amount).toBe(MARGIN);
+			// Capped by what the margin already there can carry at the *sizing*
+			// leverage, not by half the idle balance — which is the whole point.
+			// Slightly under the margin itself, because the hedge is opened with the
+			// buffer in hand rather than at the mandate's ceiling.
+			const carriable = (MARGIN * BigInt(sizingLeverageBps(snapshot()))) / 10_000n;
+			expect(carriable).toBeLessThan(MARGIN);
+			expect(deploy?.legs?.spotNotional).toBe(carriable);
+			expect(deploy?.amount).toBe(carriable);
 		});
 
 		it("says the margin is already there, so the log is not read as a fresh bridge", () => {
@@ -232,13 +241,18 @@ describe("a deployment stranded at the agent", () => {
 		});
 
 		it("splits normally once that margin is backing a position", () => {
-			// Sized off the floor so the ordinary half-and-half split clears it.
+			// Sized off the floor so the ordinary near-half-and-half split clears it.
+			const idle = 4n * MIN_DEPLOY_USDC;
 			const deploy = permittedActions(
-				halfDeployed({ unallocatedMargin: 0n, idleOnBase: 4n * MIN_DEPLOY_USDC }),
+				halfDeployed({ unallocatedMargin: 0n, idleOnBase: idle }),
 				NOW,
 			).find((o) => o.kind === "DEPLOY");
-			expect(deploy?.legs?.spotNotional).toBe(2n * MIN_DEPLOY_USDC);
-			expect(deploy?.legs?.perpMargin).toBe(2n * MIN_DEPLOY_USDC);
+
+			const expected = splitDeployment(idle, sizingLeverageBps(snapshot()));
+			expect(deploy?.legs).toEqual(expected);
+			// The margin side is the larger of the two, which is what the buffer is:
+			// an unlevered hedge backed by slightly more than its own notional.
+			expect(expected.perpMargin).toBeGreaterThan(expected.spotNotional);
 		});
 	});
 
@@ -336,7 +350,15 @@ describe("permittedActions", () => {
 		const idle = { freeAssets: MIN_DEPLOY_USDC * 2n, totalAssets: MIN_DEPLOY_USDC * 2n };
 		expect(permittedActions(snapshot(idle), NOW).map((o) => o.kind)).not.toContain("DEPLOY");
 		expect(
-			permittedActions(snapshot({ ...idle, targetLeverageBps: 20_000 }), NOW).map((o) => o.kind),
+			permittedActions(
+				snapshot({
+					...idle,
+					riskTier: "LEVERAGED",
+					targetLeverageBps: 20_000,
+					maxLeverageBps: 30_000,
+				}),
+				NOW,
+			).map((o) => o.kind),
 		).toContain("DEPLOY");
 	});
 
@@ -345,12 +367,18 @@ describe("permittedActions", () => {
 			for (const size of [100n, 150n, 200n, 250n, 400n, 1_000n]) {
 				const s = snapshot({
 					targetLeverageBps,
+					// A real profile: the ceiling is never below the target, and only the
+					// conservative tier has them equal. Leaving it at 10_000 here would
+					// size every case as if it were unlevered.
+					maxLeverageBps: Math.max(targetLeverageBps, 10_000),
 					freeAssets: size * USDC,
 					totalAssets: size * USDC,
 				});
 				const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
 				if (!deploy) continue;
-				const { spotNotional } = splitDeployment(deploy.amount, targetLeverageBps);
+				// Measured at the leverage the deployment is actually sized at, which is
+				// the one the venue's own floor sees.
+				const { spotNotional } = splitDeployment(deploy.amount, sizingLeverageBps(s));
 				expect(spotNotional).toBeGreaterThanOrEqual(MIN_DEPLOY_USDC);
 			}
 		}
@@ -516,9 +544,22 @@ describe("permittedActions, across several markets", () => {
 	it("caps a deployment at the market's own room, not the whole idle balance", () => {
 		const s = snapshot({ markets: even() });
 		const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
-		// $9,000 deployable at 1x buys $4,500 of spot across both markets, so BTC's
-		// half is $2,250 — which needs a $4,500 deployment to buy.
-		expect(deploy?.amount).toBe(4_500n * USDC);
+
+		// $9,000 is deployable, and unlevered that buys a little under half of it in
+		// spot — the rest is the margin backing it, plus the buffer. Split evenly
+		// between two markets, BTC's share is half of that spot, and the deployment
+		// that buys it is that share grossed back up.
+		//
+		// Asserted through the same helpers rather than as a round number, because
+		// the exact figure is a rounding artifact of the buffer: at 1x it was a clean
+		// $4,500, and at 0.97x it lands a unit either side depending on the setting.
+		const sizing = sizingLeverageBps(s);
+		const wholeSpot = splitDeployment(9_000n * USDC, sizing).spotNotional;
+		expect(deploy?.amount).toBe(deploymentFor(wholeSpot / 2n, sizing));
+		// Still about half the deployable balance, which is what "capped at the
+		// market's own room" means here.
+		expect(deploy?.amount).toBeLessThan(5_000n * USDC);
+		expect(deploy?.amount).toBeGreaterThan(4_000n * USDC);
 	});
 
 	it("skips a market that cannot be bought and deploys into the next one", () => {
@@ -753,5 +794,360 @@ describe("decide", () => {
 			fellBack: false,
 		}));
 		expect(result.amount).toBe(policyAmount as bigint);
+	});
+});
+
+/**
+ * The mandate, and the arithmetic that used to breach it.
+ *
+ * A conservative vault is required by the contract to have a target and a
+ * ceiling of exactly 10_000 with nothing in between, and the leverage it reports
+ * is marked to market on both sides. A hedge opened at exactly 1x therefore
+ * leaves the mandate on the first upward tick of its market — and the report
+ * that admits it reverts, which stales the NAV and shuts the vault to deposits
+ * and redemptions until the price comes back.
+ *
+ * The observed case: `LeverageExceedsMandate(10025, 10000)`, on a $32 vault,
+ * every 64 seconds.
+ */
+describe("the margin buffer", () => {
+	const conservative = snapshot();
+	const leveraged = snapshot({
+		riskTier: "LEVERAGED",
+		targetLeverageBps: 20_000,
+		maxLeverageBps: 30_000,
+	});
+
+	/**
+	 * What the perp account reads after the underlying moves by `moveBps`.
+	 *
+	 * A short: notional is `size × mark`, so it grows with the price, and equity
+	 * nets the unrealised loss, so it shrinks by the same dollars. Both halves,
+	 * which is why the ratio moves at roughly twice the price.
+	 */
+	function afterMove(legs: { spotNotional: bigint; perpMargin: bigint }, moveBps: bigint) {
+		const change = (legs.spotNotional * moveBps) / 10_000n;
+		return {
+			perpNotionalUsdc: legs.spotNotional + change,
+			perpEquityUsdc: legs.perpMargin - change,
+		};
+	}
+
+	function observedBps(legs: { spotNotional: bigint; perpMargin: bigint }, moveBps: bigint) {
+		const { perpNotionalUsdc, perpEquityUsdc } = afterMove(legs, moveBps);
+		return Number((perpNotionalUsdc * 10_000n) / perpEquityUsdc);
+	}
+
+	// -- what gets buffered, and what does not ------------------------------
+
+	it("takes the buffer out of a mandate with no headroom of its own", () => {
+		expect(sizingLeverageBps(conservative)).toBeLessThan(conservative.maxLeverageBps);
+	});
+
+	it("leaves a mandate that already has headroom at its target", () => {
+		// A 2x target under a 3x ceiling is a third clear of the line already.
+		// Shaving it would give up yield to buy room the vault has anyway.
+		expect(sizingLeverageBps(leveraged)).toBe(leveraged.targetLeverageBps);
+	});
+
+	it("never sizes above the vault's own target", () => {
+		for (const target of [10_000, 15_000, 20_000, 25_000, 30_000]) {
+			const s = snapshot({ targetLeverageBps: target, maxLeverageBps: 30_000 });
+			expect(sizingLeverageBps(s)).toBeLessThanOrEqual(target);
+		}
+	});
+
+	// -- the incident -------------------------------------------------------
+
+	/** The old sizing, kept here as the thing the buffer is measured against. */
+	it("would have breached on an eighth of a percent at exactly 1x", () => {
+		const atTheCeiling = splitDeployment(100n * USDC, 10_000);
+		expect(atTheCeiling.spotNotional).toBe(atTheCeiling.perpMargin);
+		// The reported figure, reproduced. The log said 10_025 against a ceiling of
+		// 10_000; integer USDC on a round $100 lands a unit either side of that,
+		// which is the point — a rise of an eighth of a percent is already over.
+		expect(observedBps(atTheCeiling, 12n)).toBeGreaterThan(conservative.maxLeverageBps);
+		expect(observedBps(atTheCeiling, 12n)).toBeGreaterThanOrEqual(10_024);
+	});
+
+	it("holds the same move comfortably inside the mandate once buffered", () => {
+		const buffered = splitDeployment(100n * USDC, sizingLeverageBps(conservative));
+		expect(observedBps(buffered, 12n)).toBeLessThan(conservative.maxLeverageBps);
+	});
+
+	/**
+	 * `p = b / (2 * (1 - b))` — the move a buffer of `b` absorbs. The point of
+	 * asserting it here is that the buffer is worth having: a fraction of a
+	 * percent was never enough, and this is the figure that says how much is.
+	 */
+	it("absorbs a move a hedge sized at its ceiling could not", () => {
+		const buffered = splitDeployment(100n * USDC, sizingLeverageBps(conservative));
+		expect(observedBps(buffered, 100n)).toBeLessThan(conservative.maxLeverageBps);
+	});
+
+	it("still breaches eventually, which is what the top-up is for", () => {
+		const buffered = splitDeployment(100n * USDC, sizingLeverageBps(conservative));
+		expect(observedBps(buffered, 500n)).toBeGreaterThan(conservative.maxLeverageBps);
+	});
+
+	// -- the buffer is not spent by the next deployment ----------------------
+
+	/**
+	 * Pacifica reserves the notional at the account's 1x setting and reports the
+	 * rest as free, so to the venue the whole buffer looks spendable. A deployment
+	 * that believed it would buy more notional with the margin holding the line —
+	 * and put the account straight back at its ceiling.
+	 */
+	it("does not offer the buffer to the next deployment as spare margin", () => {
+		const buffered = splitDeployment(100n * USDC, sizingLeverageBps(conservative));
+		const s = snapshot({
+			perpNotionalUsdc: buffered.spotNotional,
+			perpEquityUsdc: buffered.perpMargin,
+			// What the venue would say is free: equity less the notional it reserves.
+			unallocatedMargin: buffered.perpMargin - buffered.spotNotional,
+		});
+		// The venue sees dollars of free margin; the policy sees nothing worth
+		// deploying. Not exactly zero only because flooring the split and flooring
+		// the requirement disagree in the last USDC unit or two.
+		expect(s.unallocatedMargin).toBeGreaterThan(USDC);
+		expect(spareMargin(s)).toBeLessThan(1_000n);
+	});
+
+	/**
+	 * The half-deployed case, which must keep working: margin bridged, short never
+	 * opened. There is no notional, so there is no buffer to hold back, and the
+	 * whole balance is spare — the state `deploymentSources` exists to resume from.
+	 */
+	it("still sees margin backing no position at all", () => {
+		const s = snapshot({ unallocatedMargin: 45n * USDC, perpNotionalUsdc: 0n });
+		expect(spareMargin(s)).toBe(45n * USDC);
+	});
+
+	it("hands back genuine excess above the buffer", () => {
+		const buffered = splitDeployment(100n * USDC, sizingLeverageBps(conservative));
+		const extra = 20n * USDC;
+		const s = snapshot({
+			perpNotionalUsdc: buffered.spotNotional,
+			perpEquityUsdc: buffered.perpMargin + extra,
+			unallocatedMargin: buffered.perpMargin - buffered.spotNotional + extra,
+		});
+		// Within a rounding unit of the excess, and nothing like the buffer beneath it.
+		expect(spareMargin(s)).toBeGreaterThan(extra - 1_000n);
+		expect(spareMargin(s)).toBeLessThan(extra + 1_000n);
+	});
+});
+
+/**
+ * Restoring the buffer once drift has eaten it.
+ *
+ * The buffer buys time, not immunity. A market that keeps going up spends it,
+ * and the only thing that puts it back without shrinking the position the
+ * depositors are paid funding on is more margin.
+ */
+describe("TOP_UP_MARGIN", () => {
+	const SIZED = sizingLeverageBps(snapshot());
+
+	/** A vault whose hedge is open and whose account reads at `observedBps`. */
+	function atLeverage(observedBps: number, overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
+		const notional = 1_000n * USDC;
+		return snapshot({
+			perpNotionalUsdc: notional,
+			perpEquityUsdc: (notional * 10_000n) / BigInt(observedBps),
+			markets: [market({ spotValueUsdc: notional, spotUnits: 10n ** 18n, perpUnits: 10n ** 18n })],
+			deployedAssets: 2_000n * USDC,
+			...overrides,
+		});
+	}
+
+	const kinds = (s: VaultSnapshot) => permittedActions(s, NOW).map((o) => o.kind);
+	const topUp = (s: VaultSnapshot) =>
+		permittedActions(s, NOW).find((o) => o.kind === "TOP_UP_MARGIN");
+
+	it("leaves a freshly opened hedge alone", () => {
+		expect(kinds(atLeverage(SIZED))).not.toContain("TOP_UP_MARGIN");
+	});
+
+	/**
+	 * Half way, not at the line. A bridge takes minutes and ticks are a minute
+	 * apart, so waiting for the actual breach means every tick in between is one
+	 * with a stale NAV. The half that remains is what covers the crossing.
+	 */
+	it("acts once more than half the buffer is gone", () => {
+		const halfway = SIZED + Math.floor((10_000 - SIZED) / 2);
+		expect(kinds(atLeverage(halfway))).not.toContain("TOP_UP_MARGIN");
+		expect(kinds(atLeverage(halfway + 10))).toContain("TOP_UP_MARGIN");
+	});
+
+	it("is a judgement call while the mandate still holds", () => {
+		expect(topUp(atLeverage(9_900))?.forced).toBe(false);
+	});
+
+	/**
+	 * Once the report is actually reverting there is nothing else worth doing
+	 * with a tick: the vault is stale, so it takes no deposits and pays no
+	 * redemptions until this lands.
+	 */
+	it("is the only option once the ceiling is breached", () => {
+		expect(permittedActions(atLeverage(10_025), NOW).map((o) => o.kind)).toEqual(["TOP_UP_MARGIN"]);
+		expect(topUp(atLeverage(10_025))?.forced).toBe(true);
+	});
+
+	it("sends enough to put the account back where it was opened", () => {
+		const s = atLeverage(10_025);
+		const sent = topUp(s)?.amount ?? 0n;
+		const restored = Number((s.perpNotionalUsdc * 10_000n) / (s.perpEquityUsdc + sent));
+		expect(restored).toBeLessThanOrEqual(SIZED);
+	});
+
+	/**
+	 * A 25 bps drift on a small hedge is a shortfall of cents, and bridging cents
+	 * every tick would cost more than the vault earns. Overshooting is harmless:
+	 * the excess is equity, it lands the account further below its ceiling rather
+	 * than above it, and `spareMargin` hands it to the next deployment.
+	 */
+	it("never bridges less than the floor", () => {
+		const tiny = atLeverage(10_025, {
+			perpNotionalUsdc: 20n * USDC,
+			perpEquityUsdc: (20n * USDC * 10_000n) / 10_025n,
+		});
+		expect(topUp(tiny)?.amount).toBe(MIN_TOP_UP_USDC);
+	});
+
+	it("says what it is doing and why", () => {
+		expect(topUp(atLeverage(10_025))?.reason ?? "").toContain("stale");
+		expect(topUp(atLeverage(9_900))?.reason ?? "").toContain("buffer");
+	});
+
+	// -- where the money comes from ----------------------------------------
+
+	it("spends capital already out of the vault before drawing more", () => {
+		const s = atLeverage(10_025, { idleOnBase: 500n * USDC });
+		expect(topUp(s)?.fundedFrom).toBe("AGENT");
+	});
+
+	it("draws from the vault when the agent holds nothing", () => {
+		expect(topUp(atLeverage(10_025))?.fundedFrom).toBe("VAULT");
+	});
+
+	/**
+	 * `resumableAmount` holds idle USDC back while the queue is short, because it
+	 * is the cheapest capital a redemption could be paid from. That rule inverts
+	 * once the NAV is stale: a vault that cannot report cannot fulfil at all, so
+	 * hoarding the money for the queue is what keeps the queue unpaid.
+	 */
+	it("spends the agent's idle balance for a breach even with the queue short", () => {
+		const s = atLeverage(10_025, {
+			idleOnBase: 500n * USDC,
+			// Owed more than the vault holds, which is the condition that makes
+			// `resumableAmount` refuse to release the idle balance.
+			freeAssets: 1_000n * USDC,
+			ripeRedeemAssets: 5_000n * USDC,
+		});
+		expect(resumableAmount(s)).toBe(0n);
+		expect(topUp(s)?.fundedFrom).toBe("AGENT");
+	});
+
+	/**
+	 * A vault at its deployment ceiling with capital stranded at the agent. The
+	 * vault source is zero — the ceiling is what the stranded money is filling —
+	 * and picking a single source up front by comparing the shortfall to the idle
+	 * balance would have landed on it and found nothing to spend.
+	 */
+	it("falls through to the agent when the vault ceiling leaves nothing to draw", () => {
+		const s = atLeverage(10_025, {
+			freeAssets: 0n,
+			totalAssets: 2_000n * USDC,
+			deployedAssets: 2_000n * USDC,
+			idleOnBase: 500n * USDC,
+		});
+		expect(deployableAmount(s)).toBe(0n);
+		expect(topUp(s)?.fundedFrom).toBe("AGENT");
+	});
+
+	it("offers nothing it cannot fund", () => {
+		const broke = atLeverage(10_025, {
+			freeAssets: 0n,
+			idleOnBase: 0n,
+			withdrawWindowRemaining: 0n,
+		});
+		expect(kinds(broke)).not.toContain("TOP_UP_MARGIN");
+	});
+
+	/**
+	 * The state the live vault was actually in: fully deployed, breached, and with
+	 * nothing spare to add as margin.
+	 *
+	 * `deployableAmount` is zero because the deployment ceiling is full — which is
+	 * what a *working* vault looks like — and a completed deployment leaves no
+	 * idle USDC at the agent. So the cheap correction has nothing to fund it, and
+	 * without a second one the vault would sit stale until somebody deposited.
+	 */
+	describe("when there is nothing to top up with", () => {
+		const wedged = (overrides: Partial<VaultSnapshot> = {}) => {
+			const notional = 1_000n * USDC;
+			return atLeverage(10_025, {
+				// Deployed right up to the 90% ceiling, with the rest owed to nobody.
+				totalAssets: 2_200n * USDC,
+				freeAssets: 220n * USDC,
+				deployedAssets: 1_980n * USDC,
+				idleOnBase: 0n,
+				withdrawWindowRemaining: 0n,
+				markets: [
+					market({ spotValueUsdc: notional, spotUnits: 10n ** 18n, perpUnits: 10n ** 18n }),
+				],
+				...overrides,
+			});
+		};
+
+		it("has no margin it could send", () => {
+			expect(deployableAmount(wedged())).toBe(0n);
+			expect(kinds(wedged())).not.toContain("TOP_UP_MARGIN");
+		});
+
+		/**
+		 * Closing part of the position takes the notional down while equity stays
+		 * where it is — the loss it realises was already marked — so the ratio
+		 * falls. The proceeds also refill `freeAssets`, which reopens the cheap
+		 * correction for next time.
+		 */
+		it("sells the excess notional instead, and is not asked to deliberate", () => {
+			const unwind = permittedActions(wedged(), NOW).find((o) => o.kind === "UNWIND");
+			expect(permittedActions(wedged(), NOW).map((o) => o.kind)).toEqual(["UNWIND"]);
+			expect(unwind?.forced).toBe(true);
+			expect(unwind?.reason ?? "").toContain("stale");
+		});
+
+		/**
+		 * Sized to land back at the sizing leverage, not just inside the ceiling.
+		 * Scraping under the line pays a full set of trading fees for no room at
+		 * all, and the next tick would be back here.
+		 */
+		it("closes enough to reach the leverage the hedge was opened at", () => {
+			const s = wedged();
+			const sold = permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount ?? 0n;
+			const after = Number(((s.perpNotionalUsdc - sold) * 10_000n) / s.perpEquityUsdc);
+			expect(after).toBeLessThanOrEqual(SIZED);
+		});
+
+		/** Never more than the legs that can actually be routed out hold. */
+		it("asks for no more than can be sold", () => {
+			const s = wedged({
+				markets: [
+					market({
+						spotValueUsdc: 1_000n * USDC,
+						spotUnits: 10n ** 18n,
+						perpUnits: 10n ** 18n,
+						spotSellable: false,
+					}),
+				],
+			});
+			expect(kinds(s)).not.toContain("UNWIND");
+		});
+	});
+
+	it("says nothing about a vault with no position at all", () => {
+		expect(kinds(snapshot({ perpNotionalUsdc: 0n, perpEquityUsdc: 45n * USDC }))).not.toContain(
+			"TOP_UP_MARGIN",
+		);
 	});
 });

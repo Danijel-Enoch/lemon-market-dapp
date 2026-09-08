@@ -1,5 +1,6 @@
 import { BPS } from "@lemon/contracts";
 import type { AdlRisk } from "@lemon/core";
+import { leverageBps } from "./valuation";
 
 /**
  * What the agent does next, and who decides.
@@ -29,6 +30,11 @@ export type ActionKind =
 	| "UNWIND"
 	/** Trade one market's perp leg back to its spot leg's size. */
 	| "REBALANCE"
+	/**
+	 * Send more margin to the perp venue, to put observed leverage back under the
+	 * vault's ceiling with room to spare. See `MARGIN_BUFFER_BPS`.
+	 */
+	| "TOP_UP_MARGIN"
 	/**
 	 * Close every position in every market and send all of it back to the vault.
 	 *
@@ -121,8 +127,27 @@ export interface VaultSnapshot {
 	 * *spot* leg, and sizing a fresh `spot + margin` split against the remaining
 	 * idle USDC would bridge yet more margin instead — which is why this is a
 	 * field rather than something the deployment split could infer.
+	 *
+	 * A bound on what a deployment may spend, not the whole answer: margin the
+	 * *venue* would let the agent spend can still be margin this vault is
+	 * deliberately holding back as its buffer. See `spareMargin`.
 	 */
 	unallocatedMargin: bigint;
+
+	/**
+	 * The perp account's open notional and its equity, in USDC.
+	 *
+	 * The ratio of the two is the leverage reported on-chain, and both halves are
+	 * marked to market — see `leverageBps` in `valuation.ts`. They are carried
+	 * separately rather than as that ratio because a ratio cannot be turned back
+	 * into the dollars of margin that would move it, and sizing a top-up is
+	 * exactly that arithmetic.
+	 *
+	 * Account-level, across every market. Pacifica margins the account rather than
+	 * the symbol, and so does the vault's mandate.
+	 */
+	perpNotionalUsdc: bigint;
+	perpEquityUsdc: bigint;
 
 	/** Shares queued whose delay has elapsed, and what they are worth now. */
 	ripeRedeemAssets: bigint;
@@ -151,9 +176,11 @@ export interface VaultSnapshot {
 	 * `permittedActions`. There is no safe rule to write here: the score rises as
 	 * the hedge wins, so refusing to deploy on a high score would stop the vault
 	 * working precisely during the drawdowns when its funding is usually best,
-	 * and there is no "reduce leverage" action to offer — leverage is fixed by
-	 * the vault's mandate at creation. So it is surfaced to the advisor as
-	 * judgement material and to the operator as a warning, and left there.
+	 * and there is no "reduce leverage" action that would help — `TOP_UP_MARGIN`
+	 * moves the account's leverage but not its place in this queue, which is
+	 * scored on unrealised profit rather than on margin. So it is surfaced to the
+	 * advisor as judgement material and to the operator as a warning, and left
+	 * there.
 	 */
 	adl: AdlRisk;
 }
@@ -165,17 +192,18 @@ export interface Decision {
 	/**
 	 * The market this action is aimed at, or null when it is not aimed at one.
 	 *
-	 * Null for HOLD and CLOSE_ALL, which are about the vault, and for UNWIND,
-	 * which takes from whichever markets are furthest above their target weight
-	 * rather than from one the policy picked. Set for DEPLOY and REBALANCE, which
-	 * cannot be executed without knowing which market they mean.
+	 * Null for HOLD and CLOSE_ALL, which are about the vault, for UNWIND, which
+	 * takes from whichever markets are furthest above their target weight rather
+	 * than from one the policy picked, and for TOP_UP_MARGIN, which pays into the
+	 * one account that backs every market's short. Set for DEPLOY and REBALANCE,
+	 * which cannot be executed without knowing which market they mean.
 	 */
 	market: string | null;
 	reason: string;
 	/** True when the policy left no room for judgement. */
 	forced: boolean;
 	/**
-	 * Where a DEPLOY's capital comes from. Null for every other kind.
+	 * Where a DEPLOY's or a TOP_UP_MARGIN's capital comes from. Null otherwise.
 	 *
 	 * `VAULT` is the ordinary case and draws the amount down with
 	 * `agentWithdraw`. `AGENT` spends USDC the agent already holds on Base and
@@ -204,6 +232,133 @@ export interface DeploymentLegs {
 
 /** Below 1% the correction costs more in fees than the drift costs in exposure. */
 export const REBALANCE_DRIFT_BPS = 100;
+
+/**
+ * How far below its ceiling a hedge is opened, so it has somewhere to drift.
+ *
+ * The leverage the contract stores is marked to market on both sides: notional
+ * is `size × mark` and equity nets unrealised P&L, so a short whose underlying
+ * rises gains notional and loses equity at once. A position opened at exactly
+ * its ceiling reads `(1 + p) / (1 - p)` after a move of `p` — over the line on a
+ * rise of a fraction of a percent, and over it from the taker fee on the opening
+ * order before the price has moved at all.
+ *
+ * The vault it bites is the conservative one, where the contract requires target
+ * and ceiling to be the same 10_000 and there is no headroom to drift into
+ * (`_validateRiskProfile`). A NAV report over the ceiling reverts, and a vault
+ * that cannot report goes stale — which stops deposits and stops redemptions
+ * being paid. So an unlevered vault whose hedge is sized at exactly 1x cannot
+ * post a valid NAV for as long as its market is above where it opened.
+ *
+ * The fix is in the sizing rather than in the measurement. Backing `N` of
+ * notional with `N / (1 - b)` of margin opens the position at `1 - b` of the
+ * ceiling, and it stays inside the mandate until
+ *
+ *     p  =  b / (2 * (1 - b))
+ *
+ * At 3% that is a 1.55% adverse move, which is a normal day for a tokenised
+ * equity and several ticks' warning at a minute apiece — long enough for
+ * `TOP_UP_MARGIN` to restore the buffer before the ceiling is reached.
+ *
+ * It is not free: the same dollar deployed buys 3% less spot leg, and funding is
+ * earned on the spot leg. That is the trade — a few percent of yield for a
+ * mandate the vault can actually report against.
+ *
+ * A vault whose ceiling already sits above its target has this headroom by
+ * construction and is left alone; see `sizingLeverageBps`.
+ *
+ * Set `MARGIN_BUFFER_BPS` in the environment to move it. How much room a hedge
+ * needs depends on how far its market moves between ticks, which is a fact about
+ * the market rather than about this code.
+ */
+export const MARGIN_BUFFER_BPS = bpsFromEnv("MARGIN_BUFFER_BPS", 300); // 3%
+
+/**
+ * The leverage a deployment actually sizes its hedge at.
+ *
+ * The vault's target, unless that would leave the position with nowhere to
+ * drift. A conservative vault targets 10_000 against a ceiling of 10_000, so it
+ * is sized at `10_000 - MARGIN_BUFFER_BPS`; a leveraged vault targets 2x against
+ * a 3x ceiling and is already 33% clear of it, so its target stands unchanged.
+ *
+ * Derived from the *ceiling* rather than the target, because the ceiling is what
+ * rejects the report. Taking the buffer off a target that already sits well
+ * below the ceiling would give up yield to buy room the vault had anyway.
+ */
+export function sizingLeverageBps(snapshot: {
+	targetLeverageBps: number;
+	maxLeverageBps: number;
+}): number {
+	const buffered = Math.floor((snapshot.maxLeverageBps * (BPS - MARGIN_BUFFER_BPS)) / BPS);
+	return Math.min(snapshot.targetLeverageBps, buffered);
+}
+
+/**
+ * The margin the open notional needs in order to sit at the sizing leverage.
+ *
+ * What the position is *supposed* to be backed by, as opposed to what it happens
+ * to be backed by after the market moved. The difference between this and equity
+ * is the whole of `spareMargin` and `marginTopUp`.
+ */
+function requiredMargin(snapshot: VaultSnapshot): bigint {
+	if (snapshot.perpNotionalUsdc <= 0n) return 0n;
+	return (snapshot.perpNotionalUsdc * BigInt(BPS)) / BigInt(sizingLeverageBps(snapshot));
+}
+
+/**
+ * The part of the required margin the venue does not require for itself.
+ *
+ * Pacifica reserves the notional at the account's 1x setting; this vault holds
+ * `notional * BPS / L` — so the difference is the buffer, and it is exactly the
+ * amount the venue will report as free while this vault considers it spoken for.
+ *
+ * The mirror of `retainedMargin` in `venue.ts`, which keeps the same quantity
+ * back when an unwind frees margin. Deployment and withdrawal have to agree on
+ * it or they undo each other.
+ */
+function bufferMargin(snapshot: VaultSnapshot): bigint {
+	const required = requiredMargin(snapshot);
+	return required > snapshot.perpNotionalUsdc ? required - snapshot.perpNotionalUsdc : 0n;
+}
+
+/**
+ * Margin at the venue that is genuinely free to carry more hedge.
+ *
+ * Not the venue's own figure. Pacifica reports what is spendable against *its*
+ * margin requirement, which is the position at 1x — it knows nothing about the
+ * buffer this vault holds on top, so its number counts the buffer as spare and a
+ * deployment sized against it would spend the buffer on more notional and put
+ * the account straight back at its ceiling.
+ *
+ * So it is the venue's own figure less the buffer this vault holds on top of it.
+ * Taken off the venue's number rather than derived from equity on purpose: with
+ * nothing open there is no buffer to hold, and the whole balance reads spare —
+ * which is the case that matters most, because a deployment that bridged its
+ * margin and then failed before the short is exactly the state the resumption in
+ * `deploymentSources` exists to get out of, and it must not depend on an equity
+ * reading agreeing with the venue's free balance to see it.
+ */
+export function spareMargin(snapshot: VaultSnapshot): bigint {
+	const buffer = bufferMargin(snapshot);
+	return snapshot.unallocatedMargin > buffer ? snapshot.unallocatedMargin - buffer : 0n;
+}
+
+/**
+ * The smallest margin top-up worth bridging.
+ *
+ * A top-up is a bridge and a deposit with no swap on the end, so it is cheaper
+ * than a deployment — but it is not free, and the shortfall that triggers one is
+ * often cents. Restoring a buffer eaten by a 0.2% move on a $50 hedge is a
+ * fifteen-cent transfer, and doing that on every tick would spend more in fees
+ * than the vault earns in funding.
+ *
+ * So a top-up sends at least this much even when less would do. Overshooting
+ * costs nothing that matters: the excess is equity, the valuation counts it, it
+ * lands the position further below its ceiling rather than above it — which the
+ * contract accepts and treats as reportable — and `spareMargin` hands it to the
+ * next deployment rather than stranding it.
+ */
+export const MIN_TOP_UP_USDC = usdcFromEnv("MIN_TOP_UP_USDC", 5_000_000n); // $5
 
 /**
  * The smallest spot leg worth opening.
@@ -245,6 +400,27 @@ function usdcFromEnv(name: string, fallback: bigint): bigint {
 		);
 	}
 	return BigInt(parsed[1]) * 1_000_000n + BigInt((parsed[2] ?? "").padEnd(6, "0"));
+}
+
+/**
+ * Read a basis-point setting from the environment.
+ *
+ * Bounded to a fraction strictly under one whole. A buffer of zero is a hedge
+ * opened at its ceiling, which is the bug this exists to prevent; a buffer of
+ * 10_000 or more sizes every hedge at nothing. Throws at import rather than
+ * defaulting, for the reason in `usdcFromEnv`.
+ */
+function bpsFromEnv(name: string, fallback: number): number {
+	const raw = process.env[name]?.trim();
+	if (!raw) return fallback;
+
+	const parsed = Number(raw);
+	if (!Number.isInteger(parsed) || parsed <= 0 || parsed >= BPS) {
+		throw new Error(
+			`${name} must be a whole number of basis points between 1 and ${BPS - 1}, got "${raw}".`,
+		);
+	}
+	return parsed;
 }
 
 /** Unwinding is never skipped for being small — someone is waiting on it. */
@@ -396,6 +572,19 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		});
 	}
 
+	// --- the mandate ------------------------------------------------------
+	//
+	// Ahead of drift and ahead of growth, because this is the one condition that
+	// stops the vault reporting at all. A NAV report above the ceiling reverts,
+	// and a vault whose NAV is stale takes no deposits and pays no redemptions —
+	// so while this stands there is nothing else worth doing with a tick.
+
+	const correction = mandateCorrection(snapshot);
+	if (correction) {
+		if (correction.forced) return [correction];
+		options.push(correction);
+	}
+
 	// --- hedge health -----------------------------------------------------
 	//
 	// Per market, worst first. Drift is a property of a pair of legs, and there
@@ -435,6 +624,183 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	});
 
 	return options;
+}
+
+/**
+ * Bring the account back inside the mandate, if it has left it — or nothing.
+ *
+ * Two corrections, and the cheap one is tried first. Adding margin leaves the
+ * position alone and costs a bridge; shrinking the position costs slippage and
+ * taker fees on both legs and gives up the funding the closed part was earning.
+ * So the second only runs when the first cannot be funded *and* the ceiling is
+ * genuinely breached — a warning the vault cannot afford to act on is left as a
+ * warning, because the buffer still has room in it.
+ *
+ * Mark-to-market drift eats the buffer that `sizingLeverageBps` opened the hedge
+ * with, and the only thing that puts it back without touching the position is
+ * more margin. Notional is left alone deliberately: selling spot and buying back
+ * perp would lower leverage too, but it also shrinks the position the depositors
+ * are paid funding on, and it pays two sets of trading fees to do what one
+ * transfer does.
+ *
+ * **Half the buffer, not all of it.** Waiting until the ceiling is actually
+ * breached means every tick between the breach and the margin landing is a tick
+ * with a stale NAV, and a bridge is minutes. Acting at the halfway line keeps
+ * the correction ahead of the failure, and the half that remains is what covers
+ * the crossing.
+ *
+ * Forced once the ceiling is genuinely breached, because at that point the
+ * report is already reverting and no other action restores it.
+ */
+function mandateCorrection(snapshot: VaultSnapshot): Decision | null {
+	// Nothing open is nothing to be over-levered on. This also keeps a vault that
+	// has bridged margin but not yet opened its short — equity with no notional,
+	// which reads as infinitely under-levered — out of this branch entirely.
+	if (snapshot.perpNotionalUsdc <= 0n) return null;
+
+	const sized = sizingLeverageBps(snapshot);
+	const ceiling = snapshot.maxLeverageBps;
+	const observed = leverageBps(snapshot.perpNotionalUsdc, snapshot.perpEquityUsdc);
+
+	// Midway between where the hedge was sized and where the report fails. On a
+	// vault whose ceiling already sits above its target this is a long way up,
+	// which is correct: that vault was never short of room.
+	const actAt = sized + Math.floor((ceiling - sized) / 2);
+	if (observed <= actAt) return null;
+
+	const breached = observed > ceiling;
+
+	const topUp = marginTopUp(snapshot, { sized, ceiling, observed, breached });
+	if (topUp) return topUp;
+
+	// Nothing to top up with. While the mandate still holds that is simply a
+	// warning the vault cannot act on yet — the buffer has room left and the next
+	// deployment or unwind will restore it in passing.
+	if (!breached) return null;
+
+	// Once it is actually breached, doing nothing is not available: the report is
+	// reverting and the vault is stale. If the margin cannot go up, the notional
+	// has to come down.
+	return deleverage(snapshot, { sized, ceiling, observed });
+}
+
+/**
+ * Restore the buffer by adding margin — the cheap correction, when it is funded.
+ */
+function marginTopUp(
+	snapshot: VaultSnapshot,
+	state: { sized: number; ceiling: number; observed: number; breached: boolean },
+): Decision | null {
+	const { sized, ceiling, observed, breached } = state;
+
+	const shortfall = requiredMargin(snapshot) - snapshot.perpEquityUsdc;
+	if (shortfall <= 0n) return null;
+
+	// The same ordering a deployment uses, and for the same reason: capital that
+	// has already left the vault is spent before any more is drawn out of it.
+	//
+	// A breach also outranks the reason `resumableAmount` holds idle USDC back.
+	// That rule keeps the cheapest capital available for the redemption queue —
+	// but a vault that cannot report its NAV cannot fulfil a redemption at all, so
+	// hoarding the money for the queue is what keeps the queue unpaid.
+	//
+	// Tried in turn rather than picked once. The vault source is bounded by the
+	// deployment ceiling, and a vault at that ceiling with capital stranded at its
+	// agent is exactly the state where the second source is zero and the first is
+	// not — choosing between them up front would find nothing to spend.
+	const sources: Array<{ fundedFrom: "AGENT" | "VAULT"; available: bigint }> = [
+		{
+			fundedFrom: "AGENT",
+			available: breached ? snapshot.idleOnBase : resumableAmount(snapshot),
+		},
+		{ fundedFrom: "VAULT", available: deployableAmount(snapshot) },
+	];
+
+	// Only a top-up that actually clears the shortfall is worth making. A partial
+	// one pays the bridge, leaves the report still reverting, and comes back next
+	// tick asking for the rest.
+	const source = sources.find((s) => s.available >= shortfall);
+	if (!source) return null;
+
+	// At least the floor, so a fifteen-cent correction does not cost a bridge.
+	// Capped at what is there, which is never below the shortfall by the line above.
+	const amount = min(source.available, shortfall > MIN_TOP_UP_USDC ? shortfall : MIN_TOP_UP_USDC);
+
+	return {
+		kind: "TOP_UP_MARGIN",
+		amount,
+		market: null,
+		reason: breached
+			? `The perp account is at ${(observed / 10_000).toFixed(4)}x against a ${(ceiling / 10_000).toFixed(2)}x ceiling, so the NAV report is being rejected and the vault is going stale. ${fmt(amount)} of margin puts it back at ${(sized / 10_000).toFixed(2)}x.`
+			: `The perp account has drifted to ${(observed / 10_000).toFixed(4)}x, more than half way from the ${(sized / 10_000).toFixed(2)}x it was opened at to its ${(ceiling / 10_000).toFixed(2)}x ceiling. ${fmt(amount)} of margin restores the buffer before a report is rejected.`,
+		forced: breached,
+		fundedFrom: source.fundedFrom,
+		legs: null,
+	};
+}
+
+/**
+ * Bring the mandate back by shrinking the position, when margin cannot be added.
+ *
+ * The case that makes this necessary is the ordinary end state of a healthy
+ * vault: fully deployed. `deployableAmount` is then zero because the deployment
+ * ceiling is full, and there is no idle USDC at the agent because a working
+ * deployment leaves none — so a breach at that moment has nothing to fund a
+ * top-up with, and without this the vault would stay stale until someone
+ * deposited into it.
+ *
+ * An unwind cures it from the other side. Closing part of the position takes the
+ * notional down while equity stays where it is — the loss it realises was
+ * already marked — so the ratio falls. It also returns capital to the vault,
+ * which refills `freeAssets` and reopens the deployment ceiling, so the cheap
+ * correction is available again next time.
+ *
+ * Sized to land back at the sizing leverage rather than just inside the ceiling.
+ * Closing only enough to scrape under the line pays a full set of trading fees
+ * to buy no room at all, and the next tick would be here again.
+ *
+ * Deliberately last. This is the expensive correction — it pays spot slippage
+ * and a taker fee on both legs, and it shrinks the position the depositors are
+ * paid funding on. It exists because the alternative is a vault that has stopped
+ * working, not because it is a good trade.
+ */
+function deleverage(
+	snapshot: VaultSnapshot,
+	state: { sized: number; ceiling: number; observed: number },
+): Decision | null {
+	const { sized, ceiling, observed } = state;
+
+	// The notional that equity can carry at the sizing leverage, and so how much
+	// of it has to go. Equity at or below zero carries nothing, which is a
+	// position being liquidated rather than one being rebalanced — the whole
+	// sellable holding is the most this can ask for either way.
+	const carriable =
+		snapshot.perpEquityUsdc > 0n ? (snapshot.perpEquityUsdc * BigInt(sized)) / BigInt(BPS) : 0n;
+	const excess = snapshot.perpNotionalUsdc > carriable ? snapshot.perpNotionalUsdc - carriable : 0n;
+	if (excess <= 0n) return null;
+
+	// The same slack an ordinary unwind carries, for the same reason: the close is
+	// priced when it executes and the position is measured again on the next tick,
+	// and landing a cent short leaves the report still reverting after the trade
+	// has already been paid for.
+	const withBuffer = excess + (excess * BigInt(UNWIND_BUFFER_BPS)) / BigInt(BPS);
+
+	// Only what can actually be sold. A market whose pool has dried up holds
+	// notional this cannot reach, and asking the adapter for more than every
+	// routable leg contains would size an order against value it cannot raise.
+	const reachable = sellableValue(snapshot);
+	const amount = min(withBuffer, reachable);
+	if (amount < MIN_UNWIND_USDC) return null;
+
+	return {
+		kind: "UNWIND",
+		amount,
+		market: null,
+		reason: `The perp account is at ${(observed / 10_000).toFixed(4)}x against a ${(ceiling / 10_000).toFixed(2)}x ceiling and there is nothing spare to add as margin, so the NAV report is being rejected and the vault is going stale. Closing ${fmt(amount)} takes the notional down to what the margin already there can carry at ${(sized / 10_000).toFixed(2)}x, and returns the proceeds to the vault.`,
+		forced: true,
+		fundedFrom: null,
+		legs: null,
+	};
 }
 
 /**
@@ -507,25 +873,30 @@ interface DeploymentSource {
  */
 function deploymentSources(snapshot: VaultSnapshot): DeploymentSource[] {
 	const sources: DeploymentSource[] = [];
-	const leverage = BigInt(snapshot.targetLeverageBps);
+	// Sized with the buffer, throughout. Splitting at the bare target would open
+	// every hedge at its ceiling, which is the state `MARGIN_BUFFER_BPS` exists to
+	// keep the vault out of.
+	const sizing = sizingLeverageBps(snapshot);
+	const leverage = BigInt(sizing);
 	const idle = resumableAmount(snapshot);
 
-	if (idle > 0n && snapshot.unallocatedMargin > 0n) {
+	const spare = spareMargin(snapshot);
+	if (idle > 0n && spare > 0n) {
 		// What that margin can hedge at the vault's leverage, capped by the USDC
 		// actually on hand to buy it with. Anything left over stays idle for the
 		// next tick rather than being bridged into margin nothing is hedging.
-		const carriable = (snapshot.unallocatedMargin * leverage) / BigInt(BPS);
+		const carriable = (spare * leverage) / BigInt(BPS);
 		sources.push({
 			fundedFrom: "AGENT",
 			legs: { spotNotional: min(idle, carriable), perpMargin: 0n },
-			where: `${fmt(snapshot.unallocatedMargin)} of margin is already at the venue with nothing hedging it`,
+			where: `${fmt(spare)} of margin is already at the venue with nothing hedging it`,
 		});
 	}
 
 	if (idle > 0n) {
 		sources.push({
 			fundedFrom: "AGENT",
-			legs: splitDeployment(idle, snapshot.targetLeverageBps),
+			legs: splitDeployment(idle, sizing),
 			where: `${fmt(idle)} drawn down by an earlier deployment is sitting in the agent's Base wallet`,
 		});
 	}
@@ -534,7 +905,7 @@ function deploymentSources(snapshot: VaultSnapshot): DeploymentSource[] {
 	if (deployable > 0n) {
 		sources.push({
 			fundedFrom: "VAULT",
-			legs: splitDeployment(deployable, snapshot.targetLeverageBps),
+			legs: splitDeployment(deployable, sizing),
 			where: `${fmt(deployable)} is idle`,
 		});
 	}
@@ -582,13 +953,11 @@ function deploymentFrom(snapshot: VaultSnapshot, source: DeploymentSource): Deci
 		// follow it or the position opens over-hedged. A source that bridges
 		// nothing stays at zero: there is no margin to scale, and the spot leg is
 		// already bounded by what the existing margin can carry.
+		const sizing = sizingLeverageBps(snapshot);
 		const legs: DeploymentLegs =
 			source.legs.perpMargin === 0n
 				? { spotNotional: spend, perpMargin: 0n }
-				: splitDeployment(
-						deploymentFor(spend, snapshot.targetLeverageBps),
-						snapshot.targetLeverageBps,
-					);
+				: splitDeployment(deploymentFor(spend, sizing), sizing);
 
 		return {
 			kind: "DEPLOY",

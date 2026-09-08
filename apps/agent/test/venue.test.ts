@@ -270,7 +270,7 @@ describe("unwind", () => {
 			bridgeFeeUsdc: 2n * USDC,
 		});
 
-		const activity = await adapter.unwind({ amount: 1_000n * USDC });
+		const activity = await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		// $1,000 sold on Base, plus $500 of margin less $2 of bridge fee.
 		expect(returnToVault).toHaveBeenCalledWith(1_498n * USDC);
@@ -288,6 +288,44 @@ describe("unwind", () => {
 	});
 
 	/**
+	 * A partial unwind must not undo the margin buffer.
+	 *
+	 * Pacifica reserves the notional at the account's 1x setting and calls the
+	 * rest withdrawable, so the buffer backing the *surviving* hedge reads as free
+	 * to the venue. Sweeping it home would leave what is still open sitting at
+	 * exactly its ceiling, and the next NAV report reverting — the same breach the
+	 * buffer exists to prevent, reached from the other side.
+	 */
+	it("leaves the surviving position's buffer at the venue", async () => {
+		// 10 units at a mark of 100 is $1,000 of notional still open.
+		const { adapter, returnToVault } = harness({
+			perpSize: "10",
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		await adapter.unwind({ leverageBps: 9_700, amount: 1_000n * USDC });
+
+		// $1,000 of notional at 0.97x wants $1,030.93 of equity; the venue already
+		// holds $1,000 of that against its own requirement, so $30.93 of what it
+		// calls free is spoken for. $500 - $30.93 comes home with the $1,000 of
+		// spot proceeds.
+		const retained = (1_000n * USDC * 10_000n) / 9_700n - 1_000n * USDC;
+		expect(returnToVault).toHaveBeenCalledWith(1_500n * USDC - retained);
+	});
+
+	it("keeps nothing back when there is no position left to back", async () => {
+		const { adapter, returnToVault } = harness({
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		await adapter.unwind({ leverageBps: 9_700, amount: 1_000n * USDC });
+
+		expect(returnToVault).toHaveBeenCalledWith(1_500n * USDC);
+	});
+
+	/**
 	 * The quote is a promise and the fill is the fact. `agentReturn` pulls real
 	 * tokens, so a return sized off the quote reverts the whole call — after
 	 * both legs have already been closed.
@@ -298,7 +336,7 @@ describe("unwind", () => {
 			availableToWithdraw: "0",
 		});
 
-		await adapter.unwind({ amount: 1_000n * USDC });
+		await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		expect(returnToVault).toHaveBeenCalledWith(940n * USDC);
 	});
@@ -311,7 +349,7 @@ describe("unwind", () => {
 	it("still returns the spot proceeds when the bridge is down", async () => {
 		const { adapter, returnToVault } = harness({ fillUsdc: 1_000n * USDC, bridgeFails: true });
 
-		const activity = await adapter.unwind({ amount: 1_000n * USDC });
+		const activity = await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		expect(returnToVault).toHaveBeenCalledWith(1_000n * USDC);
 		expect(activity.map((a) => a.kind)).not.toContain("BRIDGE_OUT");
@@ -323,7 +361,7 @@ describe("unwind", () => {
 			withdrawalFails: true,
 		});
 
-		await adapter.unwind({ amount: 1_000n * USDC });
+		await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		expect(returnToVault).toHaveBeenCalledWith(1_000n * USDC);
 		// Nothing is bridged on the strength of a withdrawal that was refused.
@@ -335,7 +373,7 @@ describe("unwind", () => {
 			availableToWithdraw: "0",
 		});
 
-		await adapter.unwind({ amount: 1_000n * USDC });
+		await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		expect(requestWithdrawal).not.toHaveBeenCalled();
 		expect(returnToVault).toHaveBeenCalled();
@@ -367,7 +405,9 @@ describe("a reverted transaction", () => {
 
 		// Wrapped by the caller, which adds what the failure left behind. The
 		// revert is the cause; the message is about the position.
-		const error = await adapter.unwind({ amount: 500n * USDC }).catch((e) => e);
+		const error = await adapter
+			.unwind({ leverageBps: 10_000, amount: 500n * USDC })
+			.catch((e) => e);
 		expect(error).toBeInstanceOf(VenueExecutionError);
 		expect(error.message).toContain("Spot sell failed");
 		expect(String((error as Error).cause)).toContain("reverted on Base");
@@ -381,7 +421,7 @@ describe("a reverted transaction", () => {
 			swapReverts: true,
 		});
 
-		await adapter.unwind({ amount: 500n * USDC }).catch(() => {});
+		await adapter.unwind({ leverageBps: 10_000, amount: 500n * USDC }).catch(() => {});
 
 		expect(returnToVault).not.toHaveBeenCalled();
 	});
@@ -475,6 +515,23 @@ describe("allocateUnwind", () => {
 });
 
 describe("closeAll", () => {
+	/**
+	 * A close order sweeps, and keeps no buffer back — there is no surviving
+	 * position for a buffer to be backing. Asserted with a position still on the
+	 * venue's books so this is discrimination rather than a vacuous pass.
+	 */
+	it("sweeps the margin account rather than trimming it", async () => {
+		const { adapter, returnToVault } = harness({
+			perpSize: "10",
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		await adapter.closeAll();
+
+		expect(returnToVault).toHaveBeenCalledWith(1_500n * USDC);
+	});
+
 	it("closes the leg, sweeps the margin, and sends everything home", async () => {
 		const { adapter, returnToVault, requestWithdrawal } = harness({
 			fillUsdc: 1_000n * USDC,
@@ -541,7 +598,7 @@ describe("closeAll", () => {
 			solanaIdleUsdc: 40n * USDC,
 		});
 
-		await adapter.unwind({ amount: 1_000n * USDC });
+		await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		expect(toBase).toHaveBeenCalledWith(500n * USDC);
 	});
@@ -677,7 +734,7 @@ describe("closeAll", () => {
 		});
 		balances.usdc += 250n * USDC;
 
-		await adapter.unwind({ amount: 1_000n * USDC });
+		await adapter.unwind({ leverageBps: 10_000, amount: 1_000n * USDC });
 
 		// An unwind returns what it raised. The rest is usually capital
 		// mid-deployment that the next tick will put to work.

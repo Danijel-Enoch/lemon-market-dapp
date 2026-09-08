@@ -1,8 +1,8 @@
 import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
-import { decide, driftBps, isFlat } from "./policy";
+import { decide, driftBps, isFlat, sizingLeverageBps } from "./policy";
 import { leverageBps, type Valuation, ValuationError } from "./valuation";
-import type { ActivityInput, VaultClient, VaultState } from "./vault";
+import { type ActivityInput, isRevert, type VaultClient, type VaultState } from "./vault";
 
 /**
  * One vault's loop.
@@ -83,7 +83,14 @@ export interface VenueAdapter {
 		unallocatedMargin: bigint;
 	}>;
 
-	/** Buy one market's spot leg and open the matching short. Returns what it did. */
+	/**
+	 * Buy one market's spot leg and open the matching short. Returns what it did.
+	 *
+	 * `leverageBps` is the policy's sizing leverage, not the vault's raw target —
+	 * see `sizingLeverageBps`. It decides how much margin backs the hedge, so a
+	 * caller that passed the bare mandate here would open every position at its
+	 * ceiling.
+	 */
 	deploy(params: {
 		/** The market's ticker. The adapter refuses one it has no configuration for. */
 		market: string;
@@ -99,8 +106,21 @@ export interface VenueAdapter {
 	 * it takes from whichever are furthest above their target weight, which needs
 	 * live quotes the policy does not have and would leave stale by the time the
 	 * order was placed.
+	 *
+	 * `leverageBps` is what the *surviving* position should be left backed at. An
+	 * unwind frees margin, and the venue would hand back every dollar it no longer
+	 * requires — including the buffer the remaining hedge still needs.
 	 */
-	unwind(params: { amount: bigint }): Promise<ActivityInput[]>;
+	unwind(params: { amount: bigint; leverageBps: number }): Promise<ActivityInput[]>;
+
+	/**
+	 * Add margin to the perp account, without touching the position.
+	 *
+	 * What restores the buffer when mark-to-market drift has eaten it. Deliberately
+	 * separate from `deploy`: this opens no notional and buys no spot, so it lowers
+	 * the account's leverage rather than holding it constant.
+	 */
+	topUpMargin(params: { amount: bigint }): Promise<ActivityInput[]>;
 
 	/** Trade one market's perp leg back to its spot leg's size. */
 	rebalance(params: { market: string; targetUnits: bigint }): Promise<ActivityInput[]>;
@@ -251,22 +271,40 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			navReported = true;
 			log("info", `NAV reported at ${usd(observation.valuation.deployedAssets)}.`);
 		} catch (error) {
-			// A rejected report is a signal, not a nuisance: it means the value
-			// claimed is outside the bounds the vault was configured with, or the
-			// leverage is outside its mandate. Trading on top of that would be
-			// acting on a position the contract has just refused to believe.
-			log("error", "NAV report rejected.", error);
-			return {
-				action: "NONE",
-				market: null,
-				rationale: `NAV report rejected: ${message(error)}`,
-				advised: false,
-				navReported: false,
-				activityReported: 0,
-				fulfilled: 0,
-				closeSatisfied: false,
-				error: message(error),
-			};
+			// A rejected report is a signal, not a nuisance — but which signal decides
+			// whether the tick goes on.
+			//
+			// A *deviation* rejection means the contract disputes the number itself.
+			// Trading on top of that would be acting on a position the chain has just
+			// refused to believe, so the tick stops here.
+			//
+			// A *mandate* rejection is the opposite: the contract believes the
+			// valuation and objects to the leverage, which is a thing the agent can
+			// actually fix — and the fix lives in the act stage below. Returning here
+			// would leave the agent posting the same rejected report every tick with
+			// no way to reach the one action that cures it, while the NAV goes stale
+			// and the vault stops taking deposits and paying redemptions. That is the
+			// loop this branch exists to break.
+			if (!isRevert(error, "LeverageExceedsMandate")) {
+				log("error", "NAV report rejected.", error);
+				return {
+					action: "NONE",
+					market: null,
+					rationale: `NAV report rejected: ${message(error)}`,
+					advised: false,
+					navReported: false,
+					activityReported: 0,
+					fulfilled: 0,
+					closeSatisfied: false,
+					error: message(error),
+				};
+			}
+
+			log(
+				"error",
+				`NAV report rejected: ${(observation.valuation.leverageBps / 10_000).toFixed(4)}x is outside the vault's mandate. Continuing the tick so the position can be brought back inside it; the NAV is stale until it is.`,
+				error,
+			);
 		}
 	}
 
@@ -297,6 +335,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		withdrawWindowRemaining: await vault.withdrawWindowRemaining(),
 		idleOnBase: observation.idleOnBase,
 		unallocatedMargin: observation.unallocatedMargin,
+		// The two halves of the leverage that was just reported, so the policy can
+		// size a margin top-up in dollars rather than by scaling a rounded ratio.
+		perpNotionalUsdc: observation.valuation.perp.notional,
+		perpEquityUsdc: observation.valuation.perp.equity,
 		ripeRedeemAssets: sum(ripe.map((q) => q.pendingAssets)),
 		pendingRedeemAssets: sum(queue.filter((q) => q.eligibleAt > now).map((q) => q.pendingAssets)),
 		earliestDeadline: ripe.length ? Math.min(...ripe.map((q) => q.fulfillBy)) : null,
@@ -380,10 +422,23 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			activity = await venue.deploy({
 				...split,
 				market: decision.market,
-				leverageBps: fresh.targetLeverageBps,
+				// The policy's sizing leverage, not the vault's raw target. The two
+				// differ by the margin buffer, and handing the venue the target would
+				// open the hedge at exactly the ceiling its NAV report is checked
+				// against — see `MARGIN_BUFFER_BPS`.
+				leverageBps: sizingLeverageBps(snapshot),
 			});
+		} else if (decision.kind === "TOP_UP_MARGIN") {
+			// Same funding rule as a deployment: `AGENT` spends capital that has
+			// already left the vault, `VAULT` draws it down. Withdrawing for an
+			// agent-funded top-up would take a second helping to do one transfer.
+			if (decision.fundedFrom === "VAULT") await vault.agentWithdraw(decision.amount);
+			activity = await venue.topUpMargin({ amount: decision.amount });
 		} else if (decision.kind === "UNWIND") {
-			activity = await venue.unwind({ amount: decision.amount });
+			activity = await venue.unwind({
+				amount: decision.amount,
+				leverageBps: sizingLeverageBps(snapshot),
+			});
 		} else if (decision.kind === "REBALANCE") {
 			if (!decision.market) throw new Error("A rebalance named no market.");
 			const target = observation.markets.find((m) => m.ticker === decision.market);

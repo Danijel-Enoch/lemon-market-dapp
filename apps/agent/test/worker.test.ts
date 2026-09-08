@@ -1,5 +1,8 @@
 import { describe, expect, it, mock } from "bun:test";
+import { lemonVaultAbi } from "@lemon/contracts";
 import { adlRisk } from "@lemon/core";
+import { type Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
+import { sizingLeverageBps } from "../src/policy";
 import { ValuationError } from "../src/valuation";
 import type { ActivityInput } from "../src/vault";
 import {
@@ -70,6 +73,7 @@ function observation(overrides = {}) {
 			deployedAssets: 0n,
 			leverageBps: 10_000,
 			components: { spot: 0n, perpEquity: 0n, idleAtAgent: 0n, inFlight: 0n },
+			perp: { notional: 0n, equity: 0n },
 			spotByMarket: {},
 		},
 		markets: [observedMarket()],
@@ -78,6 +82,27 @@ function observation(overrides = {}) {
 		unallocatedMargin: 0n,
 		...overrides,
 	};
+}
+
+/**
+ * An observation whose perp account reads at a given leverage.
+ *
+ * `observation` spreads its overrides at the top level, so the two figures the
+ * mandate is judged on — which live inside the valuation — cannot be set through
+ * it without replacing the whole valuation. This does that.
+ */
+function atLeverage(observedBps: number, notional = 1_000n * USDC, overrides = {}) {
+	const equity = (notional * 10_000n) / BigInt(observedBps);
+	return observation({
+		valuation: {
+			deployedAssets: notional + equity,
+			leverageBps: observedBps,
+			components: { spot: notional, perpEquity: equity, idleAtAgent: 0n, inFlight: 0n },
+			perp: { notional, equity },
+			spotByMarket: { NVDA: notional },
+		},
+		...overrides,
+	});
 }
 
 function harness(options: {
@@ -135,6 +160,12 @@ function harness(options: {
 				calls.push(`rebalance:${market}:${targetUnits}`);
 				return [activityRow()];
 			}),
+		topUpMargin:
+			options.venue?.topUpMargin ??
+			mock(async ({ amount }: { amount: bigint }) => {
+				calls.push(`topUpMargin:${amount}`);
+				return [activityRow()];
+			}),
 		closeAll:
 			options.venue?.closeAll ??
 			mock(async () => {
@@ -171,6 +202,26 @@ function activityRow(): ActivityInput {
 		txRef: "0xdeadbeef",
 		occurredAt: NOW,
 	};
+}
+
+/**
+ * A real `LeverageExceedsMandate` revert, as viem hands one to the agent.
+ *
+ * Built through `encodeErrorResult` and viem's own error type rather than as a
+ * bare `Error` with the right words in it, because `isRevert` decodes the custom
+ * error out of the revert data against the ABI. A string double would pass a
+ * test the production path could not.
+ */
+function leverageRevert(observed: number, ceiling: number) {
+	return new ContractFunctionRevertedError({
+		abi: lemonVaultAbi as Abi,
+		functionName: "reportNav",
+		data: encodeErrorResult({
+			abi: lemonVaultAbi as Abi,
+			errorName: "LeverageExceedsMandate",
+			args: [observed, ceiling],
+		}),
+	});
 }
 
 function queueEntry(overrides: Partial<QueueEntry> = {}): QueueEntry {
@@ -244,10 +295,14 @@ describe("tick", () => {
 
 		await tick(deps);
 
-		// Spot sized to what the waiting margin carries at 1x, and nothing bridged.
+		// Spot sized to what the waiting margin carries at the sizing leverage —
+		// slightly under the margin itself, since an unlevered hedge is backed by a
+		// little more than its own notional — and nothing bridged.
+		const sizing = sizingLeverageBps({ targetLeverageBps: 10_000, maxLeverageBps: 10_000 });
 		expect(deploy.mock.calls[0]?.[0]).toMatchObject({
-			spotNotional: margin,
+			spotNotional: (margin * BigInt(sizing)) / 10_000n,
 			perpMargin: 0n,
+			leverageBps: sizing,
 		});
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
 	});
@@ -285,7 +340,11 @@ describe("tick", () => {
 		expect(result.error).toContain("no route");
 	});
 
-	/** A rejected report means the contract does not believe the position. */
+	/**
+	 * A deviation rejection means the contract does not believe the position.
+	 * Trading on top of a valuation the chain has just refused is the last thing
+	 * to do about it, so the tick stops.
+	 */
 	it("does not trade after a rejected NAV report", async () => {
 		const { deps, vault } = harness({});
 		vault.reportNav = mock(async () => {
@@ -295,6 +354,105 @@ describe("tick", () => {
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
 		expect(result.action).toBe("NONE");
 		expect(result.error).toContain("NavDeviationTooLarge");
+	});
+
+	/**
+	 * A mandate rejection is the opposite case, and the loop it used to cause is
+	 * what this is here for.
+	 *
+	 * The contract believes the valuation and objects to the leverage. That is a
+	 * thing the agent can fix — but the fix is an action, and the action stage is
+	 * below the report. Returning here left the agent posting the same rejected
+	 * report every tick with no way to reach the cure, while the NAV went stale
+	 * and the vault stopped taking deposits and paying redemptions. Observed as
+	 * `LeverageExceedsMandate(10025, 10000)` every 64 seconds.
+	 */
+	it("carries on after a report rejected for leverage, so it can act on it", async () => {
+		const breached = 10_025;
+		const notional = 1_000n * USDC;
+		const { deps, vault, calls } = harness({
+			observe: async () => atLeverage(breached, notional),
+		});
+		vault.reportNav = mock(async () => {
+			throw leverageRevert(breached, 10_000);
+		});
+
+		const result = await tick(deps);
+
+		// The report did not land, and the tick says so — but it reached the stage
+		// that can do something about it.
+		expect(result.navReported).toBe(false);
+		expect(result.action).toBe("TOP_UP_MARGIN");
+		expect(calls.some((c) => c.startsWith("topUpMargin:"))).toBe(true);
+	});
+
+	/**
+	 * The discrimination is on the decoded custom error, not on the words in the
+	 * message. A deviation rejection built the same way still stops the tick.
+	 */
+	it("still stops for a rejection that is not about the mandate", async () => {
+		const { deps, vault } = harness({});
+		vault.reportNav = mock(async () => {
+			throw new ContractFunctionRevertedError({
+				abi: lemonVaultAbi as Abi,
+				functionName: "reportNav",
+				data: encodeErrorResult({
+					abi: lemonVaultAbi as Abi,
+					errorName: "NavDeviationTooLarge",
+					args: [1n, 0n],
+				}),
+			});
+		});
+
+		const result = await tick(deps);
+
+		expect(result.action).toBe("NONE");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+	});
+
+	// -- restoring the margin buffer ---------------------------------------
+
+	/** A top-up drawn from the vault moves capital across the vault's boundary. */
+	it("draws a vault-funded top-up down before bridging it", async () => {
+		const notional = 1_000n * USDC;
+		const { deps, calls } = harness({
+			observe: async () => atLeverage(10_000, notional),
+		});
+
+		const result = await tick(deps);
+
+		expect(result.action).toBe("TOP_UP_MARGIN");
+		const drawn = calls.find((c) => c.startsWith("agentWithdraw:"));
+		const bridged = calls.find((c) => c.startsWith("topUpMargin:"));
+		expect(drawn).toBeDefined();
+		// The same amount, and the draw comes first — bridging money that has not
+		// left the vault yet would send USDC the agent does not hold.
+		expect(drawn?.split(":")[1]).toBe(bridged?.split(":")[1]);
+		expect(calls.indexOf(drawn as string)).toBeLessThan(calls.indexOf(bridged as string));
+	});
+
+	/**
+	 * The mirror of the deployment rule. Capital already stranded at the agent has
+	 * been withdrawn once; drawing again would take a second helping from the
+	 * vault to do one transfer.
+	 */
+	it("spends stranded capital on a top-up without drawing more down", async () => {
+		const notional = 1_000n * USDC;
+		const stranded = 500n * USDC;
+		const { deps, vault, calls } = harness({
+			state: vaultState({
+				totalAssets: 2_000n * USDC,
+				freeAssets: 0n,
+				deployedAssets: 2_000n * USDC,
+			}),
+			observe: async () => atLeverage(10_000, notional, { idleOnBase: stranded }),
+		});
+
+		const result = await tick(deps);
+
+		expect(result.action).toBe("TOP_UP_MARGIN");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(calls.some((c) => c.startsWith("topUpMargin:"))).toBe(true);
 	});
 
 	// -- the queue ---------------------------------------------------------

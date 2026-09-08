@@ -68,6 +68,23 @@ export interface Valuation {
 		idleAtAgent: bigint;
 		inFlight: bigint;
 	};
+	/**
+	 * The two figures `leverageBps` is the ratio of, carried alongside it.
+	 *
+	 * Not redundant with the ratio. A ratio says how far the account is from its
+	 * ceiling; it cannot say how many dollars of margin would move it, and the
+	 * policy has to size that top-up in integer USDC rather than by scaling a
+	 * rounded bps figure back into money.
+	 *
+	 * `perpNotional` is not part of `deployedAssets` and deliberately sits outside
+	 * `components`: notional is exposure, not value. Adding it to the NAV would
+	 * count the hedge twice — once as the margin backing it and once as the size
+	 * it carries.
+	 */
+	perp: {
+		notional: bigint;
+		equity: bigint;
+	};
 	/** What each market's spot leg is worth, keyed by ticker. Drives the weights. */
 	spotByMarket: Record<string, bigint>;
 }
@@ -126,6 +143,10 @@ export function value(inputs: ValuationInputs): Valuation {
 			idleAtAgent: inputs.idleAtAgentUsdc,
 			inFlight: inputs.inFlightUsdc,
 		},
+		perp: {
+			notional: inputs.perpNotionalUsdc,
+			equity: inputs.perpEquityUsdc,
+		},
 		spotByMarket,
 	};
 }
@@ -138,6 +159,25 @@ export function value(inputs: ValuationInputs): Valuation {
  * equity, which is also the number the venue liquidates against — measuring any
  * symbol on its own would report a figure the contract's mandate check and the
  * venue's margin engine both disagree with.
+ *
+ * **Both sides are marked to market, so this drifts on price alone.** Notional
+ * is `size × mark`, and equity already nets unrealised P&L — so a short whose
+ * underlying rises gains notional and loses equity at the same time. A position
+ * opened at exactly `N` notional against exactly `N` of margin reads
+ *
+ *     (1 + p) / (1 - p)  ≈  1 + 2p
+ *
+ * after a move of `p`, which is 10025 bps on a rise of an eighth of a percent —
+ * and the taker fee on opening the short puts it above 1x before any move at
+ * all. That is not a mandate breach and it is not a measurement error: it is
+ * what a fully collateralised short does, and the spot leg is up by exactly what
+ * the perp leg is down. It is reported honestly anyway, because this figure is
+ * what the contract stores and what depositors read, and a leveraged vault
+ * genuinely does approach liquidation as it rises.
+ *
+ * What keeps it inside the mandate is the *sizing*, not the measurement: the
+ * agent opens the hedge with margin to spare, so the ratio starts below the
+ * ceiling with room to drift into. See `sizingLeverageBps` in `policy.ts`.
  *
  * Reported to the contract, which rejects anything above the vault's mandate.
  * Equity of zero with an open notional is not infinite leverage in any useful

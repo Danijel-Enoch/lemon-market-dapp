@@ -5,7 +5,14 @@ import {
 	type Chain,
 	lemonVaultAbi,
 } from "@lemon/contracts";
-import { type Abi, type Address, erc20Abi, type Hex } from "viem";
+import {
+	type Abi,
+	type Address,
+	BaseError,
+	ContractFunctionRevertedError,
+	erc20Abi,
+	type Hex,
+} from "viem";
 import { confirmed } from "./tx";
 
 /**
@@ -271,6 +278,26 @@ export class VaultClient {
 		await confirmed(this.publicClient, hash, `The vault's ${functionName} call`);
 		return hash;
 	}
+}
+
+/**
+ * Whether a failed write reverted with one named custom error.
+ *
+ * The agent has to tell one revert from another, because they call for different
+ * things. A NAV report the contract rejects as *outside the mandate* is a
+ * position the agent can correct and then report; one rejected as *too large a
+ * deviation* is a valuation the contract disputes, and acting on a number the
+ * chain has refused to believe is the last thing to do about it. Matching on the
+ * message text would work until someone reworded it.
+ *
+ * Matched by name rather than by selector so the caller reads as the contract
+ * does. An unrecognised shape is `false`: an error this cannot decode is one the
+ * caller has no specific handling for anyway.
+ */
+export function isRevert(error: unknown, errorName: string): boolean {
+	if (!(error instanceof BaseError)) return false;
+	const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);
+	return revert instanceof ContractFunctionRevertedError && revert.data?.errorName === errorName;
 }
 
 /**

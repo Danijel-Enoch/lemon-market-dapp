@@ -386,6 +386,16 @@ services:
       # rather than on the deployment that funds it, so at 1x a vault needs
       # roughly twice this idle before it can deploy at all.
       MIN_DEPLOY_USDC: ${MIN_DEPLOY_USDC:-30}
+      # How far below its ceiling a hedge is opened, in basis points. Reported
+      # leverage is marked to market on both sides, so a hedge sized at exactly
+      # its ceiling breaches on a fraction of a percent — and a conservative
+      # vault has no headroom of its own to drift into. 300 bps covers a 1.55%
+      # move, at the cost of that much less spot leg per dollar deployed.
+      MARGIN_BUFFER_BPS: ${MARGIN_BUFFER_BPS:-300}
+      # The smallest margin top-up worth bridging, in dollars. Restoring the
+      # buffer is often a matter of cents, and bridging cents costs more than
+      # the vault earns. Worth lowering for a small vault.
+      MIN_TOP_UP_USDC: ${MIN_TOP_UP_USDC:-5}
       # Optional. With no key the agent runs on its deterministic policy alone,
       # which is strictly less clever and equally safe.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}

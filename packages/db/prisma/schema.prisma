@@ -404,12 +404,13 @@ model AgentRun {
   vaultAddress String
   vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
 
-  /// DEPLOY, UNWIND, REBALANCE, CLOSE_ALL, HOLD or NONE.
+  /// DEPLOY, UNWIND, REBALANCE, TOP_UP_MARGIN, CLOSE_ALL, HOLD or NONE.
   action String
   /// Which of the vault's markets the action was aimed at, when it was aimed at
   /// one. Null for the actions that are about the vault rather than a market —
-  /// HOLD, and an UNWIND, which takes from whichever markets are furthest above
-  /// their target weight rather than from a market the policy named.
+  /// HOLD, an UNWIND, which takes from whichever markets are furthest above
+  /// their target weight rather than from a market the policy named, and a
+  /// TOP_UP_MARGIN, which pays into the one account backing every market.
   market String?
   /// The reason given — by the policy, or by the advisory model when consulted.
   rationale String

@@ -575,14 +575,24 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// against the account and on a vault's first deployment the account is
 			// seconds old: the deposit inside the bridge above is what created it.
 			await awaitRegistration(activity);
+			//
+			// Rounded *up*, and never below 1. This is the venue's own ceiling on the
+			// account, not the leverage the order is placed at — the agent decides that
+			// by how much margin it posts, and it deliberately posts more than the
+			// mandate's minimum (see `MARGIN_BUFFER_BPS`). Rounding to nearest would
+			// take a hedge sized at 2.05x down to a venue setting of 2x, and the venue
+			// would then reject the order for insufficient margin against its own
+			// stricter requirement. Rounding up can only make the venue more
+			// permissive than the agent is being, which is the safe direction.
+			const venueLeverage = Math.max(1, Math.ceil(leverageBps / 10_000));
 			log(
 				"debug",
-				`deploy ${market.ticker}: step 2/5 — setting ${market.perpSymbol} leverage to ${Math.round(leverageBps / 10_000)}x.`,
+				`deploy ${market.ticker}: step 2/5 — setting ${market.perpSymbol} leverage to ${venueLeverage}x.`,
 			);
 			await pacifica.updateLeverage(deps.signPacifica, {
 				account: config.solanaAddress,
 				symbol: market.perpSymbol,
-				leverage: Math.round(leverageBps / 10_000),
+				leverage: venueLeverage,
 			});
 
 			// 3. Size both legs to the margin that actually arrived.
@@ -762,7 +772,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		 * account-level operations, and doing them per market would pay a bridge fee
 		 * per market to move USDC that is already sitting in one wallet.
 		 */
-		async unwind({ amount }) {
+		async unwind({ amount, leverageBps }) {
 			const activity: ActivityInput[] = [];
 			const startedAt = performance.now();
 
@@ -832,9 +842,16 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// position has been sold. What does not make it stays as idle USDC on
 			// Solana, which the valuation still counts, and comes back with the next
 			// unwind.
+			//
+			// Only the margin the *closed* part of the position was carrying. What
+			// still stands keeps its backing, buffer and all — sweeping the venue's
+			// whole free balance would leave the surviving hedge at exactly its
+			// ceiling and the next NAV report reverting.
 			let repatriated = 0n;
 			try {
-				repatriated = await repatriateMargin(deps, activity);
+				repatriated = await repatriateMargin(deps, activity, {
+					retainForLeverageBps: leverageBps,
+				});
 			} catch (error) {
 				// Visible by its absence: a PERP_CLOSE with no VENUE_WITHDRAW against
 				// it is exactly what an operator needs to see, and it is more useful
@@ -854,6 +871,59 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				"info",
 				`unwind: returned ${usd(proceeds + repatriated)} to the vault in ${formatDuration(performance.now() - startedAt)} (${usd(proceeds)} spot, ${usd(repatriated)} margin).`,
 			);
+
+			return activity;
+		},
+
+		/**
+		 * Send more margin to the perp account, and nothing else.
+		 *
+		 * The cheap half of a deployment: the bridge and the venue deposit, without
+		 * the leverage change, the perp order or the swap. Nothing about the position
+		 * changes — no notional is opened, no token is bought — so this cannot fail
+		 * part-way into an unhedged leg. The worst outcome is USDC that crossed and
+		 * did not deposit, which the valuation still counts as the vault's and the
+		 * next deployment picks up.
+		 *
+		 * Both legs are recorded even though the money never leaves the vault's own
+		 * accounts. A depositor reading the feed sees capital move from Base to
+		 * Solana, and a bridge with no arrival against it is how a stuck crossing
+		 * becomes visible.
+		 */
+		async topUpMargin({ amount }) {
+			const activity: ActivityInput[] = [];
+
+			log("info", `topUpMargin: bridging ${usd(amount)} of margin to Solana.`);
+
+			const bridged = await deps.bridge.toSolana(amount);
+
+			log(
+				"info",
+				`topUpMargin: ${usd(bridged.landed)} arrived (${usd(amount - bridged.landed)} lost in transit).`,
+			);
+
+			activity.push({
+				kind: "BRIDGE_OUT",
+				chain: "BASE",
+				symbol: "USDC",
+				baseAmount: amount,
+				notionalAssets: amount,
+				pnlAssets: 0n,
+				feeAssets: amount > bridged.landed ? amount - bridged.landed : 0n,
+				txRef: bridged.txRef,
+				occurredAt: deps.now(),
+			});
+			activity.push({
+				kind: "VENUE_DEPOSIT",
+				chain: "SOLANA",
+				symbol: "USDC",
+				baseAmount: bridged.landed,
+				notionalAssets: bridged.landed,
+				pnlAssets: 0n,
+				feeAssets: 0n,
+				txRef: bridged.txRef,
+				occurredAt: deps.now(),
+			});
 
 			return activity;
 		},
@@ -1046,13 +1116,19 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
  * is instant and neither is free, which is why the fee shows up on the bridge
  * row as the difference between what was sent and what landed.
  *
- * Note what this deliberately does not do: it keeps no discretionary buffer
- * above the venue's own margin requirement. `available_to_withdraw` is what
- * Pacifica considers free at the account's configured leverage, and leaving
- * some of it behind would quietly de-lever the vault below the mandate it sold
- * its depositors. If a buffer is ever wanted it belongs in `policy.ts` as a
- * named fraction, with the rest of the numbers that move money — not as a
- * constant invented here.
+ * **`retainForLeverageBps` is what stops a partial unwind undoing the buffer.**
+ * `available_to_withdraw` is what *Pacifica* considers free at the account's
+ * configured leverage, and Pacifica knows nothing about the margin this vault
+ * holds on top of its requirement — so to the venue the whole buffer reads as
+ * withdrawable, and an unwind that swept it would leave the surviving position
+ * sitting at exactly its ceiling. Which is the state `MARGIN_BUFFER_BPS` exists
+ * to prevent, arrived at from the other direction.
+ *
+ * So an unwind names the leverage the remaining position should be left at, and
+ * this keeps back the margin that implies. The fraction itself is still not
+ * invented here — it comes from `policy.ts` with the rest of the numbers that
+ * move money. A caller that passes nothing sweeps, which is what a close order
+ * means: there is no remaining position to leave margin behind for.
  *
  * `sweepIdle` additionally brings home whatever is sitting in the agent's Solana
  * wallet outside the venue. Ordinarily that is nothing, and an unwind leaves it
@@ -1064,7 +1140,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 async function repatriateMargin(
 	deps: VenueDeps,
 	activity: ActivityInput[],
-	options: { sweepIdle?: boolean } = {},
+	options: { sweepIdle?: boolean; retainForLeverageBps?: number } = {},
 ): Promise<bigint> {
 	// An account the venue has never seen holds no margin, so there is nothing to
 	// withdraw — but there may still be USDC stranded in the Solana wallet from a
@@ -1075,7 +1151,17 @@ async function repatriateMargin(
 		return null;
 	});
 	const available = numberOrNull(account?.available_to_withdraw) ?? 0;
-	const withdrawable = available > 0 ? BigInt(Math.round(available * 1e6)) : 0n;
+	let withdrawable = available > 0 ? BigInt(Math.round(available * 1e6)) : 0n;
+
+	// Keep back what the surviving position is supposed to be backed by. Read
+	// after the closes rather than inferred from them: a reduce-only order fills
+	// on the venue's lot grid and funding settles in between, so the notional that
+	// is actually still open is the venue's number, not one computed from what was
+	// asked for.
+	if (options.retainForLeverageBps !== undefined && withdrawable > 0n) {
+		const retain = await retainedMargin(deps, options.retainForLeverageBps);
+		withdrawable = withdrawable > retain ? withdrawable - retain : 0n;
+	}
 
 	// Read before the withdrawal so the sweep is the balance that was *already*
 	// stranded. Reading afterwards would race the venue's settlement and either
@@ -1125,6 +1211,50 @@ async function repatriateMargin(
 	});
 
 	return bridged.landed;
+}
+
+/**
+ * The margin to leave behind, above what the venue itself requires.
+ *
+ * Backing `N` of notional at `L` needs `N * BPS / L` of equity, and the venue
+ * has already reserved `N` of that at its own 1x setting — so what a withdrawal
+ * has to leave on top of `available_to_withdraw` is the difference. That
+ * difference is the buffer, expressed in dollars.
+ *
+ * Zero when nothing is open, which is what makes a close order's sweep and a
+ * partial unwind's retention the same code path.
+ *
+ * A read that fails is treated as no notional rather than allowed to throw. This
+ * runs inside an unwind that has already sold the spot legs, and the caller
+ * treats the whole repatriation as best-effort for that reason; turning a failed
+ * price lookup into a thrown error here would discard the proceeds a redemption
+ * is waiting on to protect a buffer the next tick can restore.
+ */
+async function retainedMargin(deps: VenueDeps, leverageBps: number): Promise<bigint> {
+	const [positions, prices] = await Promise.all([
+		deps.pacifica.positions(deps.config.solanaAddress).catch(() => []),
+		deps.pacifica.prices().catch(() => []),
+	]);
+
+	let notional = 0n;
+	for (const market of deps.config.markets) {
+		const position = positions.find((p) => p.symbol === market.perpSymbol);
+		if (!position) continue;
+
+		const size = Math.abs(numberOrNull(position.amount) ?? 0);
+		// Mark first, entry as the fallback — the same order `observe` values the
+		// notional in, so the buffer this keeps back and the leverage that gets
+		// reported are measured against the same price.
+		const quote = prices.find((q) => q.symbol === market.perpSymbol);
+		const mark = numberOrNull(quote?.mark) ?? numberOrNull(position.entry_price) ?? 0;
+		if (size <= 0 || mark <= 0) continue;
+
+		notional += BigInt(Math.round(size * mark * 1e6));
+	}
+
+	if (notional === 0n) return 0n;
+	const required = (notional * BigInt(BPS)) / BigInt(leverageBps);
+	return required > notional ? required - notional : 0n;
 }
 
 /**
