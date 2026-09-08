@@ -11,7 +11,8 @@
  * flow would have written, from the registry and from NEAR, so a scripted
  * deployment behaves like an operator-created one.
  *
- * Idempotent. Run it after any deploy that creates vaults.
+ * Idempotent, and safe to run on every deploy — which is what the `seed` service
+ * in `docker-compose.dokploy.yml` does.
  *
  * Usage: bun run scripts/seed-venue-config.ts
  */
@@ -20,6 +21,7 @@ import { assetClassForTicker } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { agentDerivationPath, NearMpcClient } from "@lemon/near-mpc";
 import { findTokenByTicker } from "@lemon/registry";
+import { indexerHealth } from "../apps/api/src/services/indexer-health";
 
 const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
 
@@ -61,6 +63,41 @@ const mpc = new NearMpcClient({
 
 await mpc.verifyRootKeys();
 
+/**
+ * Whether the vault list this is about to act on can be believed.
+ *
+ * The upserts below are additive and safe against a partial list. The stale
+ * cleanup is not: it treats "absent from the indexer" as "absent from the
+ * chain", and those are the same sentence only once the backfill has finished.
+ * Run against a half-synced read model it deletes the configuration — and the
+ * agent-run history — of every vault the indexer has not reached yet, which
+ * presents afterwards as "No venue configuration exists for 0x…" on a vault
+ * that was configured correctly ten minutes earlier.
+ *
+ * That was survivable while this was a command an operator typed deliberately.
+ * As a service that runs on every deploy it is not, because a deploy onto a
+ * fresh indexer volume is exactly when the backfill is incomplete.
+ *
+ * `behind` is allowed through with `synced`: it means the backfill finished and
+ * the vault set is complete, and only recent blocks are missing. A vault
+ * created in the last thirty blocks is absent from `stored` too, so it is not a
+ * deletion candidate.
+ */
+const health = await indexerHealth();
+
+if (health.state === "unreachable") {
+	console.error(health.summary);
+	if (health.remedy) console.error(health.remedy);
+	process.exit(1);
+}
+
+const canPrune = health.state === "synced" || health.state === "behind";
+if (!canPrune) {
+	console.warn(`indexer: ${health.state} — ${health.summary}`);
+	console.warn("Configuring the vaults it does know about; leaving existing rows alone.");
+	console.warn("Re-run once it has caught up to clear configuration for vaults that are gone.\n");
+}
+
 const response = await fetch(`${API_URL}/vaults`);
 if (!response.ok) {
 	console.error(`The API answered ${response.status} for the vault list. Is the stack running?`);
@@ -85,9 +122,14 @@ if (vaults.length === 0) {
  * `AgentRun` cascades from `VaultConfig`, so this also removes the run history
  * of the vaults it clears. That is correct — they are vaults no chain has any
  * more — but it is a deletion, so it says which ones and how many runs.
+ *
+ * Skipped entirely unless the read model is complete: see the health check
+ * above. A vault missing from a backfilling indexer is not a vault that is gone.
  */
 const live = new Set(vaults.map((v) => v.address.toLowerCase()));
-const stored = await prisma.vaultConfig.findMany({ select: { address: true, ticker: true } });
+const stored = canPrune
+	? await prisma.vaultConfig.findMany({ select: { address: true, ticker: true } })
+	: [];
 const stale = stored.filter((row) => !live.has(row.address.toLowerCase()));
 
 for (const row of stale) {

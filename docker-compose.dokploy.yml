@@ -1,6 +1,6 @@
 # Dokploy deployment — the whole app.
 #
-# Six services. `web` alone used to be a complete deployment, and is not any
+# Seven services. `web` alone used to be a complete deployment, and is not any
 # more: since the rebuild onto vaults, every historical number the app shows
 # (balances, the withdrawal queue, the activity feed, the share-price series)
 # is served by the indexer and proxied by the API. Without it the board renders
@@ -10,6 +10,7 @@
 #   migrate    one-shot schema push; everything else waits on it
 #   indexer    Ponder over the factory and its vaults. Internal, no ingress
 #   web        the depositor app, with the API mounted in-process  → ${DOMAIN}
+#   seed       one-shot venue configuration for vaults deployed by script
 #   admin      the operator console, its own origin  → ${ADMIN_DOMAIN}
 #   agent      the per-vault worker. No ports, no ingress
 #
@@ -252,6 +253,42 @@ services:
       - traefik.http.routers.lemon-web-insecure.middlewares=lemon-https
       - traefik.http.middlewares.lemon-https.redirectscheme.scheme=https
       - traefik.http.middlewares.lemon-https.redirectscheme.permanent=true
+
+  # One-shot: writes the venue configuration for every vault the indexer knows
+  # about, then exits. The sibling of `migrate` — that one gets the schema to
+  # where the code expects it, this one gets the rows there.
+  #
+  # A vault carries an agent address and a market id on chain and nothing else:
+  # `marketId` is a hash, so the ticker does not survive it, and neither does the
+  # spot token, the perp symbol or the derivation path. Those live in Postgres.
+  # The admin console's create-vault flow writes them; a vault deployed by script
+  # has none, shows "No venue config", and its agent skips it. This backfills the
+  # same rows that flow would have written.
+  #
+  # Runs on every deploy rather than once, because "once" is the wrong number:
+  # deploy a vault and the row has to appear without an operator remembering to
+  # SSH in. It upserts, so re-running is a no-op for vaults already configured.
+  #
+  # Nothing depends on it. Seeding is a repair, and a deployment whose vaults are
+  # already configured must not be held back by it — if it fails, the app still
+  # serves, and the failure is in this service's log rather than the release.
+  seed:
+    <<: *image
+    working_dir: /usr/src/app
+    command: ["bun", "run", "scripts/seed-venue-config.ts"]
+    environment:
+      <<: *app-env
+      # Vault list and ticker resolution, not the raw index — the same endpoint
+      # the agent reads, so the two agree about what a vault is.
+      AGENT_API_URL: http://web:3002/api
+    depends_on:
+      # Healthy, not started: it calls the API on its first line. `web` being
+      # healthy also means migrate has completed, so the tables exist.
+      web:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
 
   # The operator console. Its own app on its own origin so it can sit behind a
   # VPN, an IP allowlist or an SSO proxy while the public app faces the
