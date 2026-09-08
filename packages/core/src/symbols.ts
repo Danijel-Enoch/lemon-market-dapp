@@ -117,6 +117,11 @@ const ASSET_CLASS_BY_TICKER: Record<string, AssetClass> = {
 	AERO: "crypto",
 	DOGE: "crypto",
 	FARTCOIN: "crypto",
+	// Both have had a Base spot leg in `PERP_CRYPTO_TOKENS` since that table was
+	// written, and neither was ever classified here — the same gap SNDK sat in
+	// below. `registry/test/ticker-coverage.test.ts` now fails on any repeat.
+	AVNT: "crypto",
+	ETHFI: "crypto",
 
 	// Coinbase B20 tokenized equities.
 	NVDA: "equity",
@@ -147,6 +152,32 @@ const ASSET_CLASS_BY_TICKER: Record<string, AssetClass> = {
 	"GBP/USD": "fx",
 	"USD/JPY": "fx",
 };
+
+/**
+ * Every ticker this app knows a name for.
+ *
+ * A vault stores `keccak256(ticker)` and nothing else, so recovering the ticker
+ * means hashing candidates until one matches. That needs a list of candidates,
+ * and the indexer kept its own — twenty-two entries, hand-maintained, with no
+ * connection to the table above or to the token registry.
+ *
+ * It drifted, and the drift is expensive rather than cosmetic. The SNDK vault at
+ * 0x0f45dc45 indexed with a null ticker because the indexer's private list had
+ * never heard of SNDK; `seed-venue-config` skips a vault whose ticker did not
+ * resolve, so the vault was deployed, funded, and skipped by every seeder run —
+ * presenting as "No venue configuration exists", which reads like a database
+ * problem and is actually a missing string in an array two services away.
+ *
+ * So there is one list now, and it is this one. Adding a ticker here classifies
+ * it *and* makes it recoverable, in the same edit; the registry test asserts
+ * every spot token appears here, so a token added without a class fails the
+ * build rather than stranding a vault months later.
+ *
+ * The FX pairs are included for completeness and are inert as far as vaults go —
+ * a `/` cannot appear in a vault ticker — but they cost one map entry each and
+ * keeping the export equal to the table beats explaining an exception.
+ */
+export const KNOWN_TICKERS: readonly string[] = Object.keys(ASSET_CLASS_BY_TICKER);
 
 /**
  * Classify a ticker, or say so.

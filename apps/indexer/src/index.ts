@@ -1,5 +1,6 @@
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
+import { KNOWN_TICKERS } from "@lemon/core";
 import { hexToString, zeroAddress } from "viem";
 
 /**
@@ -18,42 +19,25 @@ import { hexToString, zeroAddress } from "viem";
  * "unknown", and a guess renders as a number people act on.
  */
 
-/** `marketId` is `keccak256(ticker)` on-chain, so the ticker cannot be recovered from it. */
-const KNOWN_TICKERS = [
-	"NVDA",
-	"GOOGL",
-	"TSLA",
-	"MSTR",
-	"AAPL",
-	"MSFT",
-	"META",
-	"COIN",
-	"AMZN",
-	"INTC",
-	"BTC",
-	"ETH",
-	"SOL",
-	"LINK",
-	"AAVE",
-	"CRV",
-	"ENA",
-	"ZRO",
-	"VIRTUAL",
-	"VVV",
-	"KAITO",
-	"AERO",
-] as const;
-
 let tickerByHash: Map<string, string> | null = null;
 
 /**
  * Recover a ticker from its hash by rainbow table.
  *
- * Hashing is one-way, so the alternative is an extra contract call per vault to
- * read a string the vault does not store either. The universe of tickers is a
- * couple of dozen and known, so precomputing the hashes is exact where it
- * matches — and where it does not, the column stays null and the UI falls back
- * to the vault's own name rather than inventing a symbol.
+ * `marketId` is `keccak256(ticker)` on-chain, so the ticker cannot be read back
+ * from it. Hashing is one-way, and the alternative is an extra contract call per
+ * vault to read a string the vault does not store either. The universe of
+ * tickers is a couple of dozen and known, so precomputing the hashes is exact
+ * where it matches — and where it does not, the column stays null and the UI
+ * falls back to the vault's own name rather than inventing a symbol.
+ *
+ * The candidate list is `KNOWN_TICKERS` from `@lemon/core` rather than one kept
+ * here. A local copy is the same list in a second place, and this one silently
+ * fell five tickers behind the token registry — long enough for a funded SNDK
+ * vault to index with a null ticker and be skipped by the venue seeder, which is
+ * a null here surfacing three services away as "No venue configuration exists".
+ * A miss is invisible by construction, so the list has to come from the same
+ * place the rest of the app curates tickers.
  */
 async function tickerFor(marketId: string, keccak: (s: string) => string): Promise<string | null> {
 	if (!tickerByHash) {
