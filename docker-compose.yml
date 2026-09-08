@@ -1,11 +1,16 @@
 # Full stack: Postgres, the API, and the web app.
 #
-# The web container mounts the API in-process, so `web` alone is a complete
-# deployment. The standalone `api` service is included for running it on its own
-# host (or scaling it separately) — enable it with the `split` profile:
+# The web container mounts the API in-process, so `web` alone would serve. The
+# standalone `api` service runs the same API on :3003 for working against it
+# directly, or for running it on its own host.
 #
-#   docker compose up                    # postgres + web (API embedded)
-#   docker compose --profile split up    # postgres + web + standalone API
+# It used to sit behind a `split` profile. That kept it off by default in a way
+# that was hard to notice, because a profiled service is not created at all —
+# `docker compose ps` does not list it and there is no log to read. Both come up
+# now; stop the one you are not using.
+#
+#   docker compose up                # postgres + web + standalone API
+#   docker compose up postgres web   # just the embedded-API stack
 
 services:
   postgres:
@@ -103,7 +108,6 @@ services:
       start_period: 20s
 
   api:
-    profiles: ["split"]
     build:
       context: .
       target: release

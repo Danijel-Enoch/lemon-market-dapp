@@ -387,8 +387,8 @@ the Solana column is simply blank, because there is nothing true to put in it.
 ### Docker
 
 ```bash
-docker compose up                    # postgres + web (API embedded)
-docker compose --profile split up    # + standalone API on :3003
+docker compose up                # postgres + web + the standalone API on :3003
+docker compose up postgres web   # just the embedded-API stack
 ```
 
 ## Commands

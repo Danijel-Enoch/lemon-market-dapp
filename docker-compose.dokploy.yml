@@ -1,18 +1,26 @@
 # Dokploy deployment — the whole app.
 #
-# Seven services. `web` alone used to be a complete deployment, and is not any
-# more: since the rebuild onto vaults, every historical number the app shows
-# (balances, the withdrawal queue, the activity feed, the share-price series)
-# is served by the indexer and proxied by the API. Without it the board renders
-# "the indexer is unreachable" and nothing else works.
+# Eight services, and every one of them deploys. `web` alone used to be a
+# complete deployment, and is not any more: since the rebuild onto vaults, every
+# historical number the app shows (balances, the withdrawal queue, the activity
+# feed, the share-price series) is served by the indexer and proxied by the API.
+# Without it the board renders "the indexer is unreachable" and nothing else
+# works.
 #
 #   postgres   sessions, admin allowlist, venue config, the agent's decision log
 #   migrate    one-shot schema push; everything else waits on it
 #   indexer    Ponder over the factory and its vaults. Internal, no ingress
 #   web        the depositor app, with the API mounted in-process  → ${DOMAIN}
+#   api        the same API as its own scalable unit          → ${API_DOMAIN}
 #   seed       one-shot venue configuration for vaults deployed by script
-#   admin      the operator console, its own origin  → ${ADMIN_DOMAIN}
+#   admin      the operator console, its own origin        → ${ADMIN_DOMAIN}
 #   agent      the per-vault worker. No ports, no ingress
+#
+# No service is behind a Compose profile. A profile does not merely stop a
+# container, it stops Compose from creating one — so `api` and `agent` were
+# absent from the Dokploy container list entirely, with no log to open when
+# either was the thing that needed diagnosing. Anything that should not be
+# running is stopped in Dokploy, where it is at least visible.
 #
 # Differences from `docker-compose.yml`, the local/self-hosted file:
 #
@@ -347,15 +355,17 @@ services:
 
   # The per-vault worker: valuation, execution, the redemption queue.
   #
-  # No ports and no ingress — it only makes outbound calls. Off by default:
-  # `AGENT_ENABLED=true` starts it, because an agent moving real capital should
-  # be switched on deliberately rather than by deploying.
+  # No ports and no ingress — it only makes outbound calls.
+  #
+  # It used to sit behind a Compose profile, which meant it was never created on
+  # the host at all: no container in Dokploy, and so no log to read when a vault
+  # was not being ticked. It deploys with everything else now, and is stopped
+  # from the Dokploy UI when it should not be running.
   #
   # It trades for real: KyberSwap on Base, Pacifica on Solana, Relay in between.
   # It refuses to start without RELAY_API_KEY and SOLANA_FEE_PAYER_SECRET.
   agent:
     <<: [*image, *restart]
-    profiles: ["agent"]
     working_dir: /usr/src/app
     command: ["bun", "run", "apps/agent/src/index.ts"]
     environment:
@@ -396,12 +406,18 @@ services:
     networks:
       - internal
 
-  # The web container mounts the API in-process, so it is complete on its own.
-  # Enable this only to run the API as its own scalable unit:
-  #   docker compose --profile split up
+  # The API as its own scalable unit, on its own origin.
+  #
+  # The web container also mounts the API in-process, so this is a second way in
+  # rather than the only one — both read the same database and the same indexer.
+  # It carried a `split` profile and so was never deployed, which made it
+  # invisible in Dokploy and impossible to get a log out of.
+  #
+  # Its Traefik router answers on ${API_DOMAIN}, defaulting to api.${DOMAIN}. If
+  # that name has no DNS record the router simply never matches, and the service
+  # is still reachable inside the compose network as http://api:3003.
   api:
     <<: [*image, *restart]
-    profiles: ["split"]
     working_dir: /usr/src/app
     command: ["bun", "run", "apps/api/src/index.ts"]
     environment:
