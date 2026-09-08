@@ -253,10 +253,25 @@ async function main() {
 
 	// One read at boot, because an empty fee payer does not fail loudly — it
 	// fails at the moment a bridge tries to send, halfway through an unwind.
-	const lamports = await solana.feePayerLamports();
+	//
+	// Reported as what the balance buys rather than against a fixed threshold.
+	// The two costs differ by more than two orders of magnitude — a crossing into
+	// an existing token account is a 10,000-lamport fee, and one that has to
+	// create the account is that plus its rent — so any single number is either
+	// alarmist for the common case or quiet for the expensive one. Counting both
+	// is the honest version, and it is the same arithmetic the bridge preflight
+	// runs per vault before it moves anything.
+	const [lamports, costs] = await Promise.all([solana.feePayerLamports(), solana.costs()]);
+	const spendable = lamports > costs.feePayerFloor ? lamports - costs.feePayerFloor : 0n;
+	const crossings = spendable / costs.depositFee;
+	const newAccounts = spendable / (costs.tokenAccountRent + costs.depositFee);
 	log(
-		lamports < 20_000_000n ? "warn" : "info",
-		`Solana fee payer ${solana.feePayer} holds ${Number(lamports) / 1e9} SOL.${lamports < 20_000_000n ? " That is low; every bridge leg and Pacifica deposit spends from it." : ""}`,
+		newAccounts > 0n ? "info" : "warn",
+		`Solana fee payer ${solana.feePayer} holds ${Number(lamports) / 1e9} SOL: ${crossings} more crossing(s) into token accounts that already exist, or ${newAccounts} that still have to create one at ${Number(costs.tokenAccountRent) / 1e9} SOL of rent each.${
+			newAccounts > 0n
+				? ""
+				: " A vault whose first deployment has not happened yet cannot cross until this is topped up."
+		}`,
 	);
 
 	const chain = resolveAgentChain();

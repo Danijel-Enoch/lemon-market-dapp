@@ -3,7 +3,12 @@ import type { NearMpcClient } from "@lemon/near-mpc";
 import { associatedTokenAddress, TOKEN_PROGRAM_ID, USDC_MINT } from "@lemon/pacifica/deposit";
 import { base58 } from "@scure/base";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { createSolanaExecutor, createUsdcAccount, usdcTransfer } from "./solana";
+import {
+	createSolanaExecutor,
+	createUsdcAccount,
+	feePayerRequirement,
+	usdcTransfer,
+} from "./solana";
 
 /**
  * The instruction encoding, because nothing downstream catches an error in it.
@@ -85,6 +90,53 @@ describe("createUsdcAccount", () => {
 		);
 		// `CreateIdempotent`, so this can be attached unconditionally.
 		expect(Array.from(instruction.data)).toEqual([1]);
+	});
+});
+
+describe("feePayerRequirement", () => {
+	// Mainnet's figures on the day this was written, read from the chain rather
+	// than from the numbers guides quote — those are the pre-reduction ones and
+	// are both higher.
+	const costs = {
+		tokenAccountRent: 1_855_569n,
+		feePayerFloor: 810_624n,
+		depositFee: 10_000n,
+	};
+
+	const check = (lamports: bigint, createsTokenAccount: boolean) =>
+		feePayerRequirement({ feePayer: PAYER, lamports, costs, createsTokenAccount });
+
+	it("asks only for the fee and the floor when the token account exists", () => {
+		const result = check(1_000_000n, false);
+		expect(result.required).toBe(820_624n);
+		expect(result.shortfall).toBeNull();
+	});
+
+	it("adds the account's rent when it has to be created", () => {
+		expect(check(1_000_000n, true).required).toBe(2_676_193n);
+	});
+
+	/**
+	 * The case that prompted all of this. 0.001948 SOL clears the rent and the
+	 * fee on their own — 1,948,000 against 1,865,569 — and still cannot send,
+	 * because what is left is below the fee payer's own rent-exempt minimum. A
+	 * check that ignored the floor would wave this through and let the runtime
+	 * reject it with the vault's capital already on Solana.
+	 */
+	it("refuses a balance that covers the spend but lands under the floor", () => {
+		const lamports = 1_948_000n;
+		expect(lamports).toBeGreaterThan(costs.tokenAccountRent + costs.depositFee);
+		expect(check(lamports, true).shortfall).toMatch(/short/);
+	});
+
+	it("passes the same balance once the account exists, because no rent is due", () => {
+		expect(check(1_948_000n, false).shortfall).toBeNull();
+	});
+
+	it("names the fee payer and the one-off rent, so the message says what to do", () => {
+		const { shortfall } = check(0n, true);
+		expect(shortfall).toContain(PAYER);
+		expect(shortfall).toContain("paid once");
 	});
 });
 

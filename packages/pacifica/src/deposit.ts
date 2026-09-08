@@ -50,6 +50,75 @@ export const USDC_DECIMALS = 6;
 export const MINIMUM_DEPOSIT_USDC = 10;
 
 /**
+ * What a deposit costs the fee payer, in SOL.
+ *
+ * Here rather than in either caller because both the agent's bridge and the
+ * admin dashboard's setup button create the same account with the same
+ * instruction, and an estimate that disagreed between them would let one of
+ * them promise what the other cannot deliver.
+ *
+ * Read from the chain, never hardcoded. Both rent figures are cluster
+ * parameters and both have moved — the numbers most guides quote (2,039,280
+ * lamports for a token account, 890,880 for a bare system account) are above
+ * what mainnet asks today. Guessing high refuses transactions the fee payer
+ * could afford; guessing low is worse, because the refusal then arrives from
+ * the runtime with a depositor's capital already mid-flight.
+ */
+
+/** Bytes in an SPL token account, which is what its rent is priced off. */
+export const TOKEN_ACCOUNT_BYTES = 165;
+
+/** The runtime's fee per signature. Fixed, and the same on every cluster. */
+export const LAMPORTS_PER_SIGNATURE = 5_000n;
+
+export interface SolanaCosts {
+	/** Rent-exempt minimum for an SPL token account: what creating one costs. */
+	tokenAccountRent: bigint;
+	/**
+	 * Rent-exempt minimum for the fee payer's own account.
+	 *
+	 * Not a reserve anyone chose. The runtime rejects a transaction that leaves a
+	 * writable account below its rent-exempt minimum without emptying it, so
+	 * these lamports cannot be spent — a fee payer holding exactly this much can
+	 * pay for nothing at all.
+	 */
+	feePayerFloor: bigint;
+	/** Base fee for a deposit: the fee payer's signature and the depositor's. */
+	depositFee: bigint;
+}
+
+/** A `getMinimumBalanceForRentExemption` caller, so this needs no `Connection` type. */
+export interface RentReader {
+	getMinimumBalanceForRentExemption(dataLength: number): Promise<number>;
+}
+
+export async function readSolanaCosts(connection: RentReader): Promise<SolanaCosts> {
+	const [tokenAccountRent, feePayerFloor] = await Promise.all([
+		connection.getMinimumBalanceForRentExemption(TOKEN_ACCOUNT_BYTES),
+		connection.getMinimumBalanceForRentExemption(0),
+	]);
+	return {
+		tokenAccountRent: BigInt(tokenAccountRent),
+		feePayerFloor: BigInt(feePayerFloor),
+		depositFee: LAMPORTS_PER_SIGNATURE * 2n,
+	};
+}
+
+/**
+ * Lamports the fee payer has to hold for one deposit to land.
+ *
+ * The floor is part of the requirement rather than a separate check, because a
+ * balance that covers the spend and lands under the floor fails just as hard —
+ * with `InsufficientFundsForRent`, which is an obscure way of being told to
+ * send more SOL.
+ */
+export function lamportsRequired(costs: SolanaCosts, createsTokenAccount: boolean): bigint {
+	return (
+		costs.feePayerFloor + costs.depositFee + (createsTokenAccount ? costs.tokenAccountRent : 0n)
+	);
+}
+
+/**
  * Anchor's instruction selector: the first 8 bytes of sha256("global:<name>").
  *
  * Anchor programs dispatch on this rather than on an enum tag, so the name has

@@ -1,7 +1,9 @@
 import {
 	associatedTokenAddress,
 	createUsdcAccountIfMissing,
+	lamportsRequired,
 	MINIMUM_DEPOSIT_USDC,
+	readSolanaCosts,
 	USDC_MINT,
 } from "@lemon/pacifica/deposit";
 import { base58 } from "@scure/base";
@@ -144,6 +146,12 @@ export async function pacificaAccountStatus(vaultAddress: string): Promise<Pacif
 
 	const feePayerConfigured = Boolean(config.solanaFeePayerSecret?.trim());
 
+	// What the fee payer can actually afford, not just whether one is set. The
+	// button used to be enabled on a configured secret alone, which meant an
+	// underfunded fee payer failed at `sendRawTransaction` with a runtime error
+	// — at the one moment this whole flow exists to avoid.
+	const funding = feePayerConfigured && balance === null ? await feePayerFunding(connection) : null;
+
 	return {
 		vault: agent.vault,
 		account: agent.solana,
@@ -152,13 +160,42 @@ export async function pacificaAccountStatus(vaultAddress: string): Promise<Pacif
 		usdcBalance: balance ? balance.value.amount : "0",
 		equityUsd: account?.account_equity ?? null,
 		registered: account !== null,
-		canSetUp: feePayerConfigured && balance === null,
+		canSetUp: feePayerConfigured && balance === null && funding?.sufficient === true,
 		blockedReason: !feePayerConfigured
 			? "SOLANA_FEE_PAYER_SECRET is not set on this deployment, so nothing here can pay the rent on the token account."
 			: balance !== null
 				? "The token account already exists; there is nothing left to create."
-				: null,
+				: (funding?.reason ?? null),
 		minimumDepositUsdc: MINIMUM_DEPOSIT_USDC,
+	};
+}
+
+/**
+ * Whether the fee payer holds enough to create one token account.
+ *
+ * Same arithmetic the agent's bridge preflight runs, from the same shared
+ * helpers, so the dashboard and the agent cannot disagree about whether a
+ * deployment can pay its own way.
+ */
+async function feePayerFunding(
+	connection: Connection,
+): Promise<{ sufficient: boolean; reason: string | null }> {
+	const payer = feePayerKeypair();
+	const [lamports, costs] = await Promise.all([
+		connection.getBalance(payer.publicKey, "confirmed"),
+		readSolanaCosts({
+			getMinimumBalanceForRentExemption: (bytes) =>
+				connection.getMinimumBalanceForRentExemption(bytes, "confirmed"),
+		}),
+	]);
+
+	const required = lamportsRequired(costs, true);
+	if (BigInt(lamports) >= required) return { sufficient: true, reason: null };
+
+	const sol = (value: bigint) => (Number(value) / 1e9).toFixed(6);
+	return {
+		sufficient: false,
+		reason: `The fee payer ${payer.publicKey.toBase58()} holds ${sol(BigInt(lamports))} SOL and creating this token account needs ${sol(required)} — ${sol(required - BigInt(lamports))} short. Most of that is the account's rent (${sol(costs.tokenAccountRent)} SOL), paid once and never again. Send SOL to that address and this will go through.`,
 	};
 }
 

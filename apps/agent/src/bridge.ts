@@ -271,6 +271,19 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		 * against it.
 		 */
 		async toSolana(amountUsdc: bigint) {
+			// Before the quote, because this is the last moment the money is still
+			// in one place. The deposit at the far end of this function is signed by
+			// the fee payer, and if it cannot pay, the failure lands with the USDC
+			// already bridged onto Solana and out of the vault.
+			const gas = await deps.solana.checkFeePayer(deps.solanaAddress);
+			if (gas.shortfall) throw new Error(gas.shortfall);
+			if (gas.createsTokenAccount) {
+				deps.log(
+					"info",
+					`This crossing also creates the agent's USDC account on Solana; the fee payer covers its rent once, and holds enough (${Number(gas.lamports) / 1e9} SOL against ${Number(gas.required) / 1e9} needed).`,
+				);
+			}
+
 			deps.log(
 				"info",
 				`Bridging ${Number(amountUsdc) / 1e6} USDC Base → Solana; this blocks the tick until it lands (up to ${formatDuration(FILL_TIMEOUT_MS)}).`,
@@ -376,6 +389,13 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		 * whose legs are already closed.
 		 */
 		async toBase(amountUsdc: bigint) {
+			// Cheaper than the outbound leg — the token account exists by now, so
+			// this is the fee and the floor and nothing else — but still checked,
+			// because an unwind that cannot send is an unwind whose perp leg is
+			// already closed and whose margin is stranded on the wrong chain.
+			const gas = await deps.solana.checkFeePayer(deps.solanaAddress);
+			if (gas.shortfall) throw new Error(gas.shortfall);
+
 			deps.log(
 				"info",
 				`Waiting for ${Number(amountUsdc) / 1e6} USDC to settle out of Pacifica onto Solana (up to ${formatDuration(WITHDRAWAL_TIMEOUT_MS)}).`,

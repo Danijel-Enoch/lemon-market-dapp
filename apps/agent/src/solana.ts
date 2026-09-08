@@ -2,6 +2,9 @@ import type { NearMpcClient } from "@lemon/near-mpc";
 import {
 	ASSOCIATED_TOKEN_PROGRAM_ID,
 	associatedTokenAddress,
+	lamportsRequired,
+	readSolanaCosts,
+	type SolanaCosts,
 	TOKEN_PROGRAM_ID,
 	USDC_MINT,
 } from "@lemon/pacifica/deposit";
@@ -43,6 +46,66 @@ const USDC_DECIMALS = 6;
 /** SPL Token's `TransferChecked` instruction index. */
 const TRANSFER_CHECKED = 12;
 
+/** Lamports to the SOL a human reads, for a message rather than a calculation. */
+function sol(lamports: bigint): string {
+	return (Number(lamports) / 1e9).toFixed(6);
+}
+
+/** Whether the fee payer can pay for the next transaction, and what it costs. */
+export interface FeePayerCheck {
+	/** The fee payer's address, so a shortfall names where to send SOL. */
+	feePayer: string;
+	/** Lamports it holds. */
+	lamports: bigint;
+	/** Lamports this transaction needs it to hold, floor included. */
+	required: bigint;
+	/**
+	 * Whether the owner's USDC account still has to be created.
+	 *
+	 * The one expensive case. Creating it costs rent roughly 185× the fee of the
+	 * transaction that carries it, which is why a balance that looks alarmingly
+	 * low is usually fine and occasionally not.
+	 */
+	createsTokenAccount: boolean;
+	/** Null when it can pay; otherwise what is wrong and what fixes it. */
+	shortfall: string | null;
+}
+
+/**
+ * Whether `lamports` covers the transaction, as a message rather than a boolean.
+ *
+ * Pure, and exported for that reason: the arithmetic is the part worth asserting
+ * and it needs no chain to assert. `required` adds the fee payer's own
+ * rent-exempt floor to what the transaction spends, because a balance that
+ * covers the spend but lands under the floor fails just as hard — with
+ * `InsufficientFundsForRent` rather than an insufficient-funds error, which is
+ * an obscure way to be told to send more SOL.
+ */
+export function feePayerRequirement(params: {
+	feePayer: string;
+	lamports: bigint;
+	costs: SolanaCosts;
+	createsTokenAccount: boolean;
+}): FeePayerCheck {
+	const { costs, createsTokenAccount, lamports, feePayer } = params;
+	const required = lamportsRequired(costs, createsTokenAccount);
+
+	return {
+		feePayer,
+		lamports,
+		required,
+		createsTokenAccount,
+		shortfall:
+			lamports >= required
+				? null
+				: `Solana fee payer ${feePayer} holds ${sol(lamports)} SOL and this crossing needs ${sol(required)} — ${sol(required - lamports)} short. ${
+						createsTokenAccount
+							? `Most of it is one-off: the agent's USDC account does not exist yet and its rent is ${sol(costs.tokenAccountRent)} SOL, paid once.`
+							: "That is the fee plus the fee payer's own rent-exempt minimum, which it cannot spend below."
+					} Send SOL to ${feePayer} and the crossing will go through; nothing has moved yet.`,
+	};
+}
+
 export interface SolanaExecutor {
 	/** The fee payer's address, so a low balance can be reported against it. */
 	readonly feePayer: string;
@@ -50,6 +113,18 @@ export interface SolanaExecutor {
 	usdcBalance(owner: string): Promise<bigint>;
 	/** Lamports held by the fee payer, so a stalled bridge can name the reason. */
 	feePayerLamports(): Promise<bigint>;
+	/** What the chain charges for rent and fees, read once and remembered. */
+	costs(): Promise<SolanaCosts>;
+	/**
+	 * Whether the fee payer can pay for `owner`'s next crossing.
+	 *
+	 * Called *before* the money leaves Base, which is the whole point. An empty
+	 * fee payer used to surface at the deposit — after the bridge had filled and
+	 * the USDC was sitting on Solana — and recovering from that means waiting for
+	 * another crossing to sweep it. Asked here, the same condition is a tick that
+	 * declines to start and a vault that has not moved.
+	 */
+	checkFeePayer(owner: string): Promise<FeePayerCheck>;
 	/**
 	 * Build, sign and confirm one transaction signed by an MPC-derived wallet.
 	 *
@@ -103,6 +178,24 @@ export function createSolanaExecutor(options: SolanaExecutorOptions): SolanaExec
 	const commitment: Commitment = options.commitment ?? "confirmed";
 	const connection = new Connection(options.rpcUrl, commitment);
 	const feePayer = parseKeypair(options.feePayerSecret);
+
+	// Cached for the life of the process. These are cluster parameters — they
+	// change on a validator release, not between two ticks a minute apart — and
+	// re-reading them would put two RPC round trips in front of every crossing.
+	let cachedCosts: Promise<SolanaCosts> | null = null;
+
+	function costs(): Promise<SolanaCosts> {
+		cachedCosts ??= readSolanaCosts({
+			getMinimumBalanceForRentExemption: (bytes) =>
+				connection.getMinimumBalanceForRentExemption(bytes, commitment),
+		}).catch((error) => {
+			// Do not remember a failure: a cached rejection would make one bad RPC
+			// response block every crossing for the life of the process.
+			cachedCosts = null;
+			throw error;
+		});
+		return cachedCosts;
+	}
 
 	async function usdcBalance(owner: string): Promise<bigint> {
 		const account = associatedTokenAddress(new PublicKey(owner), USDC_MINT);
@@ -195,6 +288,27 @@ export function createSolanaExecutor(options: SolanaExecutorOptions): SolanaExec
 
 		async feePayerLamports() {
 			return BigInt(await connection.getBalance(feePayer.publicKey, commitment));
+		},
+
+		costs,
+
+		async checkFeePayer(owner) {
+			const account = associatedTokenAddress(new PublicKey(owner), USDC_MINT);
+			const [lamports, info, priced] = await Promise.all([
+				connection.getBalance(feePayer.publicKey, commitment),
+				// Read rather than inferred from the USDC balance: an account that
+				// exists holding zero USDC is indistinguishable from one that does
+				// not, and the difference between them is the rent.
+				connection.getAccountInfo(account, commitment),
+				costs(),
+			]);
+
+			return feePayerRequirement({
+				feePayer: feePayer.publicKey.toBase58(),
+				lamports: BigInt(lamports),
+				costs: priced,
+				createsTokenAccount: info === null,
+			});
 		},
 
 		async send({ path, signer, instructions, addressLookupTableAddresses }) {
