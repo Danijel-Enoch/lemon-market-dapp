@@ -639,6 +639,21 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				);
 			}
 
+			// The Kyber quote's output is a token amount to eight or eighteen
+			// decimals; the venue trades on a grid three or four decimals coarse.
+			// Snapped before the order and *before* the swap, so a size the venue
+			// would reject fails here — with the spot leg still unbought and nothing
+			// naked — rather than as a rejected order against a position that is
+			// already half open.
+			const lot = await lotUnits(deps, market, market.spotTokenDecimals);
+			const shortUnits = snapToLot(expectedUnits, lot);
+			if (shortUnits === 0n) {
+				throw new VenueExecutionError(
+					`The ${market.symbol} route quotes ${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)}, below Pacifica's ${formatUnitsForVenue(lot, market.spotTokenDecimals)} lot size for ${market.perpSymbol}. Nothing was bought and no position was opened.`,
+					activity,
+				);
+			}
+
 			// The approval goes here rather than beside the swap, so the window in
 			// which the short is naked is one transaction and not two.
 			await ensureAllowance(deps, config.usdc, built.routerAddress as Address, spend);
@@ -646,20 +661,24 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 4. The short, sized on that quote.
 			log(
 				"info",
-				`deploy ${market.ticker}: step 4/5 — shorting ${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)} ${market.perpSymbol} on Pacifica.`,
+				`deploy ${market.ticker}: step 4/5 — shorting ${formatUnitsForVenue(shortUnits, market.spotTokenDecimals)} ${market.perpSymbol} on Pacifica${
+					shortUnits === expectedUnits
+						? ""
+						: ` (${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)} quoted, rounded down to the venue's lot grid)`
+				}.`,
 			);
 			const receipt = await pacifica.createMarketOrder(deps.signPacifica, {
 				account: config.solanaAddress,
 				symbol: market.perpSymbol,
 				side: "ask",
-				amount: formatUnitsForVenue(expectedUnits, market.spotTokenDecimals),
+				amount: formatUnitsForVenue(shortUnits, market.spotTokenDecimals),
 				slippagePercent: String(config.slippagePercent),
 			});
 			activity.push({
 				kind: "PERP_OPEN",
 				chain: "SOLANA",
 				symbol: market.perpSymbol,
-				baseAmount: expectedUnits,
+				baseAmount: shortUnits,
 				notionalAssets: spend,
 				pnlAssets: 0n,
 				feeAssets: 0n,
@@ -692,7 +711,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// is not tidiness — leaving it until the next tick means holding a
 				// leveraged naked short across a tick interval, which is the exposure
 				// this whole ordering exists to avoid.
-				await closeNaked(deps, market, expectedUnits, activity);
+				await closeNaked(deps, market, shortUnits, activity);
 				throw new VenueExecutionError(
 					`Spot buy failed for ${market.symbol}; the short opened against it was closed.`,
 					activity,
@@ -703,7 +722,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const received = (await spotBalance(market)) - before;
 			log(
 				"info",
-				`deploy ${market.ticker}: hedged in ${formatDuration(performance.now() - startedAt)} — ${formatUnitsForVenue(received, market.spotTokenDecimals)} ${market.symbol} bought against a ${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)} short.`,
+				`deploy ${market.ticker}: hedged in ${formatDuration(performance.now() - startedAt)} — ${formatUnitsForVenue(received, market.spotTokenDecimals)} ${market.symbol} bought against a ${formatUnitsForVenue(shortUnits, market.spotTokenDecimals)} short.`,
 			);
 			activity.push({
 				kind: "SPOT_BUY",
@@ -963,9 +982,23 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				return [];
 			}
 
+			// Snapped to the venue's grid, and a correction finer than one lot is
+			// not a correction the venue can make: the order would be rejected
+			// outright rather than filled approximately. Returning nothing here is
+			// the honest answer — the legs are as close as this market allows.
+			const lot = await lotUnits(deps, market, 18);
+			const correction = snapToLot(abs(delta), lot);
+			if (correction === 0n) {
+				log(
+					"debug",
+					`rebalance ${market.ticker}: the legs are ${formatUnitsForVenue(abs(delta), 18)} apart, inside Pacifica's ${formatUnitsForVenue(lot, 18)} lot size; nothing can be traded to close it.`,
+				);
+				return [];
+			}
+
 			log(
 				"info",
-				`rebalance ${market.ticker}: ${delta > 0n ? "selling" : "buying back"} ${formatUnitsForVenue(abs(delta), 18)} ${market.perpSymbol} to match the spot leg.`,
+				`rebalance ${market.ticker}: ${delta > 0n ? "selling" : "buying back"} ${formatUnitsForVenue(correction, 18)} ${market.perpSymbol} to match the spot leg.`,
 			);
 
 			// The perp leg only. Correcting on the spot side means another swap
@@ -975,7 +1008,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				account: config.solanaAddress,
 				symbol: market.perpSymbol,
 				side: delta > 0n ? "ask" : "bid",
-				amount: formatUnitsForVenue(abs(delta), 18),
+				amount: formatUnitsForVenue(correction, 18),
 				slippagePercent: String(config.slippagePercent),
 				reduceOnly: delta < 0n,
 			});
@@ -985,7 +1018,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					kind: "PERP_REBALANCE",
 					chain: "SOLANA",
 					symbol: market.perpSymbol,
-					baseAmount: abs(delta),
+					baseAmount: correction,
 					notionalAssets: 0n,
 					pnlAssets: 0n,
 					feeAssets: 0n,
@@ -1137,26 +1170,41 @@ async function closeLeg(
 ): Promise<bigint> {
 	const { config, publicClient, kyber, pacifica } = deps;
 
-	const closeReceipt = await pacifica.createMarketOrder(deps.signPacifica, {
-		account: config.solanaAddress,
-		symbol: market.perpSymbol,
-		side: "bid",
-		amount: formatUnitsForVenue(closeUnits, market.spotTokenDecimals),
-		slippagePercent: String(config.slippagePercent),
-		reduceOnly: true,
-	});
-	activity.push({
-		kind: "PERP_CLOSE",
-		chain: "SOLANA",
-		symbol: market.perpSymbol,
-		baseAmount: closeUnits,
-		notionalAssets: notionalHint,
-		pnlAssets: 0n,
-		feeAssets: 0n,
-		// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
-		txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
-		occurredAt: deps.now(),
-	});
+	// Down onto the venue's grid, which for a reduce-only close means closing at
+	// most what is open rather than at least. The spot sale below still uses the
+	// full `closeUnits`: the balance is the agent's own and has no grid, and
+	// leaving spot behind to match a coarser perp leg would strand tokens the
+	// close was asked to turn into USDC.
+	const perpUnits = snapToLot(closeUnits, await lotUnits(deps, market, market.spotTokenDecimals));
+
+	const closeReceipt =
+		perpUnits === 0n
+			? null
+			: await pacifica.createMarketOrder(deps.signPacifica, {
+					account: config.solanaAddress,
+					symbol: market.perpSymbol,
+					side: "bid",
+					amount: formatUnitsForVenue(perpUnits, market.spotTokenDecimals),
+					slippagePercent: String(config.slippagePercent),
+					reduceOnly: true,
+				});
+	// No row when nothing was closed. A position smaller than one lot cannot be
+	// reduced at all, and recording a close that never happened would put a leg
+	// in the depositor's feed that the venue has no order for.
+	if (closeReceipt) {
+		activity.push({
+			kind: "PERP_CLOSE",
+			chain: "SOLANA",
+			symbol: market.perpSymbol,
+			baseAmount: perpUnits,
+			notionalAssets: notionalHint,
+			pnlAssets: 0n,
+			feeAssets: 0n,
+			// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
+			txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
+			occurredAt: deps.now(),
+		});
+	}
 
 	// The spot side is capped at what is actually held. `closeUnits` can exceed
 	// it — a close order names the larger of the two legs so the perp reaches
@@ -1454,6 +1502,42 @@ function usd(amount: bigint): string {
 function formatUnitsForVenue(raw: bigint, decimals: number): string {
 	const divisor = 10 ** decimals;
 	return (Number(raw) / divisor).toString();
+}
+
+/**
+ * The venue's quantity grid for a market, in units of `decimals`.
+ *
+ * Pacifica rejects an order whose size is not a multiple of `lot_size` — the
+ * whole order, not the remainder — so a size derived from anywhere else has to
+ * be snapped to this before it is sent. Every quantity the agent computes comes
+ * from somewhere with a finer grid than the venue's: a Kyber quote's output, an
+ * ERC-20 balance, the difference between two legs. None of them land on it by
+ * accident.
+ */
+async function lotUnits(deps: VenueDeps, market: VenueMarket, decimals: number): Promise<bigint> {
+	const specs = await deps.pacifica.markets();
+	const spec = specs.find((m) => m.symbol === market.perpSymbol);
+	const lot = Number(spec?.lot_size);
+	if (!Number.isFinite(lot) || lot <= 0) {
+		throw new Error(
+			`Pacifica did not report a usable lot size for ${market.perpSymbol}, so no order size can be checked against its grid.`,
+		);
+	}
+	return BigInt(Math.round(lot * 10 ** decimals));
+}
+
+/**
+ * Round an order size down onto the venue's grid.
+ *
+ * Down rather than to nearest, everywhere it is used. Rounding a hedge up opens
+ * more short than there is spot behind it, and rounding a close up asks to
+ * close more than is held — the first is exposure nobody chose and the second
+ * is an order the venue rejects. Rounding down leaves at most one lot
+ * unhedged, which the drift check sees and the next tick can act on.
+ */
+function snapToLot(units: bigint, lot: bigint): bigint {
+	if (lot <= 0n) return units;
+	return (units / lot) * lot;
 }
 
 /**

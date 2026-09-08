@@ -31,6 +31,8 @@ interface HarnessOptions {
 	spotTokenDecimals?: number;
 	/** The open perp size, as the venue's own decimal string. */
 	perpSize?: string;
+	/** Pacifica's quantity grid for the market, as its own decimal string. */
+	lotSize?: string;
 	/** What an executable sell of the whole holding returns. */
 	spotValueUsdc?: bigint;
 	/** What the swap actually delivers, which need not be what was quoted. */
@@ -130,7 +132,12 @@ function harness(options: HarnessOptions = {}) {
 		prices: async () => [
 			{ symbol: "NVDA", mark: "100", oracle: "100", yesterday_price: "100", funding: "0.0001" },
 		],
-		markets: async () => [{ symbol: "NVDA", funding_rate: "0.0001" }],
+		// `lot_size` is load-bearing: every perp order is snapped down onto this
+		// grid, and Pacifica rejects a size that is not a multiple of it. Fine
+		// enough here that the existing sizes pass through unchanged.
+		markets: async () => [
+			{ symbol: "NVDA", funding_rate: "0.0001", lot_size: options.lotSize ?? "0.00000001" },
+		],
 	};
 
 	// Credits the agent's Base balance, because that is what a bridge does — and
@@ -518,6 +525,64 @@ describe("closeAll", () => {
 			expect.anything(),
 			expect.objectContaining({ symbol: "NVDA", side: "bid", reduceOnly: true, amount: "100" }),
 		);
+	});
+
+	/**
+	 * Pacifica rejects the whole order — not the remainder — when its size is not
+	 * a multiple of `lot_size`. The live failure was a deploy quoting 0.07210227
+	 * NVDA against a 0.001 grid; nothing the agent computes lands on that grid by
+	 * accident, because every quantity comes from a Kyber quote, an ERC-20
+	 * balance, or the difference between two legs.
+	 */
+	it("rounds an order down onto the venue's lot grid", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			// 0.07210227, the size the venue refused.
+			spotBalance: 7_210_227n,
+			perpSize: "0.07210227",
+			lotSize: "0.001",
+			fillUsdc: 16n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ amount: "0.072" }),
+		);
+	});
+
+	/** Down, never up: a close rounded up asks to close more than is held. */
+	it("never rounds an order up past what is open", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			spotBalance: 199_900_000n, // 1.999
+			perpSize: "1.999",
+			lotSize: "0.01",
+			fillUsdc: 400n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ amount: "1.99" }),
+		);
+	});
+
+	/** A position finer than one lot cannot be reduced at all, so nothing is sent. */
+	it("sends no order when the whole position is below one lot", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			spotBalance: 50_000n, // 0.0005
+			perpSize: "0.0005",
+			lotSize: "0.001",
+			fillUsdc: 1n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		expect(createMarketOrder).not.toHaveBeenCalled();
 	});
 
 	/** The perp leg is the one that has to reach zero, even when spot has drifted. */
