@@ -2,6 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { PacificaError } from "@lemon/pacifica";
 import type { Hex } from "viem";
 import { allocateUnwind, createVenueAdapter, type VenueDeps } from "../src/venue";
+import { VenueExecutionError } from "../src/worker";
 
 /**
  * The unwind path, which is the half of the adapter a depositor depends on.
@@ -33,6 +34,8 @@ interface HarnessOptions {
 	perpSize?: string;
 	/** Pacifica's quantity grid for the market, as its own decimal string. */
 	lotSize?: string;
+	/** Mine the swap, but reverted — which viem reports as a receipt, not a throw. */
+	swapReverts?: boolean;
 	/** What an executable sell of the whole holding returns. */
 	spotValueUsdc?: bigint;
 	/** What the swap actually delivers, which need not be what was quoted. */
@@ -76,13 +79,18 @@ function harness(options: HarnessOptions = {}) {
 			if (functionName === "allowance") return 2n ** 200n;
 			throw new Error(`unexpected read: ${functionName}`);
 		},
-		waitForTransactionReceipt: async () => ({ status: "success" }),
+		waitForTransactionReceipt: async () => ({
+			status: options.swapReverts ? "reverted" : "success",
+		}),
 	};
 
 	const walletClient = {
 		account: { address: AGENT },
 		sendTransaction: async () => {
-			balances.usdc += fillUsdc;
+			// A reverted transaction moves nothing, which is the state that made the
+			// missing status check invisible: the balance read afterwards is simply
+			// unchanged, and a delta of zero looks like a fill of zero.
+			if (!options.swapReverts) balances.usdc += fillUsdc;
 			return "0xsell" as Hex;
 		},
 		writeContract: async () => "0xapprove" as Hex,
@@ -340,6 +348,45 @@ describe("unwind", () => {
  * The allocation decides whose exposure gets sold, so it is worth being able to
  * state what it does in cases that are awkward to reach through a live venue.
  */
+/**
+ * A transaction that reverts is still a transaction: viem resolves
+ * `waitForTransactionReceipt` for it and puts `status: "reverted"` in the
+ * receipt. Reading the hash and not the status is how a reverted spot buy was
+ * recorded as a completed one — with a zero-token `SPOT_BUY` row pointing at
+ * the reverted transaction, the naked-short unwind skipped because nothing
+ * threw, and a leveraged short left open with nothing behind it.
+ */
+describe("a reverted transaction", () => {
+	it("fails the unwind rather than reporting proceeds it never received", async () => {
+		const { adapter } = harness({
+			spotBalance: 10n * 10n ** 18n,
+			spotValueUsdc: 1_000n * USDC,
+			fillUsdc: 1_000n * USDC,
+			swapReverts: true,
+		});
+
+		// Wrapped by the caller, which adds what the failure left behind. The
+		// revert is the cause; the message is about the position.
+		const error = await adapter.unwind({ amount: 500n * USDC }).catch((e) => e);
+		expect(error).toBeInstanceOf(VenueExecutionError);
+		expect(error.message).toContain("Spot sell failed");
+		expect(String((error as Error).cause)).toContain("reverted on Base");
+	});
+
+	it("does not hand the vault USDC the swap never produced", async () => {
+		const { adapter, returnToVault } = harness({
+			spotBalance: 10n * 10n ** 18n,
+			spotValueUsdc: 1_000n * USDC,
+			fillUsdc: 1_000n * USDC,
+			swapReverts: true,
+		});
+
+		await adapter.unwind({ amount: 500n * USDC }).catch(() => {});
+
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+});
+
 describe("allocateUnwind", () => {
 	const leg = (ticker: string, value: bigint, targetWeightBps: number, sellable = true) => ({
 		ticker,

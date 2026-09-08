@@ -6,6 +6,7 @@ import {
 	lemonVaultAbi,
 } from "@lemon/contracts";
 import { type Abi, type Address, erc20Abi, type Hex } from "viem";
+import { confirmed } from "./tx";
 
 /**
  * Loosely-typed clients.
@@ -200,7 +201,7 @@ export class VaultClient {
 			functionName: "approve",
 			args: [this.address, amount],
 		});
-		await this.publicClient.waitForTransactionReceipt({ hash });
+		await confirmed(this.publicClient, hash, `The ${asset} approval for the vault`);
 	}
 
 	/**
@@ -258,7 +259,17 @@ export class VaultClient {
 		// limits that the policy layer recomputes independently, and a simulation
 		// turns a disagreement between the two into a readable error instead of a
 		// mined revert and a wasted MPC signature.
-		return this.walletClient.writeContract(request);
+		const hash: Hex = await this.walletClient.writeContract(request);
+
+		// Then waited on, which is not just about catching a revert the simulation
+		// could not predict. The agent sends its writes back to back from one
+		// account, and viem takes each nonce from the node at the moment it builds
+		// the transaction — so returning here as soon as a hash exists means the
+		// next write is numbered against a chain that has not seen this one yet.
+		// That is a `nonce too low` on the second write, and it landed on an
+		// activity report whose trades had already executed.
+		await confirmed(this.publicClient, hash, `The vault's ${functionName} call`);
+		return hash;
 	}
 }
 

@@ -10,6 +10,7 @@ import {
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi, parseUnits } from "viem";
 import { MIN_DEPLOY_USDC } from "./policy";
+import { confirmed } from "./tx";
 import { fromUnits, toUnits, type Valuation, value } from "./valuation";
 import type { ActivityInput } from "./vault";
 import { type VenueAdapter, VenueExecutionError } from "./worker";
@@ -705,7 +706,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					data: built.data as Hex,
 					value: 0n,
 				});
-				await publicClient.waitForTransactionReceipt({ hash: swapTx });
+				await confirmed(publicClient, swapTx, `The ${market.symbol} spot buy`);
 			} catch (error) {
 				// The short is open and there is nothing behind it. Unwinding it here
 				// is not tidiness — leaving it until the next tick means holding a
@@ -1255,7 +1256,7 @@ async function closeLeg(
 			data: built.data as Hex,
 			value: 0n,
 		});
-		await publicClient.waitForTransactionReceipt({ hash: sellTx });
+		await confirmed(publicClient, sellTx, `The ${market.symbol} spot sell`);
 	} catch (error) {
 		// The short has been reduced and the spot behind it has not. The position
 		// is long-biased until the next tick rebalances it, which is a state the
@@ -1490,7 +1491,7 @@ async function ensureAllowance(
 		functionName: "approve",
 		args: [spender, amount],
 	});
-	await deps.publicClient.waitForTransactionReceipt({ hash });
+	await confirmed(deps.publicClient, hash, `The ${token} approval for ${spender}`);
 }
 
 /** USDC base units as dollars, for a log line rather than for arithmetic. */
