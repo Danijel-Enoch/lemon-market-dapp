@@ -116,6 +116,13 @@ x-app-env: &app-env
   # stalls an unwind that has already closed both legs.
   SOLANA_FEE_PAYER_SECRET: ${SOLANA_FEE_PAYER_SECRET:-}
 
+  # Logging, for every service. `info` is one line per API request and a running
+  # commentary of each agent cycle; `debug` adds the per-step detail inside a
+  # tick and every request as it arrives. `LOG_FORMAT=json` emits one JSON
+  # object per line for a log shipper.
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  LOG_FORMAT: ${LOG_FORMAT:-}
+
   # Fees this deployment collects. Spot rides inside the KyberSwap route, so it
   # comes out of vault performance and is disclosed on the vault page.
   SPOT_FEE_BPS: ${SPOT_FEE_BPS:-}

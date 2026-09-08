@@ -1,4 +1,4 @@
-import { USDC_ADDRESS } from "@lemon/core";
+import { createLogger, formatDuration, type LogLevel, USDC_ADDRESS } from "@lemon/core";
 import { prisma, type VaultMarketConfig, vaultMarkets } from "@lemon/db";
 import { KyberAggregatorClient } from "@lemon/kyber";
 import { NearMpcClient } from "@lemon/near-mpc";
@@ -71,11 +71,18 @@ const relay = new RelayClient({
 	apiKey: process.env.RELAY_API_KEY,
 });
 
-function log(level: "info" | "warn" | "error", message: string, extra?: unknown) {
-	const line = `[agent] ${new Date().toISOString()} ${message}`;
-	if (level === "error") console.error(line, extra ?? "");
-	else if (level === "warn") console.warn(line, extra ?? "");
-	else console.log(line);
+const logger = createLogger("agent");
+
+/**
+ * The level-as-argument form, for the workers.
+ *
+ * `tick`, the bridge and the venue adapter all take a `log` callback rather
+ * than a logger, which keeps them testable without one. This is that callback,
+ * and it is `logger.emit` — so a line written from inside a tick is
+ * indistinguishable from one written out here.
+ */
+function log(level: LogLevel, message: string, extra?: unknown) {
+	logger.emit(level, message, extra);
 }
 
 /**
@@ -192,6 +199,8 @@ function toQueueEntry(row: RawQueueRow, pricePerShare = 1_000_000n): QueueEntry 
 }
 
 async function main() {
+	logger.info(`Starting. Log level ${logger.enabled("debug") ? "debug" : "info"}.`);
+
 	const nearAccountId = process.env.NEAR_ACCOUNT_ID?.trim();
 	const nearPrivateKey = process.env.NEAR_PRIVATE_KEY?.trim();
 
@@ -232,7 +241,9 @@ async function main() {
 	// contract. A mismatch means every address this process derives belongs to a
 	// key the network will not sign for — better found now than at the first
 	// withdrawal.
+	const keys = logger.span("verify NEAR MPC root keys", { extra: { account: nearAccountId } });
 	await mpc.verifyRootKeys();
+	keys.end();
 
 	const solana = createSolanaExecutor({
 		rpcUrl: process.env.SOLANA_RPC_URL?.trim() || "https://api.mainnet-beta.solana.com",
@@ -253,27 +264,52 @@ async function main() {
 	const publicClient = createPublicClient({ chain, transport });
 	const advisor = advisorFromEnv();
 
-	log("info", advisor ? "Advisory layer enabled." : "No OPENROUTER_API_KEY; policy only.");
+	logger.info(advisor ? "Advisory layer enabled." : "No OPENROUTER_API_KEY; policy only.");
+	logger.info(
+		`Ready. Ticking every ${formatDuration(TICK_INTERVAL_MS)} on ${chain.name}; vaults from ${API_URL}, queue from ${INDEXER_URL}.`,
+	);
+
+	// Numbered so a line can be tied to a cycle when several vaults interleave in
+	// the output, and so "we are on cycle 4 and it started twenty minutes ago" is
+	// readable off the log rather than inferred from timestamps.
+	let cycle = 0;
 
 	for (;;) {
+		cycle += 1;
+		const span = logger.span(`cycle ${cycle}`);
+		const outcomes: string[] = [];
+
 		try {
 			const vaults = await listVaults();
+			logger.info(`Cycle ${cycle}: ${vaults.length} vault(s) to tick.`);
+
 			for (const indexed of vaults) {
-				await runVault(indexed).catch((error) =>
-					log("error", `Tick failed for ${indexed.address}`, error),
-				);
+				const outcome = await runVault(indexed).catch((error) => {
+					log("error", `Tick failed for ${indexed.address}`, error);
+					return "FAILED";
+				});
+				outcomes.push(`${indexed.ticker ?? indexed.address.slice(0, 8)}=${outcome}`);
 			}
 		} catch (error) {
 			log("error", "Could not list vaults", error);
 		}
 
+		span.end(outcomes.length ? outcomes.join(" ") : "nothing to do");
+		logger.info(`Sleeping ${formatDuration(TICK_INTERVAL_MS)} until cycle ${cycle + 1}.`);
 		await new Promise((resolve) => setTimeout(resolve, TICK_INTERVAL_MS));
 	}
 
-	async function runVault(indexed: IndexedVault) {
+	/**
+	 * One vault's tick, wrapped in a span.
+	 *
+	 * Returns the short outcome the cycle summary is built from, so the line that
+	 * closes a cycle says what each vault did without the reader scrolling back
+	 * through however many bridge minutes happened in between.
+	 */
+	async function runVault(indexed: IndexedVault): Promise<string> {
 		if (indexed.agentEnabled === false) {
 			log("info", `${indexed.address}: agent disabled by an operator; skipping.`);
-			return;
+			return "DISABLED";
 		}
 
 		if (!indexed.agentPath) {
@@ -284,51 +320,68 @@ async function main() {
 				"warn",
 				`${indexed.address}: no derivation path recorded, so its agent wallet cannot be reconstructed.`,
 			);
-			return;
+			return "NO_PATH";
 		}
 
-		const wallet = agentWalletFor(mpc, indexed.agentPath, indexed.agentWallet);
-		const walletClient = createWalletClient({
-			account: wallet.account,
-			chain,
-			transport,
-		});
+		// One logger per vault, handed to everything below. The address lives in
+		// the scope rather than in each message, so the worker, the bridge and the
+		// venue adapter all label their lines the same way and `grep 0xabc` picks
+		// up the whole of one vault's tick.
+		const vaultLogger = logger.child(indexed.address);
+		const span = vaultLogger.span(`tick ${indexed.ticker ?? indexed.symbol}`);
 
-		const vault = new VaultClient(publicClient, walletClient, indexed.address);
+		try {
+			const wallet = agentWalletFor(mpc, indexed.agentPath, indexed.agentWallet);
+			const walletClient = createWalletClient({
+				account: wallet.account,
+				chain,
+				transport,
+			});
 
-		// The venue adapter needs per-market configuration — token addresses, the
-		// Pacifica symbol — which the operator owns. No trade is placed against an
-		// unconfigured market.
-		const resolved = await resolveVenue({
-			indexed,
-			vault,
-			wallet,
-			walletClient,
-			publicClient,
-			solana,
-		});
-		if (!resolved) {
-			log("warn", `${indexed.address}: no venue configuration for ${indexed.ticker ?? "?"}`);
-			return;
+			const vault = new VaultClient(publicClient, walletClient, indexed.address);
+
+			// The venue adapter needs per-market configuration — token addresses, the
+			// Pacifica symbol — which the operator owns. No trade is placed against an
+			// unconfigured market.
+			const resolved = await resolveVenue({
+				indexed,
+				vault,
+				wallet,
+				walletClient,
+				publicClient,
+				solana,
+				log: vaultLogger.emit,
+			});
+			if (!resolved) {
+				vaultLogger.warn(`No venue configuration for ${indexed.ticker ?? "?"}.`);
+				span.end("no venue configuration");
+				return "UNCONFIGURED";
+			}
+
+			const deps: WorkerDeps = {
+				vault,
+				venue: resolved.venue,
+				advisor,
+				queue: () => loadQueue(indexed.address),
+				closeRequested: resolved.closeRequested,
+				now: () => Math.floor(Date.now() / 1000),
+				log: vaultLogger.emit,
+			};
+
+			const result = await tick(deps);
+			await recordRun(indexed.address, result);
+			if (result.closeSatisfied) await recordCloseSatisfied(indexed.address);
+
+			const summary = `${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`;
+			span.end(summary);
+			return result.error ? `${result.action}!` : result.action;
+		} catch (error) {
+			// Closed here as well as on the happy path, because a span that only
+			// ends when the work succeeds turns every failure into a tick that reads
+			// as still running — the exact state the end line exists to rule out.
+			span.fail(error);
+			throw error;
 		}
-
-		const deps: WorkerDeps = {
-			vault,
-			venue: resolved.venue,
-			advisor,
-			queue: () => loadQueue(indexed.address),
-			closeRequested: resolved.closeRequested,
-			now: () => Math.floor(Date.now() / 1000),
-			log,
-		};
-
-		const result = await tick(deps);
-		await recordRun(indexed.address, result);
-		if (result.closeSatisfied) await recordCloseSatisfied(indexed.address);
-		log(
-			"info",
-			`${indexed.address}: ${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`,
-		);
 	}
 }
 
@@ -361,8 +414,10 @@ async function resolveVenue(params: {
 	walletClient: ReturnType<typeof createWalletClient>;
 	publicClient: PublicClient;
 	solana: SolanaExecutor;
+	/** The vault-scoped logger, so the bridge and the adapter label their lines. */
+	log: (level: LogLevel, message: string, extra?: unknown) => void;
 }): Promise<{ venue: VenueAdapter; closeRequested: boolean } | null> {
-	const { indexed, vault, wallet, walletClient, publicClient, solana } = params;
+	const { indexed, vault, wallet, walletClient, publicClient, solana, log } = params;
 
 	const record = await prisma.vaultConfig
 		.findUnique({ where: { address: indexed.address.toLowerCase() } })
@@ -371,11 +426,11 @@ async function resolveVenue(params: {
 	if (!record) return null;
 
 	const markets = await vaultMarkets(indexed.address).catch((error) => {
-		log("warn", `${indexed.address}: could not read the market list`, error);
+		log("warn", "Could not read the market list.", error);
 		return [] as VaultMarketConfig[];
 	});
 	if (markets.length === 0) {
-		log("warn", `${indexed.address}: configured but has no markets, so there is nothing to trade.`);
+		log("warn", "Configured but has no markets, so there is nothing to trade.");
 		return null;
 	}
 
@@ -419,6 +474,7 @@ async function resolveVenue(params: {
 		inFlight: bridge.inFlight,
 		solanaIdleUsdc: () => solana.usdcBalance(wallet.solanaAddress),
 		now: () => Math.floor(Date.now() / 1000),
+		log,
 	});
 
 	return { venue, closeRequested: record.closeRequestedAt !== null };

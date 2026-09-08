@@ -1,4 +1,4 @@
-import { BASE_CHAIN_ID, USDC_ADDRESS } from "@lemon/core";
+import { BASE_CHAIN_ID, formatDuration, type LogLevel, USDC_ADDRESS } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import {
 	buildDepositInstruction,
@@ -65,7 +65,7 @@ export interface RelayBridgeDeps {
 	solanaAddress: string;
 	/** The derivation path both addresses come from, so Solana transactions can be signed. */
 	path: string;
-	log: (level: "info" | "warn" | "error", message: string, extra?: unknown) => void;
+	log: (level: LogLevel, message: string, extra?: unknown) => void;
 }
 
 export interface RelayBridge extends BridgeAdapter {
@@ -94,7 +94,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 	if (inFlight > 0n) {
 		deps.log(
 			"info",
-			`${vaultAddress}: ${Number(inFlight) / 1e6} USDC was in flight when this process started; counting it in NAV until it lands.`,
+			`${Number(inFlight) / 1e6} USDC was in flight when this process started; counting it in NAV until it lands.`,
 		);
 	}
 
@@ -118,9 +118,21 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 	 */
 	async function awaitFill(requestId: string, rowId: string): Promise<void> {
 		const deadline = Date.now() + FILL_TIMEOUT_MS;
+		const startedAt = Date.now();
+		let polls = 0;
+
 		for (;;) {
 			const status = await deps.relay.getStatus(requestId).catch(() => null);
-			if (status?.isComplete) return;
+			polls += 1;
+
+			if (status?.isComplete) {
+				deps.log(
+					"info",
+					`Relay ${requestId} filled after ${formatDuration(Date.now() - startedAt)}.`,
+				);
+				return;
+			}
+
 			if (status?.isFailed) {
 				await settle(rowId, "FAILED", null);
 				throw new BridgeRefunded(
@@ -132,6 +144,19 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 					`Relay request ${requestId} has not filled after ${Math.round(FILL_TIMEOUT_MS / 60_000)} minutes. The transfer is recorded as still in flight; check it at https://relay.link and do not re-send.`,
 				);
 			}
+
+			// A heartbeat every minute rather than every poll. A crossing routinely
+			// takes several, and the question being answered — "is this moving or has
+			// it wedged?" — needs a line often enough to be visible and rarely enough
+			// that it does not bury the rest of the tick.
+			const waited = formatDuration(Date.now() - startedAt);
+			const state = status?.status ?? "unknown";
+			if (polls % 6 === 0) {
+				deps.log("info", `Still waiting on Relay ${requestId} after ${waited} (${state}).`);
+			} else {
+				deps.log("debug", `Relay ${requestId} is ${state} after ${waited}.`);
+			}
+
 			await sleep(POLL_INTERVAL_MS);
 		}
 	}
@@ -150,6 +175,11 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		 * against it.
 		 */
 		async toSolana(amountUsdc: bigint) {
+			deps.log(
+				"info",
+				`Bridging ${Number(amountUsdc) / 1e6} USDC Base → Solana; this blocks the tick until it lands (up to ${formatDuration(FILL_TIMEOUT_MS)}).`,
+			);
+
 			const quote = await deps.relay.createDepositAddress({
 				recipient: deps.solanaAddress,
 				sender: deps.agentAddress,
@@ -232,7 +262,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 
 				deps.log(
 					"info",
-					`${vaultAddress}: bridged ${Number(amountUsdc) / 1e6} USDC to Solana and credited ${decimal} to Pacifica (${depositTx}).`,
+					`Bridged ${Number(amountUsdc) / 1e6} USDC to Solana and credited ${decimal} to Pacifica (${depositTx}).`,
 				);
 
 				return { txRef: sendTx, landed };
@@ -259,7 +289,12 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		 * whose legs are already closed.
 		 */
 		async toBase(amountUsdc: bigint) {
+			deps.log(
+				"info",
+				`Waiting for ${Number(amountUsdc) / 1e6} USDC to settle out of Pacifica onto Solana (up to ${formatDuration(WITHDRAWAL_TIMEOUT_MS)}).`,
+			);
 			await deps.solana.waitForUsdc(deps.solanaAddress, amountUsdc, WITHDRAWAL_TIMEOUT_MS);
+			deps.log("info", "It landed; bridging Solana → Base.");
 
 			const quote = await deps.relay.createDepositAddress({
 				recipient: deps.agentAddress,
@@ -315,7 +350,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				inFlight -= amountUsdc;
 				deps.log(
 					"info",
-					`${vaultAddress}: brought ${Number(landed) / 1e6} of ${Number(amountUsdc) / 1e6} USDC home from Solana (${signature}).`,
+					`Brought ${Number(landed) / 1e6} of ${Number(amountUsdc) / 1e6} USDC home from Solana (${signature}).`,
 				);
 
 				return { txRef: sendTx, landed };

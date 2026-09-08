@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { createApiApp } from "./app";
+import { apiLogger, createApiApp } from "./app";
 import { config } from "./config";
 
 const port = Number(process.env.API_PORT ?? 3003);
@@ -12,20 +12,26 @@ const app = new Elysia()
 	.use(createApiApp())
 	.listen(port);
 
-console.log(`lemon-api listening on :${port}`);
-console.log(`  chain            ${config.chainId}`);
-console.log(`  pacifica         ${config.pacificaApiUrl}`);
-console.log(`  kyberswap        ${config.kyberBaseUrl}`);
-console.log(`  indexer          ${config.indexerUrl}`);
-console.log(
+// One block at boot, because every line here answers a question that otherwise
+// gets asked of the source: which chain, which upstreams, and which of the
+// optional pieces are actually configured in *this* deployment.
+apiLogger.info(`lemon-api listening on :${port}`);
+apiLogger.info(`  chain            ${config.chainId}`);
+apiLogger.info(`  pacifica         ${config.pacificaApiUrl}`);
+apiLogger.info(`  kyberswap        ${config.kyberBaseUrl}`);
+apiLogger.info(`  indexer          ${config.indexerUrl}`);
+apiLogger.info(
 	`  agent wallets    ${config.near.accountId ? `NEAR ${config.near.accountId}` : "NOT SET — vaults cannot be created"}`,
 );
-console.log(
+apiLogger.info(
 	`  factory          ${config.contracts.vaultFactory ?? "NOT SET — vaults cannot be created"}`,
 );
-console.log(
+apiLogger.info(
 	`  database         ${config.databaseUrl ? "configured" : "NOT SET — sign-in and the admin dashboard disabled"}`,
 );
-console.log(`  admins           ${config.bootstrapAdmins.length} seeded from ADMIN_ADDRESSES`);
+apiLogger.info(`  admins           ${config.bootstrapAdmins.length} seeded from ADMIN_ADDRESSES`);
+apiLogger.info(
+	`  logging          ${apiLogger.enabled("debug") ? "debug — every request in and out" : "info — one line per request; set LOG_LEVEL=debug for more"}`,
+);
 
 export type App = typeof app;

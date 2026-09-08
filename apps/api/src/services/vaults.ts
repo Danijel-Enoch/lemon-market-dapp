@@ -9,6 +9,7 @@ import {
 import { prisma, type VaultMarketConfig } from "@lemon/db";
 import { projectVaultApy, type VaultYieldProjection } from "@lemon/registry";
 import { config } from "../config";
+import { logger } from "../log";
 import { listBasisMarkets } from "./basis-markets";
 import { getMarkets } from "./markets";
 
@@ -202,7 +203,7 @@ async function vaultConfigs(): Promise<Map<string, VaultConfigRecord>> {
 		const configs = await prisma.vaultConfig.findMany();
 		return new Map(configs.map((c) => [c.address.toLowerCase(), c]));
 	} catch (error) {
-		console.warn("[api] vault configuration unavailable; serving chain data only", error);
+		logger.warn("Vault configuration unavailable; serving chain data only.", error);
 		return new Map();
 	}
 }
@@ -404,7 +405,7 @@ async function yieldInputs() {
 			byPacificaSymbol,
 		};
 	} catch (error) {
-		console.warn("[api] venue data unavailable; vaults will carry no yield projection", error);
+		logger.warn("Venue data unavailable; vaults will carry no yield projection.", error);
 		return { ok: false as const };
 	}
 }

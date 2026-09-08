@@ -1,4 +1,4 @@
-import type { AdlRisk } from "@lemon/core";
+import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, splitDeployment } from "./policy";
 import { type Valuation, ValuationError } from "./valuation";
@@ -143,7 +143,7 @@ export interface WorkerDeps {
 	 */
 	closeRequested: boolean;
 	now: () => number;
-	log: (level: "info" | "warn" | "error", message: string, extra?: unknown) => void;
+	log: (level: LogLevel, message: string, extra?: unknown) => void;
 }
 
 export interface TickResult {
@@ -172,19 +172,28 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 	const now = deps.now();
 
 	const state = await vault.read();
+	log(
+		"debug",
+		`Read the vault — ${usd(state.totalAssets)} total, ${usd(state.freeAssets)} free, ${usd(state.deployedAssets)} deployed${state.paused ? ", paused" : ""}${state.emergencyExit ? ", emergency exit" : ""}.`,
+	);
 
 	// --- 1. observe -------------------------------------------------------
 
+	log("debug", `1/4 observe — reading the venues.`);
 	let observation: Awaited<ReturnType<VenueAdapter["observe"]>>;
 	try {
 		observation = await venue.observe();
+		log(
+			"info",
+			`Observed ${observation.markets.length} market(s) — ${usd(observation.valuation.deployedAssets)} deployed at ${(observation.valuation.leverageBps / 10_000).toFixed(2)}x (spot ${usd(observation.valuation.components.spot)}, margin ${usd(observation.valuation.components.perpEquity)}, idle ${usd(observation.valuation.components.idleAtAgent)}, in flight ${usd(observation.valuation.components.inFlight)}).`,
+		);
 	} catch (error) {
 		if (error instanceof ValuationError) {
 			// Deliberately not reported. Posting a NAV that omits an unpriceable
 			// leg would mark every holder down by its full value; letting the NAV
 			// go stale blocks deposits and fulfilments until a human looks, which
 			// is the honest outcome even though it is the noisier one.
-			log("error", `Cannot price ${vault.address}; letting the NAV go stale.`, error);
+			log("error", "Cannot price this vault; letting the NAV go stale.", error);
 			return {
 				action: "NONE",
 				market: null,
@@ -207,6 +216,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 	const dueForReport = now >= state.lastNavReportAt + state.minNavReportInterval;
 
 	if (dueForReport) {
+		log("debug", `2/4 report — posting the NAV on-chain.`);
 		try {
 			await vault.reportNav(
 				observation.valuation.deployedAssets,
@@ -214,12 +224,13 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 				observedAt,
 			);
 			navReported = true;
+			log("info", `NAV reported at ${usd(observation.valuation.deployedAssets)}.`);
 		} catch (error) {
 			// A rejected report is a signal, not a nuisance: it means the value
 			// claimed is outside the bounds the vault was configured with, or the
 			// leverage is outside its mandate. Trading on top of that would be
 			// acting on a position the contract has just refused to believe.
-			log("error", `NAV report rejected for ${vault.address}`, error);
+			log("error", "NAV report rejected.", error);
 			return {
 				action: "NONE",
 				market: null,
@@ -234,10 +245,19 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		}
 	}
 
+	if (!dueForReport) {
+		const due = state.lastNavReportAt + state.minNavReportInterval - now;
+		log("debug", `2/4 report — not due for another ${due}s; skipping.`);
+	}
+
 	// --- 3. act -----------------------------------------------------------
 
 	const queue = await deps.queue();
 	const ripe = queue.filter((q) => q.eligibleAt <= now);
+	log(
+		"debug",
+		`3/4 act — ${ripe.length} ripe and ${queue.length - ripe.length} waiting redemption(s).`,
+	);
 
 	const fresh = await vault.read();
 	const snapshot: VaultSnapshot = {
@@ -279,16 +299,28 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 	// where the position is near enough the front of the queue that a cascade on
 	// the other side would reach it.
 	if (observation.adl.lamps >= 3) {
-		log("warn", `${vault.address}: auto-deleveraging risk — ${observation.adl.summary}`);
+		log("warn", `auto-deleveraging risk — ${observation.adl.summary}`);
 	}
 
 	const decision = await decide(snapshot, now, advisor);
 	log(
 		"info",
-		`${vault.address}: ${decision.kind}${decision.market ? ` ${decision.market}` : ""} — ${decision.rationale}`,
+		`${decision.kind}${decision.market ? ` ${decision.market}` : ""} — ${decision.rationale}`,
 	);
 
 	let activity: ActivityInput[] = [];
+	const actionStartedAt = performance.now();
+
+	// The one line worth having when an operator is watching a tick that has not
+	// come back: it names the action, the market and the size that everything
+	// after it is waiting on. Deployments and unwinds cross a chain, so "started"
+	// and "finished" can be twenty minutes apart.
+	if (decision.kind !== "HOLD") {
+		log(
+			"info",
+			`Executing ${decision.kind}${decision.market ? ` on ${decision.market}` : ""}${decision.amount > 0n ? ` for ${usd(decision.amount)}` : ""}.`,
+		);
+	}
 
 	try {
 		if (decision.kind === "DEPLOY") {
@@ -318,7 +350,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			activity = await venue.closeAll();
 		}
 	} catch (error) {
-		log("error", `${decision.kind} failed for ${vault.address}`, error);
+		log("error", `${decision.kind} failed.`, error);
 		// Whatever legs did land are still published. A failed deployment that
 		// opened the short and could not buy the spot is exactly the state a
 		// depositor most needs to see, and swallowing it because the overall
@@ -342,7 +374,19 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		};
 	}
 
+	if (decision.kind !== "HOLD") {
+		log(
+			"info",
+			`${decision.kind} completed in ${formatDuration(performance.now() - actionStartedAt)} — ${activity.length} leg(s): ${activity.map((a) => a.kind).join(", ") || "none"}.`,
+		);
+	}
+
 	// --- 4. publish, then settle the queue --------------------------------
+
+	log(
+		"debug",
+		`4/4 publish — ${activity.length} activity row(s), ${ripe.length} redemption(s) to settle.`,
+	);
 
 	if (activity.length) await safeReport(vault, activity, log);
 
@@ -398,8 +442,12 @@ async function settleQueue(
 			if (payable === 0n) continue;
 			await vault.fulfillRedeem(entry.controller, payable);
 			fulfilled += 1;
+			log(
+				"info",
+				`Paid ${entry.controller} ${payable === entry.pendingShares ? "in full" : "in part"} (${usd(entry.pendingAssets)} requested, ${usd(state.freeAssets)} free).`,
+			);
 		} catch (error) {
-			log("warn", `Could not fulfil ${entry.controller} on ${vault.address}`, error);
+			log("warn", `Could not fulfil ${entry.controller}.`, error);
 		}
 	}
 
@@ -421,12 +469,17 @@ async function safeReport(
 	try {
 		await vault.reportActivity(activity);
 	} catch (error) {
-		log("error", `Activity report failed for ${vault.address}; trades already executed.`, error);
+		log("error", "Activity report failed; the trades already executed.", error);
 	}
 }
 
 function sum(values: bigint[]): bigint {
 	return values.reduce((a, b) => a + b, 0n);
+}
+
+/** USDC base units as dollars, for a log line rather than for arithmetic. */
+function usd(amount: bigint): string {
+	return `$${(Number(amount) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function message(error: unknown): string {

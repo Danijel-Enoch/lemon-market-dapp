@@ -1,5 +1,5 @@
 import { BPS } from "@lemon/contracts";
-import { adlRisk } from "@lemon/core";
+import { adlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { KyberAggregatorClient } from "@lemon/kyber";
 import type { PacificaClient } from "@lemon/pacifica";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
@@ -98,6 +98,16 @@ export interface VenueDeps {
 	 */
 	solanaIdleUsdc: () => Promise<bigint>;
 	now: () => number;
+	/**
+	 * Where the adapter narrates its steps.
+	 *
+	 * Optional, and a no-op when absent, so a test harness does not have to
+	 * supply one. In the running agent it is always set — this is the layer that
+	 * places the orders, so a tick that has stopped moving has almost always
+	 * stopped inside one of these methods, and the last line it printed is what
+	 * says which.
+	 */
+	log?: (level: LogLevel, message: string, extra?: unknown) => void;
 }
 
 export interface BridgeAdapter {
@@ -117,6 +127,7 @@ export interface BridgeAdapter {
 
 export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	const { config, publicClient, kyber, pacifica } = deps;
+	const log: NonNullable<VenueDeps["log"]> = deps.log ?? (() => {});
 
 	if (config.markets.length === 0) {
 		throw new Error("A venue adapter needs at least one market to trade.");
@@ -362,10 +373,17 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		async deploy({ market: ticker, spotNotional, perpMargin, leverageBps }) {
 			const market = marketFor(ticker);
 			const activity: ActivityInput[] = [];
+			const startedAt = performance.now();
+
+			log(
+				"info",
+				`deploy ${market.ticker}: ${usd(spotNotional)} spot + ${usd(perpMargin)} margin at ${(leverageBps / 10_000).toFixed(2)}x — 5 steps.`,
+			);
 
 			// 0. Prove the spot leg is routable before any money leaves Base.
 			// Bridging first and discovering afterwards that the pool cannot fill
 			// strands the margin on Solana with nothing to hedge and a slow way back.
+			log("debug", `deploy ${market.ticker}: step 0/5 — probing the ${market.symbol} route.`);
 			const probe = await kyber.getRoute({
 				tokenIn: config.usdc,
 				tokenOut: market.spotToken,
@@ -375,7 +393,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			if (!probe.ok) throw new Error(`No spot route for ${market.symbol}: ${probe.message}`);
 
 			// 1. Margin across to Solana. Nothing is exposed while it flies.
+			log(
+				"info",
+				`deploy ${market.ticker}: step 1/5 — bridging ${usd(perpMargin)} of margin to Solana.`,
+			);
 			const bridged = await deps.bridge.toSolana(perpMargin);
+			log(
+				"info",
+				`deploy ${market.ticker}: step 1/5 done — ${usd(bridged.landed)} arrived (${usd(perpMargin - bridged.landed)} lost in transit).`,
+			);
 			activity.push({
 				kind: "BRIDGE_OUT",
 				chain: "BASE",
@@ -402,6 +428,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 2. Leverage is set before the order, not after — an order placed at the
 			// account's previous leverage would open at the wrong size and have to be
 			// corrected, paying taker fees twice.
+			log(
+				"debug",
+				`deploy ${market.ticker}: step 2/5 — setting ${market.perpSymbol} leverage to ${Math.round(leverageBps / 10_000)}x.`,
+			);
 			await pacifica.updateLeverage(deps.signPacifica, {
 				account: config.solanaAddress,
 				symbol: market.perpSymbol,
@@ -426,6 +456,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					activity,
 				);
 			}
+
+			log(
+				"info",
+				`deploy ${market.ticker}: step 3/5 — the surviving margin carries ${usd(spend)} of hedge (asked for ${usd(spotNotional)}).`,
+			);
 
 			// Quoted *now*, not reused from the probe above. The probe is minutes old
 			// by this point and priced a market that has moved since; sizing the hedge
@@ -461,6 +496,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			await ensureAllowance(deps, config.usdc, built.routerAddress as Address, spend);
 
 			// 4. The short, sized on that quote.
+			log(
+				"info",
+				`deploy ${market.ticker}: step 4/5 — shorting ${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)} ${market.perpSymbol} on Pacifica.`,
+			);
 			const receipt = await pacifica.createMarketOrder(deps.signPacifica, {
 				account: config.solanaAddress,
 				symbol: market.perpSymbol,
@@ -484,6 +523,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 5. The spot leg, immediately. Balances are read either side of the swap
 			// because the quote is a promise and the fill is the fact — and the gap
 			// between them is the residual delta the next tick has to rebalance away.
+			log(
+				"info",
+				`deploy ${market.ticker}: step 5/5 — buying the spot leg with ${usd(spend)}; the short is naked until this confirms.`,
+			);
 			const before = await spotBalance(market);
 			let swapTx: Hex;
 			try {
@@ -510,6 +553,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			}
 
 			const received = (await spotBalance(market)) - before;
+			log(
+				"info",
+				`deploy ${market.ticker}: hedged in ${formatDuration(performance.now() - startedAt)} — ${formatUnitsForVenue(received, market.spotTokenDecimals)} ${market.symbol} bought against a ${formatUnitsForVenue(expectedUnits, market.spotTokenDecimals)} short.`,
+			);
 			activity.push({
 				kind: "SPOT_BUY",
 				chain: "BASE",
@@ -549,6 +596,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		 */
 		async unwind({ amount }) {
 			const activity: ActivityInput[] = [];
+			const startedAt = performance.now();
+
+			log("info", `unwind: raising ${usd(amount)} across ${config.markets.length} market(s).`);
 
 			const legs = await Promise.all(
 				config.markets.map(async (market) => {
@@ -577,6 +627,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				amount,
 			);
 
+			log(
+				"info",
+				`unwind: taking it from ${allocations.map((a) => `${a.ticker} ${usd(a.amount)}`).join(", ") || "nothing"}.`,
+			);
+
 			let proceeds = 0n;
 			for (const allocation of allocations) {
 				const leg = legs.find((l) => l.market.ticker === allocation.ticker);
@@ -590,8 +645,14 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				const closeUnits = BigInt(Math.floor(Number(leg.balance) * fraction));
 				if (closeUnits === 0n) continue;
 
+				log(
+					"info",
+					`unwind: closing ${formatUnitsForVenue(closeUnits, leg.market.spotTokenDecimals)} ${leg.market.symbol} for about ${usd(allocation.amount)}.`,
+				);
 				proceeds += await closeLeg(deps, leg.market, closeUnits, allocation.amount, activity);
 			}
+
+			log("info", `unwind: the spot closes raised ${usd(proceeds)}; repatriating free margin.`);
 
 			// Bring the margin the closes just freed back to Base — best-effort, and
 			// deliberately not fatal.
@@ -606,16 +667,25 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			let repatriated = 0n;
 			try {
 				repatriated = await repatriateMargin(deps, activity);
-			} catch {
+			} catch (error) {
 				// Visible by its absence: a PERP_CLOSE with no VENUE_WITHDRAW against
 				// it is exactly what an operator needs to see, and it is more useful
 				// than a thrown error that would also discard the spot proceeds.
 				repatriated = 0n;
+				log(
+					"warn",
+					"unwind: the margin did not make it home; the spot proceeds are still being returned.",
+					error,
+				);
 			}
 
 			// The one call that actually clears the redemption queue. Everything above
 			// this line moved value between the agent's own accounts.
 			await returnAll(deps, proceeds + repatriated, activity);
+			log(
+				"info",
+				`unwind: returned ${usd(proceeds + repatriated)} to the vault in ${formatDuration(performance.now() - startedAt)} (${usd(proceeds)} spot, ${usd(repatriated)} margin).`,
+			);
 
 			return activity;
 		},
@@ -647,6 +717,12 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		async closeAll() {
 			const activity: ActivityInput[] = [];
 			const failures: string[] = [];
+			const startedAt = performance.now();
+
+			log(
+				"info",
+				`closeAll: an operator has ordered every position closed — ${config.markets.map((m) => m.ticker).join(", ")}.`,
+			);
 
 			for (const market of config.markets) {
 				const balance = await spotBalance(market);
@@ -658,7 +734,12 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// magnitude, which is an order for a size nobody holds.
 				const position = fromUnits(await perpPosition(deps, market), market.spotTokenDecimals);
 
-				if (balance === 0n && position === 0n) continue;
+				if (balance === 0n && position === 0n) {
+					log("debug", `closeAll: ${market.ticker} is already flat.`);
+					continue;
+				}
+
+				log("info", `closeAll: closing ${market.ticker} in full.`);
 
 				try {
 					// The venue's own position size, not the spot balance, because the two
@@ -676,14 +757,17 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					// leave the other four open — a close order is about reducing exposure,
 					// and stopping at the first failure keeps the most of it.
 					failures.push(`${market.ticker}: ${message(error)}`);
+					log("error", `closeAll: ${market.ticker} could not be closed; carrying on.`, error);
 					if (error instanceof VenueExecutionError) activity.push(...error.activity);
 				}
 			}
 
+			log("info", "closeAll: sweeping the margin account.");
 			try {
 				await repatriateMargin(deps, activity, { sweepIdle: true });
 			} catch (error) {
 				failures.push(`the margin account: ${message(error)}`);
+				log("error", "closeAll: the margin account could not be swept.", error);
 			}
 
 			// The whole Base balance, not just what this call raised.
@@ -701,6 +785,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// that failed after drawing down — is swept too.
 			const onBase = await usdcBalance(config.agentAddress);
 			await returnAll(deps, onBase, activity);
+			log(
+				"info",
+				`closeAll: returned ${usd(onBase)} to the vault in ${formatDuration(performance.now() - startedAt)}${failures.length ? `, with ${failures.length} part(s) still open` : ""}.`,
+			);
 
 			if (failures.length > 0) {
 				// Thrown *after* everything that could be sent home has been, and
@@ -722,7 +810,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const current = await perpPosition(deps, market);
 
 			const delta = targetUnits - current;
-			if (delta === 0n) return [];
+			if (delta === 0n) {
+				log("debug", `rebalance ${market.ticker}: the legs already match; nothing to do.`);
+				return [];
+			}
+
+			log(
+				"info",
+				`rebalance ${market.ticker}: ${delta > 0n ? "selling" : "buying back"} ${formatUnitsForVenue(abs(delta), 18)} ${market.perpSymbol} to match the spot leg.`,
+			);
 
 			// The perp leg only. Correcting on the spot side means another swap
 			// through a thin pool, paying that pool's slippage to fix what is
@@ -1186,6 +1282,11 @@ async function ensureAllowance(
 		args: [spender, amount],
 	});
 	await deps.publicClient.waitForTransactionReceipt({ hash });
+}
+
+/** USDC base units as dollars, for a log line rather than for arithmetic. */
+function usd(amount: bigint): string {
+	return `$${(Number(amount) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 /** Pacifica takes decimal strings, not integers. */
