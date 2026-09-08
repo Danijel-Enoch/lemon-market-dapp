@@ -10,6 +10,7 @@ import {
 	MIN_DEPLOY_USDC,
 	permittedActions,
 	perpMarginFor,
+	resumableAmount,
 	splitDeployment,
 	type VaultSnapshot,
 } from "../src/policy";
@@ -53,6 +54,7 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		deployedAssets: 0n,
 		maxDeployedBps: 9000,
 		withdrawWindowRemaining: 500_000n * USDC,
+		idleOnBase: 0n,
 		ripeRedeemAssets: 0n,
 		pendingRedeemAssets: 0n,
 		earliestDeadline: null,
@@ -89,6 +91,89 @@ describe("deployableAmount", () => {
 
 	it("returns nothing once the ceiling is reached", () => {
 		expect(deployableAmount(snapshot({ deployedAssets: 9_000n * USDC }))).toBe(0n);
+	});
+});
+
+/**
+ * A deployment that failed after drawing capital down, from the state that
+ * prompted this: NVDA held $36.243045, had drawn 90% of it, and the whole
+ * $32.618740 was sitting in the agent's Base wallet with no position anywhere.
+ *
+ * That money is counted in `deployedAssets`, so it fills the ceiling exactly and
+ * `deployableAmount` is zero; it is not `freeAssets`, so nothing can withdraw
+ * it. Before `resumableAmount` the policy had no option that named it, and the
+ * vault recomputed the same HOLD every minute indefinitely.
+ */
+describe("a deployment stranded at the agent", () => {
+	// The real figures, for the arithmetic that produced the deadlock. This part
+	// is independent of the deployment floor, which is a per-deployment setting.
+	it("leaves the vault with no headroom at all", () => {
+		const s = snapshot({
+			totalAssets: 36_243_045n,
+			freeAssets: 3_624_305n,
+			deployedAssets: 32_618_740n,
+			idleOnBase: 32_618_740n,
+		});
+		// floor(36_243_045 × 9000 / 10_000) is 32_618_740 — the deployed figure exactly.
+		expect(deployableAmount(s)).toBe(0n);
+	});
+
+	// Everything below is sized off the floor rather than in dollars, so it does
+	// not depend on which `MIN_DEPLOY_USDC` the environment was read with. At 1x
+	// a deployment buys a spot leg worth half of it, so four times the floor is
+	// comfortably deployable.
+	const IDLE = 4n * MIN_DEPLOY_USDC;
+
+	/** Every dollar the vault has is already at the agent, and none of it is placed. */
+	const stranded = (overrides: Partial<VaultSnapshot> = {}) =>
+		snapshot({
+			totalAssets: IDLE,
+			freeAssets: 0n,
+			deployedAssets: IDLE,
+			idleOnBase: IDLE,
+			...overrides,
+		});
+
+	it("still offers a deployment, funded from the agent's own balance", () => {
+		const deploy = permittedActions(stranded(), NOW).find((o) => o.kind === "DEPLOY");
+		expect(deploy).toBeDefined();
+		expect(deploy?.fundedFrom).toBe("AGENT");
+		expect(deploy?.amount).toBe(IDLE);
+	});
+
+	it("says where the money is, so the reason is not mistaken for a fresh draw", () => {
+		const deploy = permittedActions(stranded(), NOW).find((o) => o.kind === "DEPLOY");
+		expect(deploy?.reason ?? "").toContain("agent's Base wallet");
+	});
+
+	/**
+	 * Even with headroom to spare. Drawing more down while capital the vault
+	 * already released sits idle raises `deployedAssets` twice over for one
+	 * position — and leaves the first draw exactly as stuck as it was.
+	 */
+	it("spends what is already out before drawing anything more", () => {
+		const s = snapshot({ idleOnBase: IDLE });
+		const deploy = permittedActions(s, NOW).find((o) => o.kind === "DEPLOY");
+		expect(deploy?.fundedFrom).toBe("AGENT");
+		expect(deploy?.amount).toBe(IDLE);
+	});
+
+	it("draws from the vault in the ordinary case, where nothing is stranded", () => {
+		expect(permittedActions(snapshot(), NOW).find((o) => o.kind === "DEPLOY")?.fundedFrom).toBe(
+			"VAULT",
+		);
+	});
+
+	it("holds the money back while the queue is owed more than the vault can pay", () => {
+		const s = stranded({ ripeRedeemAssets: IDLE });
+		expect(resumableAmount(s)).toBe(0n);
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	it("falls through to the vault when the stranded balance is below the floor", () => {
+		// Too small to open a spot leg with, but the vault can fund one on its own.
+		const s = snapshot({ idleOnBase: 1n });
+		expect(permittedActions(s, NOW).find((o) => o.kind === "DEPLOY")?.fundedFrom).toBe("VAULT");
 	});
 });
 

@@ -74,6 +74,7 @@ function observation(overrides = {}) {
 		},
 		markets: [observedMarket()],
 		adl: CALM_ADL,
+		idleOnBase: 0n,
 		...overrides,
 	};
 }
@@ -193,6 +194,30 @@ describe("tick", () => {
 		await tick(deps);
 		expect(calls[0]).toBe("reportNav");
 		expect(calls).toContain("agentWithdraw:9000000000");
+	});
+
+	/**
+	 * The half of the stranded-capital fix that moves money. A deployment funded
+	 * from the agent's own balance must not call `agentWithdraw` — the capital was
+	 * withdrawn once already by the deployment that failed, and drawing again
+	 * would take a second helping out of the vault to place the first one.
+	 */
+	it("deploys capital stranded at the agent without drawing more down", async () => {
+		const stranded = 4_000n * USDC;
+		const { deps, vault, calls } = harness({
+			state: vaultState({
+				totalAssets: stranded,
+				freeAssets: 0n,
+				deployedAssets: stranded,
+			}),
+			observe: async () => observation({ idleOnBase: stranded }),
+		});
+
+		const result = await tick(deps);
+
+		expect(result.action).toBe("DEPLOY");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(calls).toContain("deploy:NVDA");
 	});
 
 	it("skips the report when one is not yet due", async () => {

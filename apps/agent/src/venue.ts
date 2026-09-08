@@ -419,6 +419,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			return {
 				valuation,
 				markets,
+				// Reported separately from the valuation's combined idle figure: only
+				// the Base side can buy a spot leg or fund a bridge, so it is the only
+				// side a deployment can be sized against.
+				idleOnBase: baseIdle,
 				// The worst leg, because a warning about the vault should be about the
 				// leg most likely to be deleveraged out from under it rather than an
 				// average that never describes any actual position.

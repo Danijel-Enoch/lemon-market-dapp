@@ -94,6 +94,21 @@ export interface VaultSnapshot {
 	maxDeployedBps: number;
 	/** What remains of the agent's withdrawal allowance this window. */
 	withdrawWindowRemaining: bigint;
+	/**
+	 * USDC sitting in the agent's own Base wallet, outside any venue.
+	 *
+	 * Ordinarily zero — a deployment draws capital down and spends it in the same
+	 * tick. It is non-zero exactly when a deployment failed between the two, and
+	 * that money is stuck in a way no other field describes: it is part of
+	 * `deployedAssets` because it has left the vault, so it occupies the
+	 * deployment ceiling, but it is not `freeAssets`, so nothing can withdraw it.
+	 *
+	 * Base only, deliberately. Idle USDC on Solana is in the valuation and not
+	 * here, because a spot leg is bought on Base and margin is bridged from Base
+	 * — Solana-side idle cannot fund either, and counting it would size a
+	 * deployment against money the swap cannot reach.
+	 */
+	idleOnBase: bigint;
 
 	/** Shares queued whose delay has elapsed, and what they are worth now. */
 	ripeRedeemAssets: bigint;
@@ -145,6 +160,14 @@ export interface Decision {
 	reason: string;
 	/** True when the policy left no room for judgement. */
 	forced: boolean;
+	/**
+	 * Where a DEPLOY's capital comes from. Null for every other kind.
+	 *
+	 * `VAULT` is the ordinary case and draws the amount down with
+	 * `agentWithdraw`. `AGENT` spends USDC the agent already holds on Base and
+	 * withdraws nothing — see `resumableAmount` for why that is a case at all.
+	 */
+	fundedFrom: "VAULT" | "AGENT" | null;
 }
 
 /** Below 1% the correction costs more in fees than the drift costs in exposure. */
@@ -261,6 +284,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					market: null,
 					reason: `An operator has ordered every position closed. ${describeOpenMarkets(snapshot)} to sell, and ${fmt(snapshot.deployedAssets)} to bring home.`,
 					forced: true,
+					fundedFrom: null,
 				},
 			];
 		}
@@ -273,6 +297,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 				reason:
 					"An operator's close order stands and the vault is flat. Reporting NAV and settling the queue; no capital is deployed until the order is lifted.",
 				forced: true,
+				fundedFrom: null,
 			},
 		];
 	}
@@ -298,6 +323,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					kind: "UNWIND",
 					amount,
 					market: null,
+					fundedFrom: null,
 					reason: urgent
 						? `${fmt(owed)} of redemptions are due within a day and the vault holds ${fmt(snapshot.freeAssets)}.`
 						: `${fmt(owed)} of redemptions are eligible and the vault holds ${fmt(snapshot.freeAssets)}.`,
@@ -330,6 +356,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			market: null,
 			reason: `${retired.map((m) => m.ticker).join(", ")} ${retired.length === 1 ? "has" : "have"} been retired but still ${retired.length === 1 ? "holds" : "hold"} ${fmt(amount)}; unwinding returns it to the vault for the markets that are still wanted.`,
 			forced: false,
+			fundedFrom: null,
 		});
 	}
 
@@ -351,6 +378,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			market: market.ticker,
 			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral; its perp leg needs to move to match its spot leg.`,
 			forced: false,
+			fundedFrom: null,
 		});
 	}
 
@@ -365,6 +393,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		market: null,
 		reason: "Nothing needs doing; report NAV and wait.",
 		forced: false,
+		fundedFrom: null,
 	});
 
 	return options;
@@ -386,8 +415,39 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
  * tick either completes one clean deployment or fails one, with nothing in
  * between to reason about.
  */
+/**
+ * The next deployment, from whichever source can fund one.
+ *
+ * The agent's own idle USDC is tried first. It is capital that has already left
+ * the vault, so spending it breaches no limit the vault has — `deployedAssets`
+ * counts it either way, and turning it into a spot leg and margin moves nothing
+ * across the vault's boundary. Withdrawing more, by contrast, is bounded by
+ * three ceilings, and one of them is exhausted by this very money.
+ *
+ * That ordering is what unwedges a vault whose deployment failed after
+ * `agentWithdraw`. The drawn-down capital fills the deployment ceiling while
+ * sitting in the agent's wallet doing nothing, so `deployableAmount` is zero and
+ * every subsequent tick recomputes the same zero forever. Nothing in the policy
+ * used to be able to name that money, so nothing could spend it.
+ */
 function nextDeployment(snapshot: VaultSnapshot): Decision | null {
-	const deployable = deployableAmount(snapshot);
+	for (const fundedFrom of ["AGENT", "VAULT"] as const) {
+		const available =
+			fundedFrom === "AGENT" ? resumableAmount(snapshot) : deployableAmount(snapshot);
+		const decision = deploymentFrom(snapshot, available, fundedFrom);
+		// Falls through rather than returning null: the agent's idle balance can
+		// be real and still too small for any market's floor, and that must not
+		// stop an ordinary deployment the vault can fund on its own.
+		if (decision) return decision;
+	}
+	return null;
+}
+
+function deploymentFrom(
+	snapshot: VaultSnapshot,
+	deployable: bigint,
+	fundedFrom: "VAULT" | "AGENT",
+): Decision | null {
 	if (deployable <= 0n) return null;
 
 	// Weights are measured on spot notional, which is the exposure they are
@@ -424,16 +484,37 @@ function nextDeployment(snapshot: VaultSnapshot): Decision | null {
 		if (spend < MIN_DEPLOY_USDC) continue;
 
 		const amount = deploymentFor(spend, snapshot.targetLeverageBps);
+		const where =
+			fundedFrom === "AGENT"
+				? `${fmt(deployable)} drawn down by an earlier deployment is sitting in the agent's Base wallet`
+				: `${fmt(deployable)} is idle`;
 		return {
 			kind: "DEPLOY",
 			amount: min(amount, deployable),
 			market: market.ticker,
-			reason: `${fmt(deployable)} is idle, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
+			reason: `${where}, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
 			forced: false,
+			fundedFrom,
 		};
 	}
 
 	return null;
+}
+
+/**
+ * How much of the agent's own idle USDC may be put to work right now.
+ *
+ * No ceiling applies to it, for the reason in `nextDeployment` — but one
+ * condition does. Idle USDC at the agent is a single transfer from being
+ * `freeAssets` again; the same money inside a hedge is an unwind away. So while
+ * the vault cannot cover what its queue already owes, this is the cheapest
+ * capital it has to pay redemptions with, and locking it into a position is the
+ * wrong move however good the funding looks.
+ */
+export function resumableAmount(snapshot: VaultSnapshot): bigint {
+	const committed = snapshot.ripeRedeemAssets + snapshot.pendingRedeemAssets;
+	if (snapshot.freeAssets < committed) return 0n;
+	return snapshot.idleOnBase;
 }
 
 /**

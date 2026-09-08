@@ -70,6 +70,15 @@ export interface VenueAdapter {
 		markets: MarketObservation[];
 		/** The worst auto-deleveraging exposure across those markets. */
 		adl: AdlRisk;
+		/**
+		 * USDC in the agent's Base wallet, separate from the valuation's total.
+		 *
+		 * The valuation adds both chains' idle balances together because for NAV
+		 * they are the same thing. The policy needs the Base half on its own: it is
+		 * the only part that can fund a spot swap or a bridge, so it is the only
+		 * part a deployment can be sized against.
+		 */
+		idleOnBase: bigint;
 	}>;
 
 	/** Buy one market's spot leg and open the matching short. Returns what it did. */
@@ -284,6 +293,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		deployedAssets: fresh.deployedAssets,
 		maxDeployedBps: fresh.maxDeployedBps,
 		withdrawWindowRemaining: await vault.withdrawWindowRemaining(),
+		idleOnBase: observation.idleOnBase,
 		ripeRedeemAssets: sum(ripe.map((q) => q.pendingAssets)),
 		pendingRedeemAssets: sum(queue.filter((q) => q.eligibleAt > now).map((q) => q.pendingAssets)),
 		earliestDeadline: ripe.length ? Math.min(...ripe.map((q) => q.fulfillBy)) : null,
@@ -344,7 +354,18 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			// capital in the vault rather than at an agent with nothing to do.
 			if (!decision.market) throw new Error("A deployment named no market.");
 			const split = splitDeployment(decision.amount, fresh.targetLeverageBps);
-			await vault.agentWithdraw(decision.amount);
+			// Only a vault-funded deployment draws anything down. An agent-funded
+			// one is spending capital a previous deployment already withdrew and
+			// failed to place, so withdrawing again would take a second helping out
+			// of the vault to place the first one.
+			if (decision.fundedFrom === "AGENT") {
+				log(
+					"info",
+					`Resuming with ${usd(decision.amount)} already in the agent's Base wallet; nothing is drawn from the vault.`,
+				);
+			} else {
+				await vault.agentWithdraw(decision.amount);
+			}
 			activity = await venue.deploy({
 				...split,
 				market: decision.market,
