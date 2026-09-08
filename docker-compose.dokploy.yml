@@ -365,6 +365,10 @@ services:
       # Each tick reads both venues and may report a valuation, so this
       # interacts with the vault's own minNavReportInterval.
       AGENT_TICK_INTERVAL_MS: ${AGENT_TICK_INTERVAL_MS:-60000}
+      # The smallest spot leg worth opening, in dollars. Measured on the leg
+      # rather than on the deployment that funds it, so at 1x a vault needs
+      # roughly twice this idle before it can deploy at all.
+      MIN_DEPLOY_USDC: ${MIN_DEPLOY_USDC:-30}
       # Optional. With no key the agent runs on its deterministic policy alone,
       # which is strictly less clever and equally safe.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}

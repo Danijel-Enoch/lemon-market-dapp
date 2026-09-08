@@ -157,7 +157,11 @@ describe("permittedActions", () => {
 	});
 
 	it("does not offer to deploy dust", () => {
-		const s = snapshot({ freeAssets: 50n * USDC, totalAssets: 50n * USDC });
+		// Sized off the minimum rather than written in dollars: the minimum is a
+		// deployment setting now, and a test that hard-codes one reading of it
+		// stops testing the rule and starts testing the .env in the repo root.
+		const dust = MIN_DEPLOY_USDC / 2n;
+		const s = snapshot({ freeAssets: dust, totalAssets: dust });
 		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
 	});
 
@@ -169,8 +173,10 @@ describe("permittedActions", () => {
 	 * layer can enforce for nothing.
 	 */
 	it("measures the deploy minimum on the spot leg, not the whole deployment", () => {
-		// $180 is deployable out of $200, which buys a $90 spot leg at 1x and $120 at 2x.
-		const idle = { freeAssets: 200n * USDC, totalAssets: 200n * USDC };
+		// Twice the minimum, of which 90% is deployable — enough that a gate on
+		// the deployment total would pass either case, while the spot leg it buys
+		// comes to 0.9x the minimum at 1x and 1.2x at 2x. Only the second clears.
+		const idle = { freeAssets: MIN_DEPLOY_USDC * 2n, totalAssets: MIN_DEPLOY_USDC * 2n };
 		expect(permittedActions(snapshot(idle), NOW).map((o) => o.kind)).not.toContain("DEPLOY");
 		expect(
 			permittedActions(snapshot({ ...idle, targetLeverageBps: 20_000 }), NOW).map((o) => o.kind),

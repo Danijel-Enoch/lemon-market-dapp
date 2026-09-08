@@ -163,8 +163,34 @@ export const REBALANCE_DRIFT_BPS = 100;
  * `venue.ts`, *after* the margin has bridged to Solana. That failure strands
  * capital on the wrong chain to enforce a minimum the policy layer could have
  * enforced for free. So both layers now measure the same leg.
+ *
+ * Set `MIN_DEPLOY_USDC` in the environment, in dollars, to move it. The floor a
+ * deployment has to clear depends on what a swap costs and on how much funding
+ * the resulting hedge earns, and both are venue and market conditions rather
+ * than facts about this code — so the number is a deployment choice.
  */
-export const MIN_DEPLOY_USDC = 100_000_000n; // $100
+export const MIN_DEPLOY_USDC = usdcFromEnv("MIN_DEPLOY_USDC", 30_000_000n); // $30
+
+/**
+ * Read a dollar amount from the environment as USDC base units.
+ *
+ * Parsed off the decimal string rather than through `Number`, because a float
+ * cannot hold every 6-decimal amount exactly and this value gates money. A
+ * malformed setting throws at import: a risk limit that silently falls back to
+ * its default is worse than one that refuses to start.
+ */
+function usdcFromEnv(name: string, fallback: bigint): bigint {
+	const raw = process.env[name]?.trim();
+	if (!raw) return fallback;
+
+	const parsed = /^(\d+)(?:\.(\d{1,6}))?$/.exec(raw);
+	if (!parsed) {
+		throw new Error(
+			`${name} must be a dollar amount with at most 6 decimals (e.g. 30, 30.5), got "${raw}".`,
+		);
+	}
+	return BigInt(parsed[1]) * 1_000_000n + BigInt((parsed[2] ?? "").padEnd(6, "0"));
+}
 
 /** Unwinding is never skipped for being small — someone is waiting on it. */
 export const MIN_UNWIND_USDC = 1n;
