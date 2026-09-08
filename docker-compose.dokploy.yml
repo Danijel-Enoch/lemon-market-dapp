@@ -173,10 +173,17 @@ services:
   #
   # PORT is set explicitly because Ponder resolves its listen port from `PORT`
   # in preference to its own `--port` flag.
+  #
+  # Started through `scripts/start.ts` rather than `ponder start` directly. Any
+  # deploy that changes how the read model is derived changes Ponder's build id,
+  # and Ponder refuses to start against a schema stamped with a different one —
+  # which, under `restart: unless-stopped`, is an indexer that crash-loops until
+  # someone drops the schema by hand while the board serves empty. The wrapper
+  # drops it and reindexes; see the script for why that is safe here.
   indexer:
     <<: [*image, *restart]
     working_dir: /usr/src/app/apps/indexer
-    command: ["bunx", "ponder", "start", "--schema", "ponder"]
+    command: ["bun", "run", "start"]
     environment:
       <<: *app-env
       PORT: 42069

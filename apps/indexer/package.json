@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "PORT=42069 ponder dev --schema ponder",
-		"start": "PORT=42069 ponder start --schema ponder",
+		"start": "PORT=42069 bun run scripts/start.ts",
 		"serve": "PORT=42069 ponder serve --schema ponder",
 		"codegen": "ponder codegen",
 		"typecheck": "tsc --noEmit"
