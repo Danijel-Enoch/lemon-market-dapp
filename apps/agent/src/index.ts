@@ -213,13 +213,13 @@ async function main() {
 		);
 	}
 
-	// Both checked here rather than at first use, for the same reason. Every
-	// trade this process places crosses a chain, and the first crossing of a
-	// deployment happens with a depositor's capital already drawn out of a vault
-	// — which is the worst possible moment to learn the bridge was unconfigured.
+	// A warning rather than a refusal to start. The bridge signs and broadcasts
+	// Relay's quoted steps itself, and quoting needs no key — only the deposit
+	// addresses this used to use did, which is what made a missing key fatal.
+	// A key still raises the rate limits, so its absence is worth saying once.
 	if (!relay.hasApiKey) {
-		throw new Error(
-			"RELAY_API_KEY is required: the agent bridges USDC between Base and Solana over Relay deposit addresses, and those need a key (free, self-serve at dashboard.relay.link).",
+		logger.warn(
+			"RELAY_API_KEY is not set. Bridging works without one; a key (free, self-serve at dashboard.relay.link) raises Relay's rate limits.",
 		);
 	}
 

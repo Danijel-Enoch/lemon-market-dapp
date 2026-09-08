@@ -22,9 +22,79 @@ export interface RelayChain {
 	solverCurrencies?: { symbol: string; address: string; decimals: number }[];
 }
 
-export interface DepositQuote {
+/**
+ * One EVM transaction Relay wants signed and broadcast, as returned by a quote.
+ *
+ * The gas fields are Relay's estimate at quote time. They are deliberately not
+ * forwarded to the wallet — a quote is fetched seconds before it is sent and
+ * Base's fee market moves in that window, so a stale `maxFeePerGas` is a
+ * transaction that sits unmined with a vault's margin already committed to it.
+ * Estimating at send time costs one RPC call and cannot go stale.
+ */
+export interface EvmTransactionData {
+	from: string;
+	to: string;
+	data: string;
+	value: string;
+	chainId: number;
+	gas?: string;
+	maxFeePerGas?: string;
+	maxPriorityFeePerGas?: string;
+}
+
+/** One Solana instruction, in the shape Relay returns rather than the SDK's. */
+export interface SvmInstructionData {
+	keys: { pubkey: string; isSigner: boolean; isWritable: boolean }[];
+	programId: string;
+	/** Instruction data as hex, with or without a leading `0x`. */
+	data: string;
+}
+
+/**
+ * The Solana half of a quote: instructions, plus the tables they are compiled
+ * against.
+ *
+ * `addressLookupTableAddresses` is not optional in practice — Relay's deposit
+ * instruction references accounts through a table — and a caller that ignores
+ * it and compiles a legacy transaction is building a different transaction from
+ * the one that was quoted.
+ */
+export interface SvmTransactionData {
+	instructions: SvmInstructionData[];
+	addressLookupTableAddresses: string[];
+}
+
+export type RelayTransactionData = EvmTransactionData | SvmTransactionData;
+
+export interface RelayStepItem {
+	status?: string;
+	data: RelayTransactionData;
+	/** Present on the step whose confirmation starts the fill. */
+	check?: { endpoint?: string; method?: string };
+}
+
+export interface RelayStep {
+	/** `approve`, `deposit`, and so on. Ordering is significant. */
+	id: string;
+	kind: string;
+	items?: RelayStepItem[];
+}
+
+/**
+ * A quote, with the transactions that execute it.
+ *
+ * This is the ordinary Relay flow: the origin wallet signs and broadcasts the
+ * steps itself, and the relayer fills on the destination chain against the
+ * resulting on-chain event. The alternative — a deposit address the origin
+ * wallet simply transfers to — reads more simply but is gated behind an API key
+ * permission, and a route that lacks it returns these steps anyway. Executing
+ * the steps therefore works on every key and every route, which is the reason
+ * this client only does it this way.
+ */
+export interface RelayQuote {
 	requestId: string;
-	depositAddress: Address | string;
+	/** Execute in order. Every item's `data` is one transaction. */
+	steps: RelayStep[];
 	/** Amount to send, in the origin currency's base units. */
 	amount: string;
 	amountFormatted: string;
@@ -48,16 +118,7 @@ export interface DepositStatus {
 
 interface RawQuoteResponse {
 	requestId: string;
-	steps?: {
-		id: string;
-		kind: string;
-		items?: {
-			depositAddress?: string;
-			depositAddressId?: string;
-			check?: { endpoint?: string };
-			data?: unknown;
-		}[];
-	}[];
+	steps?: RelayStep[];
 	details?: {
 		currencyIn?: {
 			currency?: { chainId: number; address: string; symbol: string };
@@ -68,22 +129,23 @@ interface RawQuoteResponse {
 	};
 }
 
-export class MissingRelayApiKeyError extends Error {
-	constructor() {
-		super(
-			"Relay deposit addresses require an API key. Set RELAY_API_KEY (free, self-serve at dashboard.relay.link).",
-		);
-		this.name = "MissingRelayApiKeyError";
-	}
+/**
+ * Whether a step's payload is Solana's instruction form or an EVM transaction.
+ *
+ * Discriminated on `instructions` rather than on the chain id the caller asked
+ * for, so a route that returns the other VM's shape is caught where it is used
+ * instead of being coerced into a transaction the wallet cannot build.
+ */
+export function isSvmTransaction(data: RelayTransactionData): data is SvmTransactionData {
+	return Array.isArray((data as SvmTransactionData).instructions);
 }
 
 /**
- * Client for Relay, used to fund a Base account from any supported chain.
+ * Client for Relay, used to move USDC between the chains the vault trades on.
  *
- * Deposit addresses specifically require an API key. Without one Relay does not
- * error — it quietly returns an ordinary transaction step instead of a deposit
- * address, which would surface as a confusing empty box in the UI. The client
- * therefore fails loudly up front rather than degrading.
+ * The API key is optional. It raises rate limits and attributes volume, and
+ * quotes work without one — so a missing key is not a reason to refuse to
+ * start, and the client does not treat it as one.
  */
 export class RelayClient {
 	private readonly baseUrl: string;
@@ -113,24 +175,27 @@ export class RelayClient {
 	}
 
 	/**
-	 * Request a deposit address that bridges into USDC.
+	 * Quote a bridge into USDC, and get back the transactions that execute it.
 	 *
-	 * Defaults to USDC on Base, which is where the app's spot and perp venues
-	 * settle. `destinationChainId` opens the same machinery up to Solana, for
-	 * funding a Pacifica account — the recipient there is a base58 address, not
-	 * an EVM one, which is why this takes a plain string.
+	 * Defaults to USDC on Base, which is where the app's spot venue settles.
+	 * `destinationChainId` opens the same machinery up to Solana, for funding a
+	 * Pacifica account — the recipient there is a base58 address, not an EVM one,
+	 * which is why this takes a plain string.
 	 *
 	 * `refundTo` defaults to the origin chain's native-currency zero address,
 	 * which is Relay's opt-in for automatic refunds back to whoever sent the
-	 * funds. Omitting it disables refunds entirely — there is no fallback — so
-	 * a failed bridge would strand the deposit.
+	 * funds. Omitting it disables refunds entirely — there is no fallback — so a
+	 * failed bridge would strand the deposit.
 	 */
-	async createDepositAddress(params: {
+	async quote(params: {
 		recipient: Address | string;
 		/**
 		 * Who is sending, on the origin chain. Defaults to the recipient, which
 		 * is right for a same-VM bridge and wrong for a cross-VM one — an EVM
 		 * wallet funding a Solana address is not its own sender.
+		 *
+		 * Unlike with a deposit address this is not merely bookkeeping: it becomes
+		 * the `from` of every step, and the signer the instructions require.
 		 */
 		sender?: Address | string;
 		originChainId: number;
@@ -145,9 +210,7 @@ export class RelayClient {
 		 */
 		refundTo?: string;
 		strict?: boolean;
-	}): Promise<DepositQuote> {
-		if (!this.apiKey) throw new MissingRelayApiKeyError();
-
+	}): Promise<RelayQuote> {
 		const response = await requestJson<RawQuoteResponse>("relay", this.baseUrl, "/quote/v2", {
 			method: "POST",
 			headers: this.headers,
@@ -161,33 +224,32 @@ export class RelayClient {
 				destinationCurrency: params.destinationCurrency ?? USDC_ADDRESS,
 				amount: params.amount,
 				tradeType: "EXACT_INPUT",
-				useDepositAddress: true,
 				strict: params.strict ?? false,
 				refundTo: params.refundTo ?? ZERO_ADDRESS,
 			},
 		});
 
-		const item = response.steps
-			?.flatMap((step) => step.items ?? [])
-			.find((candidate) => candidate.depositAddress);
-
-		if (!item?.depositAddress) {
+		const steps = (response.steps ?? []).filter((step) => (step.items ?? []).length > 0);
+		if (steps.length === 0) {
 			throw new Error(
-				"Relay returned a quote without a deposit address. This usually means the API key lacks deposit-address access, or the route does not support them.",
+				"Relay returned a quote with no transaction steps, so there is nothing to execute. The route may be unsupported or temporarily unavailable.",
 			);
 		}
+
+		const check = steps.flatMap((step) => step.items ?? []).find((item) => item.check?.endpoint)
+			?.check?.endpoint;
 
 		const currencyIn = response.details?.currencyIn;
 		return {
 			requestId: response.requestId,
-			depositAddress: item.depositAddress,
+			steps,
 			amount: currencyIn?.amount ?? params.amount,
 			amountFormatted: currencyIn?.amountFormatted ?? "",
 			originChainId: currencyIn?.currency?.chainId ?? params.originChainId,
 			originCurrency: currencyIn?.currency?.address ?? params.originCurrency,
 			originSymbol: currencyIn?.currency?.symbol ?? "",
 			destinationAmountFormatted: response.details?.currencyOut?.amountFormatted ?? "",
-			statusEndpoint: item.check?.endpoint ?? `/intents/status/v3?requestId=${response.requestId}`,
+			statusEndpoint: check ?? `/intents/status/v3?requestId=${response.requestId}`,
 		};
 	}
 

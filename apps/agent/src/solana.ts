@@ -8,6 +8,7 @@ import {
 import { base58 } from "@scure/base";
 import {
 	type AccountMeta,
+	type AddressLookupTableAccount,
 	type Commitment,
 	Connection,
 	Keypair,
@@ -15,6 +16,8 @@ import {
 	SystemProgram,
 	Transaction,
 	TransactionInstruction,
+	TransactionMessage,
+	VersionedTransaction,
 } from "@solana/web3.js";
 
 /**
@@ -59,6 +62,16 @@ export interface SolanaExecutor {
 		/** That wallet's address, which must be a required signer. */
 		signer: string;
 		instructions: TransactionInstruction[];
+		/**
+		 * Lookup tables the instructions are compiled against, when there are any.
+		 *
+		 * Present only for transactions built by somebody else — Relay's bridge
+		 * instruction addresses its accounts through a table. Supplying them
+		 * switches the build to a versioned (v0) transaction, because a legacy one
+		 * cannot reference a lookup table at all. Omitted, the build stays legacy,
+		 * which is what the agent's own hand-built instructions want.
+		 */
+		addressLookupTableAddresses?: string[];
 	}): Promise<string>;
 	/**
 	 * Wait until `owner` holds at least `target` USDC.
@@ -100,6 +113,82 @@ export function createSolanaExecutor(options: SolanaExecutorOptions): SolanaExec
 		return info ? BigInt(info.value.amount) : 0n;
 	}
 
+	/** The agent's own instructions: no lookup tables, so a legacy transaction. */
+	async function signLegacy(params: {
+		path: string;
+		signerKey: PublicKey;
+		instructions: TransactionInstruction[];
+		blockhash: string;
+	}): Promise<Uint8Array> {
+		const transaction = new Transaction();
+		transaction.add(...params.instructions);
+		transaction.feePayer = feePayer.publicKey;
+		transaction.recentBlockhash = params.blockhash;
+
+		const message = transaction.serializeMessage();
+		const signature = await options.mpc.signSolanaMessage(params.path, Uint8Array.from(message));
+		transaction.addSignature(params.signerKey, Buffer.from(signature));
+		transaction.partialSign(feePayer);
+
+		return transaction.serialize();
+	}
+
+	/**
+	 * Somebody else's instructions, compiled against their lookup tables.
+	 *
+	 * The tables are read from the chain rather than trusted from the quote,
+	 * because compiling needs their *contents* — the addresses each index
+	 * resolves to — and only the chain has those. A table that cannot be read is
+	 * an error rather than an omission: dropping it would silently compile a
+	 * transaction whose accounts are not the ones that were quoted.
+	 *
+	 * The signature is placed by index instead of by `addSignature`, which the
+	 * versioned type does not have. Required signers occupy the first slots of the
+	 * static key list, and the fee payer is always slot zero — so signing with the
+	 * fee payer first and writing the MPC's signature into its own slot afterwards
+	 * leaves each exactly where the runtime looks for it.
+	 */
+	async function signVersioned(params: {
+		path: string;
+		signerKey: PublicKey;
+		instructions: TransactionInstruction[];
+		blockhash: string;
+		addressLookupTableAddresses: string[];
+	}): Promise<Uint8Array> {
+		const lookupTables: AddressLookupTableAccount[] = [];
+		for (const address of params.addressLookupTableAddresses) {
+			const result = await connection
+				.getAddressLookupTable(new PublicKey(address), { commitment })
+				.catch(() => null);
+			if (!result?.value) {
+				throw new Error(
+					`Solana address lookup table ${address} could not be read, so the transaction cannot be compiled as it was quoted.`,
+				);
+			}
+			lookupTables.push(result.value);
+		}
+
+		const message = new TransactionMessage({
+			payerKey: feePayer.publicKey,
+			recentBlockhash: params.blockhash,
+			instructions: params.instructions,
+		}).compileToV0Message(lookupTables);
+
+		const index = message.staticAccountKeys.findIndex((key) => key.equals(params.signerKey));
+		if (index === -1) {
+			throw new Error(
+				`${params.signerKey.toBase58()} is not a required signer of this transaction, so its signature has nowhere to go. The instructions are not the ones this wallet was meant to sign.`,
+			);
+		}
+
+		const transaction = new VersionedTransaction(message);
+		transaction.sign([feePayer]);
+		const signature = await options.mpc.signSolanaMessage(params.path, message.serialize());
+		transaction.signatures[index] = Uint8Array.from(signature);
+
+		return transaction.serialize();
+	}
+
 	return {
 		feePayer: feePayer.publicKey.toBase58(),
 		usdcBalance,
@@ -108,24 +197,26 @@ export function createSolanaExecutor(options: SolanaExecutorOptions): SolanaExec
 			return BigInt(await connection.getBalance(feePayer.publicKey, commitment));
 		},
 
-		async send({ path, signer, instructions }) {
+		async send({ path, signer, instructions, addressLookupTableAddresses }) {
 			const signerKey = new PublicKey(signer);
 			const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(commitment);
 
-			const transaction = new Transaction();
-			transaction.add(...instructions);
-			transaction.feePayer = feePayer.publicKey;
-			transaction.recentBlockhash = blockhash;
+			// Two builds, because a legacy transaction cannot reference a lookup
+			// table and a v0 one is needless ceremony without one. Both end at the
+			// same place: the MPC signs the compiled message verbatim — Ed25519
+			// covers the message, not a digest of it — so what is signed is the
+			// exact byte string the runtime will verify against.
+			const raw = addressLookupTableAddresses?.length
+				? await signVersioned({
+						path,
+						signerKey,
+						instructions,
+						blockhash,
+						addressLookupTableAddresses,
+					})
+				: await signLegacy({ path, signerKey, instructions, blockhash });
 
-			// The MPC signs the compiled message verbatim — Ed25519 covers the
-			// message, not a digest of it — so this is the exact byte string the
-			// runtime will verify against.
-			const message = transaction.serializeMessage();
-			const signature = await options.mpc.signSolanaMessage(path, Uint8Array.from(message));
-			transaction.addSignature(signerKey, Buffer.from(signature));
-			transaction.partialSign(feePayer);
-
-			const hash = await connection.sendRawTransaction(transaction.serialize(), {
+			const hash = await connection.sendRawTransaction(raw, {
 				// Preflight on. A simulated failure here is a transaction that would
 				// have burned the fee and landed nothing, and the simulation names the
 				// program error where a dropped transaction names nothing at all.

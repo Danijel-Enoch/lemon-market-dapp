@@ -5,11 +5,19 @@ import {
 	createUsdcAccountIfMissing,
 	MINIMUM_DEPOSIT_USDC,
 } from "@lemon/pacifica/deposit";
-import { type RelayClient, SOLANA_CHAIN_ID, SOLANA_USDC_MINT } from "@lemon/relay";
-import { PublicKey } from "@solana/web3.js";
+import {
+	type EvmTransactionData,
+	isSvmTransaction,
+	type RelayClient,
+	type RelayQuote,
+	SOLANA_CHAIN_ID,
+	SOLANA_USDC_MINT,
+	type SvmTransactionData,
+} from "@lemon/relay";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi } from "viem";
-import { createUsdcAccount, type SolanaExecutor, usdcTransfer } from "./solana";
+import type { SolanaExecutor } from "./solana";
 import type { BridgeAdapter } from "./venue";
 
 /**
@@ -19,6 +27,15 @@ import type { BridgeAdapter } from "./venue";
  * unwind crosses one. This is that crossing, and it is the only part of a tick
  * that outlives the tick: a Relay fill takes minutes, during which the money
  * has left one balance and not arrived in the other.
+ *
+ * **The ordinary Relay flow, not a deposit address.** A quote comes back as
+ * transactions to sign — an approval and a deposit on Base, one instruction set
+ * on Solana — and the agent's own wallets broadcast them. The deposit-address
+ * alternative is a single transfer to an address Relay names, which is simpler
+ * to execute and gated behind an API-key permission that a key does not
+ * necessarily carry: a key without it gets a quote with no address in it, and
+ * the crossing fails at the point where the vault's margin has already been
+ * drawn. Signing the steps needs no permission, so it is the path that works.
  *
  * Three properties the rest of the agent depends on:
  *
@@ -161,6 +178,85 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		}
 	}
 
+	/**
+	 * Sign and broadcast an EVM quote's steps in order, returning the last hash.
+	 *
+	 * A quote is one or two transactions: an ERC-20 approval when the router does
+	 * not already have an allowance, then the deposit that commits the money.
+	 * Relay omits the approval once it is no longer needed, so the count varies
+	 * between crossings and this is written for that rather than for two steps.
+	 *
+	 * Relay's own gas figures are deliberately dropped and left to the wallet to
+	 * estimate. They are quoted seconds before the send, and a stale fee cap on
+	 * Base is a transaction that sits unmined with margin already committed to it.
+	 *
+	 * Only the last hash is returned, because only the last step moved anything.
+	 */
+	async function sendEvmSteps(quote: RelayQuote): Promise<Hex> {
+		let last: Hex | null = null;
+
+		for (const step of quote.steps) {
+			for (const item of step.items ?? []) {
+				if (isSvmTransaction(item.data)) {
+					throw new Error(
+						`Relay returned Solana instructions for step "${step.id}" of a Base-origin quote, which the agent's Base wallet cannot sign.`,
+					);
+				}
+
+				const hash = await deps.walletClient.sendTransaction({
+					// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
+					account: deps.walletClient.account as any,
+					chain: null,
+					to: item.data.to as Address,
+					data: item.data.data as Hex,
+					value: BigInt(item.data.value || "0"),
+				});
+
+				const receipt = await deps.publicClient.waitForTransactionReceipt({ hash });
+				// Checked rather than assumed. A reverted approval makes the deposit
+				// fail for a reason that has nothing to do with the deposit, and a
+				// reverted deposit must never be waited on as though it were in the
+				// air — in that case the money never left.
+				if (receipt.status !== "success") {
+					throw new Error(`Relay step "${step.id}" reverted on Base (${hash}).`);
+				}
+
+				deps.log("debug", `Relay step "${step.id}" landed (${hash}).`);
+				last = hash;
+			}
+		}
+
+		if (!last) throw new Error("Relay returned a quote with no transaction to send.");
+		return last;
+	}
+
+	/**
+	 * Execute the Solana half of a quote with the agent's MPC wallet.
+	 *
+	 * One transaction rather than a loop: Relay returns a Solana route as a single
+	 * set of instructions, because there is no approval to make first — an SPL
+	 * transfer is authorised by the signature itself.
+	 */
+	async function sendSvmStep(quote: RelayQuote): Promise<string> {
+		const data = quote.steps
+			.flatMap((step) => step.items ?? [])
+			.map((item) => item.data)
+			.find(isSvmTransaction);
+
+		if (!data) {
+			throw new Error(
+				"Relay returned no Solana instructions for a Solana-origin quote, so there is nothing the agent's Solana wallet can sign.",
+			);
+		}
+
+		return deps.solana.send({
+			path: deps.path,
+			signer: deps.solanaAddress,
+			instructions: toInstructions(data),
+			addressLookupTableAddresses: data.addressLookupTableAddresses,
+		});
+	}
+
 	return {
 		inFlight: () => inFlight,
 
@@ -180,7 +276,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				`Bridging ${Number(amountUsdc) / 1e6} USDC Base → Solana; this blocks the tick until it lands (up to ${formatDuration(FILL_TIMEOUT_MS)}).`,
 			);
 
-			const quote = await deps.relay.createDepositAddress({
+			const quote = await deps.relay.quote({
 				recipient: deps.solanaAddress,
 				sender: deps.agentAddress,
 				originChainId: BASE_CHAIN_ID,
@@ -198,7 +294,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				vaultAddress,
 				direction: "TO_SOLANA",
 				requestId: quote.requestId,
-				depositAddress: String(quote.depositAddress),
+				depositAddress: counterparty(quote),
 				amountUsdc,
 			});
 			inFlight += amountUsdc;
@@ -210,16 +306,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 			try {
 				const before = await deps.solana.usdcBalance(deps.solanaAddress);
 
-				const sendTx = await deps.walletClient.writeContract({
-					// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
-					account: deps.walletClient.account as any,
-					chain: null,
-					abi: erc20Abi,
-					address: USDC_ADDRESS,
-					functionName: "transfer",
-					args: [quote.depositAddress as Address, amountUsdc],
-				});
-				await deps.publicClient.waitForTransactionReceipt({ hash: sendTx });
+				const sendTx = await sendEvmSteps(quote);
 				await markSent(row.id, sendTx);
 				stage = "sent";
 
@@ -296,7 +383,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 			await deps.solana.waitForUsdc(deps.solanaAddress, amountUsdc, WITHDRAWAL_TIMEOUT_MS);
 			deps.log("info", "It landed; bridging Solana → Base.");
 
-			const quote = await deps.relay.createDepositAddress({
+			const quote = await deps.relay.quote({
 				recipient: deps.agentAddress,
 				sender: deps.solanaAddress,
 				originChainId: SOLANA_CHAIN_ID,
@@ -307,12 +394,11 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				refundTo: deps.solanaAddress,
 			});
 
-			const depositAddress = String(quote.depositAddress);
 			const row = await record({
 				vaultAddress,
 				direction: "TO_BASE",
 				requestId: quote.requestId,
-				depositAddress,
+				depositAddress: counterparty(quote),
 				amountUsdc,
 			});
 			inFlight += amountUsdc;
@@ -321,21 +407,11 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 			try {
 				const before = await baseUsdcBalance();
 
-				// The deposit address may never have held USDC. Creating its token
-				// account is idempotent and costs one fee payer's rent, where getting
-				// it wrong sends into an account that does not exist.
-				const signature = await deps.solana.send({
-					path: deps.path,
-					signer: deps.solanaAddress,
-					instructions: [
-						createUsdcAccount({ payer: deps.solana.feePayer, owner: depositAddress }),
-						usdcTransfer({
-							owner: deps.solanaAddress,
-							to: depositAddress,
-							amount: amountUsdc,
-						}),
-					],
-				});
+				// No token account to create any more. The old flow sent USDC to a
+				// fresh deposit address that had never held any, and had to pay the
+				// rent on its account first; Relay's own instructions address accounts
+				// that already exist.
+				const signature = await sendSvmStep(quote);
 				const sendTx = refToHex(signature);
 				await markSent(row.id, sendTx);
 				stage = "sent";
@@ -364,6 +440,55 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 			}
 		},
 	};
+}
+
+/**
+ * Relay's instruction shape into the SDK's.
+ *
+ * The instruction data is hex and is decoded rather than passed through: a
+ * string where bytes are expected builds cleanly and means something entirely
+ * different on chain. Malformed hex is rejected here rather than by
+ * `Buffer.from`, which truncates silently at the first bad character and would
+ * hand the runtime a valid-looking instruction with its arguments cut off.
+ */
+function toInstructions(data: SvmTransactionData): TransactionInstruction[] {
+	return data.instructions.map((instruction) => {
+		const hex = instruction.data.replace(/^0x/, "");
+		if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) {
+			throw new Error(
+				`Relay returned instruction data for ${instruction.programId} that is not hex, so the transaction cannot be built.`,
+			);
+		}
+
+		return new TransactionInstruction({
+			programId: new PublicKey(instruction.programId),
+			keys: instruction.keys.map((key) => ({
+				pubkey: new PublicKey(key.pubkey),
+				isSigner: key.isSigner,
+				isWritable: key.isWritable,
+			})),
+			data: Buffer.from(hex, "hex"),
+		});
+	});
+}
+
+/**
+ * What the crossing was committed through, for the transfer record.
+ *
+ * The column this fills was named for the deposit address the bridge used to
+ * send to, and there is no such address in the ordinary flow. It now holds the
+ * contract or program the origin transaction went to, which is what the field
+ * was for in practice: somewhere to start when a transfer has to be traced by
+ * hand.
+ */
+function counterparty(quote: RelayQuote): string {
+	const payloads = quote.steps.flatMap((step) => step.items ?? []).map((item) => item.data);
+
+	const svm = payloads.find(isSvmTransaction);
+	if (svm) return svm.instructions[0]?.programId ?? "unknown";
+
+	const evm = payloads.filter((data): data is EvmTransactionData => !isSvmTransaction(data));
+	return evm.at(-1)?.to ?? "unknown";
 }
 
 /**
