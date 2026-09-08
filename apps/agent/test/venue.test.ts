@@ -1,4 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
+import { PacificaError } from "@lemon/pacifica";
 import type { Hex } from "viem";
 import { allocateUnwind, createVenueAdapter, type VenueDeps } from "../src/venue";
 
@@ -42,6 +43,16 @@ interface HarnessOptions {
 	withdrawalFails?: boolean;
 	/** USDC stranded in the agent's Solana wallet, outside the venue. */
 	solanaIdleUsdc?: bigint;
+	/**
+	 * Whether Pacifica has ever seen this account.
+	 *
+	 * False is the ordinary state of a vault that has not deployed yet — the venue
+	 * has no registration call, and the account is created by its first deposit —
+	 * so every account endpoint answers with an error until then.
+	 */
+	accountRegistered?: boolean;
+	/** An error every account read throws instead of answering. */
+	accountFailure?: Error;
 }
 
 function harness(options: HarnessOptions = {}) {
@@ -94,15 +105,32 @@ function harness(options: HarnessOptions = {}) {
 		return { success: true };
 	});
 
+	const registered = options.accountRegistered ?? true;
+	const accountFailure = () =>
+		options.accountFailure ?? (registered ? null : new PacificaError(404, "Account not found"));
+
 	const pacifica = {
 		createMarketOrder: mock(async () => ({ order_id: "order-1" })),
-		accountInfo: async () => ({
-			available_to_withdraw: options.availableToWithdraw ?? "500",
-			account_equity: "500",
+		accountInfo: mock(async () => {
+			const failure = accountFailure();
+			if (failure) throw failure;
+			return {
+				available_to_withdraw: options.availableToWithdraw ?? "500",
+				account_equity: "500",
+			};
 		}),
 		requestWithdrawal,
-		positions: async () =>
-			options.perpSize ? [{ symbol: "NVDA", amount: options.perpSize, entry_price: "100" }] : [],
+		positions: async () => {
+			const failure = accountFailure();
+			if (failure) throw failure;
+			return options.perpSize
+				? [{ symbol: "NVDA", amount: options.perpSize, entry_price: "100" }]
+				: [];
+		},
+		prices: async () => [
+			{ symbol: "NVDA", mark: "100", oracle: "100", yesterday_price: "100", funding: "0.0001" },
+		],
+		markets: async () => [{ symbol: "NVDA", funding_rate: "0.0001" }],
 	};
 
 	// Credits the agent's Base balance, because that is what a bridge does — and
@@ -154,8 +182,70 @@ function harness(options: HarnessOptions = {}) {
 		toBase,
 		balances,
 		createMarketOrder: pacifica.createMarketOrder,
+		accountInfo: pacifica.accountInfo,
 	};
 }
+
+/**
+ * The read that has to survive a vault that has never traded.
+ *
+ * Pacifica has no registration call: an account exists once USDC has been
+ * deposited to it, and the agent makes that deposit inside a deployment. So a
+ * new vault's first tick reads an account the venue has never heard of — and a
+ * read that treats the answer as a failure ends the tick before the deployment
+ * that would create the account, on every tick, forever. These are about that
+ * deadlock, which is not one a new vault can leave on its own.
+ */
+describe("observe", () => {
+	it("prices a vault whose Pacifica account does not exist yet", async () => {
+		const { adapter } = harness({
+			accountRegistered: false,
+			spotBalance: 0n,
+			spotValueUsdc: 0n,
+		});
+
+		const observation = await adapter.observe();
+
+		// No margin, because there is no account to hold any — not an error, and
+		// not a stale NAV.
+		expect(observation.valuation.components.perpEquity).toBe(0n);
+		expect(observation.valuation.deployedAssets).toBe(0n);
+		expect(observation.markets).toHaveLength(1);
+		expect(observation.markets[0].perpUnits).toBe(0n);
+	});
+
+	/**
+	 * The state that follows a crossing which landed and failed to deposit: the
+	 * account still does not exist, and the USDC is real and sitting on Solana.
+	 * Pricing it at zero would report the whole transfer as a loss.
+	 */
+	it("still counts USDC stranded on Solana while the account is unregistered", async () => {
+		const { adapter } = harness({
+			accountRegistered: false,
+			spotBalance: 0n,
+			spotValueUsdc: 0n,
+			solanaIdleUsdc: 40n * USDC,
+		});
+
+		const observation = await adapter.observe();
+
+		expect(observation.valuation.components.idleAtAgent).toBe(40n * USDC);
+		expect(observation.valuation.deployedAssets).toBe(40n * USDC);
+	});
+
+	/**
+	 * The tolerance is for one specific answer. A venue that is down, rate-limiting
+	 * or rejecting the signature is not an empty account, and reporting a NAV
+	 * missing the margin would mark every holder down by it.
+	 */
+	it("refuses to price the vault when the venue fails for any other reason", async () => {
+		const { adapter } = harness({
+			accountFailure: new PacificaError(500, "internal error"),
+		});
+
+		expect(adapter.observe()).rejects.toThrow(/internal error/);
+	});
+});
 
 describe("unwind", () => {
 	it("returns the spot proceeds and the freed margin to the vault", async () => {
@@ -365,6 +455,29 @@ describe("closeAll", () => {
 		await adapter.closeAll();
 
 		expect(toBase).toHaveBeenCalledWith(540n * USDC);
+	});
+
+	/**
+	 * A close order on a vault that never opened a position still has work to do:
+	 * a crossing that landed and failed to deposit left USDC on Solana, and the
+	 * account it would have funded does not exist. Refusing on the missing account
+	 * would leave the order outstanding with the money stranded.
+	 */
+	it("sweeps a vault whose Pacifica account was never created", async () => {
+		const { adapter, toBase, requestWithdrawal, returnToVault } = harness({
+			accountRegistered: false,
+			spotBalance: 0n,
+			spotValueUsdc: 0n,
+			solanaIdleUsdc: 40n * USDC,
+		});
+
+		await adapter.closeAll();
+
+		// Nothing to withdraw from an account that holds nothing, but the stranded
+		// balance still comes home.
+		expect(requestWithdrawal).not.toHaveBeenCalled();
+		expect(toBase).toHaveBeenCalledWith(40n * USDC);
+		expect(returnToVault).toHaveBeenCalledWith(40n * USDC);
 	});
 
 	it("leaves the stranded balance alone on an ordinary unwind", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { PacificaClient } from "./client";
 import { canonicalMessage, generateKeypair, localSigner, verifyMessage } from "./signing";
-import { PacificaError } from "./types";
+import { isAccountNotFound, PacificaError } from "./types";
 
 /** Serves one canned envelope and records what it was asked for. */
 function stubFetch(payload: unknown, status = 200) {
@@ -90,6 +90,40 @@ describe("error handling", () => {
 		const impl = (async () =>
 			new Response("<html>gateway</html>", { status: 502 })) as unknown as typeof fetch;
 		expect(new PacificaClient({ fetchImpl: impl }).markets()).rejects.toThrow(/non-JSON/);
+	});
+
+	/**
+	 * "Account not found" is a state, not an outage: Pacifica has no registration
+	 * call, so this is what every account endpoint answers for a wallet that has
+	 * not yet deposited. Callers that cannot tell it apart from a real failure
+	 * refuse to make the deposit that would create the account.
+	 */
+	test("an unregistered account is recognisable, whatever the status", async () => {
+		for (const status of [404, 422]) {
+			const { impl } = stubFetch(
+				{ success: false, data: null, error: "Account not found", code: null },
+				status,
+			);
+			try {
+				await new PacificaClient({ fetchImpl: impl }).accountInfo("SoLanaAgent");
+				throw new Error("should have thrown");
+			} catch (error) {
+				expect(isAccountNotFound(error)).toBe(true);
+			}
+		}
+	});
+
+	test("an ordinary rejection is not mistaken for an unregistered account", async () => {
+		const { impl } = stubFetch(
+			{ success: false, data: null, error: "insufficient margin", code: 7 },
+			400,
+		);
+		try {
+			await new PacificaClient({ fetchImpl: impl }).accountInfo("SoLanaAgent");
+			throw new Error("should have thrown");
+		} catch (error) {
+			expect(isAccountNotFound(error)).toBe(false);
+		}
 	});
 
 	test("times out instead of hanging", async () => {

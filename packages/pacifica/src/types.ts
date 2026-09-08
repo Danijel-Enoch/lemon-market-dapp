@@ -153,3 +153,25 @@ export class PacificaError extends Error {
 		this.name = "PacificaError";
 	}
 }
+
+/**
+ * Whether an error is Pacifica saying it has never seen this account.
+ *
+ * Ordinary state, not a failure. Pacifica has no "create an account" call — an
+ * account comes into existence the first time USDC is deposited to it, keyed by
+ * the Solana address that signed the deposit — so every account endpoint
+ * answers this way for a wallet that has not yet been funded.
+ *
+ * Worth a named predicate because a caller that treats it as an outage
+ * deadlocks: reading the account fails, so the vault never deploys, so no
+ * deposit is ever made, so the account is never created and the read keeps
+ * failing. That is a state a new vault cannot leave on its own.
+ *
+ * Matched on the message rather than on `code`, which Pacifica leaves null on
+ * this path, or on the status, which it has returned as both 404 and 422.
+ */
+export function isAccountNotFound(error: unknown): boolean {
+	return (
+		error instanceof PacificaError && /account (not found|does not exist)/i.test(error.message)
+	);
+}

@@ -1,7 +1,12 @@
 import { BPS } from "@lemon/contracts";
 import { adlRisk, formatDuration, type LogLevel } from "@lemon/core";
 import type { KyberAggregatorClient } from "@lemon/kyber";
-import type { PacificaClient } from "@lemon/pacifica";
+import {
+	isAccountNotFound,
+	type PacificaAccountInfo,
+	type PacificaClient,
+	type PacificaPosition,
+} from "@lemon/pacifica";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi, parseUnits } from "viem";
 import { MIN_DEPLOY_USDC } from "./policy";
@@ -125,6 +130,17 @@ export interface BridgeAdapter {
 	toBase(amountUsdc: bigint): Promise<{ txRef: Hex; landed: bigint }>;
 }
 
+/**
+ * How long a deployment waits for Pacifica to register a brand-new account.
+ *
+ * Generous, because the alternative is worse than the wait: the margin has
+ * already crossed by this point, and giving up returns an unhedged deposit
+ * sitting on the wrong chain. The venue indexes a confirmed deposit in seconds,
+ * so this ceiling is for the day it does not.
+ */
+const REGISTRATION_TIMEOUT_MS = 120_000;
+const REGISTRATION_POLL_MS = 5_000;
+
 export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	const { config, publicClient, kyber, pacifica } = deps;
 	const log: NonNullable<VenueDeps["log"]> = deps.log ?? (() => {});
@@ -200,6 +216,85 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		});
 	}
 
+	/**
+	 * The account, or null when Pacifica has never seen it.
+	 *
+	 * Null is the ordinary state of a vault that has not yet deployed: the venue
+	 * has no registration call, and an account is created by its first deposit —
+	 * which the agent makes, out of `deploy`, with the vault's own capital. So an
+	 * unregistered account means "no margin here yet", which is exactly what a
+	 * fresh vault holds, and it is priced as zero rather than raised as an error.
+	 *
+	 * Reading it as an error is what wedged every new vault. `observe` runs before
+	 * anything else in a tick, so a throw here ended the tick — and the deployment
+	 * that would have created the account lives further down that same tick.
+	 * Nothing outside the loop breaks that, because the money only ever moves from
+	 * inside it.
+	 */
+	async function accountOrUnregistered(): Promise<PacificaAccountInfo | null> {
+		try {
+			return await pacifica.accountInfo(config.solanaAddress);
+		} catch (error) {
+			if (!isAccountNotFound(error)) throw error;
+			log(
+				"info",
+				`Pacifica has no account for ${config.solanaAddress} yet — it is created by the first deposit, which the next deployment makes. Pricing the perp leg at zero until then.`,
+			);
+			return null;
+		}
+	}
+
+	/** Positions for an account the venue has never seen: none, not an error. */
+	async function positionsOrNone(): Promise<PacificaPosition[]> {
+		try {
+			return await pacifica.positions(config.solanaAddress);
+		} catch (error) {
+			if (!isAccountNotFound(error)) throw error;
+			return [];
+		}
+	}
+
+	/**
+	 * Wait for Pacifica to know the account the deposit just created.
+	 *
+	 * Only ever reached on a vault's *first* deployment, and only once the money
+	 * has already crossed. The deposit is confirmed on Solana by the time the
+	 * bridge returns, but the venue registers it in its own index a moment later —
+	 * and the next step of a deployment is a signed call against that account. A
+	 * deployment that walked straight on would fail with the margin already on the
+	 * far chain and nothing hedged against it.
+	 *
+	 * Costs one read when the account is already known, which is every deployment
+	 * after the first.
+	 */
+	async function awaitRegistration(activity: ActivityInput[]): Promise<void> {
+		const deadline = Date.now() + REGISTRATION_TIMEOUT_MS;
+		for (;;) {
+			try {
+				await pacifica.accountInfo(config.solanaAddress);
+				return;
+			} catch (error) {
+				if (!isAccountNotFound(error)) throw error;
+				if (Date.now() >= deadline) {
+					// The deposit landed, so the margin is in the venue's custody and the
+					// activity rows above say so. Thrown as a venue error rather than a
+					// plain one for exactly that reason: the legs that did happen have to
+					// reach the public record, and a later tick deploys against the
+					// account once it appears.
+					throw new VenueExecutionError(
+						`The margin was deposited but Pacifica still does not know ${config.solanaAddress} after ${formatDuration(REGISTRATION_TIMEOUT_MS)}. The USDC is with the venue and no position was opened.`,
+						activity,
+					);
+				}
+				log(
+					"info",
+					`Waiting for Pacifica to register ${config.solanaAddress} — the deposit that creates the account has landed.`,
+				);
+				await sleep(REGISTRATION_POLL_MS);
+			}
+		}
+	}
+
 	return {
 		/**
 		 * Read every market's legs and the account they share, and price the lot.
@@ -216,9 +311,13 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// size, lot size, leverage caps, funding rate — and carries no mark at
 			// all, so the old fallback to `market.mark_price` was reading undefined
 			// and the position was being valued at its entry price forever.
+			//
+			// The two account reads tolerate an account Pacifica has never seen, which
+			// is what a vault holds before its first deployment. Everything else in
+			// this list is exchange-wide or on-chain and answers for any address.
 			const [account, positions, prices, venueMarkets, baseIdle, solanaIdle] = await Promise.all([
-				pacifica.accountInfo(config.solanaAddress),
-				pacifica.positions(config.solanaAddress),
+				accountOrUnregistered(),
+				positionsOrNone(),
 				pacifica.prices(),
 				pacifica.markets(),
 				usdcBalance(config.agentAddress),
@@ -232,7 +331,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const idleUsdc = baseIdle + solanaIdle;
 
 			// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
-			const equityUsd = Number((account as any).account_equity ?? 0);
+			const equityUsd = Number((account as any)?.account_equity ?? 0);
 			const equity = BigInt(Math.round(equityUsd * 1e6));
 
 			const legs = await Promise.all(
@@ -428,6 +527,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// 2. Leverage is set before the order, not after — an order placed at the
 			// account's previous leverage would open at the wrong size and have to be
 			// corrected, paying taker fees twice.
+			//
+			// Preceded by the registration wait, because this is the first signed call
+			// against the account and on a vault's first deployment the account is
+			// seconds old: the deposit inside the bridge above is what created it.
+			await awaitRegistration(activity);
 			log(
 				"debug",
 				`deploy ${market.ticker}: step 2/5 — setting ${market.perpSymbol} leverage to ${Math.round(leverageBps / 10_000)}x.`,
@@ -884,8 +988,15 @@ async function repatriateMargin(
 	activity: ActivityInput[],
 	options: { sweepIdle?: boolean } = {},
 ): Promise<bigint> {
-	const account = await deps.pacifica.accountInfo(deps.config.solanaAddress);
-	const available = numberOrNull(account.available_to_withdraw) ?? 0;
+	// An account the venue has never seen holds no margin, so there is nothing to
+	// withdraw — but there may still be USDC stranded in the Solana wallet from a
+	// crossing that landed and failed to deposit, and a close order has to sweep
+	// that. So this is null rather than a throw, and the sweep below still runs.
+	const account = await deps.pacifica.accountInfo(deps.config.solanaAddress).catch((error) => {
+		if (!isAccountNotFound(error)) throw error;
+		return null;
+	});
+	const available = numberOrNull(account?.available_to_withdraw) ?? 0;
 	const withdrawable = available > 0 ? BigInt(Math.round(available * 1e6)) : 0n;
 
 	// Read before the withdrawal so the sweep is the balance that was *already*
@@ -946,7 +1057,13 @@ async function repatriateMargin(
  * state for a market a vault has been configured for and not yet deployed into.
  */
 async function perpPosition(deps: VenueDeps, market: VenueMarket): Promise<bigint> {
-	const positions = await deps.pacifica.positions(deps.config.solanaAddress);
+	// An unregistered account is flat everywhere, which is the same answer an
+	// absent position gets. Reached by a close order on a vault that never
+	// deployed, where refusing would leave the order outstanding forever.
+	const positions = await deps.pacifica.positions(deps.config.solanaAddress).catch((error) => {
+		if (!isAccountNotFound(error)) throw error;
+		return [];
+	});
 	const position = positions.find((p) => p.symbol === market.perpSymbol);
 	// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 	return BigInt(Math.round(Math.abs(Number((position as any)?.amount ?? 0)) * 1e18));
@@ -1325,6 +1442,10 @@ function min(a: bigint, b: bigint): bigint {
 
 function message(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export { parseUnits };
