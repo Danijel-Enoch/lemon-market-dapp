@@ -1,4 +1,5 @@
-import { createPublicClient, formatEther, http } from "viem";
+import { formatEther } from "viem";
+import { baseClient } from "../chain";
 import { config } from "../config";
 import { getLivePosition } from "./position";
 
@@ -91,8 +92,7 @@ async function readBaseGas(address: string): Promise<GasBalance> {
 	};
 
 	try {
-		const client = createPublicClient({ transport: http(config.baseRpcUrl) });
-		const balance = await client.getBalance({ address: address as `0x${string}` });
+		const balance = await baseClient.getBalance({ address: address as `0x${string}` });
 
 		return {
 			...shape,

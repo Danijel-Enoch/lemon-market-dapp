@@ -1,5 +1,5 @@
 import { vaultFactoryAbi } from "@lemon/contracts";
-import { createPublicClient, http } from "viem";
+import { baseClient } from "../chain";
 import { config } from "../config";
 
 /**
@@ -267,14 +267,10 @@ async function probeVaultCount(): Promise<number | null> {
 	}
 }
 
-function publicClient() {
-	return createPublicClient({ transport: http(config.baseRpcUrl) });
-}
-
 /** The chain's head. Null rather than throwing: a status page reports outages. */
 async function chainHead(): Promise<number | null> {
 	try {
-		return Number(await publicClient().getBlockNumber());
+		return Number(await baseClient.getBlockNumber());
 	} catch {
 		return null;
 	}
@@ -292,7 +288,7 @@ async function factoryVaultCount(): Promise<number | null> {
 	const factory = config.contracts.vaultFactory;
 	if (!factory) return null;
 	try {
-		const count = await publicClient().readContract({
+		const count = await baseClient.readContract({
 			abi: vaultFactoryAbi,
 			address: factory,
 			functionName: "vaultCount",

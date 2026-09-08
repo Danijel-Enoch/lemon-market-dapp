@@ -12,6 +12,19 @@ function optionalEnv(name: string): string | undefined {
 	return process.env[name]?.trim() || undefined;
 }
 
+function envList(name: string): string[] {
+	return (process.env[name] ?? "")
+		.split(",")
+		.map((value) => value.trim())
+		.filter(Boolean);
+}
+
+function envFlag(name: string, fallback: boolean): boolean {
+	const raw = process.env[name]?.trim().toLowerCase();
+	if (!raw) return fallback;
+	return raw !== "0" && raw !== "false" && raw !== "off";
+}
+
 /**
  * Integrator fee taken on every spot swap, in basis points.
  *
@@ -41,7 +54,36 @@ function readSpotFee(): SpotFeeConfig | null {
 export const config = {
 	/** Base mainnet. Pinned: the vault contracts exist on one chain and no other. */
 	chainId: BASE_CHAIN_ID,
+	/**
+	 * The node every Base read goes through.
+	 *
+	 * The default is Circle's public endpoint, which is shared, unauthenticated
+	 * and rate-limited per IP — on a deployed host, an IP that may not even be
+	 * ours alone. It is a fine default for a laptop and a poor one for anything
+	 * serving requests, so a deployment should set this.
+	 */
 	baseRpcUrl: env("BASE_RPC_URL", "https://mainnet.base.org"),
+
+	/**
+	 * Further Base endpoints, comma separated, tried in order when the primary
+	 * fails — including when it fails with a rate limit.
+	 *
+	 * Deliberately empty by default rather than quietly appending the public
+	 * node. A deployment that has pointed `BASE_RPC_URL` at its own provider has
+	 * usually done so for a reason, and inheriting a fallback it did not ask for
+	 * would send its traffic somewhere it did not choose.
+	 */
+	baseRpcFallbackUrls: envList("BASE_RPC_FALLBACK_URLS"),
+
+	/**
+	 * Whether Base reads may be sent as JSON-RPC batches.
+	 *
+	 * On by default, because coalescing the reads a single page makes into one
+	 * request is the whole point. The escape hatch exists because a minority of
+	 * providers reject batched payloads outright, and on those the failure is
+	 * total rather than partial — every read breaks at once.
+	 */
+	baseRpcBatch: envFlag("BASE_RPC_BATCH", true),
 	kyberBaseUrl: env("KYBER_BASE_URL", "https://aggregator-api.kyberswap.com"),
 	kyberClientId: env("KYBER_CLIENT_ID", "lemon-markets"),
 	pacificaApiUrl: env("PACIFICA_API_URL", PACIFICA_MAINNET),

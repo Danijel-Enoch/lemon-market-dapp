@@ -304,10 +304,10 @@ export async function prepareVault(params: {
  * it is the one field that cannot have drifted.
  */
 async function assertVaultMatches(address: string, prepared: PreparedVault): Promise<void> {
-	const { createPublicClient, http, keccak256, toBytes } = await import("viem");
+	const { keccak256, toBytes } = await import("viem");
 	const { lemonVaultAbi } = await import("@lemon/contracts");
+	const { baseClient: client } = await import("../chain");
 
-	const client = createPublicClient({ transport: http(config.baseRpcUrl) });
 	const expectedMarketId = keccak256(toBytes(prepared.ticker));
 	const vault = { address: address as `0x${string}`, abi: lemonVaultAbi } as const;
 

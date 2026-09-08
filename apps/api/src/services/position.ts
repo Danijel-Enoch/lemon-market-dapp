@@ -2,7 +2,9 @@ import { type AdlRisk, adlRisk } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import { findTokenByTicker } from "@lemon/registry";
-import { type Address, createPublicClient, erc20Abi, http } from "viem";
+import { type Address, erc20Abi } from "viem";
+import { KeyedTtlCache } from "../cache";
+import { baseClient } from "../chain";
 import { clients, config } from "../config";
 import { getVault, type VaultView } from "./vaults";
 
@@ -91,7 +93,37 @@ export interface LivePosition {
 	observedAt: number;
 }
 
-export async function getLivePosition(address: string): Promise<LivePosition | null> {
+/**
+ * How long a live position is served from memory.
+ *
+ * One read costs two Base `balanceOf` calls, a KyberSwap route and three
+ * Pacifica requests, and the same vault is asked for by the vault page, the gas
+ * console and any poll behind them. Ten seconds is five Base blocks and far
+ * shorter than the interval over which any of these figures moves enough to
+ * change a decision — and `observedAt` carries the age, so a cached answer
+ * never claims to be fresher than it is.
+ *
+ * A miss is shared: `TtlCache` collapses concurrent callers into one upstream
+ * read, which is the case that produced the rate limit in the first place.
+ */
+const LIVE_POSITION_TTL_MS = 10_000;
+
+const livePositionCache = new KeyedTtlCache<LivePosition | null>(
+	(address) => readLivePosition(address),
+	LIVE_POSITION_TTL_MS,
+);
+
+/**
+ * @param force Bypass the cache. For operator tools that have just moved funds
+ *   and need to see the result, not a ten-second-old picture of before it.
+ */
+export function getLivePosition(address: string, force = false): Promise<LivePosition | null> {
+	// Lowercased so the same vault under two spellings is one cache entry. The
+	// indexer normalises addresses the same way, so nothing downstream notices.
+	return livePositionCache.get(address.toLowerCase(), force);
+}
+
+async function readLivePosition(address: string): Promise<LivePosition | null> {
 	const vault = await getVault(address);
 	if (!vault) return null;
 
@@ -102,10 +134,29 @@ export async function getLivePosition(address: string): Promise<LivePosition | n
 
 	const wallets = await resolveWallets(vault, record, notes);
 
-	const spot = await readSpotLeg(vault, record, notes);
-	const perp = await readPerpLeg(wallets.solana, record, notes);
-	const idle = await readAgentUsdc(vault.agentWallet as Address, notes);
-	const inFlight = await readInFlight(address, notes);
+	// Issued together, not in sequence. Four independent reads across three
+	// upstreams, and awaiting them one at a time made the page as slow as their
+	// sum while denying the client any chance to batch — two `balanceOf` calls a
+	// tick apart are two requests, the same two calls in one tick are one
+	// multicall.
+	//
+	// Each read gets its own notes array rather than sharing one. Concurrent
+	// pushes are safe, but their order would depend on which upstream answered
+	// first, so the same vault would render its notes in a different order on
+	// every load. They are concatenated below in the order they are read.
+	const spotNotes: string[] = [];
+	const perpNotes: string[] = [];
+	const idleNotes: string[] = [];
+	const inFlightNotes: string[] = [];
+
+	const [spot, perp, idle, inFlight] = await Promise.all([
+		readSpotLeg(vault, record, spotNotes),
+		readPerpLeg(wallets.solana, record, perpNotes),
+		readAgentUsdc(vault.agentWallet as Address, idleNotes),
+		readInFlight(address, inFlightNotes),
+	]);
+
+	notes.push(...spotNotes, ...perpNotes, ...idleNotes, ...inFlightNotes);
 
 	const observed = combine(spot.valueUsd, perp.marginUsd, idle + inFlight);
 	const reported = BigInt(vault.deployedAssets);
@@ -242,8 +293,7 @@ async function readSpotLeg(
 
 	let balance = 0n;
 	try {
-		const client = createPublicClient({ transport: http(config.baseRpcUrl) });
-		balance = await client.readContract({
+		balance = await baseClient.readContract({
 			abi: erc20Abi,
 			address: token,
 			functionName: "balanceOf",
@@ -377,8 +427,7 @@ async function readPerpLeg(
 
 async function readAgentUsdc(agent: Address, notes: string[]): Promise<bigint> {
 	try {
-		const client = createPublicClient({ transport: http(config.baseRpcUrl) });
-		return await client.readContract({
+		return await baseClient.readContract({
 			abi: erc20Abi,
 			address: config.contracts.usdc,
 			functionName: "balanceOf",

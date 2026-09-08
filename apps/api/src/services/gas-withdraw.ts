@@ -1,14 +1,7 @@
 import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
-import {
-	createPublicClient,
-	formatEther,
-	http,
-	keccak256,
-	parseEther,
-	serializeTransaction,
-	toBytes,
-} from "viem";
+import { formatEther, keccak256, parseEther, serializeTransaction, toBytes } from "viem";
 import { base } from "viem/chains";
+import { baseClient } from "../chain";
 import { clients, config } from "../config";
 import { AdminError } from "./admin";
 import { getVault } from "./vaults";
@@ -140,10 +133,6 @@ async function resolveAgent(vaultAddress: string) {
 
 /* -------------------------------------------------------------------- Base */
 
-function baseClient() {
-	return createPublicClient({ chain: base, transport: http(config.baseRpcUrl) });
-}
-
 /**
  * The fee a sweep has to leave behind.
  *
@@ -154,18 +143,17 @@ function baseClient() {
  * fails on every attempt.
  */
 async function baseTransferCost(
-	client: ReturnType<typeof baseClient>,
 	from: `0x${string}`,
 	to: `0x${string}`,
 ): Promise<{ gas: bigint; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cost: bigint }> {
-	const fees = await client.estimateFeesPerGas();
+	const fees = await baseClient.estimateFeesPerGas();
 	const maxFeePerGas = fees.maxFeePerGas;
 	const maxPriorityFeePerGas = fees.maxPriorityFeePerGas;
 
 	// Estimated with a nominal value: a destination that is a contract with a
 	// payable fallback costs more than 21000, and estimating with the full
 	// balance would fail for want of the fee on top of it.
-	const gas = await client
+	const gas = await baseClient
 		.estimateGas({ account: from, to, value: 1n })
 		.catch(() => ETH_TRANSFER_GAS);
 
@@ -183,15 +171,14 @@ async function withdrawBaseGas(params: {
 	const mpc = clients.nearMpc;
 	if (!mpc) throw new AdminError("NEAR chain signatures are not configured.", 503);
 
-	const client = baseClient();
 	const [balance, nonce, fee] = await Promise.all([
-		client.getBalance({ address: params.from }),
+		baseClient.getBalance({ address: params.from }),
 		// Pending, not latest. Nothing should be in flight from a stopped agent,
 		// but a nonce taken from the mined tip while one is would collide and
 		// replace it — and this route runs at the moment an operator is trying to
 		// tidy up, which is exactly when a stuck transaction is likely.
-		client.getTransactionCount({ address: params.from, blockTag: "pending" }),
-		baseTransferCost(client, params.from, params.to),
+		baseClient.getTransactionCount({ address: params.from, blockTag: "pending" }),
+		baseTransferCost(params.from, params.to),
 	]);
 
 	const spendable = balance > fee.cost ? balance - fee.cost : 0n;
@@ -234,7 +221,7 @@ async function withdrawBaseGas(params: {
 		yParity: signature.yParity,
 	});
 
-	const hash = await client.sendRawTransaction({ serializedTransaction: signed });
+	const hash = await baseClient.sendRawTransaction({ serializedTransaction: signed });
 
 	return {
 		chain: "BASE",
@@ -423,12 +410,11 @@ export async function withdrawableGas(vaultAddress: string): Promise<{
 
 	const [baseSide, solanaSide] = await Promise.all([
 		(async (): Promise<GasWithdrawable> => {
-			const client = baseClient();
-			const balance = await client.getBalance({ address: agent.evm });
+			const balance = await baseClient.getBalance({ address: agent.evm });
 			// Priced against the agent's own address: a self-transfer costs the
 			// same 21000 gas as a transfer to any other EOA, and the destination
 			// is not known yet.
-			const fee = await baseTransferCost(client, agent.evm, agent.evm);
+			const fee = await baseTransferCost(agent.evm, agent.evm);
 			const spendable = balance > fee.cost ? balance - fee.cost : 0n;
 			return {
 				chain: "BASE",
