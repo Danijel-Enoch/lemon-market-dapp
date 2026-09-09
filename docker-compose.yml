@@ -57,6 +57,10 @@ services:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      # Comma separated, tried in order when the one above fails — including on a
+      # 429, which is the only thing the public default reliably returns.
+      BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
+      BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
       KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
@@ -121,6 +125,10 @@ services:
       API_PORT: 3003
       DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon}@postgres:5432/${POSTGRES_DB:-lemon}
       BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+      # Comma separated, tried in order when the one above fails — including on a
+      # 429, which is the only thing the public default reliably returns.
+      BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
+      BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}

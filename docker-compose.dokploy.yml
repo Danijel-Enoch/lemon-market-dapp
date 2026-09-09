@@ -75,9 +75,14 @@ x-app-env: &app-env
   NODE_ENV: production
   DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
 
-  # Chain. Base mainnet is pinned in code on both sides; only the endpoint is a
+  # Chain. Base mainnet is pinned in code on both sides; only the endpoints are a
   # deployment choice, and the browser's copy is the build arg above.
   BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+  # Comma separated. The API falls back through these; the indexer spreads its
+  # backfill across them. Passed to every service so one setting covers all of
+  # them — until now it could be set in .env and reached nothing.
+  BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
+  BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
 
   # Deployed contracts. Without the factory the admin console can read the
   # market board but cannot create a vault, and says so rather than failing at
@@ -202,8 +207,10 @@ services:
     environment:
       <<: *app-env
       PORT: 42069
-      # A dedicated endpoint is worth having: a backfill will rate-limit a
-      # public one immediately.
+      # Comma separated, and worth setting to more than one endpoint: Ponder
+      # measures each one's rate limit and splits the backfill between them,
+      # where a single public node is throttled within seconds and then warns
+      # that no provider is available until someone reads the logs.
       PONDER_RPC_URL_BASE: ${PONDER_RPC_URL_BASE:-}
       # Indexing from genesis is hours of RPC for nothing — there is no factory
       # before the block it was deployed in.

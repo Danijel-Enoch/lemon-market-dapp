@@ -2,6 +2,7 @@ import { lemonVaultAbi, vaultFactoryAbi } from "@lemon/contracts";
 import { BASE_CHAIN_ID } from "@lemon/core";
 import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
+import { resolveBaseRpc } from "./src/rpc";
 
 /**
  * Note on the schema.
@@ -67,8 +68,20 @@ export default createConfig({
 			 * an empty app. Only the endpoint is configurable.
 			 */
 			id: BASE_CHAIN_ID,
-			rpc:
-				process.env.PONDER_RPC_URL_BASE ?? process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
+			/**
+			 * Every endpoint we are allowed to use, not the first one that works.
+			 *
+			 * Ponder rate-limits, ranks and fails over across this list itself — see
+			 * `src/rpc.ts` for what it does with more than one and why a single URL
+			 * is the configuration that stalls a backfill.
+			 */
+			rpc: resolveBaseRpc(process.env),
+			// `ethGetLogsBlockRange` is left unset on purpose. Ponder starts at 500
+			// blocks and halves the range whenever a provider complains — including
+			// on Base's "backend response too large" — then remembers the smaller
+			// number. Pinning a range turns that self-correction off and makes the
+			// same complaint fatal, which matters more now that the list above can
+			// mix providers whose limits differ.
 		},
 	},
 	contracts: {
