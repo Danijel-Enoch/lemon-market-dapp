@@ -3,7 +3,7 @@
 // Narrower than it looks, because most of what the app shows is not here. The
 // vaults, their balances, every deposit and withdrawal and every action the
 // agents took live on Base and are read through Ponder — a database that can be
-// dropped and rebuilt from events. This one holds the four things that genuinely
+// dropped and rebuilt from events. This one holds the five things that genuinely
 // cannot be:
 //
 //   1. Sessions and the wallets they are bound to.
@@ -12,6 +12,8 @@
 //      mapping from a market to a specific token and perp and is not on-chain.
 //   4. Verdicts from verifying agent activity against other chains, which are
 //      the product of round trips that a reindex would otherwise discard.
+//   5. The last funding total read off the venue, which is the previous half of
+//      a subtraction whose result is the only part the chain ever sees.
 //
 // Nothing a user's balance depends on is stored here. Losing this database
 // costs sessions and operator configuration; it cannot cost anyone their funds.
@@ -69,6 +71,51 @@ model FundingSnapshot {
 
   @@index([symbol, capturedAt])
   @@index([pairIndex, capturedAt])
+}
+
+/// The last cumulative funding figure read off the venue for one vault's perp,
+/// so the next reading can be turned into a payment.
+///
+/// The venue reports funding as a running total on the *open position*, and what
+/// belongs in the activity feed is the amount that arrived at one settlement —
+/// the difference between two readings. Something has to remember the previous
+/// one, and it cannot be memory: an agent restart would re-baseline against a
+/// total that already includes hours of funding, and the vault would silently
+/// report zero funding for the period it was restarted in.
+///
+/// It cannot be the chain either, which is the reason this is here rather than
+/// derived like almost everything else. The figure needed is the venue's running
+/// total, and the chain only ever sees the differences we compute from it.
+///
+/// Losing this table costs at most one period of funding per market — the next
+/// tick re-baselines and carries on. It cannot cost anyone their funds, and the
+/// funding already reported stays on-chain where it was recorded.
+model FundingWatermark {
+  /// Lowercased, matching every other vault address in this schema.
+  vaultAddress String
+
+  /// The venue's symbol for the perp, e.g. "BTC". Not the vault's ticker: the
+  /// reading being watermarked is the venue's, and only its own name for the
+  /// market can be matched back to it.
+  perpSymbol String
+
+  /// Cumulative funding on the open position, in signed USDC base units. A
+  /// string because six-decimal amounts are exact as integers and lossy as
+  /// doubles, and negative because a short does not only ever receive.
+  accruedUsdc String
+
+  /// The venue's `created_at` for the position this total belongs to.
+  ///
+  /// The reset detector. Funding accrues on a position, not on a vault, so
+  /// closing and reopening starts the total again from zero — and without an
+  /// identity to compare, a fresh position reads as an enormous negative
+  /// payment. A change here means the previous total ended and the current one
+  /// is the whole of the new position's accrual.
+  positionOpenedAt Int
+
+  updatedAt DateTime @updatedAt
+
+  @@id([vaultAddress, perpSymbol])
 }
 
 // ---------------------------------------------------------------------------

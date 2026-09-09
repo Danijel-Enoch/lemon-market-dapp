@@ -5,7 +5,9 @@ import {
 	type LogLevel,
 	nextFundingSettlement,
 } from "@lemon/core";
+import type { Address } from "viem";
 import { type ActionCooldown, cooldownKey } from "./cooldown";
+import { type FundingSettlements, fundingSettlements } from "./funding";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, sizingLeverageBps } from "./policy";
 import { leverageBps, type Valuation, ValuationError } from "./valuation";
@@ -59,6 +61,24 @@ export interface MarketObservation {
 	spotUnits: bigint;
 	perpUnits: bigint;
 	fundingShortPercentPerHour: number;
+	/**
+	 * Funding the venue has paid this position since it opened, in signed USDC
+	 * base units. Null when there is no position to have accrued any.
+	 *
+	 * A running total, not a payment — it is the same number a settlement grows
+	 * and a close resets. `funding.ts` turns two readings into the payment
+	 * between them; nothing else should read it, because on its own it says
+	 * nothing about any particular period.
+	 */
+	fundingAccruedUsdc: bigint | null;
+	/** The short's notional at the current mark, in USDC. */
+	perpNotionalUsdc: bigint;
+	/**
+	 * The venue's own timestamp for when this position was opened, or null when
+	 * there is no position. Identity, not history: it is how a reset is told
+	 * apart from a negative funding period.
+	 */
+	positionOpenedAt: number | null;
 	spotBuyable: boolean;
 	spotSellable: boolean;
 	/** Live mark from the perp venue, in USD. Zero when it cannot be priced. */
@@ -370,6 +390,12 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 
 	// --- 2. report --------------------------------------------------------
 
+	// Read before the NAV is posted, because it is part of what the NAV is
+	// reporting. The rows themselves go out with whatever else this tick
+	// publishes — funding is the one thing that accrues on a tick where the
+	// agent correctly does nothing, so it cannot wait for an action to carry it.
+	const funding = await readFunding(vault.address, observation.markets, now, log);
+
 	const observedAt = deps.now();
 	let navReported = false;
 	const report = navReportDue(state, now);
@@ -524,7 +550,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			rationale: `${decision.rationale} (Backing off for ${formatDuration(blockedFor * 1000)} after ${failures} failure${failures === 1 ? "" : "s"}.)`,
 			advised: decision.advised,
 			navReported,
-			activityReported: 0,
+			// A suppressed action must not suppress the funding either. The vault
+			// went on being paid while the agent waited, and a cooling-off period
+			// that swallowed a settlement would leave a permanent hole in the feed.
+			activityReported: await publish(vault, funding, [], log),
 			fulfilled: fulfilledWhileWaiting,
 			closeSatisfied: false,
 		};
@@ -618,14 +647,14 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		// still the empty array it was initialised with, because the assignment
 		// above never ran.
 		if (error instanceof VenueExecutionError) activity = error.activity;
-		if (activity.length) await safeReport(vault, activity, log);
+		const publishedOnFailure = await publish(vault, funding, activity, log);
 		return {
 			action: decision.kind,
 			market: decision.market,
 			rationale: decision.rationale,
 			advised: decision.advised,
 			navReported,
-			activityReported: activity.length,
+			activityReported: publishedOnFailure,
 			fulfilled: 0,
 			closeSatisfied: false,
 			error: message(error),
@@ -648,10 +677,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 
 	log(
 		"debug",
-		`4/4 publish — ${activity.length} activity row(s), ${ripe.length} redemption(s) to settle.`,
+		`4/4 publish — ${activity.length} activity row(s), ${funding.entries.length} funding settlement(s), ${ripe.length} redemption(s) to settle.`,
 	);
 
-	if (activity.length) await safeReport(vault, activity, log);
+	const published = await publish(vault, funding, activity, log);
 
 	const fulfilled = await settleQueue(vault, ripe, log);
 
@@ -661,7 +690,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		rationale: decision.rationale,
 		advised: decision.advised,
 		navReported,
-		activityReported: activity.length,
+		activityReported: published,
 		fulfilled,
 		// Read off the snapshot this tick acted on, which means the tick *after*
 		// the close is the one that reports it satisfied — the legs have to be
@@ -816,12 +845,88 @@ async function safeReport(
 	vault: VaultClient,
 	activity: ActivityInput[],
 	log: WorkerDeps["log"],
-): Promise<void> {
+): Promise<boolean> {
 	try {
 		await vault.reportActivity(activity);
+		return true;
 	} catch (error) {
 		log("error", "Activity report failed; the trades already executed.", error);
+		return false;
 	}
+}
+
+/**
+ * Read what funding has arrived since the last tick.
+ *
+ * Best-effort, and deliberately so. The watermarks live in Postgres, which the
+ * rest of a tick does not need — an agent that can reach the chain and the venue
+ * can trade, report a NAV and pay redemptions with no database at all, and
+ * stopping it from doing any of that because a funding row could not be prepared
+ * would trade the vault's operation for its bookkeeping. A failure here costs one
+ * period's row, and the next tick's subtraction picks the money back up.
+ */
+async function readFunding(
+	vaultAddress: Address,
+	markets: MarketObservation[],
+	now: number,
+	log: WorkerDeps["log"],
+): Promise<FundingSettlements> {
+	try {
+		return await fundingSettlements(
+			vaultAddress,
+			markets.map((market) => ({
+				ticker: market.ticker,
+				perpSymbol: market.perpSymbol,
+				accruedUsdc: market.fundingAccruedUsdc,
+				positionOpenedAt: market.positionOpenedAt,
+				notionalUsdc: market.perpNotionalUsdc,
+			})),
+			now,
+		);
+	} catch (error) {
+		log("warn", "Could not read the funding watermarks; this period's funding is deferred.", error);
+		return { entries: [], commit: async () => {} };
+	}
+}
+
+/**
+ * Publish this tick's rows, and only then remember the funding among them.
+ *
+ * The ordering is the point. `commit` moves the watermarks past the payments
+ * just reported, and running it against a report that did not land would consume
+ * them — the next tick would subtract from the advanced total, find nothing
+ * owing, and that funding would never be recorded anywhere. So the watermarks
+ * move on a confirmed report and not otherwise, which leaves a failed report
+ * costing a retry rather than a permanent gap.
+ */
+async function publish(
+	vault: VaultClient,
+	funding: FundingSettlements,
+	activity: ActivityInput[],
+	log: WorkerDeps["log"],
+): Promise<number> {
+	// Funding first, so a settlement is on the row above the trade it paid for
+	// rather than below it. The sequence is the feed's only ordering.
+	const entries = [...funding.entries, ...activity];
+	if (entries.length === 0) return 0;
+
+	if (!(await safeReport(vault, entries, log))) return 0;
+
+	if (funding.entries.length > 0) {
+		const total = funding.entries.reduce((sum, entry) => sum + entry.pnlAssets, 0n);
+		log("info", `Funding settled — ${usd(total)} across ${funding.entries.length} market(s).`);
+		try {
+			await funding.commit();
+		} catch (error) {
+			// Reported but not remembered. The next tick will subtract from a stale
+			// watermark and report the same payment again, which is a duplicate row
+			// in the feed — visible, and far better than the silent loss that
+			// committing before the report would risk.
+			log("error", "Funding was reported but the watermark did not move.", error);
+		}
+	}
+
+	return entries.length;
 }
 
 function sum(values: bigint[]): bigint {

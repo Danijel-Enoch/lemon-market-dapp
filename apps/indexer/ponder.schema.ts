@@ -69,6 +69,26 @@ export const vault = onchainTable(
 		lifetimeFeeShares: t.bigint().notNull().default(0n),
 		cumulativeNotional: t.bigint().notNull().default(0n),
 		cumulativeVenueFees: t.bigint().notNull().default(0n),
+		/**
+		 * Every funding payment this vault has been paid, added up. USDC, signed.
+		 *
+		 * The number a basis vault exists to produce, and the only one on this row
+		 * that is a sum of the vault's *returns* rather than of its activity.
+		 * Signed because a short does not only ever receive: a period of negative
+		 * funding is a period the vault paid, and clamping it at zero would make
+		 * the total read as income the depositors never got.
+		 *
+		 * Not a substitute for the share price. This is gross funding, before the
+		 * management and performance fees in `lifetimeFeeShares` and before the
+		 * venue fees in `cumulativeVenueFees` — what the strategy earned, not what
+		 * a depositor kept. `pricePerShare` remains the only figure that answers
+		 * the second question.
+		 */
+		cumulativeFunding: t.bigint().notNull().default(0n),
+		/** Settlements counted, so the total can say what it is an average of. */
+		fundingSettlementCount: t.integer().notNull().default(0),
+		/** When funding was first recorded here — the "since" on the total. */
+		firstFundingAt: t.integer(),
 		activityCount: t.integer().notNull().default(0),
 		depositorCount: t.integer().notNull().default(0),
 

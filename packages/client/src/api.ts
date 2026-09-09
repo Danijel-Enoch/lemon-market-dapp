@@ -122,6 +122,25 @@ export interface Vault {
 	pricePerShare: string;
 	depositorCount: number;
 
+	/**
+	 * Every funding payment this vault has been paid, added up. USDC, signed.
+	 *
+	 * What a basis vault is for, and the one figure that says how much of it has
+	 * actually happened rather than what it would pay if the rate held. Gross:
+	 * before management, performance and venue fees, so it is what the strategy
+	 * earned and not what a depositor kept — `pricePerShare` is still the only
+	 * answer to that.
+	 *
+	 * Signed, because a period of negative funding is a period the vault paid.
+	 * Optional because it accrues from the point the agent began reporting
+	 * settlements; a vault indexed before that has none, which is not zero.
+	 */
+	cumulativeFunding?: string | null;
+	/** Settlements behind the total, so it can say what it averages over. */
+	fundingSettlementCount?: number | null;
+	/** The earliest settlement counted, as a unix timestamp. */
+	firstFundingAt?: number | null;
+
 	/** The founding market. `markets[0]` says the same thing properly. */
 	spotTokenSymbol: string | null;
 	perpSymbol: string | null;

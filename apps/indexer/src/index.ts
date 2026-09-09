@@ -1,5 +1,6 @@
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
+import { ACTIVITY_KINDS } from "@lemon/contracts";
 import { KNOWN_TICKERS } from "@lemon/core";
 import { hexToString, zeroAddress } from "viem";
 
@@ -410,6 +411,15 @@ ponder.on("LemonVault:AgentReturned", async ({ event, context }) => {
  * Verdicts are produced by a separate pass and stored outside this database, so
  * a reindex cannot discard them.
  */
+/**
+ * `FUNDING_SETTLED`'s index in the contract's `ActivityKind`.
+ *
+ * Derived from the shared list rather than written as `9`, so adding a kind
+ * ahead of it in the enum cannot silently start totalling bridge transfers as
+ * funding.
+ */
+const FUNDING_SETTLED = ACTIVITY_KINDS.indexOf("FUNDING_SETTLED");
+
 ponder.on("LemonVault:ActivityReported", async ({ event, context }) => {
 	const vaultAddress = event.log.address;
 
@@ -431,10 +441,29 @@ ponder.on("LemonVault:ActivityReported", async ({ event, context }) => {
 		reportBlock: event.block.number,
 	});
 
+	// Funding is the one activity whose P&L is the vault's return rather than a
+	// side effect of moving capital, so it is totalled on its own. Summing
+	// `pnlAssets` across every kind instead would mix it with realised trading
+	// P&L from closes and answer a different question — and a rebalance that
+	// booked a small loss would read as the strategy earning less funding.
+	const funding = Number(event.args.kind) === FUNDING_SETTLED;
+	const occurredAt = Number(event.args.occurredAt);
+
 	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
 		activityCount: row.activityCount + 1,
 		cumulativeNotional: row.cumulativeNotional + event.args.notionalAssets,
 		cumulativeVenueFees: row.cumulativeVenueFees + event.args.feeAssets,
+		cumulativeFunding: funding
+			? row.cumulativeFunding + event.args.pnlAssets
+			: row.cumulativeFunding,
+		fundingSettlementCount: funding ? row.fundingSettlementCount + 1 : row.fundingSettlementCount,
+		// The earliest funding seen, not the first one indexed. Reports arrive in
+		// sequence order, but each is stamped with the settlement it came from —
+		// and a vault whose agent caught up after an outage reports several at
+		// once, oldest last.
+		firstFundingAt: funding
+			? Math.min(row.firstFundingAt ?? occurredAt, occurredAt)
+			: row.firstFundingAt,
 	}));
 });
 

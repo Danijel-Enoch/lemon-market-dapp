@@ -69,6 +69,10 @@ export interface IndexedVault {
 	lastObservedLeverageBps: number;
 	lastNavReportAt: number | null;
 	depositorCount: number;
+	/** Signed USDC. Optional because a vault indexed before this was tracked has none. */
+	cumulativeFunding?: string | null;
+	fundingSettlementCount?: number | null;
+	firstFundingAt?: number | null;
 	paused: boolean;
 	emergencyExit: boolean;
 	apy7d?: RealisedYield | null;

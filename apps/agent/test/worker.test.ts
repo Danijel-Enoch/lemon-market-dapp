@@ -66,6 +66,12 @@ function observedMarket(overrides: Partial<MarketObservation> = {}): MarketObser
 		spotUnits: 0n,
 		perpUnits: 0n,
 		fundingShortPercentPerHour: 0.002,
+		// No position by default, which is what the flat vault most of these
+		// cases start from — and the state in which funding is not zero but
+		// absent. Cases that need a settlement set all three.
+		fundingAccruedUsdc: null,
+		positionOpenedAt: null,
+		perpNotionalUsdc: 0n,
 		spotBuyable: true,
 		spotSellable: true,
 		markPriceUsd: 100,

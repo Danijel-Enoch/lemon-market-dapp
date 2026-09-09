@@ -482,6 +482,12 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 						spotGasUsd: route.gasUsd,
 						spotImpactPercent: route.impactPercent,
 						notional: BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6)),
+						// Read off the typed position rather than through a cast, and left
+						// null when there is no position — a vault that has not deployed has
+						// not accrued zero funding, it has accrued none, and the difference
+						// decides whether the next reading is a payment or a baseline.
+						fundingAccrued: position === undefined ? null : usdcFromDecimal(position.funding),
+						positionOpenedAt: position?.created_at ?? null,
 						// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 						fundingHourly: Number((spec as any)?.funding_rate ?? 0) * 100,
 						// Scored off the live mark, not the entry fallback. A stale mark
@@ -535,6 +541,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// Pacifica quotes one rate where positive means longs pay shorts,
 				// so the short side receives exactly this. See the README.
 				fundingShortPercentPerHour: leg.fundingHourly,
+				fundingAccruedUsdc: leg.fundingAccrued,
+				positionOpenedAt: leg.positionOpenedAt,
+				perpNotionalUsdc: leg.notional,
 				spotBuyable: leg.sellQuote !== null,
 				spotSellable: leg.sellQuote !== null,
 				markPriceUsd: leg.markPrice,
@@ -1864,6 +1873,18 @@ function numberOrNull(raw: string | number | null | undefined): number | null {
 	if (raw === null || raw === undefined) return null;
 	const n = Number(raw);
 	return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * A venue decimal string as signed USDC base units, or null if unparseable.
+ *
+ * Rounded rather than truncated, and signed rather than clamped: funding is a
+ * payment in either direction, and a short that paid rather than received has a
+ * negative total the vault should report as the loss it was.
+ */
+function usdcFromDecimal(raw: string | number | null | undefined): bigint | null {
+	const value = numberOrNull(raw);
+	return value === null ? null : BigInt(Math.round(value * 1e6));
 }
 
 function abs(value: bigint): bigint {

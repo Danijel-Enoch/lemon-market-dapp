@@ -10,6 +10,7 @@ import {
 	formatRelative,
 	formatUsd,
 	formatUsdCompact,
+	formatUsdSigned,
 	shortAddress,
 	useAgentTransfers,
 	useLivePosition,
@@ -17,6 +18,7 @@ import {
 	usePortfolio,
 	useVault,
 	useVaultActivity,
+	type Vault,
 } from "@lemon/client";
 import {
 	ChipGroup,
@@ -153,7 +155,7 @@ export default function VaultDetailPage() {
 			</div>
 
 			{/* --- headline numbers ------------------------------------------ */}
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
 				<StatCard
 					label="Share price"
 					value={formatUsd(vault.pricePerShare, 4)}
@@ -183,6 +185,7 @@ export default function VaultDetailPage() {
 								: "neutral"
 					}
 				/>
+				<FundingEarnedCard vault={vault} />
 				<StatCard label="Total deposits" value={formatUsdCompact(vault.totalAssets)} />
 				<StatCard
 					label="Deployed"
@@ -393,6 +396,55 @@ export default function VaultDetailPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * What the vault has actually been paid, as opposed to what it might pay.
+ *
+ * The other four headline cards are rates: a share price, a projection, two
+ * annualised windows. This is the only one denominated in money the strategy has
+ * already earned, which is the question a depositor asks first and the app could
+ * not answer until the agent began reporting settlements.
+ *
+ * Two states, and the empty one matters. A vault whose agent has not yet
+ * reported a settlement has *no* total — not a zero — and showing "$0.00" there
+ * would read as a strategy that has earned nothing rather than one nobody has
+ * measured yet. The dash and its caption say which.
+ *
+ * Gross, and labelled so. This is funding before management, performance and
+ * venue fees; the share price above is what a depositor kept. Presenting the
+ * larger number without that word would be the more flattering of two readings
+ * and the wrong one.
+ */
+function FundingEarnedCard({ vault }: { vault: Vault }) {
+	const settlements = vault.fundingSettlementCount ?? 0;
+
+	if (settlements === 0) {
+		return (
+			<StatCard
+				label="Funding earned"
+				value="—"
+				delta="no settlements reported yet"
+				tone="neutral"
+			/>
+		);
+	}
+
+	const total = BigInt(vault.cumulativeFunding ?? "0");
+
+	return (
+		<StatCard
+			label="Funding earned"
+			value={formatUsdSigned(total)}
+			delta={
+				<span title="Gross funding across every settlement reported on-chain, before management, performance and venue fees.">
+					gross, over {settlements.toLocaleString("en-US")} settlement
+					{settlements === 1 ? "" : "s"}
+				</span>
+			}
+			tone={total > 0n ? "positive" : total < 0n ? "negative" : "neutral"}
+		/>
 	);
 }
 
