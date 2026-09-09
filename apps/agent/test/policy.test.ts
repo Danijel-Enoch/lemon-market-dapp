@@ -1339,6 +1339,33 @@ describe("a redemption is never gated on what it costs", () => {
 		const s = owed({ freeAssets: 10n * USDC - 1n });
 		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("UNWIND");
 	});
+
+	/**
+	 * The two new refusals meeting, which is where this could most easily have
+	 * gone wrong. The vault is breached *and* too small for any correction to pay
+	 * for itself, so `deleverage` answers with a forced HOLD — and a forced
+	 * correction is otherwise returned as the sole option, which would have
+	 * discarded the redemption unwind pushed above it. A vault that cannot afford
+	 * to fix its own leverage is still perfectly able to pay somebody out.
+	 */
+	it("is still offered by a vault too small to correct its own leverage", () => {
+		const position = UNWIND_FLOOR / 2n;
+		const s = wedgedAt(position, { ripeRedeemAssets: 1n * USDC });
+
+		const options = permittedActions(s, NOW);
+
+		expect(options.map((o) => o.kind)).toContain("UNWIND");
+		// One dollar short, plus the 0.5% slack — sized by the obligation, not
+		// rounded up to a trip that pays for itself.
+		expect(options.find((o) => o.kind === "UNWIND")?.amount).toBe(1_005_000n);
+	});
+
+	/** The explanation still stands beside it, rather than in place of it. */
+	it("keeps the breach explanation on the list without letting it outrank the queue", () => {
+		const options = permittedActions(wedgedAt(UNWIND_FLOOR / 2n, { ripeRedeemAssets: 1n * USDC }), NOW);
+		expect(options.map((o) => o.kind)).toEqual(["UNWIND", "HOLD"]);
+		expect(options[1].reason).toContain("no correction here pays for itself");
+	});
 });
 
 describe("an operator's close order is never gated on what it costs", () => {

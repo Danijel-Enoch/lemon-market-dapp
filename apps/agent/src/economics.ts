@@ -158,18 +158,24 @@ export function costOf(
 ): ActionCost {
 	const shape = SHAPE[kind];
 
-	const gas = BASE_TX_GAS_USDC * BigInt(shape.baseTxs) + frictions.spotGasUsdc;
+	// A rebalance trades the perp leg and nothing else: no swap, no approval, no
+	// Base transaction at all. So it pays no spot gas either — charging it the
+	// aggregator's swap estimate would price a chain it never touches, and the
+	// advisor is handed exactly these frictions for every option including this
+	// one. `shape.baseTxs` is the honest test of whether a spot leg moves.
+	const touchesSpot = shape.baseTxs > 0;
+	const gas =
+		BASE_TX_GAS_USDC * BigInt(shape.baseTxs) + (touchesSpot ? frictions.spotGasUsdc : 0n);
 	const bridge = BRIDGE_CROSSING_USDC * BigInt(shape.crossings);
 	const withdrawal = frictions.withdrawalFeeUsdc * BigInt(shape.withdrawals);
 	const fixedUsdc = gas + bridge + withdrawal;
 
 	// A rebalance moves the perp leg only, so it pays one taker fee and no pool
 	// impact. Everything else crosses both venues.
-	const takerPercent =
-		kind === "rebalance"
-			? VENUE_FEES.perpTakerPercent
-			: VENUE_FEES.perpTakerPercent + VENUE_FEES.spotTakerPercent;
-	const impactPercent = kind === "rebalance" ? 0 : Math.abs(frictions.spotImpactPercent);
+	const takerPercent = touchesSpot
+		? VENUE_FEES.perpTakerPercent + VENUE_FEES.spotTakerPercent
+		: VENUE_FEES.perpTakerPercent;
+	const impactPercent = touchesSpot ? Math.abs(frictions.spotImpactPercent) : 0;
 
 	const notional = notionalUsdc > 0n ? notionalUsdc : 0n;
 	const variableUsdc = percentOf(notional, takerPercent + impactPercent);

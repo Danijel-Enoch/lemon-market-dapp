@@ -2,6 +2,12 @@ import { describe, expect, it, mock } from "bun:test";
 import { lemonVaultAbi } from "@lemon/contracts";
 import { adlRisk } from "@lemon/core";
 import { type Abi, ContractFunctionRevertedError, encodeErrorResult } from "viem";
+import {
+	type ActionCooldown,
+	COOLDOWN_BASE_SECONDS,
+	cooldownKey,
+	createCooldown,
+} from "../src/cooldown";
 import { sizingLeverageBps } from "../src/policy";
 import { ValuationError } from "../src/valuation";
 import type { ActivityInput } from "../src/vault";
@@ -117,6 +123,11 @@ function harness(options: {
 	queue?: QueueEntry[];
 	venue?: Partial<VenueAdapter>;
 	closeRequested?: boolean;
+	/**
+	 * Left out by default, which is the old always-try behaviour. A test that
+	 * cares about backing off supplies one on an injected clock.
+	 */
+	cooldown?: ActionCooldown;
 }) {
 	const calls: string[] = [];
 	let state = options.state ?? vaultState();
@@ -188,6 +199,7 @@ function harness(options: {
 		queue: async () => options.queue ?? [],
 		closeRequested: options.closeRequested ?? false,
 		rebalanceDriftBps: 100,
+		cooldown: options.cooldown,
 		now: () => NOW,
 		log: (level, message) => {
 			logs.push(`${level}:${message}`);
@@ -850,5 +862,179 @@ describe("tick, under a close order", () => {
 		expect(result.closeSatisfied).toBe(false);
 		expect(result.error).toContain("no route");
 		expect(calls).toContain("reportActivity:1");
+	});
+});
+
+/**
+ * Backing off from an action that has just failed.
+ *
+ * The tick loop has no memory: it sleeps a minute, rebuilds the picture from
+ * chain state, and reaches the same conclusion. That is right for a healthy
+ * vault and wrong for one whose action cannot succeed — a rebalance the venue
+ * rejects as too small is re-decided, re-executed and re-failed up to fourteen
+ * hundred times a day, and every attempt that places one leg pays for that leg.
+ */
+describe("tick, while an action is cooling off", () => {
+	const DEPLOY_NVDA = cooldownKey("DEPLOY", "NVDA");
+
+	/** A cooldown on a clock the test can move, rather than one it has to wait out. */
+	function clocked(start = NOW) {
+		let seconds = start;
+		return {
+			cooldown: createCooldown(() => seconds),
+			advance: (by: number) => {
+				seconds += by;
+			},
+		};
+	}
+
+	/**
+	 * The three things that must all be true in the same tick. Suppressing the
+	 * action must never suppress the NAV report or the redemption queue — those
+	 * are the parts a depositor depends on, and a vault that stopped reporting
+	 * because one trade was stuck would stop taking deposits and paying
+	 * withdrawals over a problem with neither.
+	 */
+	it("skips the action but still reports the NAV and settles the queue", async () => {
+		const { cooldown } = clocked();
+		cooldown.failed(DEPLOY_NVDA);
+
+		const { deps, vault, calls } = harness({ queue: [queueEntry()], cooldown });
+		const result = await tick(deps);
+
+		// 1. the action did not happen
+		expect(result.action).toBe("DEPLOY");
+		expect(calls).not.toContain("deploy:NVDA");
+		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(result.activityReported).toBe(0);
+		// 2. the NAV was still posted
+		expect(result.navReported).toBe(true);
+		expect(vault.reportNav).toHaveBeenCalled();
+		// 3. the queue was still paid
+		expect(result.fulfilled).toBe(1);
+		expect(calls.some((c) => c.startsWith("fulfillRedeem:"))).toBe(true);
+	});
+
+	/**
+	 * Checked after the decision rather than before it, so the record still shows
+	 * what the agent wanted to do and why — "REBALANCE NVDA is backing off" is a
+	 * shrug, and an operator needs the reason underneath it.
+	 */
+	it("still says what it wanted to do, and how long it is waiting", async () => {
+		const { cooldown } = clocked();
+		cooldown.failed(DEPLOY_NVDA);
+		cooldown.failed(DEPLOY_NVDA);
+
+		const { deps, logs } = harness({ cooldown });
+		const result = await tick(deps);
+
+		expect(result.market).toBe("NVDA");
+		expect(result.rationale).toContain("Backing off");
+		expect(result.rationale).toContain("2 failures");
+		expect(logs.some((l) => l.startsWith("warn:Holding off DEPLOY on NVDA"))).toBe(true);
+	});
+
+	it("tries again once the wait has been served", async () => {
+		const { cooldown, advance } = clocked();
+		cooldown.failed(DEPLOY_NVDA);
+		advance(COOLDOWN_BASE_SECONDS);
+
+		const { deps, calls } = harness({ cooldown });
+		await tick(deps);
+
+		expect(calls).toContain("deploy:NVDA");
+	});
+
+	/**
+	 * Keyed per action and per market. One failing leg must never quiet the whole
+	 * vault — a rebalance the venue will not take on ETH says nothing about
+	 * whether NVDA can be deployed into.
+	 */
+	it("is not held up by another action's backoff", async () => {
+		const { cooldown } = clocked();
+		cooldown.failed(cooldownKey("REBALANCE", "ETH"));
+		cooldown.failed(cooldownKey("UNWIND", null));
+
+		const { deps, calls } = harness({ cooldown });
+		await tick(deps);
+
+		expect(calls).toContain("deploy:NVDA");
+	});
+
+	/**
+	 * HOLD costs nothing, and backing off from doing nothing would be a way of
+	 * doing nothing more slowly. It also has to keep reporting and settling.
+	 */
+	it("never suppresses a HOLD, however many failures stand against it", async () => {
+		const { cooldown } = clocked();
+		for (let i = 0; i < 5; i += 1) cooldown.failed(cooldownKey("HOLD", null));
+
+		const { deps, vault, calls } = harness({
+			// Paused, so nothing is buyable and the policy has nothing to offer.
+			state: vaultState({ paused: true, freeAssets: 2_000n * USDC, deployedAssets: 8_000n * USDC }),
+			queue: [queueEntry()],
+			cooldown,
+		});
+		const result = await tick(deps);
+
+		expect(result.action).toBe("HOLD");
+		expect(result.rationale).not.toContain("Backing off");
+		expect(vault.reportNav).toHaveBeenCalled();
+		expect(calls.some((c) => c.startsWith("fulfillRedeem:"))).toBe(true);
+	});
+
+	// -- what writes to it --------------------------------------------------
+
+	/**
+	 * Recorded before anything else in the failure path, so the next tick knows
+	 * not to repeat this immediately. The whole point is that a failure which
+	 * will fail again costs one attempt rather than one attempt every minute.
+	 */
+	it("records a failed action so the next tick does not repeat it", async () => {
+		const { cooldown } = clocked();
+		const { deps } = harness({
+			cooldown,
+			venue: {
+				deploy: async () => {
+					throw new Error("perp leg rejected");
+				},
+			},
+		});
+
+		const result = await tick(deps);
+
+		expect(result.error).toContain("perp leg rejected");
+		expect(cooldown.failures(DEPLOY_NVDA)).toBe(1);
+		expect(cooldown.blockedFor(DEPLOY_NVDA)).toBe(COOLDOWN_BASE_SECONDS);
+	});
+
+	/**
+	 * Cleared on success rather than decayed. A backoff describes one action being
+	 * stuck, and an action that has just worked is not stuck — carrying a residual
+	 * wait forward would throttle a vault that had already recovered.
+	 */
+	it("clears the whole backoff once the action works", async () => {
+		const { cooldown, advance } = clocked();
+		cooldown.failed(DEPLOY_NVDA);
+		cooldown.failed(DEPLOY_NVDA);
+		advance(COOLDOWN_BASE_SECONDS * 2);
+
+		const { deps, calls } = harness({ cooldown });
+		await tick(deps);
+
+		expect(calls).toContain("deploy:NVDA");
+		expect(cooldown.failures(DEPLOY_NVDA)).toBe(0);
+		expect(cooldown.blockedFor(DEPLOY_NVDA)).toBe(0);
+	});
+
+	/** A skipped attempt is not a failure — it never touched the venue. */
+	it("does not count a tick it sat out as another failure", async () => {
+		const { cooldown } = clocked();
+		cooldown.failed(DEPLOY_NVDA);
+
+		const { deps } = harness({ cooldown });
+		await tick(deps);
+
+		expect(cooldown.failures(DEPLOY_NVDA)).toBe(1);
 	});
 });

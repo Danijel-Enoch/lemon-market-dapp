@@ -657,6 +657,8 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	// opposite directions average to neutral and are both wrong.
 
 	const threshold = snapshot.rebalanceDriftBps || DEFAULT_REBALANCE_DRIFT_BPS;
+	/** Markets drifted past the threshold that the venue will not let us correct. */
+	const blocked: string[] = [];
 	const drifted = snapshot.markets
 		.map((market) => ({ market, drift: driftBps(market.spotUnits, market.perpUnits) }))
 		.filter(({ drift }) => Math.abs(drift) >= threshold)
@@ -675,9 +677,11 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		// every tick, for as long as the drift stood.
 		const placeable = rebalanceIsPlaceable(market);
 		if (!placeable.ok) {
-			// Deliberately not an option and deliberately not silent. The drift is
-			// real and a reader has to be able to tell "nothing is wrong" from
-			// "something is wrong and the venue will not let me fix it".
+			// Not an option, and not silent either. The drift is real, and an
+			// operator reading a tick has to be able to tell "nothing is wrong" from
+			// "something is wrong and the venue will not let me fix it" — which look
+			// identical if this just drops the market on the floor.
+			blocked.push(`${market.ticker} is ${(drift / 100).toFixed(2)}% off neutral but ${placeable.why}`);
 			continue;
 		}
 
@@ -708,7 +712,13 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			kind: "HOLD",
 			amount: 0n,
 			market: null,
-			reason: "Nothing needs doing; report NAV and wait.",
+			// A hold with a blocked rebalance behind it is not the same event as a
+			// quiet tick, and the tick log prints this line. Saying so here is what
+			// stops a vault whose hedge the venue refuses to let it maintain from
+			// reading, minute after minute, as a vault with nothing to do.
+			reason: blocked.length
+				? `Nothing can be done this tick: ${blocked.join("; ")}. Reporting NAV and waiting; this clears itself as the position grows.`
+				: "Nothing needs doing; report NAV and wait.",
 			forced: false,
 			fundedFrom: null,
 			legs: null,
