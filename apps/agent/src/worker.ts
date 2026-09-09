@@ -1,4 +1,10 @@
-import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
+import {
+	type AdlRisk,
+	crossedFundingSettlement,
+	formatDuration,
+	type LogLevel,
+	nextFundingSettlement,
+} from "@lemon/core";
 import { type ActionCooldown, cooldownKey } from "./cooldown";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, sizingLeverageBps } from "./policy";
@@ -12,7 +18,7 @@ import { type ActivityInput, isRevert, type VaultClient, type VaultState } from 
  * design:
  *
  *  1. **Observe** — read the vault and the venues.
- *  2. **Report** — post the NAV, always, before acting.
+ *  2. **Report** — post the NAV, once per funding period, before acting.
  *  3. **Act** — one action per tick, chosen by the policy.
  *  4. **Publish** — record what was done to the public feed.
  *
@@ -23,6 +29,11 @@ import { type ActivityInput, isRevert, type VaultClient, type VaultState } from 
  * on-chain, so an agent that traded first and reported afterwards would be
  * holding its own vault shut for the duration of every trade — and if the trade
  * hung, indefinitely.
+ *
+ * Ticking faster than the report is also deliberate. The tick is how quickly
+ * the agent can *react* — to drift, to a ripe redemption, to a close order —
+ * and the report is how often it has something new to *say*, which is once a
+ * funding settlement has moved money. See `navReportDue`.
  *
  * One action per tick, deliberately. Ticks are cheap and MPC signatures are
  * serialised anyway, so batching several decisions buys nothing and makes a
@@ -254,6 +265,63 @@ export interface TickResult {
 	error?: string;
 }
 
+/** Whether this tick owes the chain a NAV, and why — or when the next one is due. */
+export type NavReportDecision = { due: true; because: string } | { due: false; nextAt: number };
+
+/**
+ * When to post a NAV.
+ *
+ * The cadence is the venue's funding period, not the contract's floor. A
+ * hedged book has one source of return and it arrives at a settlement; between
+ * two settlements the spot leg and the perp leg move against each other and
+ * cancel by construction. Reporting four times an hour against an hourly
+ * settlement therefore publishes the same funding four times over, and the
+ * three extra points differ only by where the two marks happened to sit — mark
+ * noise, drawn as a share price and paid for in gas.
+ *
+ * So a report is due once a settlement has landed since the last one. That
+ * makes every point in the series a whole funding period's realised outcome,
+ * which is what the chart claims to be showing and what every APY on the site
+ * is computed from.
+ *
+ * Two guards bracket it:
+ *
+ *  - The contract's `minNavReportInterval` is a hard floor — a report inside it
+ *    reverts — so nothing above matters until it has passed. At production
+ *    limits it is fifteen minutes against an hourly period and never binds; it
+ *    is checked because a vault may be configured with a longer one.
+ *  - `maxNavStaleness` is the ceiling. A vault whose staleness window is
+ *    shorter than two funding periods would go stale waiting for a boundary —
+ *    blocking deposits and fulfilments — so half the window forces a report
+ *    regardless, the same margin `idle` keeps for an empty vault.
+ */
+export function navReportDue(
+	state: Pick<VaultState, "lastNavReportAt" | "minNavReportInterval" | "maxNavStaleness">,
+	now: number,
+): NavReportDecision {
+	const floorAt = state.lastNavReportAt + state.minNavReportInterval;
+	const keepaliveAt = state.lastNavReportAt + Math.floor(state.maxNavStaleness / 2);
+	const settlementAt = nextFundingSettlement(state.lastNavReportAt);
+
+	if (now < floorAt) {
+		return { due: false, nextAt: Math.max(floorAt, Math.min(settlementAt, keepaliveAt)) };
+	}
+
+	if (crossedFundingSettlement(state.lastNavReportAt, now)) {
+		return { due: true, because: "a funding settlement has landed since the last report" };
+	}
+
+	if (now >= keepaliveAt) {
+		return {
+			due: true,
+			because:
+				"the NAV is halfway to stale and the next funding settlement will not arrive in time",
+		};
+	}
+
+	return { due: false, nextAt: Math.min(settlementAt, keepaliveAt) };
+}
+
 export async function tick(deps: WorkerDeps): Promise<TickResult> {
 	const { vault, venue, advisor, log } = deps;
 	const now = deps.now();
@@ -304,10 +372,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 
 	const observedAt = deps.now();
 	let navReported = false;
-	const dueForReport = now >= state.lastNavReportAt + state.minNavReportInterval;
+	const report = navReportDue(state, now);
 
-	if (dueForReport) {
-		log("debug", `2/4 report — posting the NAV on-chain.`);
+	if (report.due) {
+		log("debug", `2/4 report — ${report.because}; posting the NAV on-chain.`);
 		try {
 			await vault.reportNav(
 				observation.valuation.deployedAssets,
@@ -354,9 +422,11 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		}
 	}
 
-	if (!dueForReport) {
-		const due = state.lastNavReportAt + state.minNavReportInterval - now;
-		log("debug", `2/4 report — not due for another ${due}s; skipping.`);
+	if (!report.due) {
+		log(
+			"debug",
+			`2/4 report — the funding period this NAV already covers runs for another ${formatDuration((report.nextAt - now) * 1000)}; skipping.`,
+		);
 	}
 
 	// --- 3. act -----------------------------------------------------------

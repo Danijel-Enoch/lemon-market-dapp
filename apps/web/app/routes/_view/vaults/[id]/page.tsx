@@ -201,7 +201,9 @@ export default function VaultDetailPage() {
 						</div>
 						<NavChart points={points} />
 						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
-							One point per valuation the agent reports. Every yield figure on this page is computed
+							One point per funding period. A hedged position earns when the venue settles funding —
+							hourly on Pacifica — and nothing in between, so that is the interval the agent reports
+							on and the interval this line is drawn on. Every yield figure on this page is computed
 							from this series, so you can check them against it.
 						</p>
 					</section>

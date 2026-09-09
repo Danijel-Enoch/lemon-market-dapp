@@ -1,10 +1,30 @@
 import type { NavPoint } from "@lemon/client";
 import { formatDateTime, formatUsd, toBigInt } from "@lemon/client";
+import { FUNDING_INTERVAL_SECONDS, lastPerFundingPeriod } from "@lemon/core";
 import { useMemo } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 /**
- * Share price over time.
+ * One point per funding period.
+ *
+ * The series is drawn on the venue's clock, not the agent's. A hedged position
+ * earns at a funding settlement and nothing between two of them, so a period is
+ * the smallest interval over which this line means anything: within one, the
+ * spot and perp legs move against each other and what is left is mark noise
+ * drawn as a share price. Pacifica settles hourly, so this is an hourly line.
+ *
+ * The agent reports on the same clock (`navReportDue` in the worker), which
+ * makes this a no-op for anything recorded since. It still runs, because the
+ * history in front of it was recorded at the contract's fifteen-minute floor
+ * and a chart that switches resolution partway along is a chart that appears to
+ * get calmer over time for no reason at all.
+ */
+export function byFundingPeriod(points: NavPoint[]): NavPoint[] {
+	return lastPerFundingPeriod(points, (point) => point.timestamp, FUNDING_INTERVAL_SECONDS);
+}
+
+/**
+ * Share price over time, one point per funding period.
  *
  * Share price, not total assets. Assets move every time somebody deposits or
  * withdraws, so a TVL chart would show a vertical step for a large deposit and
@@ -19,7 +39,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 export function NavChart({ points }: { points: NavPoint[] }) {
 	const data = useMemo(
 		() =>
-			points.map((point) => ({
+			byFundingPeriod(points).map((point) => ({
 				t: point.timestamp,
 				// Six decimals of USDC as a float is safe here: a share price is
 				// around 1e6 and well inside float precision. Balances are not.
@@ -31,7 +51,7 @@ export function NavChart({ points }: { points: NavPoint[] }) {
 	if (data.length < 2) {
 		return (
 			<div className="flex h-48 items-center justify-center rounded-[var(--pon-r-lg,16px)] border border-dashed border-[var(--pon-line)] text-sm text-[var(--pon-fg-3)]">
-				Not enough valuations yet to draw a line.
+				Not enough funding periods yet to draw a line.
 			</div>
 		);
 	}
@@ -46,6 +66,19 @@ export function NavChart({ points }: { points: NavPoint[] }) {
 	const last = values[values.length - 1];
 	const up = last >= first;
 	const stroke = up ? "var(--pon-up)" : "var(--pon-down)";
+
+	// A day's worth of hourly periods all fall on the same calendar date, so a
+	// date-only axis would label the whole chart "Sep 9" and say nothing about
+	// where along it a point sits. Past a couple of days the reverse is true and
+	// the clock time is the noise.
+	const span = data[data.length - 1].t - data[0].t;
+	const tickLabel = (t: number) =>
+		new Date(t * 1000).toLocaleString(
+			undefined,
+			span <= 2 * 24 * 3600
+				? { hour: "numeric", minute: "2-digit" }
+				: { month: "short", day: "numeric" },
+		);
 
 	return (
 		<div className="h-48 w-full">
@@ -62,12 +95,7 @@ export function NavChart({ points }: { points: NavPoint[] }) {
 						dataKey="t"
 						type="number"
 						domain={["dataMin", "dataMax"]}
-						tickFormatter={(t) =>
-							new Date(t * 1000).toLocaleDateString(undefined, {
-								month: "short",
-								day: "numeric",
-							})
-						}
+						tickFormatter={tickLabel}
 						stroke="var(--pon-fg-4)"
 						tick={{ fontSize: 11 }}
 						tickLine={false}
@@ -108,11 +136,18 @@ export function NavChart({ points }: { points: NavPoint[] }) {
 	);
 }
 
-/** The change across whatever window is being shown, as a percentage. */
+/**
+ * The change across whatever window is being shown, as a percentage.
+ *
+ * Measured over the same thinned series the chart draws, so the figure printed
+ * next to the line is the change between its first and last point rather than
+ * between two valuations one of which was dropped from it.
+ */
 export function navChange(points: NavPoint[]): number | null {
-	if (points.length < 2) return null;
-	const first = Number(toBigInt(points[0].pricePerShare));
-	const last = Number(toBigInt(points[points.length - 1].pricePerShare));
+	const series = byFundingPeriod(points);
+	if (series.length < 2) return null;
+	const first = Number(toBigInt(series[0].pricePerShare));
+	const last = Number(toBigInt(series[series.length - 1].pricePerShare));
 	if (first === 0) return null;
 	return ((last - first) / first) * 100;
 }

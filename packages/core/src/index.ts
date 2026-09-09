@@ -2,6 +2,7 @@ export * from "./adl";
 export * from "./basis";
 export * from "./chain";
 export * from "./fees";
+export * from "./funding";
 export * from "./http";
 export * from "./log";
 export * from "./symbols";

@@ -128,6 +128,12 @@ function harness(options: {
 	 * cares about backing off supplies one on an injected clock.
 	 */
 	cooldown?: ActionCooldown;
+	/**
+	 * The tick's clock. `NOW` by default, which sits exactly on an hourly
+	 * funding boundary — a test about what happens *inside* a period has to say
+	 * so, because at the boundary every earlier report is in the period before.
+	 */
+	now?: number;
 }) {
 	const calls: string[] = [];
 	let state = options.state ?? vaultState();
@@ -200,7 +206,7 @@ function harness(options: {
 		closeRequested: options.closeRequested ?? false,
 		rebalanceDriftBps: 100,
 		cooldown: options.cooldown,
-		now: () => NOW,
+		now: () => options.now ?? NOW,
 		log: (level, message) => {
 			logs.push(`${level}:${message}`);
 		},
@@ -326,11 +332,70 @@ describe("tick", () => {
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
 	});
 
-	it("skips the report when one is not yet due", async () => {
+	it("skips the report when the contract's own floor has not passed", async () => {
 		const { deps, vault } = harness({ state: vaultState({ lastNavReportAt: NOW - 60 }) });
 		const result = await tick(deps);
 		expect(vault.reportNav).not.toHaveBeenCalled();
 		expect(result.navReported).toBe(false);
+	});
+
+	// -- the reporting cadence is the venue's funding period ----------------
+
+	/**
+	 * Once per settlement, not once per contract interval. Within a period the
+	 * vault has been paid no funding, and the only thing a second report would
+	 * add is where two hedged legs happened to be marked — noise, drawn as a
+	 * share price and paid for in gas.
+	 */
+	it("skips the report inside the funding period it has already reported", async () => {
+		const { deps, vault } = harness({
+			// Half past the hour, having reported ten minutes past it: well clear
+			// of the 900s floor, and still the same funding period.
+			now: NOW + 1800,
+			state: vaultState({ lastNavReportAt: NOW + 600 }),
+		});
+
+		const result = await tick(deps);
+
+		expect(vault.reportNav).not.toHaveBeenCalled();
+		expect(result.navReported).toBe(false);
+	});
+
+	it("reports once a funding settlement has landed", async () => {
+		// A minute either side of the top of the hour. Barely any time has
+		// passed, but the venue has paid funding in between, so the vault is
+		// worth something it has not yet said.
+		const { deps, vault } = harness({
+			state: vaultState({ lastNavReportAt: NOW - 60, minNavReportInterval: 30 }),
+		});
+
+		const result = await tick(deps);
+
+		expect(vault.reportNav).toHaveBeenCalled();
+		expect(result.navReported).toBe(true);
+	});
+
+	/**
+	 * The ceiling on the cadence. A vault whose staleness window is shorter than
+	 * two funding periods would go stale waiting for a boundary — and a stale
+	 * NAV blocks deposits and fulfilments — so half the window reports anyway.
+	 */
+	it("reports before the NAV goes stale, settlement or not", async () => {
+		const { deps, vault } = harness({
+			now: NOW + 1800,
+			state: vaultState({
+				maxNavStaleness: 1800,
+				minNavReportInterval: 300,
+				// Same funding period as the tick, but twenty minutes into a
+				// thirty-minute staleness window.
+				lastNavReportAt: NOW + 600,
+			}),
+		});
+
+		const result = await tick(deps);
+
+		expect(vault.reportNav).toHaveBeenCalled();
+		expect(result.navReported).toBe(true);
 	});
 
 	it("deploys idle capital and publishes what it did", async () => {
