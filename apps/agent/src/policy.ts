@@ -1,5 +1,14 @@
 import { BPS } from "@lemon/contracts";
 import type { AdlRisk } from "@lemon/core";
+import {
+	breakevenHours,
+	costOf,
+	describeBreakeven,
+	economicFloor,
+	MAX_BREAKEVEN_DAYS,
+	type TradeFrictions,
+	usdcFromEnv,
+} from "./economics";
 import { leverageBps } from "./valuation";
 
 /**
@@ -82,6 +91,24 @@ export interface MarketSnapshot {
 	/** Whether this market's spot leg can currently be routed in and out. */
 	spotBuyable: boolean;
 	spotSellable: boolean;
+
+	/** Live mark from the perp venue, in USD. Zero when it cannot be priced. */
+	markPriceUsd: number;
+	/** The venue's quantity grid, in units of the underlying. Zero when unknown. */
+	lotSize: number;
+	/**
+	 * The venue's minimum order value, in USD. Zero when unknown.
+	 *
+	 * The constraint that makes a small vault's rebalance impossible rather than
+	 * merely expensive, and the reason the drift threshold cannot be a single
+	 * number for every vault. It is a floor on the order's dollar notional, so no
+	 * amount of snapping to the lot grid satisfies it.
+	 */
+	minOrderUsd: number;
+	/** What the aggregator estimates this market's spot swap costs in gas, USD. */
+	spotGasUsd: number;
+	/** What crossing this market's pool costs, as a positive percent of notional. */
+	spotImpactPercent: number;
 
 	/** Auto-deleveraging exposure on this market's short. See `VaultSnapshot.adl`. */
 	adl: AdlRisk;
@@ -170,6 +197,20 @@ export interface VaultSnapshot {
 	closeRequested: boolean;
 
 	/**
+	 * How far the legs may drift before a rebalance is worth making, in bps.
+	 *
+	 * Configuration rather than a constant, because the right answer depends on
+	 * the size of the position relative to the venue's minimum order notional. A
+	 * $32 position drifting 1% needs a $0.32 correction, which no venue will
+	 * accept — so a vault that small must let drift run further before it is
+	 * worth, or even possible, to act on. See `VaultConfig.rebalanceDriftBps`.
+	 */
+	rebalanceDriftBps: number;
+
+	/** Pacifica's flat fee for moving margin home, in USDC. Part of unwind cost. */
+	venueWithdrawalFeeUsdc: bigint;
+
+	/**
 	 * The worst auto-deleveraging exposure across the vault's markets.
 	 *
 	 * Carried in the snapshot but deliberately *not* gated on by
@@ -230,8 +271,25 @@ export interface DeploymentLegs {
 	perpMargin: bigint;
 }
 
-/** Below 1% the correction costs more in fees than the drift costs in exposure. */
-export const REBALANCE_DRIFT_BPS = 100;
+/**
+ * The drift threshold a vault falls back to when its configuration names none.
+ *
+ * It used to be 1%, on the reasoning that below that the correction costs more
+ * in fees than the drift costs in exposure. That reasoning is sound and the
+ * number was still wrong, because it left out the constraint that actually
+ * binds: the venue will not accept an order worth less than about ten dollars,
+ * whatever the fees would have been. A 1% drift on a small position produces a
+ * correction the venue rejects — so the agent decided to rebalance, placed the
+ * order, was refused, and did the whole thing again sixty seconds later.
+ *
+ * Five percent is the floor at which a modest position produces a placeable
+ * correction. It is only a default: the real value is per vault, and a large
+ * vault should set it back down, because on a large position 1% of drift is real
+ * directional exposure and the correction is comfortably placeable.
+ *
+ * See `VaultSnapshot.rebalanceDriftBps` and `VaultConfig.rebalanceDriftBps`.
+ */
+export const DEFAULT_REBALANCE_DRIFT_BPS = 500; // 5%
 
 /**
  * How far below its ceiling a hedge is opened, so it has somewhere to drift.
@@ -380,27 +438,6 @@ export const MIN_TOP_UP_USDC = usdcFromEnv("MIN_TOP_UP_USDC", 5_000_000n); // $5
  * than facts about this code — so the number is a deployment choice.
  */
 export const MIN_DEPLOY_USDC = usdcFromEnv("MIN_DEPLOY_USDC", 30_000_000n); // $30
-
-/**
- * Read a dollar amount from the environment as USDC base units.
- *
- * Parsed off the decimal string rather than through `Number`, because a float
- * cannot hold every 6-decimal amount exactly and this value gates money. A
- * malformed setting throws at import: a risk limit that silently falls back to
- * its default is worse than one that refuses to start.
- */
-function usdcFromEnv(name: string, fallback: bigint): bigint {
-	const raw = process.env[name]?.trim();
-	if (!raw) return fallback;
-
-	const parsed = /^(\d+)(?:\.(\d{1,6}))?$/.exec(raw);
-	if (!parsed) {
-		throw new Error(
-			`${name} must be a dollar amount with at most 6 decimals (e.g. 30, 30.5), got "${raw}".`,
-		);
-	}
-	return BigInt(parsed[1]) * 1_000_000n + BigInt((parsed[2] ?? "").padEnd(6, "0"));
-}
 
 /**
  * Read a basis-point setting from the environment.
@@ -561,15 +598,28 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	);
 	if (retired.length > 0 && !options.some((o) => o.kind === "UNWIND")) {
 		const amount = sum(retired.map((m) => m.spotValueUsdc));
-		options.push({
-			kind: "UNWIND",
-			amount,
-			market: null,
-			reason: `${retired.map((m) => m.ticker).join(", ")} ${retired.length === 1 ? "has" : "have"} been retired but still ${retired.length === 1 ? "holds" : "hold"} ${fmt(amount)}; unwinding returns it to the vault for the markets that are still wanted.`,
-			forced: false,
-			fundedFrom: null,
-			legs: null,
-		});
+		// Draining a retired market is a preference, not an obligation — an
+		// operator would rather the capital sat somewhere else, and nothing breaks
+		// while it does not. So unlike a redemption, it has to be worth the trip.
+		// A retired market holding less than one unwind costs is left alone; the
+		// next unwind that happens for a real reason takes it first anyway, because
+		// a zero target weight makes it the most overweight market the vault has.
+		const cost = costOf("unwind", amount, unwindFrictions(snapshot));
+
+		// Below the floor there is no option at all — not a forced HOLD. This is
+		// not a problem, it is a tidy-up that can wait, and the vault should carry
+		// on deploying and rebalancing while it does.
+		if (amount >= economicFloor(cost)) {
+			options.push({
+				kind: "UNWIND",
+				amount,
+				market: null,
+				reason: `${retired.map((m) => m.ticker).join(", ")} ${retired.length === 1 ? "has" : "have"} been retired but still ${retired.length === 1 ? "holds" : "hold"} ${fmt(amount)}; unwinding returns it to the vault for the markets that are still wanted. Costs about ${fmt(cost.totalUsdc)}.`,
+				forced: false,
+				fundedFrom: null,
+				legs: null,
+			});
+		}
 	}
 
 	// --- the mandate ------------------------------------------------------
@@ -581,7 +631,22 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 
 	const correction = mandateCorrection(snapshot);
 	if (correction) {
-		if (correction.forced) return [correction];
+		// A forced correction outranks everything — with one exception, and getting
+		// it wrong would have been the worst kind of bug this change could
+		// introduce.
+		//
+		// `deleverage` can now answer with a HOLD: the mandate is breached, no
+		// correction pays for itself, and the honest thing is to stop churning fees
+		// and say so. That is an *explanation*, not an action. Returning it as the
+		// sole option the way a real correction is returned would discard the
+		// redemption unwind pushed above it — so a vault too small to fix its own
+		// leverage would also stop paying people who had asked for their money out,
+		// which it is perfectly able to do.
+		//
+		// So a forced HOLD joins the list instead of replacing it. It still sits
+		// ahead of drift and growth, and it is still the answer when nothing else
+		// is on the list; it simply cannot outrank an obligation.
+		if (correction.forced && correction.kind !== "HOLD") return [correction];
 		options.push(correction);
 	}
 
@@ -591,17 +656,36 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	// is no such thing as the vault's drift: two markets a percent out in
 	// opposite directions average to neutral and are both wrong.
 
+	const threshold = snapshot.rebalanceDriftBps || DEFAULT_REBALANCE_DRIFT_BPS;
 	const drifted = snapshot.markets
 		.map((market) => ({ market, drift: driftBps(market.spotUnits, market.perpUnits) }))
-		.filter(({ drift }) => Math.abs(drift) >= REBALANCE_DRIFT_BPS)
+		.filter(({ drift }) => Math.abs(drift) >= threshold)
 		.sort((a, b) => Math.abs(b.drift) - Math.abs(a.drift));
 
 	for (const { market, drift } of drifted) {
+		// Whether the venue would actually take this order, asked before the action
+		// is offered rather than discovered as a rejection afterwards.
+		//
+		// This is the difference between an agent that knows its own venue and one
+		// that finds out by being refused. A correction can clear the drift
+		// threshold, sit exactly on the lot grid, and still be worth less than the
+		// venue's minimum order notional — at which point placing it is not a risk
+		// to be managed but an outcome that cannot happen. Offering it anyway meant
+		// choosing it, logging it as the tick's action, sending it, and failing, on
+		// every tick, for as long as the drift stood.
+		const placeable = rebalanceIsPlaceable(market);
+		if (!placeable.ok) {
+			// Deliberately not an option and deliberately not silent. The drift is
+			// real and a reader has to be able to tell "nothing is wrong" from
+			// "something is wrong and the venue will not let me fix it".
+			continue;
+		}
+
 		options.push({
 			kind: "REBALANCE",
 			amount: 0n,
 			market: market.ticker,
-			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral; its perp leg needs to move to match its spot leg.`,
+			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral against a ${(threshold / 100).toFixed(1)}% threshold; its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`,
 			forced: false,
 			fundedFrom: null,
 			legs: null,
@@ -613,17 +697,75 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	const deploy = nextDeployment(snapshot);
 	if (deploy) options.push(deploy);
 
-	options.push({
-		kind: "HOLD",
-		amount: 0n,
-		market: null,
-		reason: "Nothing needs doing; report NAV and wait.",
-		forced: false,
-		fundedFrom: null,
-		legs: null,
-	});
+	// The catch-all, unless something above already answered "do nothing" for a
+	// specific reason. A breached vault that cannot afford to correct itself
+	// pushes its own HOLD explaining exactly that, and appending this one after it
+	// would put two HOLDs on the list whose reasons contradict each other — "the
+	// NAV is stale and no correction pays for itself" followed by "nothing needs
+	// doing". The first is true and the second is not.
+	if (!options.some((o) => o.kind === "HOLD")) {
+		options.push({
+			kind: "HOLD",
+			amount: 0n,
+			market: null,
+			reason: "Nothing needs doing; report NAV and wait.",
+			forced: false,
+			fundedFrom: null,
+			legs: null,
+		});
+	}
 
 	return options;
+}
+
+/**
+ * Whether the venue would accept the correction this market's drift implies.
+ *
+ * Two floors, in two different units, and an order has to clear both. The lot
+ * grid bounds the *quantity*: a correction finer than one lot cannot be
+ * expressed, so the legs are already as close as this market allows. The minimum
+ * order size bounds the *dollar notional*: a correction can be a clean multiple
+ * of the lot grid and still be refused for being worth too little.
+ *
+ * A missing figure is read as "no floor" rather than as a reason to refuse.
+ * Neither is a safety limit — they are the venue's own rules, and if the venue
+ * has not stated one, inventing a stricter one here would stop a hedge being
+ * maintained to enforce a constraint that does not exist.
+ */
+function rebalanceIsPlaceable(
+	market: MarketSnapshot,
+): { ok: true; correctionUsd: string } | { ok: false; why: string } {
+	const deltaUnits = market.spotUnits - market.perpUnits;
+	const magnitude = deltaUnits < 0n ? -deltaUnits : deltaUnits;
+	if (magnitude === 0n) return { ok: false, why: "the legs already match" };
+
+	// Units here are the 1e18 basis the two legs are made comparable in, which is
+	// what the venue adapter also places the order in.
+	const correctionUnits = Number(magnitude) / 1e18;
+
+	if (market.lotSize > 0) {
+		const lots = Math.floor(correctionUnits / market.lotSize);
+		if (lots < 1) {
+			return {
+				ok: false,
+				why: `a ${correctionUnits} correction is finer than the venue's ${market.lotSize} lot grid`,
+			};
+		}
+	}
+
+	if (market.markPriceUsd <= 0) {
+		return { ok: false, why: "the perp leg has no mark to size the correction against" };
+	}
+
+	const correctionUsd = correctionUnits * market.markPriceUsd;
+	if (market.minOrderUsd > 0 && correctionUsd < market.minOrderUsd) {
+		return {
+			ok: false,
+			why: `the correction is worth $${correctionUsd.toFixed(2)}, under the venue's $${market.minOrderUsd} minimum order`,
+		};
+	}
+
+	return { ok: true, correctionUsd: `$${correctionUsd.toFixed(2)}` };
 }
 
 /**
@@ -789,17 +931,74 @@ function deleverage(
 	// notional this cannot reach, and asking the adapter for more than every
 	// routable leg contains would size an order against value it cannot raise.
 	const reachable = sellableValue(snapshot);
-	const amount = min(withBuffer, reachable);
+
+	// **Round the correction up to something worth the trip.**
+	//
+	// This is where a $32 vault was closing $0.49 of position every sixty seconds.
+	// The arithmetic above is right — $0.49 is exactly what the breach needs — and
+	// acting on it was still wrong, because the amount a correction *needs* to be
+	// and the amount it is *worth making* are different questions. Closing $0.49
+	// commits four Base transactions, a Pacifica withdrawal and a cross-chain
+	// crossing, all of whose costs are flat: they are the same whether the trip
+	// moves fifty cents or fifty dollars.
+	//
+	// So the fixed cost sets a floor, and the correction is rounded up to clear
+	// it. That is strictly better than doing the minimum: closing more takes the
+	// account further below its ceiling, which buys room to drift rather than
+	// landing back on the line, and returns more capital to the vault — which
+	// refills `freeAssets` and reopens the cheap correction for next time.
+	const cost = costOf("unwind", withBuffer, unwindFrictions(snapshot));
+	const floor = economicFloor(cost);
+	const worthwhile = withBuffer > floor ? withBuffer : floor;
+	const amount = min(worthwhile, reachable);
+
 	if (amount < MIN_UNWIND_USDC) return null;
+
+	// The whole sellable position is smaller than one economic trip. Selling it
+	// would cost more than the breach is worth and leave the vault holding
+	// nothing — so the honest answer is to stop, and to say why loudly enough
+	// that an operator closes the position or funds it properly. Doing nothing
+	// leaves the NAV stale, which is bad; churning the last of the capital into
+	// fees to avoid that is worse, and it does not fix the breach either.
+	if (amount < floor) {
+		return {
+			kind: "HOLD",
+			amount: 0n,
+			market: null,
+			reason: `The perp account is at ${(observed / 10_000).toFixed(4)}x against a ${(ceiling / 10_000).toFixed(2)}x ceiling, but the whole sellable position is ${fmt(reachable)} and one unwind costs about ${fmt(cost.fixedUsdc)} in fixed fees — so no correction here pays for itself. The NAV stays stale until margin is added or an operator closes the vault. Cost: ${cost.breakdown}.`,
+			forced: true,
+			fundedFrom: null,
+			legs: null,
+		};
+	}
 
 	return {
 		kind: "UNWIND",
 		amount,
 		market: null,
-		reason: `The perp account is at ${(observed / 10_000).toFixed(4)}x against a ${(ceiling / 10_000).toFixed(2)}x ceiling and there is nothing spare to add as margin, so the NAV report is being rejected and the vault is going stale. Closing ${fmt(amount)} takes the notional down to what the margin already there can carry at ${(sized / 10_000).toFixed(2)}x, and returns the proceeds to the vault.`,
+		reason: `The perp account is at ${(observed / 10_000).toFixed(4)}x against a ${(ceiling / 10_000).toFixed(2)}x ceiling and there is nothing spare to add as margin, so the NAV report is being rejected and the vault is going stale. Closing ${fmt(amount)}${amount > withBuffer ? ` — more than the ${fmt(withBuffer)} strictly needed, because a smaller close costs the same ${fmt(cost.fixedUsdc)} in fixed fees and would be back next tick` : ""} takes the notional down to what the margin already there can carry at ${(sized / 10_000).toFixed(2)}x, and returns the proceeds to the vault.`,
 		forced: true,
 		fundedFrom: null,
 		legs: null,
+	};
+}
+
+/**
+ * What an unwind's spot leg will cost, taken from the market it will sell into.
+ *
+ * The worst sellable market rather than an average: an unwind takes from
+ * whichever legs are furthest above their target weight, the policy does not
+ * know in advance which those are, and pricing the cheapest one would understate
+ * the cost of every unwind that turns out to touch a thin pool.
+ */
+function unwindFrictions(snapshot: VaultSnapshot): TradeFrictions {
+	const sellable = snapshot.markets.filter((m) => m.spotSellable);
+	return {
+		spotImpactPercent: sellable.reduce((worst, m) => Math.max(worst, m.spotImpactPercent), 0),
+		spotGasUsdc: BigInt(
+			Math.round(sellable.reduce((worst, m) => Math.max(worst, m.spotGasUsd), 0) * 1e6),
+		),
+		withdrawalFeeUsdc: snapshot.venueWithdrawalFeeUsdc,
 	};
 }
 
@@ -949,6 +1148,28 @@ function deploymentFrom(snapshot: VaultSnapshot, source: DeploymentSource): Deci
 		const spend = min(room, incoming);
 		if (spend < MIN_DEPLOY_USDC) continue;
 
+		// **Will this position earn back what it costs to open?**
+		//
+		// The dollar floor above is a backstop, not an answer. It says a $30 spot
+		// leg is big enough to be worth a swap, which was only ever a guess about
+		// fees, and it says nothing at all about the other half of the trade: what
+		// the position *earns*. A hedge opened into a market paying no funding is a
+		// loss from the first block, at any size.
+		//
+		// So the floor stays — an economic model that fails should fail closed —
+		// and this asks the question the floor cannot. Both have to pass.
+		const cost = costOf("deploy", spend, {
+			spotImpactPercent: market.spotImpactPercent,
+			spotGasUsdc: BigInt(Math.round(market.spotGasUsd * 1e6)),
+			withdrawalFeeUsdc: 0n,
+		});
+		const payback = breakevenHours(cost.totalUsdc, spend, market.fundingShortPercentPerHour);
+		if (payback === null || payback > MAX_BREAKEVEN_DAYS * 24) {
+			// Skipped rather than returned, so a market that cannot pay for itself
+			// does not hide one further down the list that can.
+			continue;
+		}
+
 		// Trimming to the market's room shrinks the spot leg, and the margin has to
 		// follow it or the position opens over-hedged. A source that bridges
 		// nothing stays at zero: there is no margin to scale, and the spot leg is
@@ -963,7 +1184,7 @@ function deploymentFrom(snapshot: VaultSnapshot, source: DeploymentSource): Deci
 			kind: "DEPLOY",
 			amount: legs.spotNotional + legs.perpMargin,
 			market: market.ticker,
-			reason: `${source.where}, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised.`,
+			reason: `${source.where}, ${market.ticker} is ${fmt(room)} below its ${(market.targetWeightBps / 100).toFixed(0)}% share, and it pays ${(market.fundingShortPercentPerHour * 24 * 365).toFixed(1)}% annualised — ${fmt(cost.totalUsdc)} to open, paid back in ${describeBreakeven(payback)}.`,
 			forced: false,
 			fundedFrom: source.fundedFrom,
 			legs,

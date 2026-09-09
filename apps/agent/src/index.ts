@@ -8,6 +8,8 @@ import { createPublicClient, createWalletClient, http, type PublicClient } from 
 import { advisorFromEnv } from "./advisor";
 import { createRelayBridge } from "./bridge";
 import { resolveAgentChain } from "./chain";
+import { createCooldown } from "./cooldown";
+import { DEFAULT_REBALANCE_DRIFT_BPS } from "./policy";
 import { createSolanaExecutor, type SolanaExecutor } from "./solana";
 import { VaultClient } from "./vault";
 import { createVenueAdapter } from "./venue";
@@ -321,6 +323,23 @@ async function main() {
 	 * closes a cycle says what each vault did without the reader scrolling back
 	 * through however many bridge minutes happened in between.
 	 */
+	/**
+	 * One backoff ledger per vault, created on first sight and kept thereafter.
+	 *
+	 * Outside `runVault` because it has to outlive a tick. The failures it counts
+	 * are consecutive across ticks — that is what makes the wait grow — and a map
+	 * rebuilt each cycle would reset every counter to zero and restore precisely
+	 * the every-sixty-seconds retry this exists to stop.
+	 */
+	const cooldowns = new Map<string, ReturnType<typeof createCooldown>>();
+	function cooldownFor(address: string) {
+		const existing = cooldowns.get(address);
+		if (existing) return existing;
+		const created = createCooldown();
+		cooldowns.set(address, created);
+		return created;
+	}
+
 	async function runVault(indexed: IndexedVault): Promise<string> {
 		if (indexed.agentEnabled === false) {
 			log("info", `${indexed.address}: agent disabled by an operator; skipping.`);
@@ -379,6 +398,11 @@ async function main() {
 				advisor,
 				queue: () => loadQueue(indexed.address),
 				closeRequested: resolved.closeRequested,
+				rebalanceDriftBps: resolved.rebalanceDriftBps,
+				// Per vault and kept across ticks, which is the whole point: a cooldown
+				// that lived inside a tick would be forgotten by the next one, sixty
+				// seconds later, which is exactly the interval it exists to break.
+				cooldown: cooldownFor(indexed.address),
 				now: () => Math.floor(Date.now() / 1000),
 				log: vaultLogger.emit,
 			};
@@ -444,7 +468,11 @@ async function resolveVenue(params: {
 	solana: SolanaExecutor;
 	/** The vault-scoped logger, so the bridge and the adapter label their lines. */
 	log: (level: LogLevel, message: string, extra?: unknown) => void;
-}): Promise<{ venue: VenueAdapter; closeRequested: boolean } | null> {
+}): Promise<{
+	venue: VenueAdapter;
+	closeRequested: boolean;
+	rebalanceDriftBps: number;
+} | null> {
 	const { indexed, vault, wallet, walletClient, publicClient, solana, log } = params;
 
 	const record = await prisma.vaultConfig
@@ -505,7 +533,14 @@ async function resolveVenue(params: {
 		log,
 	});
 
-	return { venue, closeRequested: record.closeRequestedAt !== null };
+	return {
+		venue,
+		closeRequested: record.closeRequestedAt !== null,
+		// The operator's setting when there is one, and the shared default when
+		// there is not. Read from the same row the UI reads, so what a depositor is
+		// shown as the threshold is the threshold the agent actually acts on.
+		rebalanceDriftBps: record.rebalanceDriftBps ?? DEFAULT_REBALANCE_DRIFT_BPS,
+	};
 }
 
 main().catch((error) => {

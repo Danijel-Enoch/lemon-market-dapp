@@ -46,6 +46,21 @@ import { type VenueAdapter, VenueExecutionError } from "./worker";
  * balances N times and reported a three-market vault as worth roughly three
  * times its margin.
  */
+/**
+ * A spot sell quote with the two costs the aggregator already measured.
+ *
+ * `value` keeps its old meaning exactly — null is "no pool", which the valuation
+ * treats as unpriceable rather than worthless. The other two are only meaningful
+ * when it is non-null, and are zero otherwise.
+ */
+interface SpotRoute {
+	value: bigint | null;
+	/** The aggregator's own gas estimate for this swap, in USD. */
+	gasUsd: number;
+	/** How much crossing the pool costs, as a positive percent of notional. */
+	impactPercent: number;
+}
+
 export interface VenueMarket {
 	/** The market's ticker, e.g. "NVDA". How every caller names it. */
 	ticker: string;
@@ -178,16 +193,24 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	}
 
 	/**
-	 * What one market's whole spot holding would fetch if sold now.
+	 * What one market's whole spot holding would fetch if sold now, and what
+	 * selling it would cost.
 	 *
 	 * Quoted at the full size rather than a unit price scaled up. A tokenized
 	 * equity on a thin Aerodrome pool moves several percent against a real-sized
 	 * sale, so a unit quote multiplied out reports a holding the vault cannot
 	 * actually liquidate at that price — and that error lands directly in every
 	 * holder's share value.
+	 *
+	 * **The cost fields are returned rather than discarded.** This used to hand
+	 * back `amountOut` alone and drop the rest of the quote on the floor, which
+	 * meant the agent paid for a route carrying a gas estimate and a price impact
+	 * every single tick and then decided what to trade with no idea what trading
+	 * cost. They are the entire input to `economics.ts`, and they are free: the
+	 * route is already fetched, already parsed, already thrown away.
 	 */
-	async function spotSellQuote(market: VenueMarket, balance: bigint): Promise<bigint | null> {
-		if (balance === 0n) return 0n;
+	async function spotSellRoute(market: VenueMarket, balance: bigint): Promise<SpotRoute> {
+		if (balance === 0n) return { value: 0n, gasUsd: 0, impactPercent: 0 };
 		try {
 			const route = await kyber.getRoute({
 				tokenIn: market.spotToken,
@@ -199,12 +222,19 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// which is ordinary state. The quote's fields sit under `quote`, not at
 			// the top level — reading `routeSummary.amountOut` off the envelope
 			// yields undefined and prices every holding at null.
-			if (!route.ok) return null;
-			return BigInt(route.quote.amountOut);
+			if (!route.ok) return { value: null, gasUsd: 0, impactPercent: 0 };
+			return {
+				value: BigInt(route.quote.amountOut),
+				gasUsd: route.quote.gasUsd,
+				// Kyber reports impact as a signed percent, negative when the trade
+				// loses value crossing the pool. A cost is a cost whichever way it is
+				// signed, so it is carried as a magnitude.
+				impactPercent: Math.abs(route.quote.priceImpactPercent),
+			};
 		} catch {
 			// Null, not zero. An unroutable pool is an unknown value, and the
 			// valuation layer refuses to price it rather than marking it to zero.
-			return null;
+			return { value: null, gasUsd: 0, impactPercent: 0 };
 		}
 	}
 
@@ -333,14 +363,21 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			// The two account reads tolerate an account Pacifica has never seen, which
 			// is what a vault holds before its first deployment. Everything else in
 			// this list is exchange-wide or on-chain and answers for any address.
-			const [account, positions, prices, venueMarkets, baseIdle, solanaIdle] = await Promise.all([
-				accountOrUnregistered(),
-				positionsOrNone(),
-				pacifica.prices(),
-				pacifica.markets(),
-				usdcBalance(config.agentAddress),
-				deps.solanaIdleUsdc(),
-			]);
+			const [account, positions, prices, venueMarkets, baseIdle, solanaIdle, withdrawalFee] =
+				await Promise.all([
+					accountOrUnregistered(),
+					positionsOrNone(),
+					pacifica.prices(),
+					pacifica.markets(),
+					usdcBalance(config.agentAddress),
+					deps.solanaIdleUsdc(),
+					// Exchange-wide, and charged on every unwind. Best-effort because it
+					// is a cost input rather than a safety check: a vault that cannot
+					// read it should price the unwind slightly optimistically, not stop
+					// trading. Zero is the honest fallback — an unknown fee is not a
+					// reason to refuse an action a depositor is waiting on.
+					venueWithdrawalFee(deps).catch(() => 0n),
+				]);
 
 			// Both wallets, because the vault owns both. Idle USDC on either side is
 			// capital the vault holds and has not deployed, and counting only Base
@@ -359,7 +396,8 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const legs = await Promise.all(
 				config.markets.map(async (market) => {
 					const balance = await spotBalance(market);
-					const sellQuote = await spotSellQuote(market, balance);
+					const route = await spotSellRoute(market, balance);
+					const sellQuote = route.value;
 
 					const position = positions.find((p) => p.symbol === market.perpSymbol);
 					const spec = venueMarkets.find((m) => m.symbol === market.perpSymbol);
@@ -379,6 +417,19 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 						balance,
 						sellQuote,
 						perpSize,
+						markPrice,
+						// The venue's own order constraints, carried so the policy can
+						// refuse a correction the venue would reject. They are two
+						// different measures and neither substitutes for the other:
+						// `lot_size` is a quantity grid in units of the underlying, and
+						// `min_order_size` is a floor on the order's *dollar* notional.
+						// Snapping to the first gives no protection against the second,
+						// which is how a 0.002 NVDA rebalance worth $0.45 was sent to a
+						// venue with a $10 minimum, every minute, and rejected every time.
+						lotSize: numberOrNull((spec as any)?.lot_size) ?? 0,
+						minOrderUsd: numberOrNull((spec as any)?.min_order_size) ?? 0,
+						spotGasUsd: route.gasUsd,
+						spotImpactPercent: route.impactPercent,
 						notional: BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6)),
 						// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 						fundingHourly: Number((spec as any)?.funding_rate ?? 0) * 100,
@@ -435,6 +486,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				fundingShortPercentPerHour: leg.fundingHourly,
 				spotBuyable: leg.sellQuote !== null,
 				spotSellable: leg.sellQuote !== null,
+				markPriceUsd: leg.markPrice,
+				lotSize: leg.lotSize,
+				minOrderUsd: leg.minOrderUsd,
+				spotGasUsd: leg.spotGasUsd,
+				spotImpactPercent: leg.spotImpactPercent,
 				adl: leg.adl,
 			}));
 
@@ -446,6 +502,10 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// side a deployment can be sized against.
 				idleOnBase: baseIdle,
 				unallocatedMargin: BigInt(Math.round(freeMarginUsd * 1e6)),
+				// Account-level, not per market: one withdrawal brings home the margin
+				// freed by closing legs in any number of markets, so it is charged once
+				// per unwind rather than once per leg.
+				venueWithdrawalFeeUsdc: withdrawalFee,
 				// The worst leg, because a warning about the vault should be about the
 				// leg most likely to be deleveraged out from under it rather than an
 				// average that never describes any actual position.
@@ -781,7 +841,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const legs = await Promise.all(
 				config.markets.map(async (market) => {
 					const balance = await spotBalance(market);
-					return { market, balance, value: await spotSellQuote(market, balance) };
+					return { market, balance, value: (await spotSellRoute(market, balance)).value };
 				}),
 			);
 
@@ -1063,6 +1123,27 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				log(
 					"debug",
 					`rebalance ${market.ticker}: the legs are ${formatUnitsForVenue(abs(delta), 18)} apart, inside Pacifica's ${formatUnitsForVenue(lot, 18)} lot size; nothing can be traded to close it.`,
+				);
+				return [];
+			}
+
+			// The venue has a second floor, and it is denominated differently. A size
+			// on the lot grid can still be rejected for being worth too little —
+			// `min_order_size` is a minimum *notional in dollars*, so snapping to the
+			// grid gives no protection against it. This is what rejected a 0.002 NVDA
+			// correction worth $0.45 against a $10 floor, on every tick, indefinitely.
+			//
+			// Returned as nothing rather than thrown, matching the sub-lot case
+			// directly above: in both the legs are as close as this venue will let
+			// them be, which is a fact about the market and not a failure. The policy
+			// checks this too and should not offer the action at all — this is the
+			// backstop for a position that shrank between the decision and the order.
+			const minOrderUsd = await minOrderNotionalUsd(deps, market);
+			const correctionUsd = (Number(correction) / 1e18) * (await markPriceUsd(deps, market));
+			if (minOrderUsd > 0 && correctionUsd < minOrderUsd) {
+				log(
+					"info",
+					`rebalance ${market.ticker}: the ${formatUnitsForVenue(correction, 18)} correction is worth about $${correctionUsd.toFixed(2)}, under Pacifica's $${minOrderUsd} minimum order. Leaving the drift; it becomes placeable as the position grows.`,
 				);
 				return [];
 			}
@@ -1658,6 +1739,30 @@ async function lotUnits(deps: VenueDeps, market: VenueMarket, decimals: number):
 }
 
 /**
+ * The venue's minimum order notional for a market, in dollars.
+ *
+ * A different constraint from the lot grid and expressed in different units:
+ * `lot_size` bounds the *quantity* an order may be, `min_order_size` bounds what
+ * it may be *worth*. An order can satisfy either and fail the other.
+ *
+ * Zero when the venue does not report one, which is read as "no floor" rather
+ * than as an error — refusing to trade because a spec field was missing would
+ * turn a cosmetic gap in a market listing into a stalled hedge.
+ */
+async function minOrderNotionalUsd(deps: VenueDeps, market: VenueMarket): Promise<number> {
+	const specs = await deps.pacifica.markets();
+	const spec = specs.find((m) => m.symbol === market.perpSymbol);
+	return numberOrNull(spec?.min_order_size) ?? 0;
+}
+
+/** The live mark for a market, with no fallback: zero means "cannot price it". */
+async function markPriceUsd(deps: VenueDeps, market: VenueMarket): Promise<number> {
+	const prices = await deps.pacifica.prices();
+	const quote = prices.find((p) => p.symbol === market.perpSymbol);
+	return numberOrNull(quote?.mark) ?? 0;
+}
+
+/**
  * Round an order size down onto the venue's grid.
  *
  * Down rather than to nearest, everywhere it is used. Rounding a hedge up opens
@@ -1682,6 +1787,25 @@ function snapToLot(units: bigint, lot: bigint): bigint {
 function refToHex(reference: string): Hex {
 	const bytes = new TextEncoder().encode(reference);
 	return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}` as Hex;
+}
+
+/**
+ * What Pacifica charges to move USDC out of the margin account, in USDC.
+ *
+ * Flat, and paid on every unwind — which makes it one of the fixed costs that
+ * decide whether a small unwind is worth making at all. It has been in the
+ * client's types since the beginning (`PacificaBridgeAsset.withdrawal_fee`) and
+ * nothing has ever read it, so every cost estimate the agent could have made was
+ * short by exactly this much.
+ *
+ * USDC specifically. `bridgeInfo` answers for every asset the venue bridges, and
+ * the vault's margin is denominated in one of them.
+ */
+async function venueWithdrawalFee(deps: VenueDeps): Promise<bigint> {
+	const assets = await deps.pacifica.bridgeInfo();
+	const usdc = assets.find((asset) => asset.symbol.toUpperCase() === "USDC");
+	const fee = numberOrNull(usdc?.withdrawal_fee) ?? 0;
+	return fee > 0 ? BigInt(Math.round(fee * 1e6)) : 0n;
 }
 
 /** A venue decimal string as a number, or null when missing or unparseable. */

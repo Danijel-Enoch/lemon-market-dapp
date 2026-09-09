@@ -62,6 +62,11 @@ function observedMarket(overrides: Partial<MarketObservation> = {}): MarketObser
 		fundingShortPercentPerHour: 0.002,
 		spotBuyable: true,
 		spotSellable: true,
+		markPriceUsd: 100,
+		lotSize: 0.001,
+		minOrderUsd: 10,
+		spotGasUsd: 0.01,
+		spotImpactPercent: 0.01,
 		adl: CALM_ADL,
 		...overrides,
 	};
@@ -80,6 +85,7 @@ function observation(overrides = {}) {
 		adl: CALM_ADL,
 		idleOnBase: 0n,
 		unallocatedMargin: 0n,
+		venueWithdrawalFeeUsdc: 0n,
 		...overrides,
 	};
 }
@@ -181,6 +187,7 @@ function harness(options: {
 		advisor: null,
 		queue: async () => options.queue ?? [],
 		closeRequested: options.closeRequested ?? false,
+		rebalanceDriftBps: 100,
 		now: () => NOW,
 		log: (level, message) => {
 			logs.push(`${level}:${message}`);

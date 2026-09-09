@@ -130,6 +130,11 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 								position.perp.leverage === null ? "—" : `${position.perp.leverage.toFixed(2)}x`
 							}
 						/>
+						{/* Deliberately uncoloured. This is one leg of a hedge: the short
+						    loses exactly what the spot leg gains when the underlying
+						    rises, so a red number here would report the hedge working as
+						    though it were the vault losing money. The pair is reconciled
+						    below, which is where a real loss would show. */}
 						<Row
 							label="Unrealised"
 							value={
@@ -137,13 +142,7 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 									? "—"
 									: `${position.perp.unrealisedPnlUsd >= 0 ? "+" : ""}$${position.perp.unrealisedPnlUsd.toFixed(2)}`
 							}
-							tone={
-								position.perp.unrealisedPnlUsd === null
-									? undefined
-									: position.perp.unrealisedPnlUsd >= 0
-										? "up"
-										: "down"
-							}
+							hint="The short marked against its entry. Pacifica does not publish this, so it is computed from the entry and the mark shown here. A loss on this leg is the spot leg being up by the same amount — that is the hedge doing its job, not a drawdown."
 						/>
 						<Row
 							label="Funding"

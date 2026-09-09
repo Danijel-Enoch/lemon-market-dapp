@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { adlRisk } from "@lemon/core";
+import { costOf, economicFloor, MAX_BREAKEVEN_DAYS } from "../src/economics";
 import {
 	decide,
+	DEFAULT_REBALANCE_DRIFT_BPS,
 	deployableAmount,
 	deploymentFor,
 	driftBps,
@@ -41,6 +43,14 @@ function market(overrides: Partial<MarketSnapshot> = {}): MarketSnapshot {
 		fundingShortPercentPerHour: 0.002,
 		spotBuyable: true,
 		spotSellable: true,
+		// A liquid market with a venue that takes small orders, so a fixture that
+		// says nothing about costs is not silently gated by them. Tests about the
+		// economic guards set these explicitly.
+		markPriceUsd: 100,
+		lotSize: 0.001,
+		minOrderUsd: 10,
+		spotGasUsd: 0.01,
+		spotImpactPercent: 0.01,
 		adl: CALM_ADL,
 		...overrides,
 	};
@@ -66,6 +76,11 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		earliestDeadline: null,
 		markets: [market()],
 		closeRequested: false,
+		// The old fixed threshold, so the existing drift cases keep testing the
+		// behaviour they were written for. The default the agent now ships is
+		// higher; tests that care about that set it.
+		rebalanceDriftBps: 100,
+		venueWithdrawalFeeUsdc: 0n,
 		adl: CALM_ADL,
 		...overrides,
 	};
@@ -1149,5 +1164,429 @@ describe("TOP_UP_MARGIN", () => {
 		expect(kinds(snapshot({ perpNotionalUsdc: 0n, perpEquityUsdc: 45n * USDC }))).not.toContain(
 			"TOP_UP_MARGIN",
 		);
+	});
+});
+
+/**
+ * The economics of acting at all.
+ *
+ * Every threshold above answers "is this permitted?". These answer the question
+ * the thresholds never asked: *does this earn back what it costs?* A $32 vault
+ * was closing $0.49 of position every sixty seconds — four Base transactions, a
+ * Pacifica withdrawal and a cross-chain crossing each time — to correct a breach
+ * worth a hundredth of its daily funding income.
+ */
+
+/**
+ * What one unwind's overhead comes to for the default fixture, times the payoff
+ * multiple. Derived from the fixture rather than written in dollars, so the
+ * tests keep measuring the rule when a gas or bridge estimate is retuned.
+ */
+const UNWIND_FLOOR = economicFloor(
+	costOf("unwind", 0n, {
+		spotImpactPercent: market().spotImpactPercent,
+		spotGasUsdc: BigInt(Math.round(market().spotGasUsd * 1e6)),
+		withdrawalFeeUsdc: snapshot().venueWithdrawalFeeUsdc,
+	}),
+);
+
+/** Breached, at the figure the live vault reported: `LeverageExceedsMandate(10025, 10000)`. */
+const BREACHED_BPS = 10_025n;
+
+/**
+ * A vault that is breached, fully committed, and has nothing to top up with.
+ *
+ * `deployableAmount` is zero because there is no free balance and no withdrawal
+ * allowance left, and there is no idle USDC at the agent — which is what a vault
+ * that deployed successfully looks like. So the cheap correction is unavailable
+ * and `deleverage` is the only thing left.
+ */
+function wedgedAt(position: bigint, overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
+	const equity = (position * 10_000n) / BREACHED_BPS;
+	return snapshot({
+		perpNotionalUsdc: position,
+		perpEquityUsdc: equity,
+		markets: [
+			market({ spotValueUsdc: position, spotUnits: 10n ** 18n, perpUnits: 10n ** 18n }),
+		],
+		freeAssets: 0n,
+		idleOnBase: 0n,
+		withdrawWindowRemaining: 0n,
+		totalAssets: position + equity,
+		deployedAssets: position + equity,
+		...overrides,
+	});
+}
+
+describe("a breach the vault cannot afford to correct", () => {
+	/**
+	 * The production scenario, and the thing the whole change is for. The
+	 * arithmetic that says "close $0.49" is right; acting on it is still wrong,
+	 * because closing it commits the same flat costs as closing fifty dollars and
+	 * leaves the vault holding nothing but the breach it started with.
+	 */
+	it("refuses to unwind a position smaller than one unwind costs", () => {
+		const kinds = permittedActions(wedgedAt(UNWIND_FLOOR / 2n), NOW).map((o) => o.kind);
+		expect(kinds).not.toContain("UNWIND");
+	});
+
+	it("holds instead, and is not asked to deliberate about it", () => {
+		const options = permittedActions(wedgedAt(UNWIND_FLOOR / 2n), NOW);
+		expect(options).toHaveLength(1);
+		expect(options[0].kind).toBe("HOLD");
+		expect(options[0].forced).toBe(true);
+	});
+
+	/**
+	 * Loudly, because doing nothing here leaves the NAV stale — which stops
+	 * deposits and stops redemptions being paid. An operator has to be able to
+	 * tell that from a quiet tick, and the only cures are outside the agent:
+	 * add margin, or close the vault.
+	 */
+	it("says that no correction pays for itself, rather than going quiet", () => {
+		const hold = permittedActions(wedgedAt(UNWIND_FLOOR / 2n), NOW)[0];
+		expect(hold.reason).toContain("no correction here pays for itself");
+		expect(hold.reason).toContain("stale");
+	});
+
+	/** The unwind is what costs money, so it is the unwind that is refused. */
+	it("moves no money at all while it holds", () => {
+		expect(permittedActions(wedgedAt(UNWIND_FLOOR / 2n), NOW)[0].amount).toBe(0n);
+	});
+});
+
+describe("a breach worth correcting but not worth correcting cheaply", () => {
+	/**
+	 * A $50 position at 1.0025x needs about $1.62 closed. That is a real
+	 * correction and a bad trade: the four transactions, the crossing and the
+	 * withdrawal cost the same whether the trip moves $1.62 or $3, so the
+	 * correction is rounded up to something worth the trip.
+	 */
+	const fifty = () => wedgedAt(50n * USDC);
+
+	it("rounds the correction up to what the trip costs rather than closing the bare excess", () => {
+		const unwind = permittedActions(fifty(), NOW).find((o) => o.kind === "UNWIND");
+		expect(unwind?.amount).toBe(UNWIND_FLOOR);
+	});
+
+	/**
+	 * Strictly better than the minimum, and this is why: closing more lands the
+	 * account below its ceiling with room to drift into, rather than back on the
+	 * line where the next tick finds it again.
+	 */
+	it("lands the account below the leverage it was opened at, not on the line", () => {
+		const s = fifty();
+		const sold = permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount ?? 0n;
+		const after = Number(((s.perpNotionalUsdc - sold) * 10_000n) / s.perpEquityUsdc);
+		expect(after).toBeLessThan(sizingLeverageBps(s));
+	});
+
+	it("says it is closing more than the breach strictly needs, and why", () => {
+		const unwind = permittedActions(fifty(), NOW).find((o) => o.kind === "UNWIND");
+		expect(unwind?.reason ?? "").toContain("strictly needed");
+		expect(unwind?.forced).toBe(true);
+	});
+
+	/** Never more than the routable legs hold — the floor is a floor, not a licence. */
+	it("still never asks for more than can actually be sold", () => {
+		const s = fifty();
+		const sold = permittedActions(s, NOW).find((o) => o.kind === "UNWIND")?.amount ?? 0n;
+		expect(sold).toBeLessThanOrEqual(s.markets[0].spotValueUsdc);
+	});
+});
+
+/**
+ * The safety property the whole change must not break.
+ *
+ * A redemption is an obligation with a person on the other end of it. Every
+ * economic gate above is about preferences — a tidy-up that can wait, a breach
+ * that will still be there next tick — and none of them may ever stand between a
+ * depositor and money they have already asked for.
+ */
+describe("a redemption is never gated on what it costs", () => {
+	/** Owed $10, holding $9.99: a one-cent shortfall against a $3 unwind floor. */
+	const owed = (overrides: Partial<VaultSnapshot> = {}) =>
+		withMarket(
+			{ spotValueUsdc: 100n * USDC },
+			{
+				freeAssets: 9_990_000n,
+				deployedAssets: 100n * USDC,
+				ripeRedeemAssets: 10n * USDC,
+				...overrides,
+			},
+		);
+
+	it("offers the unwind however far below the cost floor the shortfall is", () => {
+		const unwind = permittedActions(owed(), NOW).find((o) => o.kind === "UNWIND");
+		expect(unwind).toBeDefined();
+		expect(unwind?.amount).toBeLessThan(UNWIND_FLOOR);
+	});
+
+	it("sizes it at the shortfall and its buffer, not rounded up to a worthwhile trip", () => {
+		// One cent short, plus the 0.5% slack every unwind carries.
+		expect(permittedActions(owed(), NOW).find((o) => o.kind === "UNWIND")?.amount).toBe(10_050n);
+	});
+
+	it("still forces it inside the deadline, with nothing else on offer", () => {
+		const options = permittedActions(owed({ earliestDeadline: NOW + 3600 }), NOW);
+		expect(options).toHaveLength(1);
+		expect(options[0].kind).toBe("UNWIND");
+		expect(options[0].forced).toBe(true);
+	});
+
+	/** A single unit is still somebody's money. */
+	it("offers an unwind for a shortfall of one USDC unit", () => {
+		const s = owed({ freeAssets: 10n * USDC - 1n });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("UNWIND");
+	});
+});
+
+describe("an operator's close order is never gated on what it costs", () => {
+	/** A position worth a fraction of one close, under a standing order to close it. */
+	it("offers CLOSE_ALL on a position far below any economic floor", () => {
+		const s = snapshot({
+			closeRequested: true,
+			deployedAssets: UNWIND_FLOOR / 100n,
+			markets: [
+				market({
+					spotValueUsdc: UNWIND_FLOOR / 100n,
+					spotUnits: 10n ** 12n,
+					perpUnits: 10n ** 12n,
+				}),
+			],
+		});
+		const options = permittedActions(s, NOW);
+		expect(options.map((o) => o.kind)).toEqual(["CLOSE_ALL"]);
+		expect(options[0].forced).toBe(true);
+	});
+});
+
+/**
+ * Whether the venue would take the order, asked before it is offered.
+ *
+ * A correction can clear the drift threshold, sit exactly on the lot grid, and
+ * still be worth less than the venue's minimum order notional — at which point
+ * placing it is not a risk to be managed but an outcome that cannot happen.
+ * Offering it anyway meant choosing it, logging it, sending it, and failing, on
+ * every tick, for as long as the drift stood.
+ */
+describe("a rebalance the venue would refuse", () => {
+	/**
+	 * The live numbers. NVDA drifted 2.89% off neutral, which on that position is
+	 * a $0.45 correction, against a venue that will not take an order under $10.
+	 */
+	const tooSmall = () =>
+		withMarket({
+			spotUnits: 155_700_000_000_000_000n,
+			perpUnits: 151_200_000_000_000_000n,
+			markPriceUsd: 100,
+			lotSize: 0.001,
+			minOrderUsd: 10,
+		});
+
+	it("is not offered when the correction is worth less than the venue's minimum order", () => {
+		// The drift is real and well past the threshold — this is not a quiet tick.
+		expect(driftBps(155_700_000_000_000_000n, 151_200_000_000_000_000n)).toBe(289);
+		expect(permittedActions(tooSmall(), NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	/** Not an emergency either: the vault carries on doing everything else. */
+	it("leaves the rest of the tick alone rather than forcing a hold", () => {
+		const kinds = permittedActions(tooSmall(), NOW).map((o) => o.kind);
+		expect(kinds).toContain("DEPLOY");
+		expect(kinds).toContain("HOLD");
+	});
+
+	/**
+	 * The other floor, in the other unit. A correction finer than one lot cannot
+	 * be expressed at all, so the legs are already as close as this market allows
+	 * — however many dollars the difference happens to be worth.
+	 */
+	it("is not offered when the correction rounds to nothing on the venue's lot grid", () => {
+		const s = withMarket({
+			spotUnits: 5n * 10n ** 18n,
+			perpUnits: 4_500_000_000_000_000_000n,
+			// Half a unit off, on a grid of whole units.
+			lotSize: 1,
+			// Worth $500, so the minimum order size is nowhere near the reason.
+			markPriceUsd: 1_000,
+			minOrderUsd: 10,
+		});
+		expect(driftBps(5n * 10n ** 18n, 4_500_000_000_000_000_000n)).toBe(1_000);
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	it("is not offered when the perp leg has no mark to size the correction against", () => {
+		const s = withMarket({
+			spotUnits: 100n * 10n ** 18n,
+			perpUnits: 98n * 10n ** 18n,
+			markPriceUsd: 0,
+		});
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	/**
+	 * A missing figure is "no floor", not a reason to refuse. Neither limit is a
+	 * safety rule — they are the venue's own, and inventing a stricter one here
+	 * would stop a hedge being maintained to enforce a constraint that does not
+	 * exist.
+	 */
+	it("is offered when the venue has stated no minimum at all", () => {
+		const s = withMarket({
+			spotUnits: 155_700_000_000_000_000n,
+			perpUnits: 151_200_000_000_000_000n,
+			markPriceUsd: 100,
+			lotSize: 0,
+			minOrderUsd: 0,
+		});
+		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("REBALANCE");
+	});
+
+	// -- and the case that should go through --------------------------------
+
+	it("is offered when the drift clears the threshold and the venue would take it", () => {
+		const s = withMarket({ spotUnits: 100n * 10n ** 18n, perpUnits: 98n * 10n ** 18n });
+		const rebalance = permittedActions(s, NOW).find((o) => o.kind === "REBALANCE");
+		expect(rebalance?.market).toBe("NVDA");
+		// Two units at $100, which clears the $10 minimum many times over.
+		expect(rebalance?.reason ?? "").toContain("$200.00");
+	});
+});
+
+/**
+ * The threshold is the vault's, not a constant.
+ *
+ * The right answer depends on the position's size against the venue's minimum
+ * order notional: a threshold that suits a large vault has a small one placing
+ * corrections the venue will not accept, forever.
+ */
+describe("the rebalance threshold", () => {
+	/** 2.89% off neutral on a position where the correction is comfortably placeable. */
+	const drifted = (rebalanceDriftBps: number) =>
+		withMarket(
+			{ spotUnits: 100n * 10n ** 18n, perpUnits: 97_110_000_000_000_000_000n },
+			{ rebalanceDriftBps },
+		);
+
+	it("allows a rebalance the vault's own threshold sits below", () => {
+		expect(permittedActions(drifted(100), NOW).map((o) => o.kind)).toContain("REBALANCE");
+	});
+
+	it("suppresses the same drift once the vault's threshold is raised past it", () => {
+		expect(permittedActions(drifted(500), NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	it("quotes the vault's threshold in the reason, not the constant", () => {
+		expect(permittedActions(drifted(100), NOW).find((o) => o.kind === "REBALANCE")?.reason).toContain(
+			"1.0% threshold",
+		);
+	});
+
+	/**
+	 * Five percent is where a modest position produces a placeable correction. It
+	 * is only a fallback: a large vault should set it back down, because on a
+	 * large position 1% of drift is real directional exposure.
+	 */
+	it("falls back to the shipped default when a vault names none", () => {
+		expect(DEFAULT_REBALANCE_DRIFT_BPS).toBe(500);
+		expect(permittedActions(drifted(0), NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+});
+
+/**
+ * Will this position earn back what it costs to open?
+ *
+ * The dollar floor is a backstop, not an answer: it says a $30 spot leg is big
+ * enough to be worth a swap, and says nothing at all about what the position
+ * *earns*. A hedge opened into a market paying no funding is a loss from the
+ * first block, at any size.
+ */
+describe("a deployment that would not pay for itself", () => {
+	it("is refused in a market whose short side pays no funding at all", () => {
+		const s = withMarket({ fundingShortPercentPerHour: 0 });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	it("is refused in a market whose short side costs money to hold", () => {
+		const s = withMarket({ fundingShortPercentPerHour: -0.01 });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	/**
+	 * Funding this thin takes about ninety days to recover a round trip, against a
+	 * ceiling of thirty. Below that horizon a position is a loss dressed up as one.
+	 */
+	it("is refused when the round trip takes longer to earn back than the vault will wait", () => {
+		const s = withMarket({ fundingShortPercentPerHour: 0.0001 });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
+	});
+
+	it("is allowed once the same market pays enough to clear the horizon", () => {
+		// Enough funding that the entry is back inside the thirty-day ceiling.
+		const s = withMarket({ fundingShortPercentPerHour: 0.002 });
+		expect(MAX_BREAKEVEN_DAYS).toBeGreaterThan(0);
+		expect(permittedActions(s, NOW).map((o) => o.kind)).toContain("DEPLOY");
+	});
+
+	it("says what the entry costs and when it is paid back", () => {
+		const deploy = permittedActions(snapshot(), NOW).find((o) => o.kind === "DEPLOY");
+		expect(deploy?.reason ?? "").toContain("to open, paid back in");
+	});
+
+	/**
+	 * Skipped rather than returned. A market that cannot pay for itself must not
+	 * hide one further down the list that can — otherwise one dead market stops
+	 * the whole vault deploying.
+	 */
+	it("does not let a market that cannot pay for itself hide one that can", () => {
+		const s = snapshot({
+			markets: [
+				market({ ticker: "BTC", targetWeightBps: 5_000, fundingShortPercentPerHour: 0 }),
+				market({ ticker: "ETH", targetWeightBps: 5_000, fundingShortPercentPerHour: 0.002 }),
+			],
+		});
+		expect(permittedActions(s, NOW).find((o) => o.kind === "DEPLOY")?.market).toBe("ETH");
+	});
+});
+
+/**
+ * Draining a retired market is a preference, not an obligation. An operator
+ * would rather the capital sat somewhere else, and nothing breaks while it does
+ * — so unlike a redemption, it has to be worth the trip.
+ */
+describe("unwinding a market an operator has retired", () => {
+	const retiredHolding = (value: bigint) =>
+		snapshot({
+			markets: [
+				market({ ticker: "BTC", targetWeightBps: 10_000 }),
+				market({ ticker: "NVDA", targetWeightBps: 0, spotValueUsdc: value }),
+			],
+		});
+
+	it("is left alone when it holds less than one unwind costs", () => {
+		expect(permittedActions(retiredHolding(UNWIND_FLOOR / 2n), NOW).map((o) => o.kind)).not.toContain(
+			"UNWIND",
+		);
+	});
+
+	/**
+	 * And that is not a problem: a tidy-up that can wait must not stop the vault
+	 * deploying and rebalancing in the meantime. The next unwind that happens for
+	 * a real reason takes this market first anyway — a zero target weight makes it
+	 * the most overweight market the vault has.
+	 */
+	it("does not stop the vault working while it waits", () => {
+		const kinds = permittedActions(retiredHolding(UNWIND_FLOOR / 2n), NOW).map((o) => o.kind);
+		expect(kinds).toContain("DEPLOY");
+		expect(kinds).toContain("HOLD");
+	});
+
+	it("is drained once it holds enough to be worth the trip", () => {
+		const unwind = permittedActions(retiredHolding(UNWIND_FLOOR * 2n), NOW).find(
+			(o) => o.kind === "UNWIND",
+		);
+		expect(unwind?.amount).toBe(UNWIND_FLOOR * 2n);
+		expect(unwind?.forced).toBe(false);
+		expect(unwind?.reason ?? "").toContain("Costs about");
 	});
 });

@@ -281,6 +281,56 @@ export interface AdlRisk {
 	summary: string;
 }
 
+/**
+ * Why a market's hedge is or is not being corrected right now.
+ *
+ * Mirrors `RebalanceStatus` in the API, where the reasoning lives. The two
+ * blocked states are the ones worth knowing: past the threshold, and the venue
+ * will not take the order that would close it. Neither is an error — they say
+ * the legs are already as close as this market allows — so a UI that paints
+ * them red is telling the reader the wrong thing.
+ */
+export type RebalanceStatus =
+	| "neutral"
+	| "ready"
+	| "below-lot-size"
+	| "below-min-notional"
+	| "unknown";
+
+/**
+ * One market's hedge, and how far its two legs have drifted apart.
+ *
+ * Measured in units of the underlying rather than in dollars: a basis position
+ * is neutral when it is long and short the same number of units, and that holds
+ * at any price. Per market, because two markets a percent out in opposite
+ * directions average to neutral and are both wrong.
+ */
+export interface MarketHedge {
+	ticker: string;
+	spotSymbol: string;
+	spotTokenAddress: string;
+	perpSymbol: string;
+	spotUnits: number;
+	perpUnits: number;
+	markPrice: number | null;
+	/** Signed unit gap. Positive is under-hedged, negative is over-hedged. */
+	deltaUnits: number;
+	driftPercent: number;
+	deltaUsd: number | null;
+	/** Judged against this vault's threshold, not against the sign alone. */
+	exposure: "neutral" | "long" | "short";
+	rebalanceDriftBps: number;
+	thresholdPercent: number;
+	/** The venue's quantity increment, in units of the underlying. */
+	lotSize: number | null;
+	/** The venue's minimum order value in **USD** — not comparable to `lotSize`. */
+	minOrderUsd: number | null;
+	correctionUnits: number;
+	/** What the correction is worth, which is what the venue's minimum is checked against. */
+	correctionUsd: number | null;
+	status: RebalanceStatus;
+}
+
 export interface LivePosition {
 	vault: string;
 	wallets: {
@@ -309,6 +359,14 @@ export interface LivePosition {
 		fundingRateHourlyPercent: number | null;
 		adl: AdlRisk;
 	};
+	/**
+	 * Every enabled market's hedge, worst drift first.
+	 *
+	 * Optional because the app and the API deploy independently: an older API
+	 * answers without it, and a page that assumed it was there would white-screen
+	 * rather than simply not render the block.
+	 */
+	markets?: MarketHedge[];
 	idleAtAgentUsd: string;
 	observedValueUsd: string | null;
 	reportedDeployedUsd: string;

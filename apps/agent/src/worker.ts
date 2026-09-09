@@ -1,4 +1,5 @@
 import { type AdlRisk, formatDuration, type LogLevel } from "@lemon/core";
+import { type ActionCooldown, cooldownKey } from "./cooldown";
 import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, sizingLeverageBps } from "./policy";
 import { leverageBps, type Valuation, ValuationError } from "./valuation";
@@ -49,6 +50,28 @@ export interface MarketObservation {
 	fundingShortPercentPerHour: number;
 	spotBuyable: boolean;
 	spotSellable: boolean;
+	/** Live mark from the perp venue, in USD. Zero when it cannot be priced. */
+	markPriceUsd: number;
+	/**
+	 * The venue's quantity grid, in units of the underlying. Zero when unknown.
+	 *
+	 * An order off this grid is rejected outright rather than filled
+	 * approximately, so it bounds what a correction can be.
+	 */
+	lotSize: number;
+	/**
+	 * The venue's minimum order value, in USD. Zero when unknown.
+	 *
+	 * Separate from `lotSize` and not interchangeable with it — one bounds the
+	 * quantity, the other bounds the dollar notional. A correction can sit
+	 * exactly on the lot grid and still be refused for being worth too little,
+	 * which is what happens to every small position's rebalance.
+	 */
+	minOrderUsd: number;
+	/** The aggregator's gas estimate for this market's spot leg, in USD. */
+	spotGasUsd: number;
+	/** What crossing this market's pool costs, as a positive percent. */
+	spotImpactPercent: number;
 	/**
 	 * Where this market's short sits in the venue's auto-deleveraging queue.
 	 *
@@ -81,6 +104,13 @@ export interface VenueAdapter {
 		idleOnBase: bigint;
 		/** Margin at the perp venue backing no open position. See `VaultSnapshot`. */
 		unallocatedMargin: bigint;
+		/**
+		 * The venue's flat fee for moving margin out, in USDC.
+		 *
+		 * Account-level rather than per market, because one withdrawal serves every
+		 * leg an unwind closed. Part of the fixed cost of unwinding at all.
+		 */
+		venueWithdrawalFeeUsdc: bigint;
 	}>;
 
 	/**
@@ -176,6 +206,22 @@ export interface WorkerDeps {
 	 * returned. See `VaultConfig.closeRequestedAt`.
 	 */
 	closeRequested: boolean;
+	/**
+	 * How far the two legs may drift before a rebalance is worth its fee.
+	 *
+	 * Per vault rather than a constant, because the answer depends on the
+	 * position's size against the venue's minimum order notional — a threshold
+	 * that suits a large vault has a small one attempting a correction the venue
+	 * will not accept, on every tick, forever.
+	 */
+	rebalanceDriftBps: number;
+	/**
+	 * Backoff for actions that have just failed, shared across this vault's ticks.
+	 *
+	 * Optional so a test can leave it out and get the old always-try behaviour.
+	 * The running agent always supplies one.
+	 */
+	cooldown?: ActionCooldown;
 	now: () => number;
 	log: (level: LogLevel, message: string, extra?: unknown) => void;
 }
@@ -356,10 +402,17 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 				// each market on its own.
 				spotBuyable: market.spotBuyable && !fresh.paused && !fresh.emergencyExit,
 				spotSellable: market.spotSellable,
+				markPriceUsd: market.markPriceUsd,
+				lotSize: market.lotSize,
+				minOrderUsd: market.minOrderUsd,
+				spotGasUsd: market.spotGasUsd,
+				spotImpactPercent: market.spotImpactPercent,
 				adl: market.adl,
 			}),
 		),
 		closeRequested: deps.closeRequested,
+		rebalanceDriftBps: deps.rebalanceDriftBps,
+		venueWithdrawalFeeUsdc: observation.venueWithdrawalFeeUsdc,
 		adl: observation.adl,
 	};
 
@@ -376,6 +429,36 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 		"info",
 		`${decision.kind}${decision.market ? ` ${decision.market}` : ""} — ${decision.rationale}`,
 	);
+
+	// --- 3a. is this action still cooling off? ----------------------------
+	//
+	// Checked after the decision rather than before it, so the log still records
+	// what the agent wanted to do and why. The tick then carries on to publish and
+	// settle: a suppressed action must not suppress the NAV report or the
+	// redemption queue, which are the parts a depositor depends on.
+	//
+	// HOLD is never suppressed. It costs nothing, and backing off from doing
+	// nothing would be a way of doing nothing more slowly.
+	const key = cooldownKey(decision.kind, decision.market);
+	const blockedFor = decision.kind === "HOLD" ? 0 : (deps.cooldown?.blockedFor(key) ?? 0);
+	if (blockedFor > 0) {
+		const failures = deps.cooldown?.failures(key) ?? 0;
+		log(
+			"warn",
+			`Holding off ${decision.kind}${decision.market ? ` on ${decision.market}` : ""} for another ${formatDuration(blockedFor * 1000)} after ${failures} consecutive failure${failures === 1 ? "" : "s"}. Reporting NAV and settling the queue as usual.`,
+		);
+		const fulfilledWhileWaiting = await settleQueue(vault, ripe, log);
+		return {
+			action: decision.kind,
+			market: decision.market,
+			rationale: `${decision.rationale} (Backing off for ${formatDuration(blockedFor * 1000)} after ${failures} failure${failures === 1 ? "" : "s"}.)`,
+			advised: decision.advised,
+			navReported,
+			activityReported: 0,
+			fulfilled: fulfilledWhileWaiting,
+			closeSatisfied: false,
+		};
+	}
 
 	let activity: ActivityInput[] = [];
 	const actionStartedAt = performance.now();
@@ -451,6 +534,10 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			activity = await venue.closeAll();
 		}
 	} catch (error) {
+		// Recorded before anything else, so the next tick knows not to repeat this
+		// immediately. The whole point is that a failure which will fail again
+		// costs one attempt rather than one attempt every minute.
+		deps.cooldown?.failed(key);
 		log("error", `${decision.kind} failed.`, error);
 		// Whatever legs did land are still published. A failed deployment that
 		// opened the short and could not buy the spot is exactly the state a
@@ -474,6 +561,11 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			error: message(error),
 		};
 	}
+
+	// Cleared on success rather than decayed. A backoff describes one action being
+	// stuck, and an action that has just worked is not stuck — carrying a residual
+	// wait forward would throttle a vault that had already recovered.
+	deps.cooldown?.succeeded(key);
 
 	if (decision.kind !== "HOLD") {
 		log(

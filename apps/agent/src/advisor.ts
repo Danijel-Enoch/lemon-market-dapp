@@ -1,4 +1,13 @@
-import type { Advice, AdviceRequest, Advisor } from "./policy";
+import { breakevenHours, costOf, describeBreakeven } from "./economics";
+import type {
+	Advice,
+	AdviceRequest,
+	Advisor,
+	Decision,
+	MarketSnapshot,
+	VaultSnapshot,
+} from "./policy";
+import { driftBps } from "./policy";
 
 /**
  * The OpenRouter advisor.
@@ -53,7 +62,13 @@ export function createOpenRouterAdvisor(options: AdvisorOptions): Advisor {
 				body: JSON.stringify({
 					model,
 					temperature: 0,
-					max_tokens: 400,
+					// Generous for a two-field answer, because the budget is shared with
+					// whatever the model thinks before it answers. A reasoning model
+					// handed a tight ceiling spends it all on reasoning and returns an
+					// empty `content`, which arrives here as "returned no content" and
+					// drops the tick back to the policy's own first choice — the advisor
+					// silently absent rather than visibly broken.
+					max_tokens: 1200,
 					response_format: { type: "json_object" },
 					messages: [
 						{ role: "system", content: SYSTEM_PROMPT },
@@ -117,7 +132,9 @@ Rules:
 - Choose exactly one action, from the list given. Never invent one.
 - Where an action names a market, answer with that market too. Options of the same kind for different markets are different actions, and an unnamed one is read as the first on the list.
 - You cannot change any amount, or which markets an action applies to. Sizes and targets are fixed by the policy.
-- Prefer HOLD when nothing is urgent and conditions are poor. Doing nothing is a real and often correct answer; every trade costs roughly 0.2% of notional per leg round trip.
+- Prefer HOLD when nothing is urgent and conditions are poor. Doing nothing is a real and often correct answer.
+- Each option is priced for you: you are told what it costs to execute and how long its funding takes to earn that back. Those figures are computed from live quotes, not estimates you should second-guess. An action whose payback is long is one to be sceptical of when nothing forces it — but cost is never a reason to refuse an obligation.
+- Costs are mostly fixed rather than proportional: gas, a bridge crossing and a venue withdrawal cost the same whether the trade is large or small. So a small trade is a worse trade than a large one, and "wait until it is worth doing" is usually better than "do a little of it now".
 - Never delay an UNWIND when redemptions are eligible. People are waiting on that money. Only choose against it if another listed action is strictly more urgent.
 - A negative funding rate means the position is paying rather than earning. That argues against DEPLOY, not for panic.
 - Auto-deleveraging risk is the venue's ability to close the short without warning. It rises as the short *wins*, because only profitable positions are taken — so a high reading means the hedge may be removed exactly when the spot leg is falling and the hedge is what is protecting depositors. You cannot reduce it; leverage is fixed by the vault's mandate. Treat a high reading as a reason to prefer keeping capital free — favour HOLD over DEPLOY, and do not delay an UNWIND on account of it.
@@ -154,17 +171,89 @@ function renderSituation(request: AdviceRequest): string {
 		...s.markets.flatMap((m) => [
 			`- ${m.ticker} (${m.symbol}), target share ${(m.targetWeightBps / 100).toFixed(1)}%, currently holding ${usd(m.spotValueUsdc)} of spot.`,
 			`  Funding on the short side: ${m.fundingShortPercentPerHour.toFixed(4)}% per hour (${(m.fundingShortPercentPerHour * 24 * 365).toFixed(2)}% annualised).`,
-			`  Hedge: ${m.spotUnits} spot units against ${m.perpUnits} perp units.`,
+			`  Hedge: ${m.spotUnits} spot units against ${m.perpUnits} perp units, drifted ${(driftBps(m.spotUnits, m.perpUnits) / 100).toFixed(2)}% against a ${(s.rebalanceDriftBps / 100).toFixed(1)}% threshold.`,
+			`  Trading costs here: ${m.spotImpactPercent.toFixed(3)}% to cross the pool, about $${m.spotGasUsd.toFixed(2)} of gas per swap.`,
 			`  Spot leg is ${m.spotBuyable ? "buyable" : "not buyable"} and ${m.spotSellable ? "sellable" : "not sellable"}.`,
 			`  Auto-deleveraging: ${m.adl.summary}`,
 		]),
 		"",
-		"Permitted actions:",
-		...options.map(
-			(o) =>
-				`- ${o.kind}${o.market ? ` ${o.market}` : ""}${o.amount > 0n ? ` (${usd(o.amount)})` : ""}: ${o.reason}`,
-		),
+		// Priced, not just listed. The model was previously told a remembered
+		// average — "roughly 0.2% per leg" — and asked to judge timing against it,
+		// which is the one thing it cannot do well without the real figure. The
+		// numbers come from the same `economics.ts` the policy gates on, so the
+		// advice and the rules are reasoning about the same trade.
+		"Permitted actions, priced:",
+		...options.map((o) => {
+			const price = priceOption(s, o);
+			return `- ${o.kind}${o.market ? ` ${o.market}` : ""}${o.amount > 0n ? ` (${usd(o.amount)})` : ""}: ${o.reason}${price ? ` [costs about ${usd(price.cost)}; funding earns that back in ${price.payback}]` : ""}`;
+		}),
 	].join("\n");
+}
+
+/**
+ * What one option costs and how long its funding takes to cover that.
+ *
+ * Null for the actions where the question does not arise. HOLD trades nothing;
+ * CLOSE_ALL is an operator's order and its cost is not a consideration the model
+ * is allowed to weigh. Pricing them anyway would invite exactly the reasoning
+ * this is meant to prevent — declining an instruction because it looked
+ * expensive.
+ */
+function priceOption(
+	snapshot: VaultSnapshot,
+	option: Decision,
+): { cost: bigint; payback: string } | null {
+	const market = option.market
+		? snapshot.markets.find((m) => m.ticker === option.market)
+		: snapshot.markets.find((m) => m.spotSellable) ?? snapshot.markets[0];
+	if (!market) return null;
+
+	const frictions = {
+		spotImpactPercent: market.spotImpactPercent,
+		spotGasUsdc: BigInt(Math.round(market.spotGasUsd * 1e6)),
+		withdrawalFeeUsdc: snapshot.venueWithdrawalFeeUsdc,
+	};
+
+	// A rebalance trades the gap between the legs, not the whole position, so it
+	// is priced against that gap. Everything else is priced against its own
+	// amount, which the policy has already computed.
+	const notional =
+		option.kind === "REBALANCE"
+			? deltaNotionalUsdc(market)
+			: option.amount;
+
+	switch (option.kind) {
+		case "DEPLOY":
+			return priced(costOf("deploy", notional, frictions), notional, market);
+		case "UNWIND":
+			return priced(costOf("unwind", notional, frictions), notional, market);
+		case "TOP_UP_MARGIN":
+			return priced(costOf("topUp", notional, frictions), notional, market);
+		case "REBALANCE":
+			return priced(costOf("rebalance", notional, frictions), notional, market);
+		default:
+			return null;
+	}
+}
+
+function priced(
+	cost: ReturnType<typeof costOf>,
+	notional: bigint,
+	market: MarketSnapshot,
+): { cost: bigint; payback: string } {
+	return {
+		cost: cost.totalUsdc,
+		payback: describeBreakeven(
+			breakevenHours(cost.totalUsdc, notional, market.fundingShortPercentPerHour),
+		),
+	};
+}
+
+/** What the gap between one market's legs is worth, in USDC. */
+function deltaNotionalUsdc(market: MarketSnapshot): bigint {
+	const delta = market.spotUnits - market.perpUnits;
+	const magnitude = delta < 0n ? -delta : delta;
+	return BigInt(Math.round((Number(magnitude) / 1e18) * market.markPriceUsd * 1e6));
 }
 
 /** The option list as the answer would have to name it, for a rejection message. */

@@ -305,6 +305,16 @@ export function deltaDriftPercent(spotNotionalUsd: number, perpNotionalUsd: numb
  * slippage. Chasing a 0.2% delta with a trade that costs 0.1% of it is not
  * risk management, it is churn — and on the lot-grid rounding that causes most
  * small drift, the correction may not even be expressible.
+ *
+ * Not the number a live vault is judged against. That is `rebalanceDriftBps` on
+ * `VaultConfig`, which the agent acts on and the vault page reports, because the
+ * right threshold depends on the size of the position: a venue that refuses any
+ * perp order under $10 of notional makes a 1% correction on a small vault
+ * unplaceable, and a threshold that keeps asking for one produces a rebalance
+ * proposed and rejected on every tick. This constant is the generic default
+ * behind `hedgeHealth`'s own `exposure` and `shouldRebalance`; a caller that
+ * knows which vault it is looking at should judge `driftPercent` against that
+ * vault's column instead.
  */
 export const REBALANCE_DRIFT_THRESHOLD_PERCENT = 1;
 

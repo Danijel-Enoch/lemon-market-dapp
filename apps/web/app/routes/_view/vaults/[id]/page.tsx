@@ -1,5 +1,6 @@
 import { ACTIVITY_FILTERS, ActivityFeed, CHAIN_FILTERS } from "@app/components/vault/ActivityFeed";
 import { DepositPanel } from "@app/components/vault/DepositPanel";
+import { HedgePanel } from "@app/components/vault/HedgePanel";
 import { NavChart, navChange } from "@app/components/vault/NavChart";
 import { PositionPanel } from "@app/components/vault/PositionPanel";
 import { WithdrawPanel } from "@app/components/vault/WithdrawPanel";
@@ -224,6 +225,15 @@ export default function VaultDetailPage() {
 					)}
 
 					{livePosition && <PositionPanel position={livePosition} />}
+
+					{/* Directly under the two legs, because it is a statement about the
+					    relationship between them: how far they have drifted apart, and
+					    whether the venue will accept the order that would close the gap.
+					    A drift the agent cannot correct otherwise looks like an agent
+					    that has stopped working. */}
+					{livePosition?.markets && livePosition.markets.length > 0 && (
+						<HedgePanel markets={livePosition.markets} />
+					)}
 
 					{/* --- the money trail ------------------------------------ */}
 					<section className="space-y-4">

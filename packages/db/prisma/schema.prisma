@@ -232,6 +232,26 @@ model VaultConfig {
   /// Slippage the agent trades with, as a percent. 0.5 means 0.5%.
   slippagePercent Float @default(0.5)
 
+  /// How far the two legs of a hedge may drift apart before the agent corrects
+  /// it, in basis points. 500 is 5%.
+  ///
+  /// Per vault rather than a constant because the right number depends on the
+  /// size of the position, and it is two separate costs that set it. Below this
+  /// the correction costs more in fees than the drift costs in exposure: a
+  /// rebalance is a taker fill charged on the notional it trades, so chasing a
+  /// fraction of a percent of delta with one is churn rather than risk
+  /// management.
+  ///
+  /// The default is 5% and not the 1% a fee argument alone would suggest,
+  /// because the venue has a floor of its own that a drift threshold cannot see:
+  /// Pacifica rejects any perp order worth less than $10 of notional. On a small
+  /// position the corrections a tighter threshold asks for are not placeable at
+  /// all, and the agent would offer a rebalance every tick that the venue
+  /// refuses every time. Raising the threshold does not hide that — the drift,
+  /// the threshold and the reason a correction is unplaceable are all published
+  /// on the vault page — it just stops the agent acting on a gap it cannot close.
+  rebalanceDriftBps Int @default(500)
+
   /// Set when an operator has deliberately stopped the agent trading this vault
   /// without pausing the contract, which would also stop users depositing.
   agentEnabled Boolean @default(true)
