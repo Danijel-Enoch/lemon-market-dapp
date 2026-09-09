@@ -102,10 +102,7 @@ describe("costOf", () => {
 		for (const kind of ["deploy", "unwind", "topUp"] as const) {
 			const cost = costOf(kind, notional, frictions({ spotImpactPercent: impact }));
 			expect(cost.variableUsdc).toBe(
-				percentOf(
-					notional,
-					VENUE_FEES.perpTakerPercent + VENUE_FEES.spotTakerPercent + impact,
-				),
+				percentOf(notional, VENUE_FEES.perpTakerPercent + VENUE_FEES.spotTakerPercent + impact),
 			);
 		}
 	});

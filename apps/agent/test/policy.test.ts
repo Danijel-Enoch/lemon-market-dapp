@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { adlRisk } from "@lemon/core";
 import { costOf, economicFloor, MAX_BREAKEVEN_DAYS } from "../src/economics";
 import {
-	decide,
 	DEFAULT_REBALANCE_DRIFT_BPS,
+	decide,
 	deployableAmount,
 	deploymentFor,
 	driftBps,
@@ -1206,9 +1206,7 @@ function wedgedAt(position: bigint, overrides: Partial<VaultSnapshot> = {}): Vau
 	return snapshot({
 		perpNotionalUsdc: position,
 		perpEquityUsdc: equity,
-		markets: [
-			market({ spotValueUsdc: position, spotUnits: 10n ** 18n, perpUnits: 10n ** 18n }),
-		],
+		markets: [market({ spotValueUsdc: position, spotUnits: 10n ** 18n, perpUnits: 10n ** 18n })],
 		freeAssets: 0n,
 		idleOnBase: 0n,
 		withdrawWindowRemaining: 0n,
@@ -1362,7 +1360,10 @@ describe("a redemption is never gated on what it costs", () => {
 
 	/** The explanation still stands beside it, rather than in place of it. */
 	it("keeps the breach explanation on the list without letting it outrank the queue", () => {
-		const options = permittedActions(wedgedAt(UNWIND_FLOOR / 2n, { ripeRedeemAssets: 1n * USDC }), NOW);
+		const options = permittedActions(
+			wedgedAt(UNWIND_FLOOR / 2n, { ripeRedeemAssets: 1n * USDC }),
+			NOW,
+		);
 		expect(options.map((o) => o.kind)).toEqual(["UNWIND", "HOLD"]);
 		expect(options[1].reason).toContain("no correction here pays for itself");
 	});
@@ -1504,9 +1505,9 @@ describe("the rebalance threshold", () => {
 	});
 
 	it("quotes the vault's threshold in the reason, not the constant", () => {
-		expect(permittedActions(drifted(100), NOW).find((o) => o.kind === "REBALANCE")?.reason).toContain(
-			"1.0% threshold",
-		);
+		expect(
+			permittedActions(drifted(100), NOW).find((o) => o.kind === "REBALANCE")?.reason,
+		).toContain("1.0% threshold");
 	});
 
 	/**
@@ -1591,9 +1592,9 @@ describe("unwinding a market an operator has retired", () => {
 		});
 
 	it("is left alone when it holds less than one unwind costs", () => {
-		expect(permittedActions(retiredHolding(UNWIND_FLOOR / 2n), NOW).map((o) => o.kind)).not.toContain(
-			"UNWIND",
-		);
+		expect(
+			permittedActions(retiredHolding(UNWIND_FLOOR / 2n), NOW).map((o) => o.kind),
+		).not.toContain("UNWIND");
 	});
 
 	/**

@@ -164,8 +164,7 @@ export function costOf(
 	// advisor is handed exactly these frictions for every option including this
 	// one. `shape.baseTxs` is the honest test of whether a spot leg moves.
 	const touchesSpot = shape.baseTxs > 0;
-	const gas =
-		BASE_TX_GAS_USDC * BigInt(shape.baseTxs) + (touchesSpot ? frictions.spotGasUsdc : 0n);
+	const gas = BASE_TX_GAS_USDC * BigInt(shape.baseTxs) + (touchesSpot ? frictions.spotGasUsdc : 0n);
 	const bridge = BRIDGE_CROSSING_USDC * BigInt(shape.crossings);
 	const withdrawal = frictions.withdrawalFeeUsdc * BigInt(shape.withdrawals);
 	const fixedUsdc = gas + bridge + withdrawal;

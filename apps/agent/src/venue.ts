@@ -426,8 +426,14 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 						// Snapping to the first gives no protection against the second,
 						// which is how a 0.002 NVDA rebalance worth $0.45 was sent to a
 						// venue with a $10 minimum, every minute, and rejected every time.
-						lotSize: numberOrNull((spec as any)?.lot_size) ?? 0,
-						minOrderUsd: numberOrNull((spec as any)?.min_order_size) ?? 0,
+						// Read off the typed spec, not through a cast. The cast these two
+						// were originally written with is the same one that hid the
+						// unrealised-PnL bug in the API for months: it reads a key that may
+						// not exist and answers `undefined` instead of failing to compile.
+						// Both of these fields are on `PacificaMarketInfo` and always have
+						// been.
+						lotSize: numberOrNull(spec?.lot_size) ?? 0,
+						minOrderUsd: numberOrNull(spec?.min_order_size) ?? 0,
 						spotGasUsd: route.gasUsd,
 						spotImpactPercent: route.impactPercent,
 						notional: BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6)),

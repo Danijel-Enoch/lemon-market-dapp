@@ -5,6 +5,8 @@ import {
 	hashMessage,
 	hashTypedData,
 	keccak256,
+	type LocalAccount,
+	nonceManager,
 	serializeTransaction,
 	toBytes,
 } from "viem";
@@ -29,7 +31,16 @@ export interface AgentWallet {
 	address: Address;
 	solanaAddress: string;
 	path: string;
-	account: ReturnType<typeof toAccount>;
+	/**
+	 * Always a local account, never a JSON-RPC one — this key signs here.
+	 *
+	 * Stated as `LocalAccount` rather than `ReturnType<typeof toAccount>`, whose
+	 * union includes an account type that has no `nonceManager`. That looseness
+	 * meant the nonce wiring below could be removed without anything failing to
+	 * compile, which is not a property worth having on the field that decides how
+	 * the agent's transactions are numbered.
+	 */
+	account: LocalAccount;
 	/** Signs a Pacifica canonical payload with the same path's Ed25519 key. */
 	signSolanaMessage: (message: string) => Promise<string>;
 }
@@ -64,6 +75,38 @@ export function agentWalletFor(
 
 	const account = toAccount({
 		address: derived.evmAddress,
+
+		/**
+		 * Hand out transaction nonces from a local counter, not from a fresh read.
+		 *
+		 * A tick sends its Base transactions from one address, back to back, through
+		 * two different paths: the venue adapter calls `sendTransaction` directly for
+		 * swaps and approvals, and `VaultClient` goes through `writeContract`.
+		 * Neither passes a nonce, so viem asked the node for one each time — and the
+		 * answer is only as fresh as the node that happens to serve the request.
+		 * Behind a load balancer, or in the moment after a transaction is broadcast,
+		 * it comes back stale.
+		 *
+		 * That is not hypothetical. An unwind sold its spot leg at nonce 38, and the
+		 * activity report that followed read 38 again and was rejected with `nonce
+		 * too low: next nonce 39, tx nonce 38`. The trades had executed; only the
+		 * public record of them was lost, which is the half a depositor reads.
+		 *
+		 * `nonceManager` remembers what it last issued for an address and returns
+		 * `previous + 1` whenever the chain reports something no higher, so a lagging
+		 * read cannot hand out a number already spent. It is keyed by address and
+		 * chain, so one shared instance is correct across every vault the process
+		 * runs — each has its own agent wallet.
+		 *
+		 * The trade this makes: a transaction that is *never broadcast* — an RPC that
+		 * refuses it outright, rather than a revert — leaves its nonce claimed, and
+		 * the next send goes out one ahead of the chain and sits pending until that
+		 * gap is filled. A revert does not do this, because a reverted transaction is
+		 * still mined and still consumes its nonce. Stale reads happen on every tick
+		 * that sends more than one transaction; refused broadcasts are rare and
+		 * visible. This is the better failure to have.
+		 */
+		nonceManager,
 
 		async signMessage({ message }) {
 			return encodeSignature(await mpc.signSecp256k1(path, toBytes(hashMessage(message))));

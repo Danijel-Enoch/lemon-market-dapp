@@ -74,7 +74,9 @@ interface Entry {
  * thing it was failing on, and a cooldown that survived that would make the fix
  * look like it had not worked.
  */
-export function createCooldown(now: () => number = () => Math.floor(Date.now() / 1000)): ActionCooldown {
+export function createCooldown(
+	now: () => number = () => Math.floor(Date.now() / 1000),
+): ActionCooldown {
 	const entries = new Map<string, Entry>();
 
 	return {

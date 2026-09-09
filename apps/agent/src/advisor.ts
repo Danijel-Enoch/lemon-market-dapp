@@ -205,7 +205,7 @@ function priceOption(
 ): { cost: bigint; payback: string } | null {
 	const market = option.market
 		? snapshot.markets.find((m) => m.ticker === option.market)
-		: snapshot.markets.find((m) => m.spotSellable) ?? snapshot.markets[0];
+		: (snapshot.markets.find((m) => m.spotSellable) ?? snapshot.markets[0]);
 	if (!market) return null;
 
 	const frictions = {
@@ -217,10 +217,7 @@ function priceOption(
 	// A rebalance trades the gap between the legs, not the whole position, so it
 	// is priced against that gap. Everything else is priced against its own
 	// amount, which the policy has already computed.
-	const notional =
-		option.kind === "REBALANCE"
-			? deltaNotionalUsdc(market)
-			: option.amount;
+	const notional = option.kind === "REBALANCE" ? deltaNotionalUsdc(market) : option.amount;
 
 	switch (option.kind) {
 		case "DEPLOY":

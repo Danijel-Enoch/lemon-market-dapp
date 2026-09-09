@@ -286,6 +286,23 @@ async function main() {
 		`Ready. Ticking every ${formatDuration(TICK_INTERVAL_MS)} on ${chain.name}; vaults from ${API_URL}, queue from ${INDEXER_URL}.`,
 	);
 
+	/**
+	 * One backoff ledger per vault, created on first sight and kept thereafter.
+	 *
+	 * Outside `runVault` because it has to outlive a tick. The failures it counts
+	 * are consecutive across ticks — that is what makes the wait grow — and a map
+	 * rebuilt each cycle would reset every counter to zero and restore precisely
+	 * the every-sixty-seconds retry this exists to stop.
+	 */
+	const cooldowns = new Map<string, ReturnType<typeof createCooldown>>();
+	function cooldownFor(address: string) {
+		const existing = cooldowns.get(address);
+		if (existing) return existing;
+		const created = createCooldown();
+		cooldowns.set(address, created);
+		return created;
+	}
+
 	// Numbered so a line can be tied to a cycle when several vaults interleave in
 	// the output, and so "we are on cycle 4 and it started twenty minutes ago" is
 	// readable off the log rather than inferred from timestamps.
@@ -323,23 +340,6 @@ async function main() {
 	 * closes a cycle says what each vault did without the reader scrolling back
 	 * through however many bridge minutes happened in between.
 	 */
-	/**
-	 * One backoff ledger per vault, created on first sight and kept thereafter.
-	 *
-	 * Outside `runVault` because it has to outlive a tick. The failures it counts
-	 * are consecutive across ticks — that is what makes the wait grow — and a map
-	 * rebuilt each cycle would reset every counter to zero and restore precisely
-	 * the every-sixty-seconds retry this exists to stop.
-	 */
-	const cooldowns = new Map<string, ReturnType<typeof createCooldown>>();
-	function cooldownFor(address: string) {
-		const existing = cooldowns.get(address);
-		if (existing) return existing;
-		const created = createCooldown();
-		cooldowns.set(address, created);
-		return created;
-	}
-
 	async function runVault(indexed: IndexedVault): Promise<string> {
 		if (indexed.agentEnabled === false) {
 			log("info", `${indexed.address}: agent disabled by an operator; skipping.`);

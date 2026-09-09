@@ -681,7 +681,9 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			// operator reading a tick has to be able to tell "nothing is wrong" from
 			// "something is wrong and the venue will not let me fix it" — which look
 			// identical if this just drops the market on the floor.
-			blocked.push(`${market.ticker} is ${(drift / 100).toFixed(2)}% off neutral but ${placeable.why}`);
+			blocked.push(
+				`${market.ticker} is ${(drift / 100).toFixed(2)}% off neutral but ${placeable.why}`,
+			);
 			continue;
 		}
 
