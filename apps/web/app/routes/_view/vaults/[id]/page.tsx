@@ -1,5 +1,6 @@
 import { ACTIVITY_FILTERS, ActivityFeed, CHAIN_FILTERS } from "@app/components/vault/ActivityFeed";
 import { DepositPanel } from "@app/components/vault/DepositPanel";
+import { FundingChart, FundingToday } from "@app/components/vault/FundingChart";
 import { HedgePanel } from "@app/components/vault/HedgePanel";
 import { NavChart, navChange } from "@app/components/vault/NavChart";
 import { PositionPanel } from "@app/components/vault/PositionPanel";
@@ -13,6 +14,7 @@ import {
 	formatUsdSigned,
 	shortAddress,
 	useAgentTransfers,
+	useFundingSeries,
 	useLivePosition,
 	useNavSeries,
 	usePortfolio,
@@ -63,6 +65,7 @@ export default function VaultDetailPage() {
 
 	const { data: vault, isLoading, isError } = useVault(id);
 	const { data: navData } = useNavSeries(id, 30);
+	const { data: funding } = useFundingSeries(id, 30);
 	const { data: portfolio } = usePortfolio(address);
 
 	const [kindFilter, setKindFilter] = useState("");
@@ -208,6 +211,40 @@ export default function VaultDetailPage() {
 							hourly on Pacifica — and nothing in between, so that is the interval the agent reports
 							on and the interval this line is drawn on. Every yield figure on this page is computed
 							from this series, so you can check them against it.
+						</p>
+					</section>
+
+					{/*
+					 * Under the share price rather than beside it, deliberately.
+					 *
+					 * The two charts answer questions that only sound alike. The line
+					 * above is what a share is worth after everything — funding, both
+					 * fees, and whatever the spot and perp legs did to each other; this
+					 * is the funding on its own, gross, which is the part the strategy
+					 * is actually for. Reading them in that order is the argument the
+					 * page is making, and side by side would invite them to be read as
+					 * two views of one number.
+					 */}
+					<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+						<div className="mb-4 flex items-start justify-between gap-4">
+							<div>
+								<h2 className="font-medium text-[var(--pon-fg-0)]">Funding earned</h2>
+								<span className="text-xs text-[var(--pon-fg-3)]">Last 30 days, per UTC day</span>
+							</div>
+							<FundingToday
+								amount={funding?.today ?? "0"}
+								settlements={funding?.todaySettlements ?? 0}
+							/>
+						</div>
+						<FundingChart points={funding?.points ?? []} />
+						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
+							One bar per UTC day, summed across every market the vault runs — the venue settles
+							hourly, so a day is up to twenty-four payments. Gross: this is what the strategy
+							collected, before the management and performance fees and before venue costs, all of
+							which come out of the share price above. A bar below the line is a day the short paid
+							rather than received, which is an ordinary outcome and not an error. Each bar is the
+							sum of the FUNDING_SETTLED rows in the feed below, so the two can be checked against
+							each other.
 						</p>
 					</section>
 

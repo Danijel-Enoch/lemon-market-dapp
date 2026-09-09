@@ -649,6 +649,19 @@ export async function getNavSeries(address: string, days: number) {
 	return fromIndexer(`/vaults/${address}/nav?days=${days}`);
 }
 
+/**
+ * Funding paid, per UTC day.
+ *
+ * Separate from the NAV series because it answers a different question. The
+ * share price is what a depositor's stake is worth after everything — funding,
+ * fees, and whatever the two legs did to each other; this is the funding on its
+ * own, which is the part the vault exists to collect and the only part that
+ * arrives as a payment rather than as a revaluation.
+ */
+export async function getFundingSeries(address: string, days: number) {
+	return fromIndexer(`/vaults/${address}/funding?days=${days}`);
+}
+
 export async function getTransfers(address: string) {
 	return fromIndexer(`/vaults/${address}/transfers`);
 }

@@ -1,7 +1,9 @@
 import { db } from "ponder:api";
 import schema from "ponder:schema";
+import { ACTIVITY_KINDS } from "@lemon/contracts";
 import { Hono } from "hono";
 import { and, asc, client, desc, eq, graphql, gte, inArray, sql } from "ponder";
+import { bucketFunding, DAY } from "./funding";
 
 /**
  * The read API.
@@ -41,8 +43,6 @@ function serialise<T>(value: T): T {
 // ---------------------------------------------------------------------------
 // Yield
 // ---------------------------------------------------------------------------
-
-const DAY = 86_400;
 
 /**
  * The ceiling past which an annualised figure is reported as absent.
@@ -164,6 +164,60 @@ app.get("/vaults/:address/nav", async (c) => {
 		.limit(5000);
 
 	return c.json(serialise({ points }), 200, JSON_HEADERS);
+});
+
+/**
+ * `FUNDING_SETTLED`'s index in the contract's `ActivityKind`.
+ *
+ * From the shared list rather than written as `9`, so inserting a kind ahead of
+ * it cannot silently turn this series into a chart of bridge transfers.
+ */
+const FUNDING_SETTLED = ACTIVITY_KINDS.indexOf("FUNDING_SETTLED");
+
+/**
+ * What funding actually paid, day by day.
+ *
+ * Bucketed into UTC days rather than served per settlement. A month of hourly
+ * settlements is seven hundred points, which is not a chart — and the useful
+ * question at that width is which days paid, not which hours. The bucket is UTC
+ * because the settlements are: Pacifica pays on the hour UTC, so a local-day
+ * bucket would split one venue day across two columns differently for every
+ * reader.
+ *
+ * Summed per bucket, not averaged or last-taken. Each row is money that arrived
+ * once, and a vault running three markets is paid three times a period — a day's
+ * funding is all of it added up. This is the one place a `lastPerPeriod` thinning
+ * like the NAV chart's would be wrong: dropping rows here discards payments
+ * rather than redundant snapshots of the same state.
+ *
+ * `cumulative` runs from the start of the window, not from the vault's first
+ * settlement. The window total is what the chart draws; the lifetime figure is
+ * `cumulativeFunding` on the vault, which is a different number and is labelled
+ * as one.
+ */
+app.get("/vaults/:address/funding", async (c) => {
+	const address = asAddress(c.req.param("address"));
+	if (!address) return c.json({ error: "Not an address" }, 400);
+	const days = Math.min(Math.max(Number(c.req.query("days") ?? 30), 1), 365);
+
+	const now = Math.floor(Date.now() / 1000);
+	const todayStart = Math.floor(now / DAY) * DAY;
+	const since = todayStart - (days - 1) * DAY;
+
+	const rows = await db
+		.select()
+		.from(schema.activity)
+		.where(
+			and(
+				eq(schema.activity.vault, address),
+				eq(schema.activity.kind, FUNDING_SETTLED),
+				gte(schema.activity.occurredAt, since),
+			),
+		)
+		.orderBy(asc(schema.activity.occurredAt))
+		.limit(20_000);
+
+	return c.json(serialise(bucketFunding(rows, since, todayStart)), 200, JSON_HEADERS);
 });
 
 // ---------------------------------------------------------------------------

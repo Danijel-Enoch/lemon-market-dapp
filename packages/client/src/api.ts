@@ -243,6 +243,28 @@ export interface NavPoint {
 	leverageBps: number;
 }
 
+/** One UTC day's funding. Every day in the window is present, paid or not. */
+export interface FundingPoint {
+	/** Unix seconds at UTC midnight — the bucket, not a settlement time. */
+	day: number;
+	/** Funding paid that day, signed USDC. Zero on a day with no settlements. */
+	amount: string;
+	/** How many settlements made it up. Zero means the vault was not paid. */
+	settlements: number;
+	/** Running total from the start of the window, not from the vault's first day. */
+	cumulative: string;
+}
+
+export interface FundingSeries {
+	points: FundingPoint[];
+	/** Today so far, in UTC. Partial by construction until the day closes. */
+	today: string;
+	todaySettlements: number;
+	/** The window's total. The lifetime figure is `Vault.cumulativeFunding`. */
+	windowTotal: string;
+	settlements: number;
+}
+
 export interface Holding {
 	vault: Vault | { address: string };
 	shares: string;
@@ -453,6 +475,9 @@ export const vaultApi = {
 
 	nav: (address: string, days = 30) =>
 		request<{ points: NavPoint[] }>(`/vaults/${address}/nav`, { query: { days } }),
+
+	funding: (address: string, days = 30) =>
+		request<FundingSeries>(`/vaults/${address}/funding`, { query: { days } }),
 
 	activity: (
 		address: string,
