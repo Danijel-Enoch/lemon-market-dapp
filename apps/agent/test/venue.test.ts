@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { PacificaError } from "@lemon/pacifica";
 import type { Hex } from "viem";
+import { ValuationError } from "../src/valuation";
 import { allocateUnwind, createVenueAdapter, type VenueDeps } from "../src/venue";
 import { VenueExecutionError } from "../src/worker";
 
@@ -38,6 +39,8 @@ interface HarnessOptions {
 	swapReverts?: boolean;
 	/** What an executable sell of the whole holding returns. */
 	spotValueUsdc?: bigint;
+	/** Pacifica's mark for the market, as the venue's own decimal string. */
+	mark?: string;
 	/** What the swap actually delivers, which need not be what was quoted. */
 	fillUsdc?: bigint;
 	/** Pacifica's own `available_to_withdraw`, as the venue's decimal string. */
@@ -71,6 +74,11 @@ function harness(options: HarnessOptions = {}) {
 	// harness that did not move them would let a quote-based regression pass.
 	const balances = { spot: spotBalance, usdc: 0n };
 
+	// The two prices, mutable so a test can drive them across ticks. The adapter
+	// holds a haircut window between calls to `observe`, so anything about how the
+	// spot leg is marked needs more than one read to show up at all.
+	const feed = { spotValueUsdc, mark: options.mark ?? "100", routable: true };
+
 	const publicClient = {
 		readContract: async ({ functionName, address }: { functionName: string; address: string }) => {
 			if (functionName === "balanceOf") {
@@ -97,10 +105,13 @@ function harness(options: HarnessOptions = {}) {
 	};
 
 	const kyber = {
-		getRoute: async () => ({
-			ok: true as const,
-			quote: { amountOut: spotValueUsdc.toString(), routeSummary: {} },
-		}),
+		getRoute: async () =>
+			feed.routable
+				? {
+						ok: true as const,
+						quote: { amountOut: feed.spotValueUsdc.toString(), routeSummary: {} },
+					}
+				: { ok: false as const },
 		buildRoute: async () => ({
 			routerAddress: ROUTER,
 			data: "0xdeadbeef",
@@ -138,7 +149,13 @@ function harness(options: HarnessOptions = {}) {
 				: [];
 		},
 		prices: async () => [
-			{ symbol: "NVDA", mark: "100", oracle: "100", yesterday_price: "100", funding: "0.0001" },
+			{
+				symbol: "NVDA",
+				mark: feed.mark,
+				oracle: "100",
+				yesterday_price: "100",
+				funding: "0.0001",
+			},
 		],
 		// `lot_size` is load-bearing: every perp order is snapped down onto this
 		// grid, and Pacifica rejects a size that is not a multiple of it. Fine
@@ -192,6 +209,7 @@ function harness(options: HarnessOptions = {}) {
 
 	return {
 		adapter: createVenueAdapter(deps),
+		feed,
 		returnToVault,
 		requestWithdrawal,
 		toBase,
@@ -259,6 +277,113 @@ describe("observe", () => {
 		});
 
 		expect(adapter.observe()).rejects.toThrow(/internal error/);
+	});
+});
+
+/**
+ * The two legs are supposed to cancel, and they only cancel if they are priced
+ * off the same thing.
+ *
+ * They were not: the perp leg marks continuously off Pacifica while the spot leg
+ * was an executable Kyber quote, and a thin pool only reprices when somebody
+ * trades it. So the spot leg held a stale number while the perp leg moved, and
+ * the vault was marked as a naked short in between — on the live vault that
+ * artifact moved NAV further in five minutes than a whole day of real profit and
+ * loss. These are the two halves of that, driven through the real adapter.
+ */
+describe("observe, across ticks", () => {
+	/** Run the adapter past its warm-up with the quote and mark left alone. */
+	async function warm(adapter: { observe: () => Promise<unknown> }, ticks = 12) {
+		for (let i = 0; i < ticks; i++) await adapter.observe();
+	}
+
+	it("holds the spot leg still while the pool's quote jumps and the mark does not", async () => {
+		const { adapter, feed } = harness({ spotBalance: 10n * UNIT, spotValueUsdc: 1_000n * USDC });
+		await warm(adapter);
+
+		const values: bigint[] = [];
+		// The quote stepping around while the mark sits exactly where it was.
+		for (const quote of [998n, 1_002n, 997n, 1_003n, 999n, 1_001n]) {
+			feed.spotValueUsdc = quote * USDC;
+			values.push((await adapter.observe()).valuation.components.spot);
+		}
+
+		const spread =
+			values.reduce((a, b) => (a > b ? a : b)) - values.reduce((a, b) => (a < b ? a : b));
+		// The quotes span $6. The leg does not move at all, because nothing it is
+		// priced against did.
+		expect(spread).toBe(0n);
+		expect(values[0]).toBe(1_000n * USDC);
+	});
+
+	it("moves the spot leg with the mark while the pool's quote is frozen", async () => {
+		const { adapter, feed } = harness({ spotBalance: 10n * UNIT, spotValueUsdc: 1_000n * USDC });
+		await warm(adapter);
+
+		const before = (await adapter.observe()).valuation.components.spot;
+		// The pool has not traded, so its quote is unchanged — the mark is the only
+		// thing that moved, and the leg has to follow it.
+		feed.mark = "101";
+		const after = (await adapter.observe()).valuation.components.spot;
+
+		expect(before).toBe(1_000n * USDC);
+		expect(after).toBe(1_010n * USDC);
+	});
+
+	/**
+	 * Every fallback is the behaviour this replaced. A first tick has no window to
+	 * settle on, so it is the raw quote — which is also what a restarted agent
+	 * reports until it has warmed back up.
+	 */
+	it("uses the raw quote before the window is warm", async () => {
+		const { adapter } = harness({ spotBalance: 10n * UNIT, spotValueUsdc: 993n * USDC });
+		expect((await adapter.observe()).valuation.components.spot).toBe(993n * USDC);
+	});
+
+	/**
+	 * The catch for a pool that has genuinely dislocated rather than jittered.
+	 * Marking through that off a comfortable median would report a vault richer
+	 * than it can liquidate, which is what the executable quote existed to prevent.
+	 */
+	it("believes a dislocated pool over its own settled level", async () => {
+		const { adapter, feed } = harness({ spotBalance: 10n * UNIT, spotValueUsdc: 1_000n * USDC });
+		await warm(adapter);
+
+		feed.spotValueUsdc = 500n * USDC;
+		expect((await adapter.observe()).valuation.components.spot).toBe(500n * USDC);
+	});
+
+	/**
+	 * A dead price feed must not be papered over with the position's entry price.
+	 *
+	 * `observe` keeps an entry-price fallback so an unpriced *notional* does not
+	 * read as zero, but entry is a stale price and valuing the spot leg on one
+	 * would put back the staleness this whole thing removes — and would feed a
+	 * ratio measured against it into the window, so the error would outlive the
+	 * outage. The raw quote is the honest answer while the venue is down.
+	 */
+	it("falls back to the raw quote when the venue has no mark, not to entry price", async () => {
+		const { adapter, feed } = harness({
+			spotBalance: 10n * UNIT,
+			spotValueUsdc: 1_000n * USDC,
+			perpSize: "-10",
+		});
+		await warm(adapter);
+
+		feed.mark = "0";
+		feed.spotValueUsdc = 993n * USDC;
+		// Entry price is "100" in the harness, so a leg valued against it would
+		// come back at $1,000 — the stale number this must not report.
+		expect((await adapter.observe()).valuation.components.spot).toBe(993n * USDC);
+	});
+
+	/** An unroutable pool is still an unknown value, not a cheap one. */
+	it("still refuses a leg it cannot route at all", async () => {
+		const { adapter, feed } = harness({ spotBalance: 10n * UNIT, spotValueUsdc: 1_000n * USDC });
+		await warm(adapter);
+
+		feed.routable = false;
+		expect(adapter.observe()).rejects.toThrow(ValuationError);
 	});
 });
 

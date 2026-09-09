@@ -9,6 +9,7 @@ import {
 } from "@lemon/pacifica";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi, parseUnits } from "viem";
+import { createHaircutTracker, markSpotLeg, markValueUsdc } from "./haircut";
 import { MIN_DEPLOY_USDC } from "./policy";
 import { confirmed } from "./tx";
 import { fromUnits, toUnits, type Valuation, value } from "./valuation";
@@ -164,6 +165,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	if (config.markets.length === 0) {
 		throw new Error("A venue adapter needs at least one market to trade.");
 	}
+
+	/**
+	 * How far each market's pool sits under the mark, sampled every tick.
+	 *
+	 * Per adapter, so it lives exactly as long as the agent process and is warm
+	 * for every market the vault runs. `observe()` is called once per tick, which
+	 * is what makes a count-based window a time-based one.
+	 */
+	const haircuts = createHaircutTracker();
 
 	/**
 	 * The configuration for one market, or a refusal.
@@ -397,7 +407,6 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				config.markets.map(async (market) => {
 					const balance = await spotBalance(market);
 					const route = await spotSellRoute(market, balance);
-					const sellQuote = route.value;
 
 					const position = positions.find((p) => p.symbol === market.perpSymbol);
 					const spec = venueMarkets.find((m) => m.symbol === market.perpSymbol);
@@ -411,6 +420,42 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					// Mark for the notional, with entry as the fallback: an unpriced mark
 					// should not silently value the leg at zero.
 					const markPrice = Number.isFinite(mark) && mark > 0 ? mark : entryPrice;
+
+					// The spot leg is valued off the same mark the perp leg is, at a
+					// haircut held steady across ticks — so the two legs move on one
+					// clock and cancel. See `haircut.ts`; every fallback in there is
+					// the raw quote, which is what this line used to be.
+					//
+					// `mark`, not `markPrice`: the entry-price fallback above exists so
+					// an unpriced notional does not read as zero, and it is the wrong
+					// number to value against. Entry is a stale price, and pricing the
+					// spot leg on one would put back the staleness this removes — and
+					// worse, feed a ratio measured against it into the window, so the
+					// error would outlive the outage. A dead feed leaves the reference
+					// at zero, which takes the raw quote and records nothing.
+					const spotMark = markSpotLeg(haircuts, {
+						ticker: market.ticker,
+						sellQuoteUsdc: route.value,
+						referenceUsdc: markValueUsdc(
+							balance,
+							market.spotTokenDecimals,
+							Number.isFinite(mark) && mark > 0 ? mark : 0,
+						),
+						at: deps.now(),
+					});
+					const sellQuote = spotMark.valueUsdc;
+
+					if (spotMark.basis === "dislocated") {
+						log(
+							"warn",
+							`${market.ticker}: the pool is quoting ${spotMark.haircutBps} bps off the mark, far enough from its settled level to be a dislocation rather than noise. Valuing the leg at the raw executable quote.`,
+						);
+					} else {
+						log(
+							"debug",
+							`${market.ticker}: spot leg marked ${spotMark.basis} at ${spotMark.haircutBps ?? "n/a"} bps under the mark (${haircuts.depth(market.ticker, deps.now())} samples).`,
+						);
+					}
 
 					return {
 						market,
