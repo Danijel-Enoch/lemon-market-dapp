@@ -1,6 +1,8 @@
+import { isSupportedChainId } from "@lemon/core";
 import { prisma } from "@lemon/db";
 import { Elysia, t } from "elysia";
 import {
+	AdminError,
 	assertAdmin,
 	assertCanCreateVaults,
 	listVaultableMarkets,
@@ -18,6 +20,25 @@ import { withdrawableGas, withdrawGas } from "../services/gas-withdraw";
 import { indexerHealth } from "../services/indexer-health";
 import { pacificaAccountStatus, setUpPacificaAccount } from "../services/pacifica-account";
 import { getQueue, listVaults } from "../services/vaults";
+
+/**
+ * A chain id from a request, or undefined.
+ *
+ * Undefined rather than a default, because the two mean different things
+ * downstream: every service here resolves an omitted chain by looking the
+ * address up and refusing if it is ambiguous, which is safer than silently
+ * assuming Base. Anything present but unknown is rejected outright — a caller
+ * that named a chain meant it, and quietly substituting another would act on a
+ * different vault than the one asked for.
+ */
+function chainOf(raw: string | number | undefined): number | undefined {
+	if (raw === undefined || raw === "") return undefined;
+	const id = Number(raw);
+	if (!isSupportedChainId(id)) {
+		throw new AdminError(`Chain ${raw} is not one this deployment supports.`, 400);
+	}
+	return id;
+}
 
 const addressSchema = t.String({ pattern: "^0x[a-fA-F0-9]{40}$" });
 
@@ -63,10 +84,14 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 	 * rather than disappearing, so an operator can see that NVDA is unavailable
 	 * because its pool has no route today — not conclude it was never listed.
 	 */
-	.get("/markets", async ({ admin }) => {
-		await assertAdmin(admin);
-		return { markets: await listVaultableMarkets() };
-	})
+	.get(
+		"/markets",
+		async ({ admin, query }) => {
+			await assertAdmin(admin);
+			return { markets: await listVaultableMarkets(chainOf(query.chainId)) };
+		},
+		{ query: t.Object({ chainId: t.Optional(t.String()) }) },
+	)
 
 	/**
 	 * Derive the agent wallet for a proposed vault, and check the parameters.
@@ -82,6 +107,7 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 			return prepareVault({
 				ticker: body.ticker,
 				tier: body.tier,
+				chainId: chainOf(body.chainId),
 				targetLeverageBps: body.targetLeverageBps,
 				maxLeverageBps: body.maxLeverageBps,
 			});
@@ -90,6 +116,8 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 			body: t.Object({
 				ticker: t.String({ minLength: 1, maxLength: 16 }),
 				tier: t.Union([t.Literal("conservative"), t.Literal("leveraged")]),
+				/** Which chain to deploy on. Omitted means this deployment's primary chain. */
+				chainId: t.Optional(t.Number()),
 				targetLeverageBps: t.Optional(t.Number({ minimum: 10_000, maximum: 30_000 })),
 				maxLeverageBps: t.Optional(t.Number({ minimum: 10_000, maximum: 30_000 })),
 			}),
@@ -107,7 +135,15 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 		"/vaults",
 		async ({ admin, body }) => {
 			await assertCanCreateVaults(admin);
-			const prepared = await prepareVault({ ticker: body.ticker, tier: body.tier });
+			// Re-derived rather than taken from the client. The agent wallet is
+			// baked into the vault at construction and the chain is baked into the
+			// path that derives it, so a `chainId` that disagreed with the one the
+			// factory was called on would record a vault whose agent nobody controls.
+			const prepared = await prepareVault({
+				ticker: body.ticker,
+				tier: body.tier,
+				chainId: chainOf(body.chainId),
+			});
 			const record = await recordVault({
 				address: body.address,
 				prepared,
@@ -125,6 +161,7 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 				address: addressSchema,
 				ticker: t.String({ minLength: 1, maxLength: 16 }),
 				tier: t.Union([t.Literal("conservative"), t.Literal("leveraged")]),
+				chainId: t.Optional(t.Number()),
 				spotTokenAddress: addressSchema,
 				spotTokenDecimals: t.Number({ minimum: 0, maximum: 36 }),
 				spotTokenSymbol: t.String({ minLength: 1, maxLength: 32 }),
@@ -227,7 +264,7 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 			return {
 				withdrawal: await withdrawGas({
 					vault: params.address,
-					chain: body.chain,
+					chain: body.chain === "BASE" ? "EVM" : body.chain,
 					to: body.to,
 					// An absent amount is a sweep. An empty string is a form field
 					// nobody typed in, which means the same thing.
@@ -238,7 +275,16 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 		{
 			params: t.Object({ address: addressSchema }),
 			body: t.Object({
-				chain: t.Union([t.Literal("BASE"), t.Literal("SOLANA")]),
+				/**
+				 * Which of the agent's two wallets, not which chain.
+				 *
+				 * `"BASE"` is still accepted and means `"EVM"`. An admin console
+				 * from before this change sends it, and a deployment updates the
+				 * API and the static bundle at slightly different moments — so a
+				 * rejected value here would be a 422 on a route an operator reaches
+				 * for precisely when they are trying to recover funds.
+				 */
+				chain: t.Union([t.Literal("EVM"), t.Literal("BASE"), t.Literal("SOLANA")]),
 				to: t.String({ minLength: 32, maxLength: 64 }),
 				amount: t.Optional(t.String({ maxLength: 32 })),
 			}),
@@ -311,11 +357,14 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 	/** The markets this vault runs a basis position in, and their target weights. */
 	.get(
 		"/vaults/:address/markets",
-		async ({ admin, params }) => {
+		async ({ admin, params, query }) => {
 			await assertAdmin(admin);
-			return { markets: await listVaultMarkets(params.address) };
+			return { markets: await listVaultMarkets(params.address, chainOf(query.chainId)) };
 		},
-		{ params: t.Object({ address: addressSchema }) },
+		{
+			params: t.Object({ address: addressSchema }),
+			query: t.Object({ chainId: t.Optional(t.String()) }),
+		},
 	)
 
 	/**
@@ -335,11 +384,19 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 		"/vaults/:address/markets",
 		async ({ admin, params, body }) => {
 			await assertCanCreateVaults(admin);
-			return { markets: await setVaultMarkets({ address: params.address, markets: body.markets }) };
+			return {
+				markets: await setVaultMarkets({
+					address: params.address,
+					chainId: chainOf(body.chainId),
+					markets: body.markets,
+				}),
+			};
 		},
 		{
 			params: t.Object({ address: addressSchema }),
 			body: t.Object({
+				/** Omitted, the address is resolved — and refused if it names more than one vault. */
+				chainId: t.Optional(t.Number()),
 				markets: t.Array(
 					t.Object({
 						ticker: t.String({ minLength: 1, maxLength: 16 }),
