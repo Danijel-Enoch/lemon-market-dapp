@@ -8,6 +8,7 @@ import {
 } from "@lemon/client";
 import { vaultFactoryAbi } from "@lemon/contracts";
 import { Button, Segmented } from "@lemon/ui";
+import { useAppChain } from "@lemon/wallet";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -36,10 +37,22 @@ import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
  */
 export function CreateVaultDialog({
 	market,
+	chainId,
 	factoryAddress,
 	onClose,
 }: {
 	market: VaultableMarket;
+	/**
+	 * The chain this vault will live on.
+	 *
+	 * Threaded through every step rather than inferred, because all three of
+	 * them depend on it and they must agree: the agent wallet is derived from a
+	 * path containing the chain, the factory call goes to that chain's factory,
+	 * and the recorded configuration is keyed by it. A mismatch between the
+	 * derivation and the transaction would create a vault whose immutable agent
+	 * address nobody can sign for.
+	 */
+	chainId: number;
 	factoryAddress: `0x${string}`;
 	onClose: () => void;
 }) {
@@ -52,6 +65,20 @@ export function CreateVaultDialog({
 	const [done, setDone] = useState<string | null>(null);
 
 	const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
+
+	/**
+	 * The wallet has to be on the vault's chain before the factory call.
+	 *
+	 * `chainId` below is pinned on the transaction, so wagmi refuses to sign
+	 * rather than send it to the wrong network — correct, and the reason this is
+	 * needed: refusing produced "The current chain of the wallet (id: 8453) does
+	 * not match the target chain for the transaction (id: 196)" with no way
+	 * forward, because nothing in this dialog ever asked the wallet to move. The
+	 * switch is a prompt rather than an automatic action: it is the user's wallet
+	 * and their decision, and on a chain they have never used it is an
+	 * `wallet_addEthereumChain` they should see coming.
+	 */
+	const { chain: targetChain, onWrongChain, promptSwitch, isSwitching } = useAppChain(chainId);
 	const { data: receipt, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
 	/**
@@ -84,7 +111,7 @@ export function CreateVaultDialog({
 		setPreparing(true);
 		setError(null);
 		try {
-			setPrepared(await adminApi.prepare({ ticker: market.ticker, tier }));
+			setPrepared(await adminApi.prepare({ ticker: market.ticker, tier, chainId }));
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -94,10 +121,21 @@ export function CreateVaultDialog({
 
 	function onDeploy() {
 		if (!prepared) return;
+		// Belt and braces: the button offers the switch instead of a deploy while
+		// this is true, so reaching here means the chain changed under us.
+		if (onWrongChain) {
+			promptSwitch();
+			return;
+		}
 		setError(null);
 		writeContract({
 			abi: vaultFactoryAbi,
 			address: factoryAddress,
+			// Pinned so wagmi refuses rather than sends if the wallet is on another
+			// chain. Unpinned, a factory call meant for Arbitrum would be signed
+			// against whatever chain the wallet happened to be on — reverting at
+			// best, and at worst hitting a different contract at the same address.
+			chainId,
 			functionName: "createVault",
 			args: [
 				prepared.marketId,
@@ -146,6 +184,7 @@ export function CreateVaultDialog({
 				address,
 				ticker: prepared.ticker,
 				tier: prepared.tier,
+				chainId,
 				spotTokenAddress: market.spot.address,
 				spotTokenDecimals: market.spot.decimals,
 				spotTokenSymbol: market.spot.symbol,
@@ -166,7 +205,7 @@ export function CreateVaultDialog({
 				),
 			)
 			.finally(() => setRecording(false));
-	}, [receipt, prepared, recording, done, market, factoryAddress, queryClient]);
+	}, [receipt, prepared, recording, done, market, chainId, factoryAddress, queryClient]);
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
@@ -305,6 +344,19 @@ export function CreateVaultDialog({
 										</>
 									) : (
 										"Derive agent wallet"
+									)}
+								</Button>
+							) : onWrongChain ? (
+								/* Named, not "wrong network": the operator picked this chain a
+								   step ago, so the useful sentence is which one to move to. */
+								<Button className="flex-1" onClick={promptSwitch} disabled={isSwitching}>
+									{isSwitching ? (
+										<>
+											<Loader2 className="mr-2 size-4 animate-spin" />
+											Switching…
+										</>
+									) : (
+										`Switch wallet to ${targetChain.name}`
 									)}
 								</Button>
 							) : (
