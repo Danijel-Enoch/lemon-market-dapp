@@ -1,5 +1,21 @@
-import type { Address, Hex, SpotQuote } from "@lemon/core";
-import { percentToBps, requestJson, type SpotFeeConfig, UpstreamError } from "@lemon/core";
+import type {
+	Address,
+	BuiltSwap,
+	ChainId,
+	Hex,
+	QuoteResult,
+	RouteRequest,
+	SpotAggregator,
+	SpotQuote,
+} from "@lemon/core";
+import {
+	ARBITRUM_CHAIN_ID,
+	BASE_CHAIN_ID,
+	percentToBps,
+	requestJson,
+	type SpotFeeConfig,
+	UpstreamError,
+} from "@lemon/core";
 import {
 	type BuildRouteData,
 	type GetRouteData,
@@ -12,7 +28,33 @@ export const DEFAULT_AGGREGATOR_URL = "https://aggregator-api.kyberswap.com";
 /** KyberSwap's chain slug for Base. The aggregator is EVM-only. */
 export const BASE_CHAIN_SLUG = "base";
 
+/**
+ * The chains KyberSwap covers *and this app trades on*.
+ *
+ * Deliberately not every chain KyberSwap supports. X Layer is the absent one
+ * and the reason this map exists: KyberSwap has no X Layer deployment, so an
+ * X Layer vault routed here would get a 404 from a URL built out of a slug that
+ * does not exist. Naming the covered chains explicitly turns that into a
+ * constructor error at boot instead of a failed trade at the first deploy.
+ */
+export const KYBER_CHAIN_SLUGS: Partial<Record<ChainId, string>> = {
+	[BASE_CHAIN_ID]: "base",
+	[ARBITRUM_CHAIN_ID]: "arbitrum",
+};
+
+export function kyberCovers(chainId: number): boolean {
+	return Boolean(KYBER_CHAIN_SLUGS[chainId as ChainId]);
+}
+
 export interface AggregatorOptions {
+	/**
+	 * Which chain this client routes on.
+	 *
+	 * Defaults to Base so existing call sites keep their meaning. A chain
+	 * KyberSwap does not cover throws here rather than at trade time — see
+	 * `KYBER_CHAIN_SLUGS`.
+	 */
+	chainId?: number;
 	baseUrl?: string;
 	/** Sent as `x-client-id`; KyberSwap uses it for rate limiting and attribution. */
 	clientId?: string;
@@ -28,26 +70,18 @@ export interface AggregatorOptions {
 	fee?: SpotFeeConfig | null;
 }
 
-export interface RouteRequest {
-	tokenIn: Address;
-	tokenOut: Address;
-	/** Base units of `tokenIn`. */
-	amountIn: string;
-	slippagePercent?: number;
-}
-
 /**
- * A quote result that distinguishes "no pool exists" from "the request failed".
+ * `RouteRequest` and `QuoteResult` moved to `@lemon/core`.
  *
- * This matters because most of the tokenized stocks currently have no Aerodrome
- * pool at all, and showing that as an error would be wrong — it is ordinary
- * market state that the UI should render as an empty state.
+ * They describe every aggregator, not KyberSwap's in particular — LI.FI returns
+ * the same two shapes — and leaving a second definition here would make the two
+ * drift. Re-exported so the existing importers do not have to change.
  */
-export type QuoteResult =
-	| { ok: true; quote: SpotQuote }
-	| { ok: false; reason: "no_route"; message: string };
+export type { QuoteResult, RouteRequest } from "@lemon/core";
 
-export class KyberAggregatorClient {
+export class KyberAggregatorClient implements SpotAggregator {
+	readonly name = "kyberswap";
+	readonly chainId: number;
 	private readonly baseUrl: string;
 	private readonly clientId: string;
 	private readonly chainSlug: string;
@@ -55,9 +89,18 @@ export class KyberAggregatorClient {
 	private readonly fee: SpotFeeConfig | null;
 
 	constructor(options: AggregatorOptions = {}) {
+		this.chainId = options.chainId ?? BASE_CHAIN_ID;
+
+		const slug = options.chainSlug ?? KYBER_CHAIN_SLUGS[this.chainId as ChainId];
+		if (!slug) {
+			throw new Error(
+				`KyberSwap does not cover chain ${this.chainId}. Use an aggregator that does — X Layer is served by LI.FI.`,
+			);
+		}
+
 		this.baseUrl = options.baseUrl ?? DEFAULT_AGGREGATOR_URL;
 		this.clientId = options.clientId ?? "lemon-markets";
-		this.chainSlug = options.chainSlug ?? BASE_CHAIN_SLUG;
+		this.chainSlug = slug;
 		this.timeoutMs = options.timeoutMs ?? 20_000;
 		this.fee = options.fee?.bps ? options.fee : null;
 	}
@@ -133,7 +176,7 @@ export class KyberAggregatorClient {
 		/** Encoded permit calldata, to skip a separate approval transaction. */
 		permit?: Hex;
 		source?: string;
-	}): Promise<BuildRouteData> {
+	}): Promise<BuiltSwap> {
 		const response = await requestJson<KyberEnvelope<BuildRouteData>>(
 			"kyberswap",
 			this.baseUrl,
@@ -157,7 +200,24 @@ export class KyberAggregatorClient {
 		if (response.code !== 0 || !response.data?.data) {
 			throw new UpstreamError("kyberswap", 200, `kyberswap: ${response.message}`, response);
 		}
-		return response.data;
+
+		const built = response.data;
+		return {
+			// KyberSwap encodes a call to its own router, so the transaction target
+			// and the allowance holder are the same contract. Stated rather than
+			// omitted because `BuiltSwap` also carries LI.FI, where they differ.
+			to: built.routerAddress,
+			routerAddress: built.routerAddress,
+			data: built.data,
+			// Always an ERC-20 swap here: the vault's asset is USDC and the spot
+			// legs are ERC-20s, so no native value is ever attached. Stated rather
+			// than omitted because `BuiltSwap` is shared with LI.FI, where a native
+			// leg is possible and the field is not always "0".
+			value: "0",
+			amountIn: built.amountIn,
+			amountOut: built.amountOut,
+			gas: built.gas,
+		};
 	}
 }
 
