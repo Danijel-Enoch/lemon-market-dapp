@@ -122,6 +122,10 @@ const ASSET_CLASS_BY_TICKER: Record<string, AssetClass> = {
 	// below. `registry/test/ticker-coverage.test.ts` now fails on any repeat.
 	AVNT: "crypto",
 	ETHFI: "crypto",
+	// Arbitrum's spot leg, added with that chain. ARB has no Base listing at all
+	// and UNI is not issued on Base, so neither could appear here before.
+	ARB: "crypto",
+	UNI: "crypto",
 
 	// Coinbase B20 tokenized equities.
 	NVDA: "equity",
@@ -141,6 +145,18 @@ const ASSET_CLASS_BY_TICKER: Record<string, AssetClass> = {
 	SNDK: "equity",
 	CRCL: "equity",
 	SPCX: "equity",
+
+	// X Layer's tokenized equities, which are a wider set than Base's. Every
+	// one of these is a `w…x` token with a matching Pacifica perp; the rest of
+	// that family is listed in `registry/src/xlayer-tokens.ts` and waits on a
+	// perp existing. Missing here, a vault on one of them indexes with a null
+	// ticker — `KNOWN_TICKERS` is the rainbow table the indexer recovers a
+	// ticker from its `keccak256` by — and is then skipped by the venue seeder,
+	// which surfaces three services away as "no venue configuration exists".
+	HOOD: "equity",
+	PLTR: "equity",
+	MU: "equity",
+	SKHYNIX: "equity",
 
 	// Metals and commodities, which the board groups as RWA.
 	XAU: "metal",
