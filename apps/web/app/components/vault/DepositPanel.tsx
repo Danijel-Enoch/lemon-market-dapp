@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi } from "viem";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { ProjectedYieldBreakdown } from "./ProjectedYield";
+import { RiskAcknowledgement } from "./RiskAcknowledgement";
 
 /**
  * Deposit USDC, receive shares.
@@ -130,8 +131,25 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 		});
 	}
 
+	/**
+	 * Depositing is two steps now: acknowledge, then send.
+	 *
+	 * The dialog is the gate rather than a notice beside the button, because a
+	 * notice beside a button is read once and then never again. Asking on every
+	 * deposit is deliberate — the thing being agreed to is this deposit, and an
+	 * acknowledgement remembered from a smaller one would be consent nobody gave
+	 * for the larger one.
+	 */
+	const [confirming, setConfirming] = useState(false);
+
 	function onDeposit() {
 		if (!amount || !address) return;
+		setConfirming(true);
+	}
+
+	function onConfirmedDeposit() {
+		if (!amount || !address) return;
+		setConfirming(false);
 		setStage("depositing");
 		writeContract({
 			abi: lemonVaultAbi,
@@ -143,121 +161,131 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	}
 
 	return (
-		<div
-			data-testid="deposit-panel"
-			data-tour="deposit-panel"
-			className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5"
-		>
-			<div className="flex items-baseline justify-between">
-				<h3 className="font-medium text-[var(--pon-fg-0)]">Deposit</h3>
-				<span className="text-xs text-[var(--pon-fg-3)]">Balance {formatUsd(balance ?? 0n)}</span>
-			</div>
-
-			{onWrongChain ? (
-				<button
-					type="button"
-					onClick={promptSwitch}
-					disabled={isSwitching}
-					className="w-full rounded-[var(--pon-r,12px)] border border-[var(--pon-warn,#a16207)] px-3 py-2 text-left text-xs text-[var(--pon-fg-2)] disabled:opacity-60"
-				>
-					{isSwitching
-						? `Switching to ${chain.name}…`
-						: `This vault is on ${chain.name}. Switch to deposit.`}
-				</button>
-			) : null}
-
-			{blocked ? (
-				<BlockedNotice vault={vault} />
-			) : (
-				<>
-					<div className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4 py-3">
-						<div className="flex items-center gap-3">
-							<input
-								inputMode="decimal"
-								placeholder="0.00"
-								value={input}
-								onChange={(e) => {
-									setInput(e.target.value);
-									reset();
-								}}
-								className="min-w-0 flex-1 bg-transparent text-2xl font-medium text-[var(--pon-fg-0)] tabular-nums outline-none placeholder:text-[var(--pon-fg-4)]"
-							/>
-							<span className="text-sm font-medium text-[var(--pon-fg-2)]">USDC</span>
-							<button
-								type="button"
-								onClick={() => setInput(formatUnits(balance ?? 0n, USDC_DECIMALS, 6))}
-								className="rounded-full border border-[var(--pon-line-2)] px-2.5 py-1 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
-							>
-								Max
-							</button>
-						</div>
-					</div>
-
-					<ProjectedYieldBreakdown vault={vault} outlook={vault.outlook} />
-
-					<dl className="space-y-1.5 text-sm">
-						<Row label="Share price" value={`${formatUsd(vault.pricePerShare)} per share`} />
-						<Row label="You receive" value={`${formatUnits(sharesOut, 18, 4)} ${vault.symbol}`} />
-						<Row
-							label="Withdrawal notice"
-							value="3–7 days"
-							hint="The agent has to unwind a real position to pay you out, so exits are queued rather than instant."
-						/>
-					</dl>
-
-					{insufficient && (
-						<p className="text-sm text-[var(--pon-down)]">
-							That is more USDC than this wallet holds.
-						</p>
-					)}
-
-					{error && (
-						<p className="text-sm text-[var(--pon-down)]">
-							{/* Wallet errors are long and mostly stack; the first line is the part a user can act on. */}
-							{error.message.split("\n")[0]}
-						</p>
-					)}
-
-					{!isConnected ? (
-						<p className="text-sm text-[var(--pon-fg-3)]">Connect a wallet to deposit.</p>
-					) : needsApproval ? (
-						<Button
-							className="w-full"
-							disabled={!amount || insufficient || isPending || isConfirming}
-							onClick={onApprove}
-						>
-							{(isPending || isConfirming) && stage === "approving" ? (
-								<>
-									<Loader2 className="mr-2 size-4 animate-spin" /> Approving…
-								</>
-							) : (
-								"Approve USDC"
-							)}
-						</Button>
-					) : (
-						<Button
-							className="w-full"
-							disabled={!amount || amount === 0n || insufficient || isPending || isConfirming}
-							onClick={onDeposit}
-						>
-							{(isPending || isConfirming) && stage === "depositing" ? (
-								<>
-									<Loader2 className="mr-2 size-4 animate-spin" /> Depositing…
-								</>
-							) : (
-								"Deposit"
-							)}
-						</Button>
-					)}
-
-					<p className="text-xs leading-relaxed text-[var(--pon-fg-4)]">
-						Shares are minted the moment your deposit lands, and their value moves with the vault.
-						Both fees in the projection above are charged inside the share price rather than billed
-						separately, so the price shown is already net of them.
-					</p>
-				</>
+		<>
+			{confirming && amount !== null && (
+				<RiskAcknowledgement
+					vault={vault}
+					amountLabel={formatUsd(formatUnits(amount, USDC_DECIMALS))}
+					onConfirm={onConfirmedDeposit}
+					onCancel={() => setConfirming(false)}
+				/>
 			)}
-		</div>
+			<div
+				data-testid="deposit-panel"
+				data-tour="deposit-panel"
+				className="space-y-4 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5"
+			>
+				<div className="flex items-baseline justify-between">
+					<h3 className="font-medium text-[var(--pon-fg-0)]">Deposit</h3>
+					<span className="text-xs text-[var(--pon-fg-3)]">Balance {formatUsd(balance ?? 0n)}</span>
+				</div>
+
+				{onWrongChain ? (
+					<button
+						type="button"
+						onClick={promptSwitch}
+						disabled={isSwitching}
+						className="w-full rounded-[var(--pon-r,12px)] border border-[var(--pon-warn,#a16207)] px-3 py-2 text-left text-xs text-[var(--pon-fg-2)] disabled:opacity-60"
+					>
+						{isSwitching
+							? `Switching to ${chain.name}…`
+							: `This vault is on ${chain.name}. Switch to deposit.`}
+					</button>
+				) : null}
+
+				{blocked ? (
+					<BlockedNotice vault={vault} />
+				) : (
+					<>
+						<div className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-4 py-3">
+							<div className="flex items-center gap-3">
+								<input
+									inputMode="decimal"
+									placeholder="0.00"
+									value={input}
+									onChange={(e) => {
+										setInput(e.target.value);
+										reset();
+									}}
+									className="min-w-0 flex-1 bg-transparent text-2xl font-medium text-[var(--pon-fg-0)] tabular-nums outline-none placeholder:text-[var(--pon-fg-4)]"
+								/>
+								<span className="text-sm font-medium text-[var(--pon-fg-2)]">USDC</span>
+								<button
+									type="button"
+									onClick={() => setInput(formatUnits(balance ?? 0n, USDC_DECIMALS, 6))}
+									className="rounded-full border border-[var(--pon-line-2)] px-2.5 py-1 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
+								>
+									Max
+								</button>
+							</div>
+						</div>
+
+						<ProjectedYieldBreakdown vault={vault} outlook={vault.outlook} />
+
+						<dl className="space-y-1.5 text-sm">
+							<Row label="Share price" value={`${formatUsd(vault.pricePerShare)} per share`} />
+							<Row label="You receive" value={`${formatUnits(sharesOut, 18, 4)} ${vault.symbol}`} />
+							<Row
+								label="Withdrawal notice"
+								value="3–7 days"
+								hint="The agent has to unwind a real position to pay you out, so exits are queued rather than instant."
+							/>
+						</dl>
+
+						{insufficient && (
+							<p className="text-sm text-[var(--pon-down)]">
+								That is more USDC than this wallet holds.
+							</p>
+						)}
+
+						{error && (
+							<p className="text-sm text-[var(--pon-down)]">
+								{/* Wallet errors are long and mostly stack; the first line is the part a user can act on. */}
+								{error.message.split("\n")[0]}
+							</p>
+						)}
+
+						{!isConnected ? (
+							<p className="text-sm text-[var(--pon-fg-3)]">Connect a wallet to deposit.</p>
+						) : needsApproval ? (
+							<Button
+								className="w-full"
+								disabled={!amount || insufficient || isPending || isConfirming}
+								onClick={onApprove}
+							>
+								{(isPending || isConfirming) && stage === "approving" ? (
+									<>
+										<Loader2 className="mr-2 size-4 animate-spin" /> Approving…
+									</>
+								) : (
+									"Approve USDC"
+								)}
+							</Button>
+						) : (
+							<Button
+								className="w-full"
+								disabled={!amount || amount === 0n || insufficient || isPending || isConfirming}
+								onClick={onDeposit}
+							>
+								{(isPending || isConfirming) && stage === "depositing" ? (
+									<>
+										<Loader2 className="mr-2 size-4 animate-spin" /> Depositing…
+									</>
+								) : (
+									"Deposit"
+								)}
+							</Button>
+						)}
+
+						<p className="text-xs leading-relaxed text-[var(--pon-fg-4)]">
+							Shares are minted the moment your deposit lands, and their value moves with the vault.
+							Both fees in the projection above are charged inside the share price rather than
+							billed separately, so the price shown is already net of them.
+						</p>
+					</>
+				)}
+			</div>
+		</>
 	);
 }
 
