@@ -70,7 +70,7 @@ export function VaultMarketsDialog({
 	const taken = new Set(current.map((row) => row.ticker));
 	const available = board
 		.filter((m) => !taken.has(m.ticker.toUpperCase()))
-		.filter((m) => m.spotTradableOnBase && m.reasons.length === 0);
+		.filter((m) => m.spotTradable && m.reasons.length === 0);
 
 	// Retired markets are shown rather than hidden. A vault holding a position in
 	// a market nobody wants any more is exactly the state an operator has to be
@@ -133,6 +133,10 @@ export function VaultMarketsDialog({
 			await adminApi.setVaultMarkets(
 				vault.address,
 				current.map((row) => ({ ticker: row.ticker, targetWeightBps: row.targetWeightBps })),
+				// The vault's own chain. Without it the API resolves the address,
+				// which is correct but refuses when the same address is a vault on
+				// two chains — and here the caller already knows which one.
+				vault.chainId,
 			);
 			queryClient.invalidateQueries({ queryKey: ["admin-vault-markets", vault.address] });
 			queryClient.invalidateQueries({ queryKey: ["admin-vaults"] });
