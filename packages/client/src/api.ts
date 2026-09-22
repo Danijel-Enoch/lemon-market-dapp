@@ -103,6 +103,16 @@ export interface VaultMarket {
 
 export interface Vault {
 	address: `0x${string}`;
+	/**
+	 * The chain this vault custodies on.
+	 *
+	 * Optional because an API built before multi-chain serves rows without it,
+	 * and those rows are Base vaults. Callers that act on it should read it as
+	 * `vault.chainId ?? APP_CHAIN.id` rather than asserting — a deployment can
+	 * run a newer browser bundle against an older API for the length of a
+	 * rollout.
+	 */
+	chainId?: number;
 	marketId: string;
 	ticker: string | null;
 	name: string;
@@ -374,6 +384,8 @@ export interface MarketHedge {
 
 export interface LivePosition {
 	vault: string;
+	/** The chain the vault custodies on. Explorer links are built from it. */
+	chainId: number;
 	wallets: {
 		evm: string;
 		solana: string | null;
@@ -504,6 +516,8 @@ export const vaultApi = {
 			history: {
 				id: string;
 				vault: string;
+				/** The chain the flow happened on. A portfolio spans chains by nature. */
+				chainId?: number;
 				direction: string;
 				assets: string;
 				shares: string;
@@ -540,23 +554,27 @@ export interface VaultableMarket {
 		buyable: boolean;
 		sellable: boolean;
 		probeFailed: boolean;
+		/** When routability was last checked, or null if it never has been. */
+		checkedAt: number | null;
 	};
 	perp: { pacificaSymbol: string };
 	existing: { conservative: string | null; leveraged: string | null };
 	reasons: string[];
 	/**
-	 * Whether the spot leg can be bought *and* sold on Base right now.
+	 * Whether the spot leg can be bought *and* sold on the board's chain.
 	 *
 	 * False means a vault here could not open or could not unwind. A failed
 	 * liquidity probe leaves this true rather than false — an unanswered question
 	 * is not a "no".
 	 */
-	spotTradableOnBase: boolean;
+	spotTradable: boolean;
 }
 
 export interface PreparedVault {
 	ticker: string;
 	tier: "conservative" | "leveraged";
+	/** The chain the vault will be deployed on. Already baked into `agentPath`. */
+	chainId: number;
 	marketId: `0x${string}`;
 	agentPath: string;
 	agentEvmAddress: `0x${string}`;
@@ -568,11 +586,23 @@ export interface PreparedVault {
 }
 
 export interface GasBalance {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"` — a chain name, which stopped being accurate once a vault
+	 * could custody elsewhere. This says which of the agent's two wallets;
+	 * `chainId` says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** The EVM chain. Null on the Solana row. */
+	chainId: number | null;
+	/** As a person would say it — "Base", "Arbitrum One", "X Layer", "Solana". */
+	chainName: string;
 	address: string | null;
 	balance: string | null;
 	formatted: string | null;
-	symbol: "ETH" | "SOL";
+	/** The chain's native unit. X Layer charges gas in OKB, not ETH. */
+	symbol: "ETH" | "OKB" | "SOL";
 	lowThreshold: string;
 	isLow: boolean;
 	estimatedTransactions: number | null;
@@ -595,12 +625,22 @@ export interface VaultGas {
  * was shown rather than one computed after they clicked.
  */
 export interface GasWithdrawable {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"` — a chain name, which stopped being accurate once a vault
+	 * could custody elsewhere. This says which of the agent's two wallets;
+	 * `chainId` says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** The EVM chain. Null on the Solana row. */
+	chainId: number | null;
 	address: string;
 	balance: string;
 	spendable: string;
 	formattedSpendable: string;
-	symbol: "ETH" | "SOL";
+	/** The chain's native unit. X Layer charges gas in OKB, not ETH. */
+	symbol: "ETH" | "OKB" | "SOL";
 	note: string | null;
 }
 
@@ -612,13 +652,23 @@ export interface VaultGasWithdrawable {
 }
 
 export interface GasWithdrawal {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"` — a chain name, which stopped being accurate once a vault
+	 * could custody elsewhere. This says which of the agent's two wallets;
+	 * `chainId` says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** The EVM chain. Null on the Solana row. */
+	chainId: number | null;
 	vault: string;
 	from: string;
 	to: string;
 	amount: string;
 	formatted: string;
-	symbol: "ETH" | "SOL";
+	/** The chain's native unit. X Layer charges gas in OKB, not ETH. */
+	symbol: "ETH" | "OKB" | "SOL";
 	feeReserved: string;
 	remaining: string;
 	hash: string;
@@ -704,12 +754,46 @@ export interface IndexerHealth {
 	blocksBehind: number | null;
 	/** `expected` is null when it could not be asked — not the same as zero. */
 	vaults: { indexed: number | null; expected: number | null };
+
+	/**
+	 * Per chain, for every chain this deployment indexes.
+	 *
+	 * The fields above are the worst of these. They cannot say *which* chain is
+	 * unhappy, and chains are indexed independently — one slow endpoint puts
+	 * only its own chain behind — so the breakdown is what an operator acts on.
+	 * A chain with no factory configured is absent rather than zero.
+	 */
+	chains: IndexerChainHealth[];
+}
+
+export interface IndexerChainHealth {
+	chainId: number;
+	/** Ponder's key for the chain: "base", "arbitrum", "xlayer". */
+	key: string;
+	/** As a person would say it — "X Layer". */
+	name: string;
+	state: IndexerHealth["state"];
+	summary: string;
+	indexedBlock: number | null;
+	headBlock: number | null;
+	blocksBehind: number | null;
+	vaults: { indexed: number | null; expected: number | null };
 }
 
 export const adminApi = {
 	session: () =>
 		request<{ isAdmin: boolean; canCreateVaults: boolean; address?: string }>("/admin/session"),
-	markets: () => request<{ markets: VaultableMarket[] }>("/admin/markets"),
+	/**
+	 * The board for one chain.
+	 *
+	 * Chain-scoped because the spot leg is: Base lists the Coinbase B20
+	 * equities, X Layer its own `w…x` family, and Arbitrum no equities at all.
+	 * Omitting the chain gets the deployment's primary one.
+	 */
+	markets: (chainId?: number) =>
+		request<{ markets: VaultableMarket[] }>("/admin/markets", {
+			query: { chainId: chainId === undefined ? undefined : String(chainId) },
+		}),
 	vaults: () =>
 		request<{
 			vaults: Vault[];
@@ -726,6 +810,8 @@ export const adminApi = {
 	prepare: (body: {
 		ticker: string;
 		tier: "conservative" | "leveraged";
+		/** Which chain to deploy on. The agent wallet is derived from it. */
+		chainId?: number;
 		targetLeverageBps?: number;
 		maxLeverageBps?: number;
 	}) => post<PreparedVault>("/admin/vaults/prepare", body),
@@ -734,6 +820,7 @@ export const adminApi = {
 		address: string;
 		ticker: string;
 		tier: "conservative" | "leveraged";
+		chainId?: number;
 		spotTokenAddress: string;
 		spotTokenDecimals: number;
 		spotTokenSymbol: string;
@@ -744,8 +831,10 @@ export const adminApi = {
 	setAgent: (address: string, enabled: boolean) =>
 		post<{ vault: unknown }>(`/admin/vaults/${address}/agent`, { enabled }),
 
-	vaultMarkets: (address: string) =>
-		request<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`),
+	vaultMarkets: (address: string, chainId?: number) =>
+		request<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, {
+			query: { chainId: chainId === undefined ? undefined : String(chainId) },
+		}),
 
 	/**
 	 * Replace the whole set at once.
@@ -754,8 +843,12 @@ export const adminApi = {
 	 * mean anything together — a vault weighted to 140% between two requests is a
 	 * vault an agent can tick against.
 	 */
-	setVaultMarkets: (address: string, markets: Array<{ ticker: string; targetWeightBps: number }>) =>
-		put<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, { markets }),
+	setVaultMarkets: (
+		address: string,
+		markets: Array<{ ticker: string; targetWeightBps: number }>,
+		chainId?: number,
+	) =>
+		put<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, { markets, chainId }),
 
 	/**
 	 * Order every position closed and all capital returned — or lift that order.
@@ -770,7 +863,7 @@ export const adminApi = {
 		request<VaultGasWithdrawable>(`/admin/gas/${address}/withdrawable`),
 
 	/** `amount` is in ETH or SOL, not wei or lamports. Omit it to sweep. */
-	withdrawGas: (address: string, body: { chain: "BASE" | "SOLANA"; to: string; amount?: string }) =>
+	withdrawGas: (address: string, body: { chain: "EVM" | "SOLANA"; to: string; amount?: string }) =>
 		post<{ withdrawal: GasWithdrawal }>(`/admin/gas/${address}/withdraw`, body),
 
 	pacificaAccount: (address: string) =>

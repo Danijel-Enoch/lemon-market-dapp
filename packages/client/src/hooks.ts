@@ -148,10 +148,14 @@ export function useAdminSession() {
 	});
 }
 
-export function useVaultableMarkets(enabled: boolean) {
+export function useVaultableMarkets(enabled: boolean, chainId?: number) {
 	return useQuery({
-		queryKey: ["admin-markets"],
-		queryFn: () => adminApi.markets(),
+		// The chain is part of the key, not just the request. The three chains
+		// offer different boards — Arbitrum has no tokenized equities at all —
+		// and a shared key would serve one chain's markets under another's tab
+		// until the stale time expired.
+		queryKey: ["admin-markets", chainId ?? null],
+		queryFn: () => adminApi.markets(chainId),
 		enabled,
 		// The board runs a live liquidity probe per row, so it is expensive
 		// upstream. Two minutes, and a manual refresh button on the page.
