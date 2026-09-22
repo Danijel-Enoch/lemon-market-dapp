@@ -113,8 +113,15 @@ function harness(options: HarnessOptions = {}) {
 					}
 				: { ok: false as const },
 		buildRoute: async () => ({
+			// `to` and `routerAddress` are the same here, as they are on KyberSwap.
+			// They are separate fields because LI.FI's differ: the allowance sits on
+			// one contract and the transaction goes to another.
+			to: ROUTER,
 			routerAddress: ROUTER,
 			data: "0xdeadbeef",
+			value: "0",
+			amountIn: "0",
+			gas: "0",
 			// Deliberately more than the fill above, so a return sized off the
 			// quote instead of the balance is visible as a failure.
 			amountOut: (fillUsdc + 50n * USDC).toString(),

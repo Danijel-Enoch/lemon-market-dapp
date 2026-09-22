@@ -1,4 +1,24 @@
-import { BASE_CHAIN_ID, formatDuration, type LogLevel, USDC_ADDRESS } from "@lemon/core";
+import { formatDuration, type LogLevel } from "@lemon/core";
+import { AGENT_CHAIN } from "./chain";
+
+/**
+ * The chain this agent custodies on, and the USDC it holds there.
+ *
+ * Read from `AGENT_CHAIN` rather than pinned to Base. One process serves one
+ * chain (see `chain.ts`), so these are constants for the life of the process —
+ * but they are *this* chain's constants, and a hard-coded Base pair would have
+ * an Arbitrum agent quote a bridge from an address that holds nothing and read
+ * a balance of zero from a token that is not its asset.
+ *
+ * Whether Relay actually routes between a given chain and Solana is a question
+ * about Relay, not about this code. An unsupported pair comes back as a quote
+ * with no steps, which `RelayClient.quote` already turns into an error saying
+ * the route may be unsupported — a loud failure on the first crossing rather
+ * than a silent one.
+ */
+const HOME_CHAIN_ID = AGENT_CHAIN.id;
+const HOME_USDC = AGENT_CHAIN.usdc;
+
 import { prisma } from "@lemon/db";
 import {
 	buildDepositInstruction,
@@ -115,10 +135,10 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		);
 	}
 
-	async function baseUsdcBalance(): Promise<bigint> {
+	async function homeUsdcBalance(): Promise<bigint> {
 		return deps.publicClient.readContract({
 			abi: erc20Abi,
-			address: USDC_ADDRESS,
+			address: HOME_USDC,
 			functionName: "balanceOf",
 			args: [deps.agentAddress],
 		});
@@ -261,7 +281,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 		inFlight: () => inFlight,
 
 		/**
-		 * Margin out: Base USDC to a funded Pacifica account.
+		 * Margin out: the home chain's USDC to a funded Pacifica account.
 		 *
 		 * The Pacifica deposit is part of this call rather than the caller's next
 		 * step, and that is not tidiness. USDC sitting in the agent's Solana wallet
@@ -286,14 +306,14 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 
 			deps.log(
 				"info",
-				`Bridging ${Number(amountUsdc) / 1e6} USDC Base → Solana; this blocks the tick until it lands (up to ${formatDuration(FILL_TIMEOUT_MS)}).`,
+				`Bridging ${Number(amountUsdc) / 1e6} USDC ${AGENT_CHAIN.name} → Solana; this blocks the tick until it lands (up to ${formatDuration(FILL_TIMEOUT_MS)}).`,
 			);
 
 			const quote = await deps.relay.quote({
 				recipient: deps.solanaAddress,
 				sender: deps.agentAddress,
-				originChainId: BASE_CHAIN_ID,
-				originCurrency: USDC_ADDRESS,
+				originChainId: HOME_CHAIN_ID,
+				originCurrency: HOME_USDC,
 				amount: amountUsdc.toString(),
 				destinationChainId: SOLANA_CHAIN_ID,
 				destinationCurrency: SOLANA_USDC_MINT,
@@ -401,7 +421,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				`Waiting for ${Number(amountUsdc) / 1e6} USDC to settle out of Pacifica onto Solana (up to ${formatDuration(WITHDRAWAL_TIMEOUT_MS)}).`,
 			);
 			await deps.solana.waitForUsdc(deps.solanaAddress, amountUsdc, WITHDRAWAL_TIMEOUT_MS);
-			deps.log("info", "It landed; bridging Solana → Base.");
+			deps.log("info", `It landed; bridging Solana → ${AGENT_CHAIN.name}.`);
 
 			const quote = await deps.relay.quote({
 				recipient: deps.agentAddress,
@@ -409,8 +429,8 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 				originChainId: SOLANA_CHAIN_ID,
 				originCurrency: SOLANA_USDC_MINT,
 				amount: amountUsdc.toString(),
-				destinationChainId: BASE_CHAIN_ID,
-				destinationCurrency: USDC_ADDRESS,
+				destinationChainId: HOME_CHAIN_ID,
+				destinationCurrency: HOME_USDC,
 				refundTo: deps.solanaAddress,
 			});
 
@@ -425,7 +445,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 			let stage: "quoted" | "sent" | "landed" = "quoted";
 
 			try {
-				const before = await baseUsdcBalance();
+				const before = await homeUsdcBalance();
 
 				// No token account to create any more. The old flow sent USDC to a
 				// fresh deposit address that had never held any, and had to pay the
@@ -438,7 +458,7 @@ export async function createRelayBridge(deps: RelayBridgeDeps): Promise<RelayBri
 
 				await awaitFill(quote.requestId, row.id);
 
-				const after = await waitForBaseUsdc(baseUsdcBalance, before + 1n, 120_000);
+				const after = await waitForHomeUsdc(homeUsdcBalance, before + 1n, 120_000);
 				const landed = after - before;
 				stage = "landed";
 
@@ -571,7 +591,7 @@ async function settle(id: string, status: string, landed: bigint | null): Promis
 }
 
 /** The Base-side equivalent of `SolanaExecutor.waitForUsdc`. */
-async function waitForBaseUsdc(
+async function waitForHomeUsdc(
 	read: () => Promise<bigint>,
 	target: bigint,
 	timeoutMs: number,

@@ -1,13 +1,21 @@
-import { createLogger, formatDuration, type LogLevel, USDC_ADDRESS } from "@lemon/core";
-import { prisma, type VaultMarketConfig, vaultMarkets } from "@lemon/db";
-import { KyberAggregatorClient } from "@lemon/kyber";
+import {
+	createLogger,
+	DEFAULT_CHAIN_ID,
+	formatDuration,
+	type LogLevel,
+	type SpotAggregator,
+} from "@lemon/core";
+import { prisma, type VaultMarketConfig, vaultMarkets, vaultRef, vaultWhere } from "@lemon/db";
+import { KyberAggregatorClient, kyberCovers } from "@lemon/kyber";
+import { LifiAggregatorClient } from "@lemon/lifi";
 import { NearMpcClient } from "@lemon/near-mpc";
 import { PACIFICA_MAINNET, PacificaClient } from "@lemon/pacifica";
+import { findTokenByAddress } from "@lemon/registry";
 import { RelayClient } from "@lemon/relay";
 import { createPublicClient, createWalletClient, http, type PublicClient } from "viem";
 import { advisorFromEnv } from "./advisor";
 import { createRelayBridge } from "./bridge";
-import { resolveAgentChain } from "./chain";
+import { AGENT_CHAIN, agentRpcUrl, resolveAgentChain } from "./chain";
 import { createCooldown } from "./cooldown";
 import { DEFAULT_REBALANCE_DRIFT_BPS } from "./policy";
 import { createSolanaExecutor, type SolanaExecutor } from "./solana";
@@ -51,10 +59,28 @@ const INDEXER_URL = process.env.INDEXER_URL ?? "http://localhost:42069";
  */
 const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
 
-const kyber = new KyberAggregatorClient({
-	baseUrl: process.env.KYBER_BASE_URL,
-	clientId: process.env.KYBER_CLIENT_ID ?? "lemon-agent",
-});
+/**
+ * The spot aggregator for this agent's chain.
+ *
+ * KyberSwap covers Base and Arbitrum; X Layer has no KyberSwap deployment at
+ * all and goes to LI.FI. Which one is not a decision the trading code makes —
+ * it is a fact about the chain, resolved once at boot, and
+ * `KyberAggregatorClient` throws rather than accepting a chain it cannot route.
+ * An agent that got this wrong would not fail cleanly: it would quote against
+ * pools that do not exist and read a live market as unroutable.
+ */
+const kyber: SpotAggregator = kyberCovers(AGENT_CHAIN.id)
+	? new KyberAggregatorClient({
+			chainId: AGENT_CHAIN.id,
+			baseUrl: process.env.KYBER_BASE_URL,
+			clientId: process.env.KYBER_CLIENT_ID ?? "lemon-agent",
+		})
+	: new LifiAggregatorClient({
+			chainId: AGENT_CHAIN.id,
+			baseUrl: process.env.LIFI_BASE_URL,
+			integrator: process.env.LIFI_INTEGRATOR ?? "lemon-agent",
+			apiKey: process.env.LIFI_API_KEY,
+		});
 
 const pacifica = new PacificaClient({
 	baseUrl: process.env.PACIFICA_API_URL?.trim() || PACIFICA_MAINNET,
@@ -130,10 +156,10 @@ async function recordRun(vaultAddress: string, result: TickResult): Promise<void
  * Conditional on the column still being null so the recorded time is when the
  * position *became* flat rather than the most recent tick that noticed.
  */
-async function recordCloseSatisfied(vaultAddress: string): Promise<void> {
+async function recordCloseSatisfied(vaultAddress: string, chainId: number): Promise<void> {
 	try {
 		const { count } = await prisma.vaultConfig.updateMany({
-			where: { address: vaultAddress.toLowerCase(), closeCompletedAt: null },
+			where: { chainId, address: vaultAddress.toLowerCase(), closeCompletedAt: null },
 			data: { closeCompletedAt: new Date() },
 		});
 		if (count > 0) {
@@ -146,6 +172,14 @@ async function recordCloseSatisfied(vaultAddress: string): Promise<void> {
 
 interface IndexedVault {
 	address: `0x${string}`;
+	/**
+	 * The chain this vault custodies on.
+	 *
+	 * Optional because an older API serves rows without it, and those rows are
+	 * Base vaults — which is what `AGENT_CHAIN_ID` defaults to, so the pairing is
+	 * correct rather than merely permissive.
+	 */
+	chainId?: number;
 	ticker: string | null;
 	symbol: string;
 	riskTier: number;
@@ -277,7 +311,7 @@ async function main() {
 	);
 
 	const chain = resolveAgentChain();
-	const transport = http(process.env.BASE_RPC_URL ?? "https://mainnet.base.org");
+	const transport = http(agentRpcUrl());
 	const publicClient = createPublicClient({ chain, transport });
 	const advisor = advisorFromEnv();
 
@@ -341,6 +375,24 @@ async function main() {
 	 * through however many bridge minutes happened in between.
 	 */
 	async function runVault(indexed: IndexedVault): Promise<string> {
+		/**
+		 * A vault on another chain is not this process's work.
+		 *
+		 * One agent process serves one chain, because everything below this line
+		 * is bound to one: the wallet client signs with this chain's id, the USDC
+		 * address is this chain's, and the bridge quotes from it as the origin.
+		 * Running a vault from elsewhere would not fail cleanly — the reads would
+		 * return zeros from an address that holds nothing here, the agent would
+		 * conclude the vault is empty, and a NAV of zero is a report that wipes
+		 * out every holder's share price.
+		 *
+		 * Skipping is silent at info level rather than a warning: with a process
+		 * per chain, most vaults in the list belong to somebody else by design,
+		 * and warning on each would bury the lines that matter.
+		 */
+		const vaultChainId = indexed.chainId ?? DEFAULT_CHAIN_ID;
+		if (vaultChainId !== AGENT_CHAIN.id) return "OTHER_CHAIN";
+
 		if (indexed.agentEnabled === false) {
 			log("info", `${indexed.address}: agent disabled by an operator; skipping.`);
 			return "DISABLED";
@@ -422,7 +474,7 @@ async function main() {
 				await recordRun(indexed.address, result);
 			}
 
-			if (result.closeSatisfied) await recordCloseSatisfied(indexed.address);
+			if (result.closeSatisfied) await recordCloseSatisfied(indexed.address, AGENT_CHAIN.id);
 
 			const summary = `${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`;
 			span.end(summary);
@@ -475,13 +527,13 @@ async function resolveVenue(params: {
 } | null> {
 	const { indexed, vault, wallet, walletClient, publicClient, solana, log } = params;
 
-	const record = await prisma.vaultConfig
-		.findUnique({ where: { address: indexed.address.toLowerCase() } })
-		.catch(() => null);
+	const ref = vaultRef(AGENT_CHAIN.id, indexed.address);
+
+	const record = await prisma.vaultConfig.findUnique({ where: vaultWhere(ref) }).catch(() => null);
 
 	if (!record) return null;
 
-	const markets = await vaultMarkets(indexed.address).catch((error) => {
+	const markets = await vaultMarkets(ref).catch((error) => {
 		log("warn", "Could not read the market list.", error);
 		return [] as VaultMarketConfig[];
 	});
@@ -502,9 +554,41 @@ async function resolveVenue(params: {
 		log,
 	});
 
+	/**
+	 * Refuse a market whose spot token is not on this chain.
+	 *
+	 * The hole this closes is narrow and expensive. `VaultConfig` records a spot
+	 * token address chosen when the vault was configured, and nothing about that
+	 * row proves the address belongs to the vault's chain — a vault created
+	 * outside the admin console and backfilled by `seed-venue-config.ts` would,
+	 * before the seeder was chain-scoped, have been given whichever chain's token
+	 * matched the ticker first.
+	 *
+	 * Left unchecked the agent would approve and swap against an address that
+	 * holds no contract here, or worse holds a different one. Checked against the
+	 * curated registry, the market is skipped and named. Skipping rather than
+	 * refusing the whole vault is deliberate: one mislabelled market must not
+	 * stop the others being valued, and a vault whose every market is skipped
+	 * falls through to the existing "no markets, nothing to trade" path.
+	 */
+	const onThisChain = markets.filter((market) => {
+		const known = findTokenByAddress(market.spotTokenAddress, AGENT_CHAIN.id);
+		if (known) return true;
+		log(
+			"error",
+			`${market.ticker}: spot token ${market.spotTokenAddress} is not a curated ${AGENT_CHAIN.name} token, so it will not be traded. The vault's venue configuration names a token from another chain.`,
+		);
+		return false;
+	});
+
+	if (onThisChain.length === 0) {
+		log("warn", "No market has a spot token on this chain, so there is nothing to trade.");
+		return null;
+	}
+
 	const venue = createVenueAdapter({
 		config: {
-			markets: markets.map((market) => ({
+			markets: onThisChain.map((market) => ({
 				ticker: market.ticker,
 				symbol: market.spotTokenSymbol,
 				spotToken: market.spotTokenAddress as `0x${string}`,
@@ -512,7 +596,7 @@ async function resolveVenue(params: {
 				perpSymbol: market.perpSymbol,
 				targetWeightBps: market.targetWeightBps,
 			})),
-			usdc: USDC_ADDRESS,
+			usdc: AGENT_CHAIN.usdc,
 			solanaAddress: wallet.solanaAddress,
 			agentAddress: indexed.agentWallet,
 			slippagePercent: record.slippagePercent,

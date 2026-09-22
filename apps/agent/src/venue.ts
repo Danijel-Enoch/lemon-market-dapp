@@ -1,6 +1,5 @@
 import { BPS } from "@lemon/contracts";
-import { adlRisk, formatDuration, type LogLevel } from "@lemon/core";
-import type { KyberAggregatorClient } from "@lemon/kyber";
+import { adlRisk, formatDuration, type LogLevel, type SpotAggregator } from "@lemon/core";
 import {
 	isAccountNotFound,
 	type PacificaAccountInfo,
@@ -91,7 +90,18 @@ export interface VenueDeps {
 	config: VenueConfig;
 	publicClient: PublicClient;
 	walletClient: WalletClient;
-	kyber: KyberAggregatorClient;
+	/**
+	 * The spot aggregator for this vault's chain.
+	 *
+	 * The interface, not KyberSwap's client. The execution path below is
+	 * identical whichever venue answers — quote, encode, approve the router it
+	 * names, send — and the two differ only in details the adapter hides: LI.FI
+	 * returns calldata with the quote and may route through a second stablecoin
+	 * to reach X Layer's pools, KyberSwap encodes in a second call. Typing this
+	 * as one of them would make the other a special case in the one function
+	 * that moves depositor capital.
+	 */
+	kyber: SpotAggregator;
 	pacifica: PacificaClient;
 	/** Pacifica's canonical-payload signer, bound to this agent's derivation path. */
 	signPacifica: (message: string) => Promise<string>;
@@ -749,6 +759,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				tokenOut: market.spotToken,
 				amountIn: spend.toString(),
 				slippagePercent: config.slippagePercent,
+				// Named at quote time, not only at build time. LI.FI prices and
+				// encodes for a specific sender, so quoting anonymously and building
+				// for the agent can return a different route than the one whose
+				// output sized the short — and the short is placed off the quote.
+				sender: config.agentAddress,
 			});
 			if (!route.ok) {
 				throw new VenueExecutionError(
@@ -832,9 +847,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
 					account: deps.walletClient.account as any,
 					chain: null,
-					to: built.routerAddress as Address,
+					to: built.to as Address,
 					data: built.data as Hex,
-					value: 0n,
+					value: BigInt(built.value),
 				});
 				await confirmed(publicClient, swapTx, `The ${market.symbol} spot buy`);
 			} catch (error) {
@@ -1495,6 +1510,8 @@ async function closeLeg(
 		tokenOut: config.usdc,
 		amountIn: sellUnits.toString(),
 		slippagePercent: config.slippagePercent,
+		// As on the buy side: LI.FI encodes for the sender it quoted.
+		sender: config.agentAddress,
 	});
 	if (!route.ok) {
 		throw new VenueExecutionError(
@@ -1523,9 +1540,9 @@ async function closeLeg(
 			// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
 			account: deps.walletClient.account as any,
 			chain: null,
-			to: built.routerAddress as Address,
+			to: built.to as Address,
 			data: built.data as Hex,
-			value: 0n,
+			value: BigInt(built.value),
 		});
 		await confirmed(publicClient, sellTx, `The ${market.symbol} spot sell`);
 	} catch (error) {

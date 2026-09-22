@@ -15,6 +15,7 @@
 		"@lemon/core": "workspace:*",
 		"@lemon/db": "workspace:*",
 		"@lemon/kyber": "workspace:*",
+		"@lemon/lifi": "workspace:*",
 		"@lemon/near-mpc": "workspace:*",
 		"@lemon/pacifica": "workspace:*",
 		"@lemon/registry": "workspace:*",
