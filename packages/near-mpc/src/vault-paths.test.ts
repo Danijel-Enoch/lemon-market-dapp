@@ -31,18 +31,62 @@ describe("vault agent derivation paths", () => {
 	});
 
 	it("gives the two tiers of one market different agents", () => {
-		expect(agentDerivationPath("NVDA", "conservative")).not.toBe(
-			agentDerivationPath("NVDA", "leveraged"),
+		expect(agentDerivationPath("NVDA", "conservative", "base")).not.toBe(
+			agentDerivationPath("NVDA", "leveraged", "base"),
 		);
 	});
 
 	it("normalises the market id", () => {
-		expect(agentDerivationPath("NVDA", "leveraged")).toBe("lemon-vault-v1/leveraged/nvda");
+		expect(agentDerivationPath("NVDA", "leveraged", "base")).toBe("lemon-vault-v1/leveraged/nvda");
 	});
 
 	it("rejects a market id that would break the path shape", () => {
-		expect(() => agentDerivationPath("NV/DA", "leveraged")).toThrow();
-		expect(() => agentDerivationPath("", "leveraged")).toThrow();
+		expect(() => agentDerivationPath("NV/DA", "leveraged", "base")).toThrow();
+		expect(() => agentDerivationPath("", "leveraged", "base")).toThrow();
+	});
+
+	/**
+	 * The reason the chain segment exists. Same market, same tier, different
+	 * chain: before this, all three of these were one path and therefore one key
+	 * signing for three separate books.
+	 */
+	it("gives one market and tier a different agent on every chain", () => {
+		const paths = ["base", "arbitrum", "xlayer"].map((chain) =>
+			agentDerivationPath("NVDA", "conservative", chain),
+		);
+		expect(new Set(paths).size).toBe(3);
+	});
+
+	it("leaves Base's existing paths byte-for-byte unchanged", () => {
+		// These wallets already hold positions. A new segment here is a migration,
+		// not a rename.
+		expect(agentDerivationPath("NVDA", "conservative", "base")).toBe(
+			"lemon-vault-v1/conservative/nvda",
+		);
+		expect(agentDerivationPath("AAPL", "leveraged", "BASE")).toBe("lemon-vault-v1/leveraged/aapl");
+	});
+
+	it("segments every other chain", () => {
+		expect(agentDerivationPath("NVDA", "conservative", "arbitrum")).toBe(
+			"lemon-vault-v1/arbitrum/conservative/nvda",
+		);
+		expect(agentDerivationPath("NVDA", "conservative", "xlayer")).toBe(
+			"lemon-vault-v1/xlayer/conservative/nvda",
+		);
+	});
+
+	/**
+	 * What makes the grandfather clause safe: a legacy path's second segment is
+	 * always a tier, so no chain-segmented path can ever spell one.
+	 */
+	it("refuses a chain key that would collide with the legacy shape", () => {
+		expect(() => agentDerivationPath("NVDA", "conservative", "leveraged")).toThrow();
+		expect(() => agentDerivationPath("NVDA", "leveraged", "conservative")).toThrow();
+	});
+
+	it("rejects a chain key that would break the path shape", () => {
+		expect(() => agentDerivationPath("NVDA", "leveraged", "arb/one")).toThrow();
+		expect(() => agentDerivationPath("NVDA", "leveraged", "")).toThrow();
 	});
 });
 
