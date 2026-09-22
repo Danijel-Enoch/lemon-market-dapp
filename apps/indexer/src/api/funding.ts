@@ -1,5 +1,14 @@
-/** Seconds in a day. The bucket width, and the only unit in here. */
+/** Seconds in a day. The default bucket width. */
 export const DAY = 86_400;
+
+/**
+ * Seconds in an hour, and the finest bucket worth offering.
+ *
+ * Pacifica settles funding on the hour, so an hour is the atom this data comes
+ * in — bucketing finer would draw twenty-three empty columns between every
+ * payment and invite a reader to conclude the vault had stopped earning.
+ */
+export const HOUR = 3_600;
 
 /** The columns of an `activity` row this needs. */
 export interface FundingRow {
@@ -10,7 +19,15 @@ export interface FundingRow {
 }
 
 export interface FundingBucket {
-	/** Unix seconds at UTC midnight — the bucket, not a settlement time. */
+	/**
+	 * Unix seconds at the start of the bucket — not a settlement time.
+	 *
+	 * `day` is the same number under its original name, kept because a browser
+	 * bundle from before hourly buckets existed reads it, and a deployment runs
+	 * a new API against an old bundle for the length of a rollout.
+	 */
+	start: number;
+	/** @deprecated Read `start`. Identical value; retained for older bundles. */
 	day: number;
 	amount: bigint;
 	settlements: number;
@@ -52,34 +69,36 @@ export function bucketFunding(
 	rows: FundingRow[],
 	since: number,
 	todayStart: number,
+	width: number = DAY,
 ): FundingWindow {
-	const byDay = new Map<number, { amount: bigint; settlements: number }>();
+	const byBucket = new Map<number, { amount: bigint; settlements: number }>();
 
 	for (const row of rows) {
-		const day = Math.floor(row.occurredAt / DAY) * DAY;
-		const bucket = byDay.get(day) ?? { amount: 0n, settlements: 0 };
+		const start = Math.floor(row.occurredAt / width) * width;
+		const bucket = byBucket.get(start) ?? { amount: 0n, settlements: 0 };
 		bucket.amount += row.pnlAssets;
 		bucket.settlements += 1;
-		byDay.set(day, bucket);
+		byBucket.set(start, bucket);
 	}
 
 	let cumulative = 0n;
 	let settlements = 0;
 	const points: FundingBucket[] = [];
 
-	for (let day = since; day <= todayStart; day += DAY) {
-		const bucket = byDay.get(day);
+	for (let start = since; start <= todayStart; start += width) {
+		const bucket = byBucket.get(start);
 		cumulative += bucket?.amount ?? 0n;
 		settlements += bucket?.settlements ?? 0;
 		points.push({
-			day,
+			start,
+			day: start,
 			amount: bucket?.amount ?? 0n,
 			settlements: bucket?.settlements ?? 0,
 			cumulative,
 		});
 	}
 
-	const today = byDay.get(todayStart);
+	const today = byBucket.get(todayStart);
 
 	return {
 		points,

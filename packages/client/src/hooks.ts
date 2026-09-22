@@ -56,12 +56,18 @@ export function useNavSeries(address: string | undefined, days = 30) {
  * a five-minute cache would show a stale "today" for most of the hour it changed
  * in. The historical days behind it do not move at all.
  */
-export function useFundingSeries(address: string | undefined, days = 30) {
+export function useFundingSeries(
+	address: string | undefined,
+	window: { days?: number; hours?: number } = { days: 30 },
+) {
 	return useQuery({
-		queryKey: ["funding", address, days],
-		queryFn: () => vaultApi.funding(address as string, days),
+		queryKey: ["funding", address, window.hours ?? null, window.days ?? null],
+		queryFn: () => vaultApi.funding(address as string, window),
 		enabled: Boolean(address),
-		staleTime: 60_000,
+		// Shorter on an hourly view: the newest bucket is the hour being paid
+		// into, and on an eight-hour chart that bucket is an eighth of what the
+		// reader is looking at rather than a thirtieth.
+		staleTime: window.hours ? 30_000 : 60_000,
 	});
 }
 

@@ -261,7 +261,9 @@ export interface NavPoint {
 
 /** One UTC day's funding. Every day in the window is present, paid or not. */
 export interface FundingPoint {
-	/** Unix seconds at UTC midnight — the bucket, not a settlement time. */
+	/** Unix seconds at the start of the bucket — not a settlement time. */
+	start: number;
+	/** @deprecated Read `start`. Identical value, kept for older bundles. */
 	day: number;
 	/** Funding paid that day, signed USDC. Zero on a day with no settlements. */
 	amount: string;
@@ -494,8 +496,17 @@ export const vaultApi = {
 	nav: (address: string, days = 30) =>
 		request<{ points: NavPoint[] }>(`/vaults/${address}/nav`, { query: { days } }),
 
-	funding: (address: string, days = 30) =>
-		request<FundingSeries>(`/vaults/${address}/funding`, { query: { days } }),
+	/**
+	 * Funding paid, bucketed by day or — with `hours` — by hour.
+	 *
+	 * The venue settles hourly, so hours is the finer of the two real views and
+	 * days is the summary. Passing `hours` picks both the window and the bucket;
+	 * see the indexer route for why they are not separate knobs.
+	 */
+	funding: (address: string, window: { days?: number; hours?: number } = {}) =>
+		request<FundingSeries>(`/vaults/${address}/funding`, {
+			query: window.hours ? { hours: window.hours } : { days: window.days ?? 30 },
+		}),
 
 	activity: (
 		address: string,

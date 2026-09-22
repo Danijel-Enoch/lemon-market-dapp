@@ -764,8 +764,16 @@ export async function getNavSeries(address: string, days: number) {
  * own, which is the part the vault exists to collect and the only part that
  * arrives as a payment rather than as a revaluation.
  */
-export async function getFundingSeries(address: string, days: number) {
-	return fromIndexer(`/vaults/${address}/funding?days=${days}`);
+/**
+ * Funding paid, bucketed.
+ *
+ * `hours` wins when given, and draws hourly buckets; otherwise the window is
+ * days and the buckets are days. See the indexer route for why the two are not
+ * independent knobs.
+ */
+export async function getFundingSeries(address: string, window: { days?: number; hours?: number }) {
+	const query = window.hours ? `hours=${window.hours}` : `days=${window.days ?? 30}`;
+	return fromIndexer(`/vaults/${address}/funding?${query}`);
 }
 
 export async function getTransfers(address: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { bucketFunding, DAY, type FundingRow } from "./funding";
+import { bucketFunding, DAY, type FundingRow, HOUR } from "./funding";
 
 /**
  * The chart is only as honest as this bucketing.
@@ -111,10 +111,42 @@ describe("bucketFunding", () => {
 		expect(window.windowTotal).toBe(300n);
 	});
 
+	it("buckets by the hour when asked, because that is how the venue settles", () => {
+		// Two payments an hour apart must not collapse into one column: an hourly
+		// chart exists precisely to show that they were separate.
+		const window = bucketFunding(
+			[
+				{ occurredAt: TODAY + HOUR + 60, pnlAssets: 100n },
+				{ occurredAt: TODAY + 2 * HOUR + 60, pnlAssets: 200n },
+			],
+			TODAY,
+			TODAY + 2 * HOUR,
+			HOUR,
+		);
+
+		expect(window.points.map((p) => p.amount)).toEqual([0n, 100n, 200n]);
+		expect(window.points.map((p) => p.start)).toEqual([TODAY, TODAY + HOUR, TODAY + 2 * HOUR]);
+		expect(window.windowTotal).toBe(300n);
+	});
+
+	it("keeps an hour with no payment, so an outage reads as a gap", () => {
+		const window = bucketFunding(
+			[{ occurredAt: TODAY + 2 * HOUR + 60, pnlAssets: 500n }],
+			TODAY,
+			TODAY + 2 * HOUR,
+			HOUR,
+		);
+
+		expect(window.points).toHaveLength(3);
+		expect(window.points.map((p) => p.amount)).toEqual([0n, 0n, 500n]);
+	});
+
 	it("returns a single empty day for a vault that has never been paid", () => {
 		const window = bucketFunding([], TODAY, TODAY);
 
-		expect(window.points).toEqual([{ day: TODAY, amount: 0n, settlements: 0, cumulative: 0n }]);
+		expect(window.points).toEqual([
+			{ start: TODAY, day: TODAY, amount: 0n, settlements: 0, cumulative: 0n },
+		]);
 		expect(window.windowTotal).toBe(0n);
 		expect(window.settlements).toBe(0);
 	});
