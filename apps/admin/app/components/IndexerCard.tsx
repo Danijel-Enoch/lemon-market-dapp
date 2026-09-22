@@ -1,4 +1,4 @@
-import type { IndexerHealth } from "@lemon/client";
+import type { IndexerChainHealth, IndexerHealth } from "@lemon/client";
 import { cn } from "@lemon/ui";
 import { AlertTriangle, CheckCircle2, Loader2, XCircle } from "lucide-react";
 
@@ -57,37 +57,66 @@ export function IndexerCard({ health }: { health: IndexerHealth | undefined }) {
 					    printed rather than left to be inferred from the state. */}
 					{health.remedy && <p className="mt-1 text-xs text-[var(--pon-fg-3)]">{health.remedy}</p>}
 
-					<dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
-						<Figure label="Indexed block" value={blockLabel(health.indexedBlock)} />
-						<Figure label="Chain head" value={blockLabel(health.headBlock)} />
-						<Figure
-							label="Behind"
-							value={
-								health.blocksBehind === null
-									? "—"
-									: `${health.blocksBehind.toLocaleString()} block${health.blocksBehind === 1 ? "" : "s"}`
-							}
-							// Zero blocks behind is the good case and should not be shouted
-							// about; anything else is worth the eye landing on it.
-							tone={health.blocksBehind && health.blocksBehind > 0 ? "attention" : "neutral"}
-						/>
-						<Figure
-							label="Vaults"
-							value={vaultsLabel(health.vaults)}
-							// Only a genuine shortfall is flagged. An unknown expected count
-							// means the chain could not be asked, which is not a mismatch.
-							tone={
-								health.vaults.indexed !== null &&
-								health.vaults.expected !== null &&
-								health.vaults.indexed < health.vaults.expected
-									? "attention"
-									: "neutral"
-							}
-						/>
-					</dl>
+					{/* Per chain, because they are indexed independently: one slow
+					    endpoint puts only its own chain behind, and the headline above
+					    is the worst of them rather than a description of any one. The
+					    aggregate figures are kept for a deployment that has configured
+					    no chain at all, where there is nothing to break down. */}
+					{health.chains.length > 0 ? (
+						<ul className="mt-3 space-y-2">
+							{health.chains.map((chain) => (
+								<ChainRow key={chain.chainId} chain={chain} />
+							))}
+						</ul>
+					) : (
+						<dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+							<Figure label="Indexed block" value={blockLabel(health.indexedBlock)} />
+							<Figure label="Chain head" value={blockLabel(health.headBlock)} />
+							<Figure
+								label="Behind"
+								value={behindLabel(health.blocksBehind)}
+								tone={health.blocksBehind && health.blocksBehind > 0 ? "attention" : "neutral"}
+							/>
+							<Figure
+								label="Vaults"
+								value={vaultsLabel(health.vaults)}
+								tone={vaultTone(health.vaults)}
+							/>
+						</dl>
+					)}
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * One chain's line.
+ *
+ * Named, because "the indexer is behind" is not actionable and "X Layer is 364
+ * blocks behind while Base is synced" is. The state label repeats per row for
+ * the same reason: the card's headline is the worst chain, so a row that is
+ * fine must say so rather than inherit the alarm above it.
+ */
+function ChainRow({ chain }: { chain: IndexerChainHealth }) {
+	const look = LOOKS[chain.state];
+	return (
+		<li className="rounded-[var(--pon-r-md,10px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] px-3 py-2">
+			<div className="flex flex-wrap items-baseline gap-x-2">
+				<span className="text-xs font-medium text-[var(--pon-fg-0)]">{chain.name}</span>
+				<span className={cn("text-[11px] font-medium", look.icons)}>{look.label}</span>
+			</div>
+			<dl className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+				<Figure label="Indexed block" value={blockLabel(chain.indexedBlock)} />
+				<Figure label="Chain head" value={blockLabel(chain.headBlock)} />
+				<Figure
+					label="Behind"
+					value={behindLabel(chain.blocksBehind)}
+					tone={chain.blocksBehind && chain.blocksBehind > 0 ? "attention" : "neutral"}
+				/>
+				<Figure label="Vaults" value={vaultsLabel(chain.vaults)} tone={vaultTone(chain.vaults)} />
+			</dl>
+		</li>
 	);
 }
 
@@ -118,6 +147,25 @@ function Figure({
 /** An em dash rather than a zero: "we could not ask" is not "the answer is nought". */
 function blockLabel(block: number | null): string {
 	return block === null ? "—" : block.toLocaleString();
+}
+
+/** Zero behind is the good case and should not be shouted about. */
+function behindLabel(blocks: number | null): string {
+	if (blocks === null) return "—";
+	return `${blocks.toLocaleString()} block${blocks === 1 ? "" : "s"}`;
+}
+
+/**
+ * Only a genuine shortfall is flagged.
+ *
+ * An unknown expected count means the chain could not be asked, which is not a
+ * mismatch — and rendering it as one is how a rate-limited RPC gets reported as
+ * a corrupted read model.
+ */
+function vaultTone(vaults: IndexerHealth["vaults"]): "neutral" | "attention" {
+	return vaults.indexed !== null && vaults.expected !== null && vaults.indexed < vaults.expected
+		? "attention"
+		: "neutral";
 }
 
 function vaultsLabel(vaults: IndexerHealth["vaults"]): string {
