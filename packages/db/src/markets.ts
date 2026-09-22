@@ -1,5 +1,6 @@
 import type { VaultConfig, VaultMarket } from "@prisma/client";
 import { prisma } from "./client";
+import { type VaultRef, vaultMarketWhere, vaultWhere } from "./vault-ref";
 
 /**
  * A vault's markets, from wherever they are recorded.
@@ -37,13 +38,14 @@ export const FULL_WEIGHT_BPS = 10_000;
  * when the vault has no `VaultConfig` at all, which is the existing "no venue
  * configuration" state the agent already refuses to trade.
  */
-export async function vaultMarkets(vaultAddress: string): Promise<VaultMarketConfig[]> {
-	const address = vaultAddress.toLowerCase();
+export async function vaultMarkets(ref: VaultRef): Promise<VaultMarketConfig[]> {
+	const address = ref.address.toLowerCase();
+	const scope = { chainId: ref.chainId, vaultAddress: address };
 
-	const existing = await prisma.vaultMarket.findMany({ where: { vaultAddress: address } });
+	const existing = await prisma.vaultMarket.findMany({ where: scope });
 	if (existing.length > 0) return existing.map(toConfig).sort(byPrecedence);
 
-	const config = await prisma.vaultConfig.findUnique({ where: { address } });
+	const config = await prisma.vaultConfig.findUnique({ where: vaultWhere({ ...ref, address }) });
 	if (!config) return [];
 
 	return [toConfig(await seedFoundingMarket(config))];
@@ -67,14 +69,19 @@ export async function seedFoundingMarket(config: VaultConfig): Promise<VaultMark
 		seeded: true,
 	};
 
+	const ref: VaultRef = { chainId: config.chainId, address: config.address };
+
 	return prisma.vaultMarket.upsert({
-		where: {
-			vaultAddress_ticker: { vaultAddress: config.address, ticker: config.ticker },
-		},
+		where: vaultMarketWhere(ref, config.ticker),
 		// Deliberately empty. If a row is already there, it is the operator's, and
 		// this is a seeding path — it must never overwrite a weight somebody set.
 		update: {},
-		create: { vaultAddress: config.address, ticker: config.ticker, ...seed },
+		create: {
+			chainId: config.chainId,
+			vaultAddress: config.address,
+			ticker: config.ticker,
+			...seed,
+		},
 	});
 }
 

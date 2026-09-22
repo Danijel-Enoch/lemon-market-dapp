@@ -241,7 +241,21 @@ enum VaultAssetClass {
 /// no row here rather than resolving one itself.
 model VaultConfig {
   /// The deployed vault address, lowercased.
-  address String @id
+  ///
+  /// Not an id on its own any more, and the reason is not theoretical. A vault
+  /// address is `CREATE`-derived from the factory's address and nonce, and the
+  /// factories are themselves deployed from one deployer at matching nonces — so
+  /// the *same* address on two chains is the likely case, not the unlikely one.
+  /// Keyed by address alone, the second chain's first vault would either collide
+  /// on insert or, worse, silently update the first chain's row.
+  address String
+
+  /// Which chain this vault is deployed on. See `CHAIN_REGISTRY` in `@lemon/core`.
+  ///
+  /// Defaulted to Base so the migration that adds this column is a backfill
+  /// rather than a rewrite: every row that existed before there was a second
+  /// chain was, in fact, on Base. New rows always set it explicitly.
+  chainId Int @default(8453)
 
   /// Ticker the vault was created for, e.g. "NVDA". `keccak256` of this is the
   /// on-chain `marketId`, which is one-way — so this is the only place the
@@ -258,6 +272,14 @@ model VaultConfig {
   /// The NEAR derivation path this vault's agent wallet lives at. Recorded
   /// rather than recomputed so a change to the derivation scheme is visible as
   /// a mismatch instead of silently repointing an agent at empty wallets.
+  ///
+  /// Globally unique, not unique-per-chain, and that is deliberate. The
+  /// derivation path already carries the chain (see `agentDerivationPath`), so
+  /// two chains produce two different paths and two different wallets. Leaving
+  /// the constraint global means that if a path ever *did* repeat across chains,
+  /// the insert fails loudly here instead of quietly pointing two vaults' books
+  /// at one signing key — which is the failure this constraint exists to catch,
+  /// and scoping it per-chain would switch it off exactly when it fires.
   agentPath       String @unique
   agentEvmAddress String @unique
   agentSolanaAddress String @unique
@@ -341,7 +363,9 @@ model VaultConfig {
   runs    AgentRun[]
   markets VaultMarket[]
 
+  @@id([chainId, address])
   @@index([ticker])
+  @@index([chainId])
 }
 
 /// One market a vault runs a basis position in.
@@ -364,14 +388,18 @@ model VaultConfig {
 model VaultMarket {
   id String @id @default(cuid())
 
-  /// The vault this market belongs to, lowercased.
+  /// The vault this market belongs to, lowercased, and the chain it is on.
   vaultAddress String
-  vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
+  chainId      Int         @default(8453)
+  vault        VaultConfig @relation(fields: [chainId, vaultAddress], references: [chainId, address], onDelete: Cascade)
 
   /// The market's ticker, e.g. "NVDA". Unique within the vault.
   ticker String
 
-  /// The Base ERC-20 that is this market's spot leg, and its decimals.
+  /// The ERC-20 that is this market's spot leg, and its decimals.
+  ///
+  /// On the chain the *spot leg* trades on, which is not necessarily the chain
+  /// the vault custodies on — see the note on cross-chain spot in the agent.
   spotTokenAddress  String
   spotTokenDecimals Int
   spotTokenSymbol   String
@@ -407,8 +435,8 @@ model VaultMarket {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([vaultAddress, ticker])
-  @@index([vaultAddress, enabled])
+  @@unique([chainId, vaultAddress, ticker])
+  @@index([chainId, vaultAddress, enabled])
 }
 
 /// One leg of a cross-chain USDC move, while it is in the air.
@@ -426,10 +454,16 @@ model VaultMarket {
 model BridgeTransfer {
   id String @id @default(cuid())
 
-  /// The vault whose capital this is, lowercased.
+  /// The vault whose capital this is, lowercased, and the chain it custodies on.
   vaultAddress String
+  chainId      Int @default(8453)
 
   /// TO_SOLANA (margin out) or TO_BASE (margin home).
+  ///
+  /// TO_BASE is a historical name that now means "home to the vault's custody
+  /// chain", whichever that is. Left as-is rather than renamed: the string is
+  /// persisted in every existing row, and a rename is a data migration whose
+  /// only benefit is the name.
   direction String
 
   /// Relay's identifier for the intent, which is what its status endpoint takes.
@@ -456,7 +490,7 @@ model BridgeTransfer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([vaultAddress, status])
+  @@index([chainId, vaultAddress, status])
 }
 
 /// One tick of one agent, kept for review.
@@ -469,7 +503,8 @@ model AgentRun {
   id String @id @default(cuid())
 
   vaultAddress String
-  vault        VaultConfig @relation(fields: [vaultAddress], references: [address], onDelete: Cascade)
+  chainId      Int         @default(8453)
+  vault        VaultConfig @relation(fields: [chainId, vaultAddress], references: [chainId, address], onDelete: Cascade)
 
   /// DEPLOY, UNWIND, REBALANCE, TOP_UP_MARGIN, CLOSE_ALL, HOLD or NONE.
   action String
@@ -494,7 +529,7 @@ model AgentRun {
 
   createdAt DateTime @default(now())
 
-  @@index([vaultAddress, createdAt])
+  @@index([chainId, vaultAddress, createdAt])
   @@index([createdAt])
 }
 
@@ -505,10 +540,11 @@ model AgentRun {
 /// from Base events — they come from Solana RPC and from block explorers. Storing
 /// them there would silently discard the entire audit history on any reindex.
 model ActivityVerification {
-  /// `<vault>-<sequence>`, matching the indexer's activity id.
+  /// `<chainId>-<vault>-<sequence>`, matching the indexer's activity id.
   id String @id
 
   vaultAddress String
+  chainId      Int @default(8453)
   sequence     Int
 
   /// Null while unchecked. False is a much stronger statement than silence: it
@@ -526,7 +562,7 @@ model ActivityVerification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([vaultAddress, sequence])
+  @@index([chainId, vaultAddress, sequence])
   @@index([verified])
 }
 
