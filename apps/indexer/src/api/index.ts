@@ -1,6 +1,7 @@
 import { db } from "ponder:api";
 import schema from "ponder:schema";
 import { ACTIVITY_KINDS } from "@lemon/contracts";
+import { isSupportedChainId } from "@lemon/core";
 import { Hono } from "hono";
 import { and, asc, client, desc, eq, graphql, gte, inArray, sql } from "ponder";
 import { bucketFunding, DAY } from "./funding";
@@ -35,6 +36,56 @@ function asAddress(raw: string | undefined): `0x${string}` | null {
 	return /^0x[0-9a-f]{40}$/.test(lower) ? (lower as `0x${string}`) : null;
 }
 
+/**
+ * Narrow a query parameter to a chain id this build indexes.
+ *
+ * Returns `undefined` for an absent parameter and `null` for a present but
+ * unusable one, because those are different answers: absent means "every chain",
+ * and unusable means the caller asked for something specific that does not
+ * exist, which is a 400 rather than a silent widening to everything.
+ */
+function asChainId(raw: string | undefined): number | null | undefined {
+	if (raw === undefined || raw === "") return undefined;
+	const id = Number(raw);
+	return isSupportedChainId(id) ? id : null;
+}
+
+/**
+ * Which chain a vault address refers to.
+ *
+ * The address-keyed routes predate there being more than one chain, and their
+ * URLs are in links people have saved, so the chain is a query parameter rather
+ * than a new path segment. When it is omitted this looks the address up: one
+ * match is unambiguous and is used, and more than one is a 400 asking for the
+ * chain.
+ *
+ * Resolving rather than defaulting to Base is the point. Vault addresses are
+ * `CREATE`-derived from factories deployed at matching nonces, so the same
+ * address existing on two chains is the likely case — and a default would serve
+ * one chain's NAV history under the other chain's URL, which is wrong in a way
+ * no one would notice, because both are plausible vaults with plausible numbers.
+ */
+async function resolveChain(
+	address: `0x${string}`,
+	requested: number | undefined,
+): Promise<{ chainId: number } | { error: string; status: 400 | 404 }> {
+	if (requested !== undefined) return { chainId: requested };
+
+	const matches = await db
+		.select({ chainId: schema.vault.chainId })
+		.from(schema.vault)
+		.where(eq(schema.vault.address, address));
+
+	if (matches.length === 0) return { error: "Unknown vault", status: 404 };
+	if (matches.length === 1) return { chainId: matches[0].chainId };
+
+	const ids = matches.map((m) => m.chainId).join(", ");
+	return {
+		error: `That address is a vault on more than one chain (${ids}). Add ?chainId= to say which.`,
+		status: 400,
+	};
+}
+
 /** `bigint` does not survive `JSON.stringify`, and a silent throw here reads as a 500. */
 function serialise<T>(value: T): T {
 	return JSON.parse(JSON.stringify(value, (_key, v) => (typeof v === "bigint" ? v.toString() : v)));
@@ -67,6 +118,7 @@ const MAX_PLAUSIBLE_APY = 1000;
  * where none exists.
  */
 async function realisedApy(
+	chainId: number,
 	vaultAddress: `0x${string}`,
 	windowSeconds: number,
 ): Promise<{ apy: number | null; from: number; to: number; samples: number } | null> {
@@ -78,7 +130,13 @@ async function realisedApy(
 			pricePerShare: schema.navPoint.pricePerShare,
 		})
 		.from(schema.navPoint)
-		.where(and(eq(schema.navPoint.vault, vaultAddress), gte(schema.navPoint.timestamp, since)))
+		.where(
+			and(
+				eq(schema.navPoint.chainId, chainId),
+				eq(schema.navPoint.vault, vaultAddress),
+				gte(schema.navPoint.timestamp, since),
+			),
+		)
 		.orderBy(asc(schema.navPoint.timestamp));
 
 	if (points.length < 2) return { apy: null, from: since, to: since, samples: points.length };
@@ -121,13 +179,22 @@ async function realisedApy(
 // ---------------------------------------------------------------------------
 
 app.get("/vaults", async (c) => {
-	const rows = await db.select().from(schema.vault).orderBy(desc(schema.vault.totalAssets));
+	// Optional, and every chain when absent. A vault list that silently showed
+	// one chain's vaults would read as "these are all the vaults".
+	const chainId = asChainId(c.req.query("chainId"));
+	if (chainId === null) return c.json({ error: "Unknown chain" }, 400);
+
+	const rows = await db
+		.select()
+		.from(schema.vault)
+		.where(chainId === undefined ? undefined : eq(schema.vault.chainId, chainId))
+		.orderBy(desc(schema.vault.totalAssets));
 
 	const withYield = await Promise.all(
 		rows.map(async (v) => ({
 			...v,
-			apy7d: await realisedApy(v.address, 7 * DAY),
-			apy30d: await realisedApy(v.address, 30 * DAY),
+			apy7d: await realisedApy(v.chainId, v.address, 7 * DAY),
+			apy30d: await realisedApy(v.chainId, v.address, 30 * DAY),
 		})),
 	);
 
@@ -137,13 +204,19 @@ app.get("/vaults", async (c) => {
 app.get("/vaults/:address", async (c) => {
 	const address = asAddress(c.req.param("address"));
 	if (!address) return c.json({ error: "Not an address" }, 400);
-	const [v] = await db.select().from(schema.vault).where(eq(schema.vault.address, address));
+	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
+	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
+
+	const [v] = await db
+		.select()
+		.from(schema.vault)
+		.where(and(eq(schema.vault.chainId, scope.chainId), eq(schema.vault.address, address)));
 	if (!v) return c.json({ error: "No vault at that address" }, 404);
 
 	const [apy7d, apy30d, apyAll] = await Promise.all([
-		realisedApy(address, 7 * DAY),
-		realisedApy(address, 30 * DAY),
-		realisedApy(address, 365 * DAY),
+		realisedApy(scope.chainId, address, 7 * DAY),
+		realisedApy(scope.chainId, address, 30 * DAY),
+		realisedApy(scope.chainId, address, 365 * DAY),
 	]);
 
 	return c.json(serialise({ vault: v, apy7d, apy30d, apyAll }), 200, JSON_HEADERS);
@@ -153,13 +226,21 @@ app.get("/vaults/:address", async (c) => {
 app.get("/vaults/:address/nav", async (c) => {
 	const address = asAddress(c.req.param("address"));
 	if (!address) return c.json({ error: "Not an address" }, 400);
+	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
+	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
 	const days = Math.min(Number(c.req.query("days") ?? 30), 365);
 	const since = Math.floor(Date.now() / 1000) - days * DAY;
 
 	const points = await db
 		.select()
 		.from(schema.navPoint)
-		.where(and(eq(schema.navPoint.vault, address), gte(schema.navPoint.timestamp, since)))
+		.where(
+			and(
+				eq(schema.navPoint.chainId, scope.chainId),
+				eq(schema.navPoint.vault, address),
+				gte(schema.navPoint.timestamp, since),
+			),
+		)
 		.orderBy(asc(schema.navPoint.timestamp))
 		.limit(5000);
 
@@ -198,6 +279,8 @@ const FUNDING_SETTLED = ACTIVITY_KINDS.indexOf("FUNDING_SETTLED");
 app.get("/vaults/:address/funding", async (c) => {
 	const address = asAddress(c.req.param("address"));
 	if (!address) return c.json({ error: "Not an address" }, 400);
+	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
+	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
 	const days = Math.min(Math.max(Number(c.req.query("days") ?? 30), 1), 365);
 
 	const now = Math.floor(Date.now() / 1000);
@@ -209,6 +292,7 @@ app.get("/vaults/:address/funding", async (c) => {
 		.from(schema.activity)
 		.where(
 			and(
+				eq(schema.activity.chainId, scope.chainId),
 				eq(schema.activity.vault, address),
 				eq(schema.activity.kind, FUNDING_SETTLED),
 				gte(schema.activity.occurredAt, since),
@@ -234,12 +318,19 @@ app.get("/vaults/:address/funding", async (c) => {
 app.get("/vaults/:address/activity", async (c) => {
 	const address = asAddress(c.req.param("address"));
 	if (!address) return c.json({ error: "Not an address" }, 400);
+	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
+	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
 	const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
 	const before = c.req.query("before");
 	const kind = c.req.query("kind");
+	// `chain` here is the venue an action happened at — an index into the
+	// contract's `Chain` enum — and is not the same thing as `chainId`, which is
+	// the chain the vault itself lives on. A spot buy by an Arbitrum vault has
+	// chainId 42161 and venue chain ARBITRUM; the short it hedges with has
+	// chainId 42161 and venue chain SOLANA.
 	const chain = c.req.query("chain");
 
-	const filters = [eq(schema.activity.vault, address)];
+	const filters = [eq(schema.activity.chainId, scope.chainId), eq(schema.activity.vault, address)];
 	if (before) filters.push(sql`${schema.activity.sequence} < ${BigInt(before)}`);
 	if (kind !== undefined && kind !== "") filters.push(eq(schema.activity.kind, Number(kind)));
 	if (chain !== undefined && chain !== "") filters.push(eq(schema.activity.chain, Number(chain)));
@@ -258,9 +349,13 @@ app.get("/vaults/:address/activity", async (c) => {
 /** The same feed across every vault — the protocol-wide ledger. */
 app.get("/activity", async (c) => {
 	const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
+	const chainId = asChainId(c.req.query("chainId"));
+	if (chainId === null) return c.json({ error: "Unknown chain" }, 400);
+
 	const rows = await db
 		.select()
 		.from(schema.activity)
+		.where(chainId === undefined ? undefined : eq(schema.activity.chainId, chainId))
 		.orderBy(desc(schema.activity.reportedAt), desc(schema.activity.sequence))
 		.limit(limit);
 	return c.json(serialise({ activity: rows }), 200, JSON_HEADERS);
@@ -270,10 +365,14 @@ app.get("/activity", async (c) => {
 app.get("/vaults/:address/transfers", async (c) => {
 	const address = asAddress(c.req.param("address"));
 	if (!address) return c.json({ error: "Not an address" }, 400);
+	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
+	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
 	const rows = await db
 		.select()
 		.from(schema.agentTransfer)
-		.where(eq(schema.agentTransfer.vault, address))
+		.where(
+			and(eq(schema.agentTransfer.chainId, scope.chainId), eq(schema.agentTransfer.vault, address)),
+		)
 		.orderBy(desc(schema.agentTransfer.timestamp))
 		.limit(100);
 	return c.json(serialise({ transfers: rows }), 200, JSON_HEADERS);
@@ -299,6 +398,17 @@ app.get("/portfolio/:owner", async (c) => {
 			.limit(100),
 	]);
 
+	/**
+	 * Keyed by chain *and* address, not address alone.
+	 *
+	 * A portfolio spans chains by construction — it is one wallet's holdings
+	 * everywhere — so this is the one map in the app most likely to be handed the
+	 * same address twice. Keyed by address alone, a holder of the same-addressed
+	 * vault on two chains would see both positions valued at whichever vault's
+	 * price per share happened to load second.
+	 */
+	const key = (chainId: number, address: string) => `${chainId}:${address}`;
+
 	const addresses = new Set([...positions.map((p) => p.vault), ...requests.map((r) => r.vault)]);
 	const vaults = addresses.size
 		? await db
@@ -307,17 +417,17 @@ app.get("/portfolio/:owner", async (c) => {
 				.where(inArray(schema.vault.address, [...addresses]))
 		: [];
 
-	const byAddress = new Map(vaults.map((v) => [v.address, v]));
+	const byAddress = new Map(vaults.map((v) => [key(v.chainId, v.address), v]));
 
 	const holdings = positions
 		.filter((p) => p.shares > 0n)
 		.map((p) => {
-			const v = byAddress.get(p.vault);
+			const v = byAddress.get(key(p.chainId, p.vault));
 			// Value the shares here rather than storing it: the price moves on
 			// every NAV report, and a stored value would be stale the moment the
 			// agent reported anything.
 			const valueUsd = v ? (p.shares * v.pricePerShare) / 10n ** 18n : 0n;
-			return { ...p, vault: v ?? { address: p.vault }, valueUsd };
+			return { ...p, vault: v ?? { address: p.vault, chainId: p.chainId }, valueUsd };
 		});
 
 	return c.json(
@@ -346,9 +456,12 @@ app.get("/portfolio/:owner", async (c) => {
 app.get("/queue", async (c) => {
 	const now = Math.floor(Date.now() / 1000);
 	const vaultAddress = asAddress(c.req.query("vault"));
+	const chainId = asChainId(c.req.query("chainId"));
+	if (chainId === null) return c.json({ error: "Unknown chain" }, 400);
 
 	const filters = [sql`${schema.redeemRequest.pendingShares} > 0`];
 	if (vaultAddress) filters.push(eq(schema.redeemRequest.vault, vaultAddress));
+	if (chainId !== undefined) filters.push(eq(schema.redeemRequest.chainId, chainId));
 
 	const rows = await db
 		.select()
@@ -426,12 +539,16 @@ app.get("/stats", async (c) => {
 	const perVault = await Promise.all(
 		vaults.map(async (v) => ({
 			address: v.address,
+			// Carried into the stats payload so a per-vault row in the operator
+			// dashboard can link to the right explorer. Two rows with one address
+			// are otherwise indistinguishable.
+			chainId: v.chainId,
 			ticker: v.ticker,
 			riskTier: v.riskTier,
 			totalAssets: v.totalAssets,
 			pricePerShare: v.pricePerShare,
 			depositorCount: v.depositorCount,
-			apy30d: await realisedApy(v.address, 30 * DAY),
+			apy30d: await realisedApy(v.chainId, v.address, 30 * DAY),
 		})),
 	);
 

@@ -121,7 +121,7 @@ if (attempt.code !== 0 && attempt.staleSchema) {
 		process.exit(attempt.code);
 	}
 	console.warn(
-		`indexer: schema "${SCHEMA}" belongs to a different build of this app. Dropping it and reindexing from VAULT_FACTORY_START_BLOCK — the read model is derived, so nothing is lost but the time to replay it.`,
+		`indexer: schema "${SCHEMA}" belongs to a different build of this app. Dropping it and reindexing each chain from its VAULT_FACTORY_START_BLOCK_<CHAIN> — the read model is derived, so nothing is lost but the time to replay it.`,
 	);
 	await dropSchema(url);
 	attempt = await start();

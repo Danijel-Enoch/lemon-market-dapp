@@ -1,8 +1,8 @@
 import { lemonVaultAbi, vaultFactoryAbi } from "@lemon/contracts";
-import { BASE_CHAIN_ID } from "@lemon/core";
+import { allChains, type ChainInfo } from "@lemon/core";
 import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
-import { resolveBaseRpc } from "./src/rpc";
+import { resolveRpc } from "./src/rpc";
 
 /**
  * Note on the schema.
@@ -41,65 +41,157 @@ const vaultCreated = parseAbiItem(
 	"event VaultCreated(address indexed vault, bytes32 indexed marketId, address indexed agentWallet, string name, string symbol, uint8 tier, uint32 targetLeverageBps, uint32 maxLeverageBps)",
 );
 
-const FACTORY_ADDRESS = (process.env.VAULT_FACTORY_ADDRESS ??
-	"0x0000000000000000000000000000000000000000") as `0x${string}`;
+/**
+ * A chain is indexed iff it has a factory address configured.
+ *
+ * The same rule the browser uses, for the same reason: a chain with no factory
+ * has nothing to index, and configuring one implicitly — by listing chains
+ * somewhere separate from their addresses — produces a source pointed at the
+ * zero address that backfills the whole chain finding nothing. Deriving the set
+ * from the addresses makes that state unreachable.
+ *
+ * `VAULT_FACTORY_ADDRESS` without a suffix still means Base, so an `.env` from
+ * before this existed keeps working unchanged.
+ */
+interface ChainSource {
+	info: ChainInfo;
+	factoryAddress: `0x${string}`;
+	startBlock: number;
+}
+
+function sourceFor(info: ChainInfo): ChainSource | null {
+	const suffix = info.envSuffix;
+	const address =
+		process.env[`VAULT_FACTORY_ADDRESS_${suffix}`]?.trim() ||
+		(suffix === "BASE" ? process.env.VAULT_FACTORY_ADDRESS?.trim() : undefined);
+	if (!address) return null;
+
+	/**
+	 * The block the factory was deployed in.
+	 *
+	 * Indexing from genesis would be tens of millions of empty blocks and hours
+	 * of RPC. There is nothing to find before the factory existed — and on a
+	 * chain where this is left at 0, the backfill is long enough that it reads
+	 * as a hang rather than as a missing variable.
+	 */
+	const startBlock = Number(
+		process.env[`VAULT_FACTORY_START_BLOCK_${suffix}`] ??
+			(suffix === "BASE" ? process.env.VAULT_FACTORY_START_BLOCK : undefined) ??
+			0,
+	);
+
+	return { info, factoryAddress: address as `0x${string}`, startBlock };
+}
+
+const sources = allChains()
+	.map(sourceFor)
+	.filter((source): source is ChainSource => source !== null);
 
 /**
- * The block the factory was deployed in.
+ * Fall back to a disabled Base source rather than to nothing.
  *
- * Indexing from genesis on Base would be tens of millions of empty blocks and
- * hours of RPC. There is nothing to find before the factory existed.
+ * Ponder rejects a config with no chains at all, so an unconfigured checkout
+ * would fail at build time with an error about the config's shape rather than
+ * about the missing address. The zero address indexes nothing and costs nothing,
+ * and `indexer-health` already explains what is unset.
  */
-const START_BLOCK = Number(process.env.VAULT_FACTORY_START_BLOCK ?? 0);
+const effectiveSources: ChainSource[] =
+	sources.length > 0
+		? sources
+		: [
+				{
+					info: allChains()[0],
+					factoryAddress: "0x0000000000000000000000000000000000000000",
+					startBlock: 0,
+				},
+			];
 
-export default createConfig({
-	ordering: "omnichain",
-	database: process.env.DATABASE_URL
-		? { kind: "postgres", connectionString: process.env.DATABASE_URL }
-		: { kind: "pglite" },
-	chains: {
-		base: {
+const chains = Object.fromEntries(
+	effectiveSources.map(({ info }) => [
+		info.key,
+		{
 			/**
-			 * Base mainnet, pinned.
+			 * Pinned from the registry, never read from the environment.
 			 *
-			 * The vault contracts exist on one chain, so an id read from the
-			 * environment could only ever point this at a chain with no factory on
-			 * it — and the failure mode is an indexer that runs cleanly and serves
-			 * an empty app. Only the endpoint is configurable.
+			 * An id that could be configured could only ever point a source at a
+			 * chain with no factory on it — and the failure mode is an indexer that
+			 * runs cleanly and serves an empty app. Only the endpoint is
+			 * configurable, which is the part that is a genuine operational choice.
 			 */
-			id: BASE_CHAIN_ID,
+			id: info.id,
 			/**
-			 * Every endpoint we are allowed to use, not the first one that works.
+			 * Every endpoint we are allowed to use for this chain, not the first one
+			 * that works.
 			 *
 			 * Ponder rate-limits, ranks and fails over across this list itself — see
 			 * `src/rpc.ts` for what it does with more than one and why a single URL
 			 * is the configuration that stalls a backfill.
 			 */
-			rpc: resolveBaseRpc(process.env),
+			rpc: resolveRpc(info.envSuffix, process.env),
 			// `ethGetLogsBlockRange` is left unset on purpose. Ponder starts at 500
 			// blocks and halves the range whenever a provider complains — including
 			// on Base's "backend response too large" — then remembers the smaller
 			// number. Pinning a range turns that self-correction off and makes the
 			// same complaint fatal, which matters more now that the list above can
-			// mix providers whose limits differ.
+			// mix providers whose limits differ, and more again now that the chains
+			// themselves have different limits.
 		},
+	]),
+);
+
+/**
+ * Two contracts, each spanning every configured chain.
+ *
+ * Ponder's per-chain `chain: { base: {...}, arbitrum: {...} }` form rather than
+ * one differently-named contract per chain, and the difference is not stylistic.
+ * Handlers register against a contract *name*, so a name per chain would mean
+ * `ponder.on("VaultFactory_ARBITRUM:VaultCreated", ...)` alongside the Base one
+ * — the same handler body registered three times, and a fourth chain silently
+ * unhandled until someone remembers to add it. One name means a handler is
+ * written once and automatically covers every chain in the map; which chain an
+ * event came from is read from `context.chain` inside it.
+ */
+function perChain<T>(select: (source: ChainSource) => T): Record<string, T> {
+	return Object.fromEntries(effectiveSources.map((source) => [source.info.key, select(source)]));
+}
+
+const contracts = {
+	VaultFactory: {
+		abi: vaultFactoryAbi,
+		chain: perChain(({ factoryAddress, startBlock }) => ({
+			address: factoryAddress,
+			startBlock,
+		})),
 	},
-	contracts: {
-		VaultFactory: {
-			chain: "base",
-			abi: vaultFactoryAbi,
-			address: FACTORY_ADDRESS,
-			startBlock: START_BLOCK,
-		},
-		LemonVault: {
-			chain: "base",
-			abi: lemonVaultAbi,
-			address: factory({
-				address: FACTORY_ADDRESS,
-				event: vaultCreated,
-				parameter: "vault",
-			}),
-			startBlock: START_BLOCK,
-		},
+	LemonVault: {
+		abi: lemonVaultAbi,
+		chain: perChain(({ factoryAddress, startBlock }) => ({
+			address: factory({ address: factoryAddress, event: vaultCreated, parameter: "vault" }),
+			startBlock,
+		})),
 	},
+} as const;
+
+export default createConfig({
+	/**
+	 * `multichain`, not `omnichain`.
+	 *
+	 * Omnichain ordering processes events from every chain in one global
+	 * timestamp order, which is what you want when a handler reads state another
+	 * chain's handler wrote. Nothing here does: a vault's rows are touched only
+	 * by events from the chain that vault lives on, and no query joins across
+	 * chains. What omnichain would buy is therefore nothing, and what it costs is
+	 * real — a single lagging or rate-limited endpoint holds up indexing for
+	 * *every* chain, because the global order cannot advance past the slowest.
+	 *
+	 * With three chains and one of them on a public endpoint, that is not a
+	 * hypothetical. Independent ordering means X Layer being slow makes X Layer
+	 * vaults stale, and leaves Base alone.
+	 */
+	ordering: "multichain",
+	database: process.env.DATABASE_URL
+		? { kind: "postgres", connectionString: process.env.DATABASE_URL }
+		: { kind: "pglite" },
+	chains,
+	contracts,
 });

@@ -18,6 +18,16 @@ import { hexToString, zeroAddress } from "viem";
  * Second, nothing is inferred. If an event does not carry a fact, the column
  * stays null rather than being filled with a plausible guess — a null renders as
  * "unknown", and a guess renders as a number people act on.
+ *
+ * Third, every row carries `context.chain.id`, and every key that names a vault
+ * names the chain too. The contracts are registered once across all chains, so
+ * one handler body serves all of them and there is no per-chain copy to keep in
+ * step — but that also means `event.log.address` alone is ambiguous. Vault
+ * addresses are `CREATE`-derived from factories deployed at matching nonces, so
+ * the same address on two chains is the likely case rather than the unlikely
+ * one, and a key without the chain would have one chain's events overwrite the
+ * other's rows. The schema's composite keys are what make that a type error
+ * here rather than a silent corruption in production.
  */
 
 let tickerByHash: Map<string, string> | null = null;
@@ -60,6 +70,7 @@ ponder.on("VaultFactory:VaultCreated", async ({ event, context }) => {
 	const limits = await readLimits(context, event.args.vault);
 
 	await context.db.insert(schema.vault).values({
+		chainId: context.chain.id,
 		address: event.args.vault,
 		marketId: event.args.marketId,
 		ticker,
@@ -150,6 +161,21 @@ async function readLimits(
 // biome-ignore lint/suspicious/noExplicitAny: see above.
 type IndexingContext = any;
 
+/**
+ * A row id for the log-shaped tables, scoped to its chain.
+ *
+ * A transaction hash is unique on one chain and says nothing across several:
+ * nothing stops two chains producing the same 32 bytes, and more practically
+ * `<hash>-<logIndex>` carried no chain at all, so a collision would silently
+ * drop one of the two rows on insert. The chain id is a prefix rather than a
+ * suffix so the ids sort by chain, which is what makes a `like '8453-%'` scan
+ * over the table usable when debugging.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Ponder's event type is per-source.
+function flowId(context: IndexingContext, event: any): string {
+	return `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+}
+
 async function syncVault(context: IndexingContext, address: `0x${string}`, timestamp: bigint) {
 	const { client, contracts } = context;
 	const abi = contracts.LemonVault.abi;
@@ -178,7 +204,7 @@ async function syncVault(context: IndexingContext, address: `0x${string}`, times
 		read("lastNavReportAt"),
 	]);
 
-	await context.db.update(schema.vault, { address }).set({
+	await context.db.update(schema.vault, { chainId: context.chain.id, address }).set({
 		totalAssets: totalAssets as bigint,
 		totalSupply: totalSupply as bigint,
 		deployedAssets: deployedAssets as bigint,
@@ -202,11 +228,16 @@ ponder.on("LemonVault:Deposit", async ({ event, context }) => {
 	const shares = event.args.shares;
 	const now = Number(event.block.timestamp);
 
-	const existing = await context.db.find(schema.position, { vault: vaultAddress, owner });
+	const existing = await context.db.find(schema.position, {
+		chainId: context.chain.id,
+		vault: vaultAddress,
+		owner,
+	});
 
 	await context.db
 		.insert(schema.position)
 		.values({
+			chainId: context.chain.id,
 			vault: vaultAddress,
 			owner,
 			shares,
@@ -223,7 +254,8 @@ ponder.on("LemonVault:Deposit", async ({ event, context }) => {
 		}));
 
 	await context.db.insert(schema.flow).values({
-		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		id: flowId(context, event),
+		chainId: context.chain.id,
 		vault: vaultAddress,
 		owner,
 		direction: "DEPOSIT",
@@ -233,11 +265,13 @@ ponder.on("LemonVault:Deposit", async ({ event, context }) => {
 		txHash: event.transaction.hash,
 	});
 
-	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
-		lifetimeDeposited: row.lifetimeDeposited + assets,
-		// Counted on first deposit only, so a returning depositor is not a new one.
-		depositorCount: existing ? row.depositorCount : row.depositorCount + 1,
-	}));
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: vaultAddress })
+		.set((row) => ({
+			lifetimeDeposited: row.lifetimeDeposited + assets,
+			// Counted on first deposit only, so a returning depositor is not a new one.
+			depositorCount: existing ? row.depositorCount : row.depositorCount + 1,
+		}));
 
 	await syncVault(context, vaultAddress, event.block.timestamp);
 });
@@ -257,6 +291,7 @@ ponder.on("LemonVault:RedeemQueued", async ({ event, context }) => {
 	await context.db
 		.insert(schema.redeemRequest)
 		.values({
+			chainId: context.chain.id,
 			vault: vaultAddress,
 			controller,
 			pendingShares: event.args.shares,
@@ -278,13 +313,15 @@ ponder.on("LemonVault:RedeemQueued", async ({ event, context }) => {
 
 	// Shares have left the holder's balance for escrow.
 	await context.db
-		.update(schema.position, { vault: vaultAddress, owner: controller })
+		.update(schema.position, { chainId: context.chain.id, vault: vaultAddress, owner: controller })
 		.set((row) => ({ shares: row.shares - event.args.shares, updatedAt: now }))
 		.catch(() => undefined);
 
-	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
-		pendingRequestCount: row.pendingRequestCount + 1,
-	}));
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: vaultAddress })
+		.set((row) => ({
+			pendingRequestCount: row.pendingRequestCount + 1,
+		}));
 
 	await syncVault(context, vaultAddress, event.block.timestamp);
 });
@@ -294,7 +331,11 @@ ponder.on("LemonVault:RedeemFulfilled", async ({ event, context }) => {
 	const now = Number(event.block.timestamp);
 
 	await context.db
-		.update(schema.redeemRequest, { vault: vaultAddress, controller: event.args.controller })
+		.update(schema.redeemRequest, {
+			chainId: context.chain.id,
+			vault: vaultAddress,
+			controller: event.args.controller,
+		})
 		.set((row) => ({
 			pendingShares: row.pendingShares - event.args.shares,
 			claimableShares: row.claimableShares + event.args.shares,
@@ -311,7 +352,11 @@ ponder.on("LemonVault:RedeemClaimed", async ({ event, context }) => {
 	const now = Number(event.block.timestamp);
 
 	await context.db
-		.update(schema.redeemRequest, { vault: vaultAddress, controller: event.args.controller })
+		.update(schema.redeemRequest, {
+			chainId: context.chain.id,
+			vault: vaultAddress,
+			controller: event.args.controller,
+		})
 		.set((row) => ({
 			claimableShares: row.claimableShares - event.args.shares,
 			claimableAssets: row.claimableAssets - event.args.assets,
@@ -321,7 +366,11 @@ ponder.on("LemonVault:RedeemClaimed", async ({ event, context }) => {
 		}));
 
 	await context.db
-		.update(schema.position, { vault: vaultAddress, owner: event.args.controller })
+		.update(schema.position, {
+			chainId: context.chain.id,
+			vault: vaultAddress,
+			owner: event.args.controller,
+		})
 		.set((row) => ({
 			netDeposited:
 				row.netDeposited > event.args.assets ? row.netDeposited - event.args.assets : 0n,
@@ -331,7 +380,8 @@ ponder.on("LemonVault:RedeemClaimed", async ({ event, context }) => {
 		.catch(() => undefined);
 
 	await context.db.insert(schema.flow).values({
-		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		id: flowId(context, event),
+		chainId: context.chain.id,
 		vault: vaultAddress,
 		owner: event.args.controller,
 		direction: "WITHDRAW",
@@ -341,9 +391,11 @@ ponder.on("LemonVault:RedeemClaimed", async ({ event, context }) => {
 		txHash: event.transaction.hash,
 	});
 
-	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
-		lifetimeWithdrawn: row.lifetimeWithdrawn + event.args.assets,
-	}));
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: vaultAddress })
+		.set((row) => ({
+			lifetimeWithdrawn: row.lifetimeWithdrawn + event.args.assets,
+		}));
 
 	await syncVault(context, vaultAddress, event.block.timestamp);
 });
@@ -356,10 +408,14 @@ ponder.on("LemonVault:NavReported", async ({ event, context }) => {
 	const vaultAddress = event.log.address;
 	const now = Number(event.block.timestamp);
 
-	const current = await context.db.find(schema.vault, { address: vaultAddress });
+	const current = await context.db.find(schema.vault, {
+		chainId: context.chain.id,
+		address: vaultAddress,
+	});
 
 	await context.db.insert(schema.navPoint).values({
-		id: `${vaultAddress}-${event.block.number}-${event.log.logIndex}`,
+		id: `${context.chain.id}-${vaultAddress}-${event.block.number}-${event.log.logIndex}`,
+		chainId: context.chain.id,
 		vault: vaultAddress,
 		timestamp: now,
 		block: event.block.number,
@@ -376,7 +432,8 @@ ponder.on("LemonVault:NavReported", async ({ event, context }) => {
 
 ponder.on("LemonVault:AgentWithdrew", async ({ event, context }) => {
 	await context.db.insert(schema.agentTransfer).values({
-		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		id: flowId(context, event),
+		chainId: context.chain.id,
 		vault: event.log.address,
 		direction: "WITHDRAW",
 		amount: event.args.amount,
@@ -390,7 +447,8 @@ ponder.on("LemonVault:AgentWithdrew", async ({ event, context }) => {
 
 ponder.on("LemonVault:AgentReturned", async ({ event, context }) => {
 	await context.db.insert(schema.agentTransfer).values({
-		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		id: flowId(context, event),
+		chainId: context.chain.id,
 		vault: event.log.address,
 		direction: "RETURN",
 		amount: event.args.amount,
@@ -424,7 +482,12 @@ ponder.on("LemonVault:ActivityReported", async ({ event, context }) => {
 	const vaultAddress = event.log.address;
 
 	await context.db.insert(schema.activity).values({
-		id: `${vaultAddress}-${event.args.sequence}`,
+		// The chain leads the id because the API's verification table keys on this
+		// exact string, and `<vault>-<sequence>` is not unique once two chains can
+		// produce the same vault address — two different actions would share one
+		// verdict row, each overwriting the other's.
+		id: `${context.chain.id}-${vaultAddress}-${event.args.sequence}`,
+		chainId: context.chain.id,
 		vault: vaultAddress,
 		sequence: event.args.sequence,
 		kind: Number(event.args.kind),
@@ -449,22 +512,24 @@ ponder.on("LemonVault:ActivityReported", async ({ event, context }) => {
 	const funding = Number(event.args.kind) === FUNDING_SETTLED;
 	const occurredAt = Number(event.args.occurredAt);
 
-	await context.db.update(schema.vault, { address: vaultAddress }).set((row) => ({
-		activityCount: row.activityCount + 1,
-		cumulativeNotional: row.cumulativeNotional + event.args.notionalAssets,
-		cumulativeVenueFees: row.cumulativeVenueFees + event.args.feeAssets,
-		cumulativeFunding: funding
-			? row.cumulativeFunding + event.args.pnlAssets
-			: row.cumulativeFunding,
-		fundingSettlementCount: funding ? row.fundingSettlementCount + 1 : row.fundingSettlementCount,
-		// The earliest funding seen, not the first one indexed. Reports arrive in
-		// sequence order, but each is stamped with the settlement it came from —
-		// and a vault whose agent caught up after an outage reports several at
-		// once, oldest last.
-		firstFundingAt: funding
-			? Math.min(row.firstFundingAt ?? occurredAt, occurredAt)
-			: row.firstFundingAt,
-	}));
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: vaultAddress })
+		.set((row) => ({
+			activityCount: row.activityCount + 1,
+			cumulativeNotional: row.cumulativeNotional + event.args.notionalAssets,
+			cumulativeVenueFees: row.cumulativeVenueFees + event.args.feeAssets,
+			cumulativeFunding: funding
+				? row.cumulativeFunding + event.args.pnlAssets
+				: row.cumulativeFunding,
+			fundingSettlementCount: funding ? row.fundingSettlementCount + 1 : row.fundingSettlementCount,
+			// The earliest funding seen, not the first one indexed. Reports arrive in
+			// sequence order, but each is stamped with the settlement it came from —
+			// and a vault whose agent caught up after an outage reports several at
+			// once, oldest last.
+			firstFundingAt: funding
+				? Math.min(row.firstFundingAt ?? occurredAt, occurredAt)
+				: row.firstFundingAt,
+		}));
 });
 
 /** `bytes32` symbols are right-padded with zeros, which `hexToString` would keep. */
@@ -478,7 +543,8 @@ function decodeSymbol(raw: `0x${string}`): string {
 
 ponder.on("LemonVault:FeesAccrued", async ({ event, context }) => {
 	await context.db.insert(schema.feeAccrual).values({
-		id: `${event.transaction.hash}-${event.log.logIndex}`,
+		id: flowId(context, event),
+		chainId: context.chain.id,
 		vault: event.log.address,
 		managementShares: event.args.managementShares,
 		performanceShares: event.args.performanceShares,
@@ -487,10 +553,12 @@ ponder.on("LemonVault:FeesAccrued", async ({ event, context }) => {
 		txHash: event.transaction.hash,
 	});
 
-	await context.db.update(schema.vault, { address: event.log.address }).set((row) => ({
-		lifetimeFeeShares:
-			row.lifetimeFeeShares + event.args.managementShares + event.args.performanceShares,
-	}));
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: event.log.address })
+		.set((row) => ({
+			lifetimeFeeShares:
+				row.lifetimeFeeShares + event.args.managementShares + event.args.performanceShares,
+		}));
 });
 
 // ---------------------------------------------------------------------------
@@ -514,13 +582,14 @@ ponder.on("LemonVault:Transfer", async ({ event, context }) => {
 	if (value === 0n) return;
 
 	await context.db
-		.update(schema.position, { vault: vaultAddress, owner: from })
+		.update(schema.position, { chainId: context.chain.id, vault: vaultAddress, owner: from })
 		.set((row) => ({ shares: row.shares - value, updatedAt: now }))
 		.catch(() => undefined);
 
 	await context.db
 		.insert(schema.position)
 		.values({
+			chainId: context.chain.id,
 			vault: vaultAddress,
 			owner: to,
 			shares: value,
@@ -532,19 +601,19 @@ ponder.on("LemonVault:Transfer", async ({ event, context }) => {
 
 ponder.on("LemonVault:Paused", async ({ event, context }) => {
 	await context.db
-		.update(schema.vault, { address: event.log.address })
+		.update(schema.vault, { chainId: context.chain.id, address: event.log.address })
 		.set({ paused: true, updatedAt: Number(event.block.timestamp) });
 });
 
 ponder.on("LemonVault:Unpaused", async ({ event, context }) => {
 	await context.db
-		.update(schema.vault, { address: event.log.address })
+		.update(schema.vault, { chainId: context.chain.id, address: event.log.address })
 		.set({ paused: false, updatedAt: Number(event.block.timestamp) });
 });
 
 ponder.on("LemonVault:EmergencyExitSet", async ({ event, context }) => {
 	await context.db
-		.update(schema.vault, { address: event.log.address })
+		.update(schema.vault, { chainId: context.chain.id, address: event.log.address })
 		.set({ emergencyExit: event.args.enabled, updatedAt: Number(event.block.timestamp) });
 });
 
@@ -558,10 +627,12 @@ ponder.on("LemonVault:EmergencyExitSet", async ({ event, context }) => {
  */
 ponder.on("LemonVault:LimitsUpdated", async ({ event, context }) => {
 	const limits = event.args.limits;
-	await context.db.update(schema.vault, { address: event.log.address }).set({
-		managementFeeBps: Number(limits.managementFeeBps),
-		performanceFeeBps: Number(limits.performanceFeeBps),
-		maxDeployedBps: Number(limits.maxDeployedBps),
-		updatedAt: Number(event.block.timestamp),
-	});
+	await context.db
+		.update(schema.vault, { chainId: context.chain.id, address: event.log.address })
+		.set({
+			managementFeeBps: Number(limits.managementFeeBps),
+			performanceFeeBps: Number(limits.performanceFeeBps),
+			maxDeployedBps: Number(limits.maxDeployedBps),
+			updatedAt: Number(event.block.timestamp),
+		});
 });

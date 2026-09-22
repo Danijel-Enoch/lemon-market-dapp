@@ -30,20 +30,21 @@
  */
 export interface RpcEnv {
 	PONDER_RPC_URL_BASE?: string;
+	RPC_URL_BASE?: string;
 	BASE_RPC_URL?: string;
 	BASE_RPC_FALLBACK_URLS?: string;
 	[name: string]: string | undefined;
 }
 
 /**
- * Where to read from when nothing is configured. One endpoint, and not for want
- * of looking.
+ * Where to read from when nothing is configured. One endpoint per chain, and not
+ * for want of looking.
  *
  * The obvious fix to the stall above is to ship a list of the well-known free
- * Base endpoints, so an unconfigured deployment gets several buckets instead of
- * one. That was tried, and it does not work — not because the endpoints are slow
- * or rate-limited, but because none of them answers the query this indexer is
- * built on.
+ * endpoints, so an unconfigured deployment gets several buckets instead of one.
+ * That was tried on Base, and it does not work — not because the endpoints are
+ * slow or rate-limited, but because none of them answers the query this indexer
+ * is built on.
  *
  * `LemonVault` is a `factory()` source, so following it means asking for the
  * logs of *every vault at once*: one `eth_getLogs` carrying an array of child
@@ -67,13 +68,19 @@ export interface RpcEnv {
  * make the indexer more resilient, it makes it crash — and under
  * `restart: unless-stopped`, crash repeatedly.
  *
- * So the default stays as it was, and the fix for a rate-limited backfill is the
- * one thing that genuinely fixes it: set `PONDER_RPC_URL_BASE` to two or three
- * endpoints with keys. Anything added here or to `BASE_RPC_FALLBACK_URLS` should
- * first be sent the multi-address, multi-topic request above, because passing
- * every simpler check tells you nothing about whether it will survive this one.
+ * The Arbitrum and X Layer defaults below are each that chain's canonical public
+ * endpoint and have **not** been through the test above. Send them the
+ * multi-address, multi-topic request before trusting either with a backfill; on
+ * X Layer especially, assume you will need a keyed provider.
  */
-export const DEFAULT_BASE_RPC_URLS = ["https://mainnet.base.org"] as const;
+export const DEFAULT_RPC_URLS: Record<string, readonly string[]> = {
+	BASE: ["https://mainnet.base.org"],
+	ARBITRUM: ["https://arb1.arbitrum.io/rpc"],
+	XLAYER: ["https://rpc.xlayer.tech"],
+};
+
+/** Retained under its original name: one chain's default is still a list of one. */
+export const DEFAULT_BASE_RPC_URLS = DEFAULT_RPC_URLS.BASE;
 
 /** Comma separated, trimmed, blanks dropped. One URL is just a list of one. */
 function list(value: string | undefined): string[] {
@@ -84,14 +91,21 @@ function list(value: string | undefined): string[] {
 }
 
 /**
- * The endpoints to hand Ponder, in the order they were configured.
+ * The endpoints to hand Ponder for one chain, in the order they were configured.
  *
- * `PONDER_RPC_URL_BASE` replaces `BASE_RPC_URL` rather than adding to it, which
- * is the meaning it already had — the indexer's load is not the API's, and an
- * endpoint bought for the backfill should not have the app's shared node quietly
- * appended to it. `BASE_RPC_FALLBACK_URLS` is added in both cases, because it is
- * the chain-wide "here is more capacity" list and the indexer is the process
- * that needs it most.
+ * `PONDER_RPC_URL_<CHAIN>` replaces the app-wide endpoint rather than adding to
+ * it, which is the meaning it already had — the indexer's load is not the API's,
+ * and an endpoint bought for the backfill should not have the app's shared node
+ * quietly appended to it. `<CHAIN>_RPC_FALLBACK_URLS` is added in both cases,
+ * because it is the chain-wide "here is more capacity" list and the indexer is
+ * the process that needs it most.
+ *
+ * The app-wide endpoint is `RPC_URL_<CHAIN>` — the name `.env.example`, both
+ * compose files, `scripts/deploy-contracts.sh` and the agent use — with
+ * `<CHAIN>_RPC_URL` read after it because `BASE_RPC_URL` is that name for Base
+ * and predates the suffix. Reading only the older spelling is how a deployment
+ * that set `RPC_URL_XLAYER` everywhere backfills X Layer from the public node
+ * anyway, at the few requests a second it will give a single IP.
  *
  * Emptiness is decided after trimming, not with `??`. Compose writes
  * `PONDER_RPC_URL_BASE: ${PONDER_RPC_URL_BASE:-}` for an unset variable, and an
@@ -102,14 +116,33 @@ function list(value: string | undefined): string[] {
  * Deduplicated because Ponder would otherwise open two buckets against one node
  * and measure each at the full rate — which double-counts capacity that does not
  * exist, and is how a list that looks redundant gets throttled anyway.
+ *
+ * Nothing here falls back to another chain's variables. An Arbitrum source
+ * configured with `BASE_RPC_URL` would backfill cleanly against a chain that has
+ * no factory on it and serve an empty app, which is the exact failure the whole
+ * per-chain split exists to prevent.
  */
-export function resolveBaseRpc(env: RpcEnv): string[] {
-	const primary = list(env.PONDER_RPC_URL_BASE);
+export function resolveRpc(envSuffix: string, env: RpcEnv): string[] {
+	const primary = list(env[`PONDER_RPC_URL_${envSuffix}`]);
+	const shared = [...list(env[`RPC_URL_${envSuffix}`]), ...list(env[`${envSuffix}_RPC_URL`])];
 	const configured = [
-		...(primary.length > 0 ? primary : list(env.BASE_RPC_URL)),
-		...list(env.BASE_RPC_FALLBACK_URLS),
+		...(primary.length > 0 ? primary : shared),
+		...list(env[`${envSuffix}_RPC_FALLBACK_URLS`]),
 	];
 
 	const endpoints = [...new Set(configured)];
-	return endpoints.length > 0 ? endpoints : [...DEFAULT_BASE_RPC_URLS];
+	if (endpoints.length > 0) return endpoints;
+
+	const fallback = DEFAULT_RPC_URLS[envSuffix];
+	if (!fallback) {
+		throw new Error(
+			`No RPC endpoint configured for ${envSuffix} and no default to fall back on. Set PONDER_RPC_URL_${envSuffix}.`,
+		);
+	}
+	return [...fallback];
+}
+
+/** Base's endpoints. Kept as its own name because most callers still mean Base. */
+export function resolveBaseRpc(env: RpcEnv): string[] {
+	return resolveRpc("BASE", env);
 }
