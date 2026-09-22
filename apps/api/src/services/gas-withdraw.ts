@@ -1,7 +1,7 @@
+import { chainInfo, DEFAULT_CHAIN_ID, explorerTx, requireChainInfo } from "@lemon/core";
 import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { formatEther, keccak256, parseEther, serializeTransaction, toBytes } from "viem";
-import { base } from "viem/chains";
-import { baseClient } from "../chain";
+import { clientFor } from "../chain";
 import { clients, config } from "../config";
 import { AdminError } from "./admin";
 import { getVault } from "./vaults";
@@ -31,7 +31,17 @@ import { getVault } from "./vaults";
  */
 
 export interface GasWithdrawal {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"`, which named a chain rather than a wallet and stopped being
+	 * true the moment a vault could custody elsewhere. `"EVM"` is a claim about
+	 * *which of the agent's two wallets*, which is the thing that is actually
+	 * fixed; `chainId` below says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** Which EVM chain it went out on. Null for the Solana row. */
+	chainId: number | null;
 	vault: string;
 	from: string;
 	to: string;
@@ -39,7 +49,8 @@ export interface GasWithdrawal {
 	amount: string;
 	/** The same, in the chain's native unit. */
 	formatted: string;
-	symbol: "ETH" | "SOL";
+	/** The chain's native unit. X Layer charges gas in OKB, not ETH. */
+	symbol: "ETH" | "OKB" | "SOL";
 	/** Held back to pay for this transaction, in the smallest unit. */
 	feeReserved: string;
 	/** Left behind afterwards. Zero for a sweep, give or take the fee refund. */
@@ -50,13 +61,24 @@ export interface GasWithdrawal {
 
 /** What a wallet could send right now, once its own transaction is paid for. */
 export interface GasWithdrawable {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"`, which named a chain rather than a wallet and stopped being
+	 * true the moment a vault could custody elsewhere. `"EVM"` is a claim about
+	 * *which of the agent's two wallets*, which is the thing that is actually
+	 * fixed; `chainId` below says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** Which EVM chain the balance is on. Null for the Solana row. */
+	chainId: number | null;
 	address: string;
 	balance: string;
 	/** Balance minus the fee this transfer would cost. Never negative. */
 	spendable: string;
 	formattedSpendable: string;
-	symbol: "ETH" | "SOL";
+	/** The chain's native unit. X Layer charges gas in OKB, not ETH. */
+	symbol: "ETH" | "OKB" | "SOL";
 	/** Set when the wallet holds something but cannot cover its own transfer. */
 	note: string | null;
 }
@@ -145,23 +167,31 @@ async function resolveAgent(vaultAddress: string) {
 async function baseTransferCost(
 	from: `0x${string}`,
 	to: `0x${string}`,
+	chainId: number = DEFAULT_CHAIN_ID,
 ): Promise<{ gas: bigint; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; cost: bigint }> {
-	const fees = await baseClient.estimateFeesPerGas();
+	// Estimated on the chain the transfer will actually run on. Gas prices differ
+	// by orders of magnitude between these chains, and a fee reserved from the
+	// wrong one is either a transaction that cannot be included or a sweep that
+	// strands most of the balance.
+	const client = clientFor(chainId);
+	const fees = await client.estimateFeesPerGas();
 	const maxFeePerGas = fees.maxFeePerGas;
 	const maxPriorityFeePerGas = fees.maxPriorityFeePerGas;
 
 	// Estimated with a nominal value: a destination that is a contract with a
 	// payable fallback costs more than 21000, and estimating with the full
 	// balance would fail for want of the fee on top of it.
-	const gas = await baseClient
+	const gas = await client
 		.estimateGas({ account: from, to, value: 1n })
 		.catch(() => ETH_TRANSFER_GAS);
 
 	return { gas, maxFeePerGas, maxPriorityFeePerGas, cost: gas * maxFeePerGas };
 }
 
-async function withdrawBaseGas(params: {
+async function withdrawEvmGas(params: {
 	vault: string;
+	/** The chain the vault custodies on — and so the chain this wallet spends on. */
+	chainId: number;
 	path: string;
 	from: `0x${string}`;
 	to: `0x${string}`;
@@ -171,14 +201,25 @@ async function withdrawBaseGas(params: {
 	const mpc = clients.nearMpc;
 	if (!mpc) throw new AdminError("NEAR chain signatures are not configured.", 503);
 
+	/**
+	 * Everything below is signed *for one chain*, and the chain id goes into the
+	 * signature itself under EIP-155. Reading it from the vault rather than
+	 * pinning Base is what makes that signature unusable anywhere else — the same
+	 * agent address exists on every chain, and a Base-signed sweep would be a
+	 * valid transaction spending a balance the operator was not looking at.
+	 */
+	const info = requireChainInfo(params.chainId);
+	const client = clientFor(info.id);
+	const unit = info.nativeSymbol;
+
 	const [balance, nonce, fee] = await Promise.all([
-		baseClient.getBalance({ address: params.from }),
+		client.getBalance({ address: params.from }),
 		// Pending, not latest. Nothing should be in flight from a stopped agent,
 		// but a nonce taken from the mined tip while one is would collide and
 		// replace it — and this route runs at the moment an operator is trying to
 		// tidy up, which is exactly when a stuck transaction is likely.
-		baseClient.getTransactionCount({ address: params.from, blockTag: "pending" }),
-		baseTransferCost(params.from, params.to),
+		client.getTransactionCount({ address: params.from, blockTag: "pending" }),
+		baseTransferCost(params.from, params.to, info.id),
 	]);
 
 	const spendable = balance > fee.cost ? balance - fee.cost : 0n;
@@ -187,21 +228,21 @@ async function withdrawBaseGas(params: {
 	if (value <= 0n) {
 		throw new AdminError(
 			balance === 0n
-				? `${params.from} holds no ETH on Base.`
-				: `${params.from} holds ${formatEther(balance)} ETH, which does not cover the ${formatEther(fee.cost)} ETH this transfer would cost. There is nothing to recover.`,
+				? `${params.from} holds no ${unit} on ${info.name}.`
+				: `${params.from} holds ${formatEther(balance)} ${unit}, which does not cover the ${formatEther(fee.cost)} ${unit} this transfer would cost. There is nothing to recover.`,
 			409,
 		);
 	}
 	if (value > spendable) {
 		throw new AdminError(
-			`${formatEther(value)} ETH is more than the ${formatEther(spendable)} ETH available once the ${formatEther(fee.cost)} ETH fee is covered.`,
+			`${formatEther(value)} ${unit} is more than the ${formatEther(spendable)} ${unit} available once the ${formatEther(fee.cost)} ${unit} fee is covered.`,
 			400,
 		);
 	}
 
 	const transaction = {
 		type: "eip1559",
-		chainId: base.id,
+		chainId: info.id,
 		to: params.to,
 		value,
 		gas: fee.gas,
@@ -221,20 +262,21 @@ async function withdrawBaseGas(params: {
 		yParity: signature.yParity,
 	});
 
-	const hash = await baseClient.sendRawTransaction({ serializedTransaction: signed });
+	const hash = await client.sendRawTransaction({ serializedTransaction: signed });
 
 	return {
-		chain: "BASE",
+		chain: "EVM",
+		chainId: info.id,
 		vault: params.vault,
 		from: params.from,
 		to: params.to,
 		amount: value.toString(),
 		formatted: formatEther(value),
-		symbol: "ETH",
+		symbol: unit,
 		feeReserved: fee.cost.toString(),
 		remaining: (balance - value - fee.cost).toString(),
 		hash,
-		explorerUrl: `https://basescan.org/tx/${hash}`,
+		explorerUrl: explorerTx(info.id, hash),
 	};
 }
 
@@ -359,6 +401,7 @@ async function withdrawSolanaGas(params: {
 
 	return {
 		chain: "SOLANA",
+		chainId: null,
 		vault: params.vault,
 		from: params.from,
 		to: params.to,
@@ -407,25 +450,27 @@ export async function withdrawableGas(vaultAddress: string): Promise<{
 	solana: GasWithdrawable;
 }> {
 	const agent = await resolveAgent(vaultAddress);
+	const info = chainInfo(agent.vault.chainId) ?? requireChainInfo(DEFAULT_CHAIN_ID);
 
 	const [baseSide, solanaSide] = await Promise.all([
 		(async (): Promise<GasWithdrawable> => {
-			const balance = await baseClient.getBalance({ address: agent.evm });
+			const balance = await clientFor(info.id).getBalance({ address: agent.evm });
 			// Priced against the agent's own address: a self-transfer costs the
 			// same 21000 gas as a transfer to any other EOA, and the destination
 			// is not known yet.
-			const fee = await baseTransferCost(agent.evm, agent.evm);
+			const fee = await baseTransferCost(agent.evm, agent.evm, info.id);
 			const spendable = balance > fee.cost ? balance - fee.cost : 0n;
 			return {
-				chain: "BASE",
+				chain: "EVM",
+				chainId: info.id,
 				address: agent.evm,
 				balance: balance.toString(),
 				spendable: spendable.toString(),
 				formattedSpendable: formatEther(spendable),
-				symbol: "ETH",
+				symbol: info.nativeSymbol,
 				note:
 					balance > 0n && spendable === 0n
-						? `The balance is below the ${formatEther(fee.cost)} ETH it would cost to move it.`
+						? `The balance is below the ${formatEther(fee.cost)} ${info.nativeSymbol} it would cost to move it.`
 						: null,
 			};
 		})(),
@@ -437,6 +482,7 @@ export async function withdrawableGas(vaultAddress: string): Promise<{
 			const spendable = balance > fee ? balance - fee : 0n;
 			return {
 				chain: "SOLANA",
+				chainId: null,
 				address: agent.solana,
 				balance: balance.toString(),
 				spendable: spendable.toString(),
@@ -467,18 +513,30 @@ export async function withdrawableGas(vaultAddress: string): Promise<{
  */
 export async function withdrawGas(params: {
 	vault: string;
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE"`, which named a chain rather than a wallet and stopped being
+	 * true the moment a vault could custody elsewhere. `"EVM"` is a claim about
+	 * *which of the agent's two wallets*, which is the thing that is actually
+	 * fixed; `chainId` below says which EVM chain.
+	 */
+	chain: "EVM" | "SOLANA";
 	to: string;
 	amount?: string;
 }): Promise<GasWithdrawal> {
 	const agent = await resolveAgent(params.vault);
 
-	if (params.chain === "BASE") {
+	if (params.chain === "EVM") {
 		if (!/^0x[a-fA-F0-9]{40}$/.test(params.to.trim())) {
 			throw new AdminError(`"${params.to}" is not an EVM address.`, 400);
 		}
-		return withdrawBaseGas({
+		return withdrawEvmGas({
 			vault: agent.vault.address,
+			// From the vault's own row, never from the request. A caller-supplied
+			// chain would let an operator sign a sweep on a chain they are not
+			// looking at, against a balance they have not seen.
+			chainId: agent.vault.chainId ?? DEFAULT_CHAIN_ID,
 			path: agent.path,
 			from: agent.evm,
 			to: params.to.trim() as `0x${string}`,

@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { getLivePosition } from "../services/position";
 import {
+	getFundingSeries,
 	getNavSeries,
 	getPortfolio,
 	getProtocolStats,
@@ -78,6 +79,21 @@ export const vaultRoutes = new Elysia({ prefix: "/vaults" })
 	.get(
 		"/:address/nav",
 		async ({ params, query }) => getNavSeries(params.address, Number(query.days ?? 30)),
+		{
+			params: t.Object({ address: addressSchema }),
+			query: t.Object({ days: t.Optional(t.String()) }),
+		},
+	)
+
+	/**
+	 * Funding paid, per UTC day.
+	 *
+	 * The same rows the activity feed shows under the FUNDING_SETTLED filter,
+	 * bucketed — so the chart and the feed cannot disagree about what a day paid.
+	 */
+	.get(
+		"/:address/funding",
+		async ({ params, query }) => getFundingSeries(params.address, Number(query.days ?? 30)),
 		{
 			params: t.Object({ address: addressSchema }),
 			query: t.Object({ days: t.Optional(t.String()) }),

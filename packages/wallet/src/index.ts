@@ -6,7 +6,18 @@
  * caller can import it without dragging wagmi and a connector UI along. This is
  * the half that genuinely needs a browser.
  */
-export { APP_CHAIN, APP_CHAIN_RPC_URL } from "./chain";
+export {
+	APP_CHAIN,
+	APP_CHAIN_RPC_URL,
+	buildChain,
+	type ChainEnv,
+	ENABLED_CHAINS,
+	type EnabledChain,
+	enabledChain,
+	factoryFor,
+	isEnabledChain,
+	resolveEnabledChains,
+} from "./chain";
 export { createWalletConfig, type WalletConfigOptions } from "./config";
 export { useAppChain, useAutoSwitchAppChain, WrongNetworkBanner } from "./network";
 export { LemonRainbowKitProvider, lemonWalletTheme } from "./provider";

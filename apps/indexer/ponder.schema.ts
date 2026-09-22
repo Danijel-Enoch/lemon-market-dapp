@@ -15,7 +15,17 @@ import { index, onchainTable, primaryKey, relations } from "ponder";
 export const vault = onchainTable(
 	"vault",
 	(t) => ({
-		address: t.hex().primaryKey(),
+		/**
+		 * Which chain this row's vault lives on. See `CHAIN_REGISTRY` in `@lemon/core`.
+		 *
+		 * Part of the key, not a label. A vault address is `CREATE`-derived from
+		 * the factory's address and nonce, and the factories are deployed from one
+		 * deployer at matching nonces — so the same address on two chains is the
+		 * likely case rather than the unlikely one. Keyed by address alone, the
+		 * second chain's first vault would overwrite the first chain's.
+		 */
+		chainId: t.integer().notNull(),
+		address: t.hex().notNull(),
 		marketId: t.hex().notNull(),
 		/** The plain ticker, decoded from `marketId` where we can match it. */
 		ticker: t.text(),
@@ -69,6 +79,26 @@ export const vault = onchainTable(
 		lifetimeFeeShares: t.bigint().notNull().default(0n),
 		cumulativeNotional: t.bigint().notNull().default(0n),
 		cumulativeVenueFees: t.bigint().notNull().default(0n),
+		/**
+		 * Every funding payment this vault has been paid, added up. USDC, signed.
+		 *
+		 * The number a basis vault exists to produce, and the only one on this row
+		 * that is a sum of the vault's *returns* rather than of its activity.
+		 * Signed because a short does not only ever receive: a period of negative
+		 * funding is a period the vault paid, and clamping it at zero would make
+		 * the total read as income the depositors never got.
+		 *
+		 * Not a substitute for the share price. This is gross funding, before the
+		 * management and performance fees in `lifetimeFeeShares` and before the
+		 * venue fees in `cumulativeVenueFees` — what the strategy earned, not what
+		 * a depositor kept. `pricePerShare` remains the only figure that answers
+		 * the second question.
+		 */
+		cumulativeFunding: t.bigint().notNull().default(0n),
+		/** Settlements counted, so the total can say what it is an average of. */
+		fundingSettlementCount: t.integer().notNull().default(0),
+		/** When funding was first recorded here — the "since" on the total. */
+		firstFundingAt: t.integer(),
 		activityCount: t.integer().notNull().default(0),
 		depositorCount: t.integer().notNull().default(0),
 
@@ -80,8 +110,10 @@ export const vault = onchainTable(
 		updatedAt: t.integer().notNull(),
 	}),
 	(table) => ({
+		pk: primaryKey({ columns: [table.chainId, table.address] }),
 		marketIdx: index().on(table.marketId),
 		agentIdx: index().on(table.agentWallet),
+		chainIdx: index().on(table.chainId),
 	}),
 );
 
@@ -96,6 +128,7 @@ export const position = onchainTable(
 	"position",
 	(t) => ({
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		owner: t.hex().notNull(),
 		shares: t.bigint().notNull().default(0n),
 		/** USDC actually paid in, less what has been taken out. The cost basis. */
@@ -106,7 +139,7 @@ export const position = onchainTable(
 		updatedAt: t.integer().notNull(),
 	}),
 	(table) => ({
-		pk: primaryKey({ columns: [table.vault, table.owner] }),
+		pk: primaryKey({ columns: [table.chainId, table.vault, table.owner] }),
 		ownerIdx: index().on(table.owner),
 	}),
 );
@@ -123,6 +156,7 @@ export const redeemRequest = onchainTable(
 	"redeem_request",
 	(t) => ({
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		controller: t.hex().notNull(),
 
 		pendingShares: t.bigint().notNull().default(0n),
@@ -140,7 +174,7 @@ export const redeemRequest = onchainTable(
 		updatedAt: t.integer().notNull(),
 	}),
 	(table) => ({
-		pk: primaryKey({ columns: [table.vault, table.controller] }),
+		pk: primaryKey({ columns: [table.chainId, table.vault, table.controller] }),
 		controllerIdx: index().on(table.controller),
 		/** The agent's work queue: what is ripe, oldest first. */
 		dueIdx: index().on(table.eligibleAt),
@@ -162,6 +196,7 @@ export const activity = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		sequence: t.bigint().notNull(),
 
 		/** Index into `ACTIVITY_KINDS` in `@lemon/contracts`. */
@@ -204,6 +239,7 @@ export const navPoint = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		timestamp: t.integer().notNull(),
 		block: t.bigint().notNull(),
 		totalAssets: t.bigint().notNull(),
@@ -225,6 +261,7 @@ export const agentTransfer = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		/** "WITHDRAW" (vault to agent) or "RETURN" (agent to vault). */
 		direction: t.text().notNull(),
 		amount: t.bigint().notNull(),
@@ -244,6 +281,7 @@ export const feeAccrual = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		managementShares: t.bigint().notNull(),
 		performanceShares: t.bigint().notNull(),
 		highWaterMarkAfter: t.bigint().notNull(),
@@ -261,6 +299,7 @@ export const flow = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		vault: t.hex().notNull(),
+		chainId: t.integer().notNull(),
 		owner: t.hex().notNull(),
 		/** "DEPOSIT" or "WITHDRAW". */
 		direction: t.text().notNull(),
@@ -283,17 +322,29 @@ export const vaultRelations = relations(vault, ({ many }) => ({
 }));
 
 export const positionRelations = relations(position, ({ one }) => ({
-	vault: one(vault, { fields: [position.vault], references: [vault.address] }),
+	vault: one(vault, {
+		fields: [position.chainId, position.vault],
+		references: [vault.chainId, vault.address],
+	}),
 }));
 
 export const redeemRequestRelations = relations(redeemRequest, ({ one }) => ({
-	vault: one(vault, { fields: [redeemRequest.vault], references: [vault.address] }),
+	vault: one(vault, {
+		fields: [redeemRequest.chainId, redeemRequest.vault],
+		references: [vault.chainId, vault.address],
+	}),
 }));
 
 export const activityRelations = relations(activity, ({ one }) => ({
-	vault: one(vault, { fields: [activity.vault], references: [vault.address] }),
+	vault: one(vault, {
+		fields: [activity.chainId, activity.vault],
+		references: [vault.chainId, vault.address],
+	}),
 }));
 
 export const navPointRelations = relations(navPoint, ({ one }) => ({
-	vault: one(vault, { fields: [navPoint.vault], references: [vault.address] }),
+	vault: one(vault, {
+		fields: [navPoint.chainId, navPoint.vault],
+		references: [vault.chainId, vault.address],
+	}),
 }));

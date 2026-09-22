@@ -24,9 +24,36 @@ describe("crypto token registry", () => {
 		expect(new Set(seen).size).toBe(seen.length);
 	});
 
-	test("symbols are unique across the whole spot registry", () => {
-		const symbols = SPOT_TOKENS.map((token) => token.symbol);
-		expect(new Set(symbols).size).toBe(symbols.length);
+	/**
+	 * Per chain, not globally.
+	 *
+	 * `WETH` is a real and *different* contract on Base and on Arbitrum, so a
+	 * global uniqueness check would now fail on a registry that is entirely
+	 * correct. What must stay unique is a symbol within one chain: that is the
+	 * key every lookup uses, and a duplicate there would resolve a ticker to
+	 * whichever entry happened to be listed first.
+	 */
+	test("symbols are unique within each chain", () => {
+		for (const chainId of new Set(SPOT_TOKENS.map((token) => token.chainId))) {
+			const symbols = SPOT_TOKENS.filter((t) => t.chainId === chainId).map((t) => t.symbol);
+			expect(new Set(symbols).size).toBe(symbols.length);
+		}
+	});
+
+	/**
+	 * The same rule for addresses, and the one that actually costs money.
+	 *
+	 * Two tickers sharing an address on one chain would pair two markets to one
+	 * pool, so a vault told to hold NVDA and TSLA would hold the same token
+	 * twice and hedge it against two different perps.
+	 */
+	test("addresses are unique within each chain", () => {
+		for (const chainId of new Set(SPOT_TOKENS.map((token) => token.chainId))) {
+			const addresses = SPOT_TOKENS.filter((t) => t.chainId === chainId).map((t) =>
+				t.address.toLowerCase(),
+			);
+			expect(new Set(addresses).size).toBe(addresses.length);
+		}
 	});
 
 	test("decimals are plausible", () => {

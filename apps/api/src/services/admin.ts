@@ -1,4 +1,13 @@
-import { prisma, type VaultMarketConfig, validateWeights, vaultMarkets } from "@lemon/db";
+import { DEFAULT_CHAIN_ID, requireChainInfo } from "@lemon/core";
+import {
+	prisma,
+	refFrom,
+	type VaultMarketConfig,
+	validateWeights,
+	vaultMarkets,
+	vaultMarketWhere,
+	vaultWhere,
+} from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import { clients, config } from "../config";
 import { listBasisMarkets } from "./basis-markets";
@@ -88,6 +97,8 @@ export interface VaultableMarket {
 		sellable: boolean;
 		/** True when the routability probe could not answer, so `buyable` is a guess. */
 		probeFailed: boolean;
+		/** When routability was last checked, or null if it never has been. */
+		checkedAt: number | null;
 	};
 	perp: { pacificaSymbol: string };
 	/** Vaults that already exist for this market, by tier. */
@@ -106,12 +117,29 @@ export interface VaultableMarket {
 	 * A failed probe is *not* reported as untradable. Throttled liquidity checks
 	 * would otherwise take the whole board off the create list at exactly the
 	 * moment an operator is least able to tell why.
+	 *
+	 * Named for the leg, not for Base. It was `spotTradableOnBase` while Base was
+	 * the only chain, and the name outlived that — the admin console rendered
+	 * "No spot on Base" against an X Layer board, which reads as the check being
+	 * pointed at the wrong chain rather than as a stale label.
 	 */
-	spotTradableOnBase: boolean;
+	spotTradable: boolean;
 }
 
-export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
-	const [board, vaults] = await Promise.all([listBasisMarkets(), listVaults()]);
+/**
+ * The markets a vault could be created for, on one chain.
+ *
+ * Chain-scoped because the spot leg is. The three chains do not offer the same
+ * board at all: Base has the Coinbase B20 equities, X Layer has its own `w…x`
+ * equity family and the `x…` crypto set, and Arbitrum has no tokenized
+ * equities whatsoever — only crypto. An operator creating an Arbitrum vault
+ * must not be offered NVDA, because there is nothing on Arbitrum to buy for it.
+ */
+export async function listVaultableMarkets(
+	chainId: number = DEFAULT_CHAIN_ID,
+): Promise<VaultableMarket[]> {
+	const chain = requireChainInfo(chainId);
+	const [board, vaults] = await Promise.all([listBasisMarkets(chainId), listVaults()]);
 
 	const { keccak256, toBytes } = await import("viem");
 
@@ -152,16 +180,27 @@ export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 		// trade is a market whose vault would take deposits and sit idle.
 		if (market.blockers.length) reasons.push(...market.blockers);
 
-		const spotTradableOnBase =
-			!market.spot.probeFailed && market.spot.buyable && market.spot.sellable;
+		// A probe that has not run is not a probe that found nothing.
+		//
+		// An unprobed token reports `buyable: false` with `probeFailed: false`
+		// (the `?? false` defaults in `spot.ts`), so testing `probeFailed` alone
+		// turns missing data into a confident "no route" — and takes every market
+		// off the create list for as long as the first sweep is still running.
+		// `checkedAt` is the only field that separates the two.
+		const probed = !market.spot.probeFailed && market.spot.checkedAt !== null;
 
-		if (!market.spot.probeFailed && !market.spot.buyable) {
+		const spotTradable = probed && market.spot.buyable && market.spot.sellable;
+
+		// The chain is named, not assumed. These sentences are read by an operator
+		// deciding whether a chain is broken or a token simply is not routable
+		// there, and one that says "Base" under an X Layer board answers neither.
+		if (probed && !market.spot.buyable) {
 			reasons.push(
-				`No route into ${market.spot.symbol} on Base, so the spot leg cannot be opened.`,
+				`No route into ${market.spot.symbol} on ${chain.name}, so the spot leg cannot be opened.`,
 			);
-		} else if (!market.spot.probeFailed && !market.spot.sellable) {
+		} else if (probed && !market.spot.sellable) {
 			reasons.push(
-				`${market.spot.symbol} can be bought but not sold on Base, so the position could not be unwound.`,
+				`${market.spot.symbol} can be bought but not sold on ${chain.name}, so the position could not be unwound.`,
 			);
 		}
 
@@ -180,11 +219,12 @@ export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 				buyable: market.spot.buyable,
 				sellable: market.spot.sellable,
 				probeFailed: market.spot.probeFailed,
+				checkedAt: market.spot.checkedAt,
 			},
 			perp: { pacificaSymbol: market.perp.pacificaSymbol },
 			existing,
 			reasons,
-			spotTradableOnBase,
+			spotTradable,
 		};
 	});
 }
@@ -196,6 +236,16 @@ export async function listVaultableMarkets(): Promise<VaultableMarket[]> {
 export interface PreparedVault {
 	ticker: string;
 	tier: "conservative" | "leveraged";
+	/**
+	 * The chain the vault will be deployed on.
+	 *
+	 * Part of the prepared vault rather than supplied again at record time,
+	 * because it is already baked into `agentPath` by the time the operator sees
+	 * this. Passing it twice would let the two disagree, and the shape of that
+	 * disagreement is a vault row on one chain holding the agent wallet derived
+	 * for another — which is not detectable after the fact.
+	 */
+	chainId: number;
 	/** `keccak256(ticker)`, which is what the factory stores. */
 	marketId: `0x${string}`;
 	agentPath: string;
@@ -222,6 +272,8 @@ export interface PreparedVault {
 export async function prepareVault(params: {
 	ticker: string;
 	tier: "conservative" | "leveraged";
+	/** Which chain to deploy on. Defaults to this deployment's primary chain. */
+	chainId?: number;
 	targetLeverageBps?: number;
 	maxLeverageBps?: number;
 }): Promise<PreparedVault> {
@@ -254,13 +306,18 @@ export async function prepareVault(params: {
 		throw new AdminError("The leverage ceiling cannot be below the target.");
 	}
 
-	const agentPath = agentDerivationPath(ticker, params.tier);
+	// `requireChainInfo` rather than a fallback: an unknown id here would derive a
+	// wallet from a path naming a chain that does not exist, and the operator
+	// would be shown a perfectly valid-looking address to fund.
+	const chain = requireChainInfo(params.chainId ?? DEFAULT_CHAIN_ID);
+
+	const agentPath = agentDerivationPath(ticker, params.tier, chain.key);
 	const derived = clients.nearMpc.derive(agentPath);
 
 	const existing = await prisma.vaultConfig.findFirst({ where: { agentPath } });
 	if (existing) {
 		throw new AdminError(
-			`A ${params.tier} vault for ${ticker} already exists at ${existing.address}. One market and tier gets one vault, and one agent.`,
+			`A ${params.tier} vault for ${ticker} already exists at ${existing.address} on chain ${existing.chainId}. One market, tier and chain gets one vault, and one agent.`,
 			409,
 		);
 	}
@@ -268,6 +325,7 @@ export async function prepareVault(params: {
 	return {
 		ticker,
 		tier: params.tier,
+		chainId: chain.id,
 		marketId: keccak256(toBytes(ticker)),
 		agentPath,
 		agentEvmAddress: derived.evmAddress,
@@ -306,7 +364,23 @@ export async function prepareVault(params: {
 async function assertVaultMatches(address: string, prepared: PreparedVault): Promise<void> {
 	const { keccak256, toBytes } = await import("viem");
 	const { lemonVaultAbi } = await import("@lemon/contracts");
-	const { baseClient: client } = await import("../chain");
+	const { clientFor } = await import("../chain");
+
+	/**
+	 * Read on the vault's own chain, not on Base.
+	 *
+	 * This used `baseClient`, which made the check a Base-only one: a vault
+	 * deployed anywhere else read as no contract at all, and the guard reported
+	 * "No vault could be read" for a vault that had just been created
+	 * successfully. The gas was spent, the vault existed, and its configuration
+	 * was refused — the one failure this whole flow is arranged to avoid, since
+	 * an unconfigured vault is one the agent will not trade.
+	 *
+	 * `prepared.chainId` is the right source: it is already baked into
+	 * `agentPath`, which is why it travels with the prepared vault rather than
+	 * being passed again here.
+	 */
+	const client = clientFor(prepared.chainId);
 
 	const expectedMarketId = keccak256(toBytes(prepared.ticker));
 	const vault = { address: address as `0x${string}`, abi: lemonVaultAbi } as const;
@@ -364,6 +438,7 @@ export async function recordVault(params: {
 		prisma.vaultConfig.create({
 			data: {
 				address,
+				chainId: params.prepared.chainId,
 				ticker: params.prepared.ticker,
 				riskTier: params.prepared.tier === "conservative" ? "CONSERVATIVE" : "LEVERAGED",
 				agentPath: params.prepared.agentPath,
@@ -379,6 +454,7 @@ export async function recordVault(params: {
 		}),
 		prisma.vaultMarket.create({
 			data: {
+				chainId: params.prepared.chainId,
 				vaultAddress: address,
 				ticker: params.prepared.ticker,
 				spotTokenAddress: params.spotTokenAddress.toLowerCase(),
@@ -403,9 +479,12 @@ export async function recordVault(params: {
  * The seeding lives in `@lemon/db` so the agent and this API cannot disagree
  * about what a vault with no `VaultMarket` rows means.
  */
-export async function listVaultMarkets(address: string): Promise<VaultMarketConfig[]> {
-	await assertConfigured(address);
-	return vaultMarkets(address);
+export async function listVaultMarkets(
+	address: string,
+	chainId?: number,
+): Promise<VaultMarketConfig[]> {
+	const existing = await assertConfigured(address, chainId);
+	return vaultMarkets({ chainId: existing.chainId, address: existing.address });
 }
 
 /**
@@ -432,10 +511,12 @@ export async function listVaultMarkets(address: string): Promise<VaultMarketConf
  */
 export async function setVaultMarkets(params: {
 	address: string;
+	/** Omitted, the address is resolved — and refused if it names more than one vault. */
+	chainId?: number;
 	markets: Array<{ ticker: string; targetWeightBps: number }>;
 }): Promise<VaultMarketConfig[]> {
 	const address = params.address.toLowerCase();
-	await assertConfigured(address);
+	const vault = await assertConfigured(address, params.chainId);
 
 	const requested = params.markets.map((m) => ({
 		ticker: m.ticker.trim().toUpperCase(),
@@ -447,7 +528,7 @@ export async function setVaultMarkets(params: {
 
 	// Resolved before anything is written, so a set naming one unlistable market
 	// leaves the vault exactly as it was rather than half-applied.
-	const board = await listBasisMarkets();
+	const board = await listBasisMarkets(vault.chainId);
 	const resolved = requested.map((market) => {
 		const listed = board.markets.find((m) => m.ticker.toUpperCase() === market.ticker);
 		if (!listed) {
@@ -466,14 +547,17 @@ export async function setVaultMarkets(params: {
 	// Seeded first, so a vault that predates `VaultMarket` has its founding
 	// market as a row before the diff below decides what to disable — otherwise
 	// the founding market would be silently dropped rather than disabled.
-	await vaultMarkets(address);
-	const existing = await prisma.vaultMarket.findMany({ where: { vaultAddress: address } });
+	const ref = { chainId: vault.chainId, address: vault.address };
+	await vaultMarkets(ref);
+	const existing = await prisma.vaultMarket.findMany({
+		where: { chainId: ref.chainId, vaultAddress: ref.address },
+	});
 	const keep = new Set(resolved.map((m) => m.ticker));
 
 	await prisma.$transaction([
 		...resolved.map((market) =>
 			prisma.vaultMarket.upsert({
-				where: { vaultAddress_ticker: { vaultAddress: address, ticker: market.ticker } },
+				where: vaultMarketWhere(ref, market.ticker),
 				update: {
 					targetWeightBps: market.targetWeightBps,
 					enabled: true,
@@ -487,7 +571,8 @@ export async function setVaultMarkets(params: {
 					perpSymbol: market.listed.perp.pacificaSymbol,
 				},
 				create: {
-					vaultAddress: address,
+					chainId: ref.chainId,
+					vaultAddress: ref.address,
 					ticker: market.ticker,
 					targetWeightBps: market.targetWeightBps,
 					spotTokenAddress: market.listed.spot.address.toLowerCase(),
@@ -502,7 +587,7 @@ export async function setVaultMarkets(params: {
 			.map((row) => prisma.vaultMarket.update({ where: { id: row.id }, data: { enabled: false } })),
 	]);
 
-	return vaultMarkets(address);
+	return vaultMarkets(ref);
 }
 
 // ---------------------------------------------------------------------------
@@ -525,16 +610,19 @@ export async function setVaultMarkets(params: {
  */
 export async function setCloseOrder(params: {
 	address: string;
+	/** Omitted, the address is resolved — and refused if it names more than one vault. */
+	chainId?: number;
 	closing: boolean;
 	reason?: string;
 	by: string;
 }) {
 	const address = params.address.toLowerCase();
-	const existing = await assertConfigured(address);
+	const existing = await assertConfigured(address, params.chainId);
+	const where = vaultWhere({ chainId: existing.chainId, address });
 
 	if (!params.closing) {
 		return prisma.vaultConfig.update({
-			where: { address },
+			where,
 			data: {
 				closeRequestedAt: null,
 				closeRequestedBy: null,
@@ -548,7 +636,7 @@ export async function setCloseOrder(params: {
 	}
 
 	return prisma.vaultConfig.update({
-		where: { address },
+		where,
 		data: {
 			closeRequestedAt: new Date(),
 			closeRequestedBy: params.by.toLowerCase(),
@@ -569,10 +657,28 @@ export async function setCloseOrder(params: {
  * is both wrong and actively misleading — the database is fine, the vault simply
  * has no configuration because it was deployed outside this dashboard.
  */
-async function assertConfigured(address: string) {
-	const existing = await prisma.vaultConfig.findUnique({
-		where: { address: address.toLowerCase() },
-	});
+async function assertConfigured(address: string, chainId?: number) {
+	const lower = address.toLowerCase();
+
+	/**
+	 * Resolved rather than defaulted when the caller did not say which chain.
+	 *
+	 * An operator pasting an address into the console usually has one vault in
+	 * mind and no reason to think about chains. Resolving serves that case, and
+	 * the ambiguous case gets a sentence naming both chains instead of an
+	 * arbitrary pick — because every admin action below this point *writes*, and
+	 * "stand the agent down" aimed at the wrong chain's vault stops a healthy
+	 * vault while leaving the intended one running.
+	 */
+	const resolved = await refFrom(lower, chainId);
+	if (!resolved.ok && resolved.reason === "ambiguous") {
+		throw new AdminError(resolved.message, 409);
+	}
+
+	const existing = resolved.ok
+		? await prisma.vaultConfig.findUnique({ where: vaultWhere(resolved.ref) })
+		: null;
+
 	if (!existing) {
 		throw new AdminError(
 			`No venue configuration exists for ${address}. The vault is deployed and holding funds, but it was created outside this dashboard — record its spot token and perp symbol before an agent can trade it.`,
@@ -591,12 +697,12 @@ async function assertConfigured(address: string) {
  * which is both wrong and actively misleading — the database is fine, the vault
  * simply has no configuration because it was deployed outside this dashboard.
  */
-export async function setAgentEnabled(address: string, enabled: boolean) {
+export async function setAgentEnabled(address: string, enabled: boolean, chainId?: number) {
 	const normalised = address.toLowerCase();
-	await assertConfigured(normalised);
+	const existing = await assertConfigured(normalised, chainId);
 
 	return prisma.vaultConfig.update({
-		where: { address: normalised },
+		where: vaultWhere({ chainId: existing.chainId, address: normalised }),
 		data: { agentEnabled: enabled },
 	});
 }

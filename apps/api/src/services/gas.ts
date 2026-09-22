@@ -1,5 +1,6 @@
+import { chainInfo, DEFAULT_CHAIN_ID, requireChainInfo } from "@lemon/core";
 import { formatEther } from "viem";
-import { baseClient } from "../chain";
+import { clientFor } from "../chain";
 import { config } from "../config";
 import { getLivePosition } from "./position";
 
@@ -8,10 +9,16 @@ import { getLivePosition } from "./position";
  *
  * This is the one running cost the protocol cannot pay for itself. An agent's
  * wallets are derived through NEAR chain signatures and hold the position, but
- * they are ordinary accounts on their chains: the EVM one needs ETH on Base to
- * send a transaction, and the Solana one needs SOL to send an instruction. The
- * vault contract cannot fund either — it holds USDC and may only ever send USDC
- * to one address — so keeping them topped up is an operator's job.
+ * they are ordinary accounts on their chains: the EVM one needs that chain's
+ * native token to send a transaction — ETH on Base and Arbitrum, **OKB on X
+ * Layer** — and the Solana one needs SOL to send an instruction. The vault
+ * contract cannot fund either — it holds USDC and may only ever send USDC to one
+ * address — so keeping them topped up is an operator's job.
+ *
+ * The agent's EVM address is the *same* on every chain, because the derivation
+ * is chain-agnostic. That is convenient and it is also the trap: a wallet funded
+ * on Base shows a healthy balance at an address whose Arbitrum balance is zero.
+ * So every balance below is read through that chain's own client.
  *
  * Getting this wrong is quiet and expensive. An agent out of gas does not crash;
  * it fails every write, stops reporting NAV, and the vault goes stale — which
@@ -20,13 +27,32 @@ import { getLivePosition } from "./position";
  */
 
 export interface GasBalance {
-	chain: "BASE" | "SOLANA";
+	/**
+	 * "EVM" for the vault's own chain, "SOLANA" for the perp venue's.
+	 *
+	 * Was `"BASE" | "SOLANA"`, which stopped being a chain name the moment a
+	 * vault could custody somewhere else. `chainId` and `chainName` say which
+	 * EVM chain; this only says which of the agent's two wallets it is.
+	 */
+	chain: "EVM" | "SOLANA";
+	/** The EVM chain this balance is on. Null for the Solana row. */
+	chainId: number | null;
+	/** As a person would say it — "Base", "Arbitrum One", "X Layer", "Solana". */
+	chainName: string;
 	address: string | null;
 	/** Raw balance in the chain's smallest unit, as a string. */
 	balance: string | null;
 	/** Human-readable, in the chain's native unit. */
 	formatted: string | null;
-	symbol: "ETH" | "SOL";
+	/**
+	 * The native token this chain charges gas in.
+	 *
+	 * Not always ETH. X Layer charges in OKB, so an operator reading "0.001 ETH"
+	 * against an X Layer agent would go looking for the wrong asset to send —
+	 * and the threshold beside it would be quoted in a unit the chain does not
+	 * use.
+	 */
+	symbol: "ETH" | "OKB" | "SOL";
 	/** Below this, the operator should top up. */
 	lowThreshold: string;
 	isLow: boolean;
@@ -65,7 +91,7 @@ export async function getVaultGas(vaultAddress: string): Promise<VaultGas | null
 	if (!position) return null;
 
 	const [base, solana] = await Promise.all([
-		readBaseGas(position.wallets.evm),
+		readEvmGas(position.wallets.evm, position.chainId),
 		readSolanaGas(position.wallets.solana),
 	]);
 
@@ -78,13 +104,17 @@ export async function getVaultGas(vaultAddress: string): Promise<VaultGas | null
 	};
 }
 
-async function readBaseGas(address: string): Promise<GasBalance> {
+async function readEvmGas(address: string, chainId: number): Promise<GasBalance> {
+	const info = chainInfo(chainId) ?? requireChainInfo(DEFAULT_CHAIN_ID);
+
 	const shape: GasBalance = {
-		chain: "BASE",
+		chain: "EVM",
+		chainId: info.id,
+		chainName: info.name,
 		address,
 		balance: null,
 		formatted: null,
-		symbol: "ETH",
+		symbol: info.nativeSymbol,
 		lowThreshold: formatEther(LOW_ETH_WEI),
 		isLow: false,
 		estimatedTransactions: null,
@@ -92,7 +122,10 @@ async function readBaseGas(address: string): Promise<GasBalance> {
 	};
 
 	try {
-		const balance = await baseClient.getBalance({ address: address as `0x${string}` });
+		// This chain's client, not the shared Base one. The address is identical
+		// across chains, so the wrong client returns a real balance from the wrong
+		// place and an empty wallet reads as funded.
+		const balance = await clientFor(info.id).getBalance({ address: address as `0x${string}` });
 
 		return {
 			...shape,
@@ -104,7 +137,7 @@ async function readBaseGas(address: string): Promise<GasBalance> {
 	} catch (error) {
 		// Unknown, not zero. Reporting an unreachable RPC as an empty wallet
 		// would send an operator to fund an account that is already funded.
-		return { ...shape, note: `Base balance could not be read: ${message(error)}` };
+		return { ...shape, note: `${info.name} balance could not be read: ${message(error)}` };
 	}
 }
 
@@ -117,6 +150,8 @@ async function readBaseGas(address: string): Promise<GasBalance> {
 async function readSolanaGas(address: string | null): Promise<GasBalance> {
 	const shape: GasBalance = {
 		chain: "SOLANA",
+		chainId: null,
+		chainName: "Solana",
 		address,
 		balance: null,
 		formatted: null,

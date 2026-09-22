@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"baseUrl": "../..",
+		"paths": {
+			"@lemon/core": ["./packages/core/src/index.ts"],
+			"@lemon/univ3": ["./packages/univ3/src/index.ts"]
+		}
+	},
+	"include": ["src/**/*"]
+}

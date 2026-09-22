@@ -9,10 +9,14 @@ import { BPS } from "@lemon/contracts";
  *
  * Four components, each read from the venue that owns it:
  *
- *  - **Spot** — the token balances, each valued at an *executable sell* quote
- *    rather than a mid or an oracle. A tokenized equity on a thin Aerodrome pool
- *    can show a mid several percent above what a sale would actually clear, and
- *    a NAV built on mids reports a vault richer than it can liquidate.
+ *  - **Spot** — the token balances, each valued at the perp venue's mark less
+ *    what an *executable sell* gives up against it. A tokenized equity on a thin
+ *    Aerodrome pool can show a mid several percent above what a sale would
+ *    actually clear, and a NAV built on mids reports a vault richer than it can
+ *    liquidate — so the haircut is measured from a real quote and kept. The mark
+ *    is what carries the price movement, because the perp leg marks off the same
+ *    one and a pool that reprices only when somebody trades it cannot cancel
+ *    against a leg that reprices continuously. See `haircut.ts`.
  *  - **Perp equity** — the Pacifica account's own figure, which already nets
  *    unrealised P&L and accrued funding.
  *  - **Idle at the agent** — USDC that has left the vault but not yet reached a
@@ -36,8 +40,12 @@ export interface SpotLegInputs {
 	spotTokenBalance: bigint;
 	spotTokenDecimals: number;
 	/**
-	 * USDC returned by an executable sell quote for the *entire* holding.
-	 * Null when the pool cannot be routed, which is a valuation failure rather
+	 * What the *entire* holding is worth, net of what selling it would give up.
+	 *
+	 * Produced by `markSpotLeg`, which measures that concession against a real
+	 * executable quote and then holds it steady — so this is the quote's level on
+	 * the mark's clock, and falls back to the raw quote itself whenever it cannot
+	 * be. Null when the pool cannot be routed, which is a valuation failure rather
 	 * than a zero.
 	 */
 	spotSellQuoteUsdc: bigint | null;

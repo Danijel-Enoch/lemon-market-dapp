@@ -182,13 +182,17 @@ packages/
   core/       Shared types, unit conversion, fee constants
   near-mpc/   NEAR chain-signature derivation, Ed25519 and secp256k1 signing
   pacifica/   Perp REST client, request signing, Solana deposit instruction
-  kyber/      Aggregator client
+  kyber/      KyberSwap aggregator — routes Base and Arbitrum
+  lifi/       LI.FI aggregator — general router, unused by the three chains here
+  univ3/      Uniswap V3 read directly — routes X Layer, which no service indexes
   relay/      Bridge deposit addresses and status
   registry/   Spot-asset registry, pairing, basis maths
   db/         Prisma schema and client
 scripts/
   dev.sh                Run the stack against one environment, with an optional overlay
-  deploy-contracts.sh   Deploy to Base, verify, write the addresses back to an env file
+  deploy-contracts.sh   Deploy to one chain, verify, write the addresses back to an env file
+  deploy-xlayer.sh      That, then the rest of X Layer's wiring: browser, indexer, agent
+  verify-chain-assets.ts  Read symbol()/decimals() for every chain's USDC
   indexer-reset.sh      Drop the read model so the next start reindexes
   seed-venue-config.ts  Backfill venue config for vaults made outside the admin flow
   agent-addresses.ts    The agent wallets, and the derivation paths they come from
@@ -209,8 +213,9 @@ public app faces the internet. Sharing a process meant both had the same attack
 surface and the same uptime.
 
 **Where state lives.** Vaults, shares, balances and the withdrawal queue are on
-Base, and the indexer is a disposable cache of them — drop it and a resync
-rebuilds it exactly. Postgres holds only what is not derivable from events:
+the chain the vault custodies on, and the indexer is a disposable cache of them
+— drop it and a resync rebuilds it exactly. Postgres holds only what is not
+derivable from events:
 sessions, the admin allowlist, the markets each vault trades and in what
 proportion, any standing order to close a vault's positions, the agents'
 decision log, and verification verdicts (which come from other chains and would
@@ -218,6 +223,82 @@ be discarded by a reindex).
 
 Losing the database costs sessions and operator configuration. It cannot cost
 anyone their funds.
+
+**Which chain.** A vault is identified by `(chainId, address)` everywhere — the
+indexer's tables, the Prisma schema and every map that joins them. Not caution:
+a vault address is `CREATE`-derived from the factory's address and nonce, and
+the factories are deployed from one deployer at matching nonces, so the *same*
+address on two chains is the likely case rather than a coincidence to guard
+against. Keyed by address alone, the second chain's first vault would overwrite
+the first chain's row, and every number on the page would be a correct number
+about the wrong vault.
+
+The same reasoning runs through the agent wallets. `agentDerivationPath` takes
+the chain and has no default, because market-plus-tier was unique only while
+there was one chain: an NVDA conservative vault on Arbitrum derived byte-for-byte
+the same path as the one on Base, and therefore the same signing key for two
+separate books. Base keeps its original two-segment path — those wallets already
+hold positions, and versioning them would be a migration moving real money for
+no benefit — and the namespaces provably cannot collide, because a legacy path's
+second segment is always a tier and no chain key is a tier name.
+
+The indexer uses Ponder's `multichain` ordering rather than `omnichain`. Nothing
+here reads state another chain's handler wrote, so a global timestamp order buys
+nothing and costs a real thing: one lagging endpoint would hold up indexing for
+every chain. Independently ordered, a slow X Layer makes X Layer vaults stale
+and leaves Base alone.
+
+**What each chain trades.** The perp leg is the same everywhere — one Pacifica
+account on Solana, reached by bridging USDC out and back — and the spot leg is
+entirely chain-specific:
+
+| | spot venue | markets |
+|---|---|---|
+| Base | KyberSwap | Coinbase B20 equities + curated crypto |
+| Arbitrum | KyberSwap | WETH, WBTC, ARB, LINK, AAVE, UNI, CRV — **no tokenized equities exist on Arbitrum** |
+| X Layer | Uniswap V3, read directly | xBTC, xETH, xSOL + eleven `w…x` equities — the widest equity set of the three |
+
+**X Layer has no routing service, so it reads the pools itself.** That chain
+went to LI.FI originally, on the understanding that LI.FI reached its Uniswap
+v3 pools through SushiSwap's aggregator. It does not: LI.FI answers "Could not
+find token on chain 196" for all fourteen tokens traded there — individual
+token lookups included, so it is not a curation artifact — and returns "No
+available quotes" even between two tokens it does list on the chain. The board
+showed fourteen unvaultable markets and no X Layer vault could be created at
+all.
+
+The pools were never missing. There are fifty-one of them across the fourteen
+tokens, on the Uniswap V3 deployment at `0x4B2ab38D…`, with liquidity split
+between USDC and USDG pairs. `@lemon/univ3` quotes them through `QuoterV2` and
+executes through `SwapRouter02`, trying the direct pair and the USDG hop on
+every quote and taking whichever delivers more. Thirteen of the fourteen
+markets are vaultable on that route; the fourteenth is blocked by the
+price-divergence guard, which is a fact about that pool rather than about
+routing.
+
+The aggregator is a property of the chain, not a setting: KyberSwap has no
+X Layer deployment, and `KyberAggregatorClient` throws on a chain it cannot
+route rather than building a URL from a slug that does not exist. Both
+implement `SpotAggregator` in `@lemon/core`, so the agent asks its vault's
+chain for one and trades through whatever comes back.
+
+**X Layer's quote asset is split**, which is the one thing that makes it unlike
+the others. Its deep pools quote against USDG rather than USDC, and nine of its
+fourteen markets have no direct USDC pair at all — LI.FI returns no route for
+USDC to xETH while quoting both USDC to USDG and USDG to xETH happily. The
+adapter closes that gap itself: it quotes the direct pair, quotes the hop when
+the direct fill is poor enough that a hop could beat it, and takes whichever
+actually delivers more. Nothing records which quote asset a token uses, because
+that moves with liquidity and a stale table would report a live market as
+unroutable — the one failure indistinguishable from the market being empty.
+
+**One agent process per chain.** Everything an agent does is bound to a single
+chain at once — the wallet client signs with its id, the USDC it moves is that
+chain's, the bridge quotes it as the origin — so `AGENT_CHAIN_ID` selects the
+chain and the worker skips every vault that is not on it. The failure this
+prevents is not a reverted transaction: reads against an address that holds
+nothing on this chain return zero, and a NAV of zero reported to a funded vault
+wipes out every holder's share price.
 
 ## Agent decisions
 
@@ -291,25 +372,53 @@ later.
 ### Deploying the contracts
 
 ```bash
-scripts/deploy-contracts.sh    # deploy, verify, write the addresses back
+scripts/deploy-contracts.sh                 # Base, the default
+CHAIN=arbitrum scripts/deploy-contracts.sh  # Arbitrum One
+CHAIN=xlayer scripts/deploy-contracts.sh    # X Layer
 ```
 
-It asks for a deployer key and an Etherscan key, checks the key and the chain
+One run per chain. The contracts are identical on each — the Solidity contains
+no chain-specific address and no `block.chainid` — but the deployed addresses,
+the start block, the asset and the explorer are not, so each chain gets its own
+deploy and its own `_<CHAIN>`-suffixed variables.
+
+It asks for a deployer key and an explorer API key, checks the key and the chain
 before spending anything, simulates against real chain state, prints what it is
 about to do and what it will cost, and only then asks for confirmation. Neither
 key is written to disk or to your shell history. Afterwards it verifies both
-contracts on Basescan.
+contracts — on Etherscan for Base and Arbitrum, on OKLink for X Layer, which
+Etherscan v2 does not index.
 
-The last step is the point of the script. Four variables —
-`VAULT_FACTORY_ADDRESS`, `VITE_VAULT_FACTORY_ADDRESS`, `INSURANCE_FUND_ADDRESS`
-and `VAULT_FACTORY_START_BLOCK` — have to name the same deployment before the
-app, the admin console and the indexer agree about which protocol they are
-looking at. The script writes all four itself, keeping a timestamped backup of
-the file it edited.
+Before it broadcasts it reads `symbol()` and `decimals()` off the asset and
+refuses anything that is not a six-decimal token, because every amount in this
+system is stored and formatted as 6dp USDC. On a chain whose USDC address has
+not been verified against the chain it names, it also makes you type the symbol
+back — the asset is immutable on the factory, and a wrong one means every vault
+it ever creates is dead on arrival.
 
 ```bash
-scripts/deploy-contracts.sh .env.local     # write the results there instead
-VERIFY_ONLY=1 scripts/deploy-contracts.sh  # re-verify a finished deploy, no key needed
+bun run chains:verify   # read symbol() and decimals() for every chain's asset
+```
+
+The last step is the point of the script. Five variables per chain —
+`VAULT_FACTORY_ADDRESS_<CHAIN>`, `VITE_VAULT_FACTORY_ADDRESS_<CHAIN>`,
+`INSURANCE_FUND_ADDRESS_<CHAIN>`, `VAULT_FACTORY_START_BLOCK_<CHAIN>` and
+`USDC_ADDRESS_<CHAIN>` — have to name the same deployment before the app, the
+admin console and the indexer agree about which protocol they are looking at.
+The script writes all of them itself, keeping a timestamped backup of the file
+it edited. For Base it also writes the unsuffixed names, which every older
+`.env` still reads.
+
+**A factory address is what enables a chain.** There is no separate list of
+enabled chains, on the server or in the browser: a chain with no
+`VAULT_FACTORY_ADDRESS_<CHAIN>` is not indexed, not offered in the app's network
+switcher, and not something a vault can be created on. Two lists that have to
+agree eventually disagree, and the way that one fails is a chain offered to a
+user with nothing deployed on it.
+
+```bash
+scripts/deploy-contracts.sh .env.local                  # write the results there instead
+VERIFY_ONLY=1 CHAIN=arbitrum scripts/deploy-contracts.sh  # re-verify, no key needed
 ```
 
 `--verify` on the broadcast fails often enough for reasons that have nothing to
@@ -321,8 +430,12 @@ The command underneath, if you would rather drive it by hand:
 
 ```bash
 cd packages/contracts
-forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_RPC_URL --broadcast --verify
+forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL_ARBITRUM --broadcast --verify
 ```
+
+`Deploy.s.sol` picks the asset from `block.chainid` and reverts on a chain it
+has no default for, so a run pointed at the wrong `--rpc-url` fails rather than
+deploying a factory against an address that holds no contract there.
 
 Either way this deploys the insurance fund and the factory only. Vaults are
 created from the admin dashboard, because a vault needs an agent wallet derived
@@ -334,29 +447,105 @@ bun run contracts:build   # regenerate ts/abi.ts from the new artifacts
 bun run indexer:reset     # vault addresses repeat across deployments
 ```
 
+#### X Layer, in one command
+
+```bash
+scripts/deploy-xlayer.sh            # deploy + wire, writing to .env
+WIRE_ONLY=1 scripts/deploy-xlayer.sh   # already deployed; just wire it
+```
+
+Deploying is the short half. The long half is that the web app, the admin
+console, the API, the indexer and the agent each have to be told separately that
+the chain exists — and each of them fails *quietly* when they have not been. A
+missing `VITE_VAULT_FACTORY_ADDRESS_XLAYER` is a chain that never appears in the
+network switcher. A missing start block is an indexer reading X Layer from
+genesis, which presents as a hang. An agent still on `AGENT_CHAIN_ID=8453` skips
+every X Layer vault it sees and logs nothing but a tick with no work in it.
+
+So this runs `CHAIN=xlayer scripts/deploy-contracts.sh` — the same shared script,
+not a second deploy path — and then reads the factory back off the chain to
+check it answers `asset()` with the token the env file claims, seeds the four
+variables the deploy does not write, rebuilds the ABIs, and prints what each
+service now reads and what has to restart. It is re-runnable and will not
+redeploy.
+
+Four things are true of X Layer and of no other chain here: gas is **OKB**, so a
+deployer funded with ETH cannot send a transaction at all; verification is
+**OKLink**, because Etherscan v2 does not index the chain and a Basescan key is
+rejected; spot routes through **LI.FI**, so `LIFI_API_KEY` matters more than it
+looks — its free tier 429s for two hours, and reached mid-trade that is a
+position with one leg on; and the USDC is **bridged**, with a second contract on
+the same chain answering `symbol()` "USDC" with six decimals that is not it.
+
+The agent is the piece that is a container rather than a variable. One process
+serves one chain — a process reading an X Layer vault's balances against Base
+reads zero, and a NAV of zero reported to a funded vault wipes out every
+holder's share price — so `docker-compose.dokploy.yml` carries one agent service
+per chain, `agent` and `agent-xlayer`, both deployed by default:
+
+```bash
+docker compose -f docker-compose.dokploy.yml up -d --build
+AGENT_CHAIN_ID=196 bun run dev:agent   # one chain's agent, locally
+```
+
+Each service **pins** its own `AGENT_CHAIN_ID` rather than reading the shared
+variable. A value in `.env` would otherwise point both containers at the same
+chain, and two agents ticking one vault is duplicate deployments and two NAV
+reports racing each other.
+
+Running both at once needs **one NEAR access key per agent**, on the same NEAR
+account — `NEAR_PRIVATE_KEY_BASE` and `NEAR_PRIVATE_KEY_XLAYER`, each falling
+back to `NEAR_PRIVATE_KEY`. Signatures are NEAR transactions from one access
+key and the client serialises them with an in-process queue, which two
+containers cannot share; on one key they race on the nonce and one of each pair
+is rejected. A second key changes no addresses — a vault's agent wallet derives
+from the account id and the path, not from the key that authorises the call.
+
+Adding a chain to a database that predates multi-chain also needs the column
+that carries it. `packages/db/prisma/multichain.sql` holds the statements, with
+what they do and why none of them is destructive — every new column arrives
+defaulted to Base, which is what every existing row was. `bun run db:push` can
+make the same change, but it asks about the primary-key swap on `VaultConfig` in
+a prompt that is easy to answer wrongly at the wrong moment.
+
 ### Connecting a wallet
 
 Both apps use the same RainbowKit modal, built once in `@lemon/wallet`. That
-package also owns the chain the browser targets, and it is Base mainnet — pinned
-in code, not read from a build variable:
+package also owns which chains the browser can target:
 
 ```bash
-VITE_CHAIN_RPC_URL=https://...            # optional: a dedicated Base endpoint
+VITE_RPC_URL_BASE=https://...             # optional: a dedicated endpoint per chain
+VITE_RPC_URL_ARBITRUM=https://...
+VITE_RPC_URL_XLAYER=https://...
 ```
 
-The chain is a fact about the deployment rather than a setting. The vault
-contracts, Circle's USDC, KyberSwap's aggregator and the Relay routes the agent
-bridges over all exist on Base mainnet and nowhere else, so an id read from the
-environment could only ever produce a build where every write reverts while the
-UI carried on looking healthy. Only the endpoint is a real choice, and the same
-reasoning is applied server-side: the API, the indexer and the agent all pin the
-chain and configure the RPC.
+**The set of chains is not configurable; which of them are live is.** The three
+this build knows about — Base (8453), Arbitrum One (42161) and X Layer (196) —
+are a closed list in `packages/core/src/chain.ts`, and nothing anywhere accepts
+a chain id from the environment. An id that could be anything could only ever
+name a chain with no factory on it, and the failure mode is a process that runs
+cleanly and serves an empty app.
 
-A wallet that has never been on Base is asked to add it with
+What the environment chooses is which of the three have a factory, and that is
+also what the app offers. A chain with no `VITE_VAULT_FACTORY_ADDRESS_<CHAIN>`
+is absent from the network switcher entirely, so switching to it is not
+something the UI can do — the same protection the old single-chain pin gave,
+expressed as a filter rather than as a constant.
+
+A vault lives on exactly one chain, that chain is baked into its row at
+creation, and nothing derives it from the connected wallet. The deposit panel
+pins its reads and writes to the vault's chain and offers to switch if the
+wallet is elsewhere; a read aimed at the wrong chain would return a balance of
+zero from an address where the user genuinely holds USDC.
+
+A wallet that has never seen a chain is asked to add it with
 `wallet_addEthereumChain`, and that call needs a full name, native currency, RPC
-URL and explorer. `APP_CHAIN` keeps viem's whole Base definition rather than an
-id with a transport bolted on, because a partial chain object fails that call
-with an error most wallets do not explain.
+URL and explorer. `@lemon/wallet` keeps viem's whole definition for each chain
+rather than an id with a transport bolted on, because a partial chain object
+fails that call with an error most wallets do not explain — and it is why every
+enabled chain is in the wagmi config, not just the current one. X Layer in
+particular is absent from most wallets' defaults, and it charges gas in **OKB**,
+not ETH.
 
 ### Testing
 
@@ -486,10 +675,17 @@ check.
 
 ## Agent gas
 
-The one running cost the protocol cannot cover for itself. An agent's Base wallet
-is an ordinary account and needs ETH to send a transaction; the vault holds USDC
-and may only ever send USDC to one address, so it cannot be funded from protocol
-capital — an operator tops it up.
+The one running cost the protocol cannot cover for itself. An agent's EVM wallet
+is an ordinary account and needs that chain's native token to send a transaction
+— ETH on Base and Arbitrum, **OKB on X Layer**; the vault holds USDC and may only
+ever send USDC to one address, so it cannot be funded from protocol capital — an
+operator tops it up.
+
+The derivation is chain-agnostic, so an agent's EVM address is the *same* on
+every chain. That is convenient and it is also the trap: a wallet funded on Base
+shows a healthy balance at an address whose Arbitrum balance is zero. Every
+balance on the Gas tab is therefore read through its own chain's client, and
+labelled with the chain and the unit it is actually denominated in.
 
 The Solana side is covered differently. A derived wallet never holds SOL, so it
 could not pay for its own transaction even in principle; one shared keypair
@@ -503,8 +699,8 @@ does not crash; it fails every write, stops reporting a valuation, and its vault
 goes stale — which blocks deposits and withdrawals on-chain. From the outside
 that looks like a broken agent rather than an empty wallet.
 
-The Gas tab shows both balances per vault and funds the Base side directly from
-the operator's wallet. Solana is shown with its address and no button: a Base
+The Gas tab shows both balances per vault and funds the EVM side directly from
+the operator's wallet. Solana is shown with its address and no button: an EVM
 wallet cannot send SOL, and a button that opens a wallet which then cannot sign
 is worse than none.
 
@@ -562,9 +758,10 @@ asset and trading it without complaint.
 |---|---|---|
 | Pacifica | Perps, funding, OHLCV, custody | [docs.pacifica.fi](https://docs.pacifica.fi) |
 | NEAR | Chain signatures for agent wallets | [docs.near.org](https://docs.near.org/chain-abstraction/chain-signatures) |
-| KyberSwap | Spot routing and liquidity probes | [docs.kyberswap.com](https://docs.kyberswap.com) |
-| Relay | Base ↔ Solana bridging | [docs.relay.link](https://docs.relay.link) |
-| Ponder | Indexing Base into the read model | [ponder.sh](https://ponder.sh) |
+| KyberSwap | Spot routing on Base and Arbitrum | [docs.kyberswap.com](https://docs.kyberswap.com) |
+| Uniswap V3 | Spot routing on X Layer, read directly from the pools | [docs.uniswap.org](https://docs.uniswap.org/contracts/v3/overview) |
+| Relay | Custody chain ↔ Solana bridging | [docs.relay.link](https://docs.relay.link) |
+| Ponder | Indexing every chain into the read model | [ponder.sh](https://ponder.sh) |
 | OpenRouter | The agent's advisory layer | [openrouter.ai](https://openrouter.ai) |
 | Coinbase | Tokenized equities (B20) on Base | [docs.base.org](https://docs.base.org) |
 

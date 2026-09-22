@@ -30,8 +30,14 @@ export const ACTIVITY_KINDS = [
 ] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
-/** `LemonVault.Chain` — Base holds custody, Solana runs the perp, NEAR signs. */
-export const CHAINS = ["BASE", "SOLANA", "NEAR"] as const;
+/**
+ * `LemonVault.Chain` — an EVM chain holds custody, Solana runs the perp, NEAR signs.
+ *
+ * Positional, and must stay in the same order as the Solidity enum: the contract
+ * emits the index and this array is how it is read back. Append only. See the
+ * `@dev` note on `LemonVault.Chain` for what reordering costs.
+ */
+export const CHAINS = ["BASE", "SOLANA", "NEAR", "ARBITRUM", "XLAYER"] as const;
 export type Chain = (typeof CHAINS)[number];
 
 export function riskTierFromIndex(index: number): RiskTier {

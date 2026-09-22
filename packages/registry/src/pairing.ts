@@ -1,5 +1,5 @@
 import type { Market, StockToken } from "@lemon/core";
-import { SPOT_TOKENS, type StockTokenSeed } from "./tokens";
+import type { StockTokenSeed } from "./tokens";
 
 /**
  * Ticker aliases where the token and the perp name the same company
@@ -60,7 +60,17 @@ function resolveMarket<T extends PerpMarketRef>(
  */
 export function pairTokensWithMarkets(
 	markets: readonly PerpMarketRef[],
-	tokens: readonly StockTokenSeed[] = SPOT_TOKENS,
+	/**
+	 * The tokens to pair. **Required, and one chain's.**
+	 *
+	 * It used to default to the whole registry, which was right while the
+	 * registry was one chain. It is now actively wrong: `WETH` on Base,
+	 * `WETH` on Arbitrum and `xETH` on X Layer are three different contracts
+	 * that all pair to the ETH perp, so pairing the flat list would return
+	 * three markets named ETH and leave the caller to guess which chain each
+	 * belonged to. Callers pass `spotTokensFor(chainId)`.
+	 */
+	tokens: readonly StockTokenSeed[],
 ): StockToken[] {
 	return tokens.map((token) => {
 		const market = resolveMarket(markets, token.ticker);

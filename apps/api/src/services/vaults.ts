@@ -3,8 +3,12 @@ import {
 	ASSET_CLASS_LABELS,
 	type AssetClass,
 	type AssetGroup,
+	allChains,
 	assetClassForTicker,
 	assetGroupFor,
+	DEFAULT_CHAIN_ID,
+	explorerTx,
+	requireChainInfo,
 } from "@lemon/core";
 import { prisma, type VaultMarketConfig } from "@lemon/db";
 import { projectVaultApy, type VaultYieldProjection } from "@lemon/registry";
@@ -53,6 +57,15 @@ async function fromIndexer<T>(path: string): Promise<T> {
 
 export interface IndexedVault {
 	address: string;
+	/**
+	 * The chain this vault is deployed on, from the indexer's own row.
+	 *
+	 * Optional because a response from an indexer built before multi-chain has no
+	 * such field, and a deployment can run a newer API against an older indexer
+	 * for the length of a rollout. `vaultKey` treats a missing value as Base,
+	 * which is what every vault that existed then actually was.
+	 */
+	chainId?: number;
 	marketId: string;
 	ticker: string | null;
 	name: string;
@@ -69,6 +82,10 @@ export interface IndexedVault {
 	lastObservedLeverageBps: number;
 	lastNavReportAt: number | null;
 	depositorCount: number;
+	/** Signed USDC. Optional because a vault indexed before this was tracked has none. */
+	cumulativeFunding?: string | null;
+	fundingSettlementCount?: number | null;
+	firstFundingAt?: number | null;
 	paused: boolean;
 	emergencyExit: boolean;
 	apy7d?: RealisedYield | null;
@@ -190,6 +207,21 @@ export type VaultOutlook =
 const NAV_STALENESS_SECONDS = 6 * 3600;
 
 /**
+ * The key every by-vault map in this file is built on.
+ *
+ * Chain and address, never address alone. Vault addresses are `CREATE`-derived
+ * from factories deployed at matching nonces, so the same address on two chains
+ * is the likely case — and these maps join the chain's data to the operator's
+ * configuration. Keyed by address, an Arbitrum vault would be labelled with a
+ * Base vault's ticker, spot token and perp symbol, and the agent reading that
+ * configuration would hedge the wrong asset. Every field involved is plausible,
+ * so nothing downstream would reject it.
+ */
+function vaultKey(chainId: number | null | undefined, address: string): string {
+	return `${chainId ?? DEFAULT_CHAIN_ID}:${address.toLowerCase()}`;
+}
+
+/**
  * The operator's venue configuration, or nothing.
  *
  * Deliberately swallows a database failure. Every number a depositor acts on —
@@ -201,7 +233,7 @@ const NAV_STALENESS_SECONDS = 6 * 3600;
 async function vaultConfigs(): Promise<Map<string, VaultConfigRecord>> {
 	try {
 		const configs = await prisma.vaultConfig.findMany();
-		return new Map(configs.map((c) => [c.address.toLowerCase(), c]));
+		return new Map(configs.map((c) => [vaultKey(c.chainId, c.address), c]));
 	} catch (error) {
 		logger.warn("Vault configuration unavailable; serving chain data only.", error);
 		return new Map();
@@ -223,7 +255,7 @@ async function vaultMarketRows(): Promise<Map<string, VaultMarketConfig[]>> {
 		const rows = await prisma.vaultMarket.findMany();
 		const byVault = new Map<string, VaultMarketConfig[]>();
 		for (const row of rows) {
-			const key = row.vaultAddress.toLowerCase();
+			const key = vaultKey(row.chainId, row.vaultAddress);
 			const list = byVault.get(key) ?? [];
 			list.push({
 				ticker: row.ticker,
@@ -256,14 +288,23 @@ export async function listVaults(): Promise<VaultView[]> {
 	return vaults.map((v) =>
 		decorate(
 			v,
-			byAddress.get(v.address.toLowerCase()),
-			markets.get(v.address.toLowerCase()),
+			byAddress.get(vaultKey(v.chainId, v.address)),
+			markets.get(vaultKey(v.chainId, v.address)),
 			outlooks,
 		),
 	);
 }
 
-export async function getVault(address: string): Promise<VaultView | null> {
+/**
+ * One vault.
+ *
+ * `chainId` is optional and forwarded to the indexer when given. Omitted, the
+ * indexer resolves the address itself and answers 400 if it names a vault on
+ * more than one chain — which is the right place for that decision, because it
+ * is the only party that knows which chains actually have a vault there.
+ */
+export async function getVault(address: string, chainId?: number): Promise<VaultView | null> {
+	const scoped = chainId === undefined ? "" : `?chainId=${chainId}`;
 	try {
 		const [{ vault, apy7d, apy30d, apyAll }, byAddress, markets, outlooks] = await Promise.all([
 			fromIndexer<{
@@ -271,7 +312,7 @@ export async function getVault(address: string): Promise<VaultView | null> {
 				apy7d: RealisedYield | null;
 				apy30d: RealisedYield | null;
 				apyAll: RealisedYield | null;
-			}>(`/vaults/${address}`),
+			}>(`/vaults/${address}${scoped}`),
 			vaultConfigs(),
 			vaultMarketRows(),
 			yieldInputs(),
@@ -281,10 +322,14 @@ export async function getVault(address: string): Promise<VaultView | null> {
 		// beside the vault. Destructuring only `vault` dropped them silently, so
 		// the vault page's "7d realised" card was blank on every vault while the
 		// board showed a figure for the same one.
+		// The vault's own row is authoritative for the chain, not the parameter:
+		// an omitted `chainId` was resolved by the indexer, and reading it back
+		// from the answer is what makes the two halves of this join agree.
+		const key = vaultKey(vault.chainId, address);
 		return decorate(
 			{ ...vault, apy7d, apy30d, apyAll },
-			byAddress.get(address.toLowerCase()),
-			markets.get(address.toLowerCase()),
+			byAddress.get(key),
+			markets.get(key),
 			outlooks,
 		);
 	} catch (error) {
@@ -393,15 +438,51 @@ function marketViews(
  */
 type YieldInputs = Awaited<ReturnType<typeof yieldInputs>>;
 
+/**
+ * The key a projection is looked up by: chain, then ticker.
+ *
+ * A plain template literal inside the map builder narrows to the three chain
+ * ids and then refuses a lookup typed as `number`. One function used by both
+ * sides keeps the key format in one place and the types agreeing.
+ */
+function outlookKey(chainId: number, ticker: string): string {
+	return `${chainId}:${ticker.toUpperCase()}`;
+}
+
 async function yieldInputs() {
 	try {
-		const [{ markets: basis }, perps] = await Promise.all([listBasisMarkets(), getMarkets()]);
+		/**
+		 * Every chain's board, keyed by chain and ticker.
+		 *
+		 * The funding half of a projection is chain-independent — Pacifica's ETH
+		 * perp pays the same whichever chain the spot leg sits on — but the spot
+		 * half is not. Price impact, the fees of a round trip and whether the
+		 * market is blocked at all are properties of that chain's pools, and
+		 * X Layer's xETH is a different pool from Base's WETH.
+		 *
+		 * Keyed by ticker alone, an X Layer vault would be projected off Base's
+		 * spot costs. That is not a small error: it is the number a depositor is
+		 * shown *before* they commit, on the screen where the decision is made.
+		 */
+		const boards = await Promise.all(
+			allChains().map(async (chain) => ({
+				chain,
+				board: await listBasisMarkets(chain.id),
+			})),
+		);
+		const perps = await getMarkets();
 		const byPacificaSymbol = new Map(perps.map((p) => [p.pacifica.pacificaSymbol, p]));
+
+		const byTicker = new Map(
+			boards.flatMap(({ chain, board }) =>
+				board.markets.map((m) => [outlookKey(chain.id, m.ticker), m] as const),
+			),
+		);
 
 		return {
 			ok: true as const,
 			observedAt: Math.floor(Date.now() / 1000),
-			byTicker: new Map(basis.map((m) => [m.ticker.toUpperCase(), m])),
+			byTicker,
 			byPacificaSymbol,
 		};
 	} catch (error) {
@@ -431,11 +512,12 @@ function outlookFor(v: IndexedVault, ticker: string | null, inputs: YieldInputs)
 		};
 	}
 
-	const basis = inputs.byTicker.get(ticker.toUpperCase());
+	const chainId = v.chainId ?? DEFAULT_CHAIN_ID;
+	const basis = inputs.byTicker.get(outlookKey(chainId, ticker));
 	if (!basis) {
 		return {
 			available: false,
-			reason: `No live ${ticker} basis market, so there is no funding rate to project from.`,
+			reason: `No live ${ticker} basis market on ${requireChainInfo(chainId).name}, so there is no funding rate to project from.`,
 		};
 	}
 	if (basis.blockers.length > 0) {
@@ -599,8 +681,18 @@ export function explorerUrlFor(chain: string, txRef: string): string | null {
 	const hex = txRef.startsWith("0x") ? txRef.slice(2) : txRef;
 	if (hex.length === 0) return null;
 
-	if (chain === "BASE") {
-		return hex.length === 64 ? `https://basescan.org/tx/0x${hex}` : null;
+	/**
+	 * The EVM venues, matched by the contract's enum name.
+	 *
+	 * `LemonVault.Chain`'s members are spelled the same as the registry's
+	 * `envSuffix` — BASE, ARBITRUM, XLAYER — so the venue an agent reported an
+	 * action on maps straight onto the chain whose explorer should host the link.
+	 * NEAR falls through to null below: chain signatures leave no transaction of
+	 * ours to point at.
+	 */
+	const evm = allChains().find((info) => info.envSuffix === chain);
+	if (evm) {
+		return hex.length === 64 ? explorerTx(evm.id, `0x${hex}`) : null;
 	}
 
 	if (chain === "SOLANA") {
@@ -643,6 +735,19 @@ export async function getPortfolio(owner: string) {
 
 export async function getNavSeries(address: string, days: number) {
 	return fromIndexer(`/vaults/${address}/nav?days=${days}`);
+}
+
+/**
+ * Funding paid, per UTC day.
+ *
+ * Separate from the NAV series because it answers a different question. The
+ * share price is what a depositor's stake is worth after everything — funding,
+ * fees, and whatever the two legs did to each other; this is the funding on its
+ * own, which is the part the vault exists to collect and the only part that
+ * arrives as a payment rather than as a revaluation.
+ */
+export async function getFundingSeries(address: string, days: number) {
+	return fromIndexer(`/vaults/${address}/funding?days=${days}`);
 }
 
 export async function getTransfers(address: string) {

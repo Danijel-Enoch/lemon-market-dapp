@@ -63,6 +63,15 @@ x-image: &image
       VITE_BASE_RPC_URL: ${VITE_BASE_RPC_URL:-}
       VITE_CHAIN_RPC_URL: ${VITE_CHAIN_RPC_URL:-}
       VITE_VAULT_FACTORY_ADDRESS: ${VITE_VAULT_FACTORY_ADDRESS:-}
+      # Per chain. Baked into the bundle at build time, so adding a chain to a
+      # running deployment is a rebuild — a factory address here is what makes
+      # the chain appear in the app's network switcher at all.
+      VITE_VAULT_FACTORY_ADDRESS_BASE: ${VITE_VAULT_FACTORY_ADDRESS_BASE:-}
+      VITE_VAULT_FACTORY_ADDRESS_ARBITRUM: ${VITE_VAULT_FACTORY_ADDRESS_ARBITRUM:-}
+      VITE_VAULT_FACTORY_ADDRESS_XLAYER: ${VITE_VAULT_FACTORY_ADDRESS_XLAYER:-}
+      VITE_RPC_URL_BASE: ${VITE_RPC_URL_BASE:-}
+      VITE_RPC_URL_ARBITRUM: ${VITE_RPC_URL_ARBITRUM:-}
+      VITE_RPC_URL_XLAYER: ${VITE_RPC_URL_XLAYER:-}
       VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-https://${DOMAIN}}
   image: lemon-app:${IMAGE_TAG:-latest}
 
@@ -75,9 +84,14 @@ x-app-env: &app-env
   NODE_ENV: production
   DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
 
-  # Chain. Base mainnet is pinned in code on both sides; only the endpoint is a
+  # Chain. Base mainnet is pinned in code on both sides; only the endpoints are a
   # deployment choice, and the browser's copy is the build arg above.
   BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+  # Comma separated. The API falls back through these; the indexer spreads its
+  # backfill across them. Passed to every service so one setting covers all of
+  # them — until now it could be set in .env and reached nothing.
+  BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
+  BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
 
   # Deployed contracts. Without the factory the admin console can read the
   # market board but cannot create a vault, and says so rather than failing at
@@ -85,6 +99,29 @@ x-app-env: &app-env
   VAULT_FACTORY_ADDRESS: ${VAULT_FACTORY_ADDRESS:-}
   INSURANCE_FUND_ADDRESS: ${INSURANCE_FUND_ADDRESS:-}
   USDC_ADDRESS: ${USDC_ADDRESS:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}
+
+  # Per chain. A factory address is what enables a chain: one that has none is
+  # not indexed, not offered in the app, and not something a vault can be made
+  # on. The unsuffixed names above still work and still mean Base.
+  VAULT_FACTORY_ADDRESS_BASE: ${VAULT_FACTORY_ADDRESS_BASE:-}
+  VAULT_FACTORY_ADDRESS_ARBITRUM: ${VAULT_FACTORY_ADDRESS_ARBITRUM:-}
+  VAULT_FACTORY_ADDRESS_XLAYER: ${VAULT_FACTORY_ADDRESS_XLAYER:-}
+  INSURANCE_FUND_ADDRESS_BASE: ${INSURANCE_FUND_ADDRESS_BASE:-}
+  INSURANCE_FUND_ADDRESS_ARBITRUM: ${INSURANCE_FUND_ADDRESS_ARBITRUM:-}
+  INSURANCE_FUND_ADDRESS_XLAYER: ${INSURANCE_FUND_ADDRESS_XLAYER:-}
+  USDC_ADDRESS_BASE: ${USDC_ADDRESS_BASE:-0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913}
+  USDC_ADDRESS_ARBITRUM: ${USDC_ADDRESS_ARBITRUM:-0xaf88d065e77c8cC2239327C5EDb3A432268e5831}
+  USDC_ADDRESS_XLAYER: ${USDC_ADDRESS_XLAYER:-0xB6CEceAB302E2E4948951eE7843FC24E92933061}
+
+  # Per-chain endpoints. Nothing falls through to another chain's value: a chain
+  # reading another's node would index a chain with no factory on it and serve an
+  # empty app, which looks like "no vaults yet" rather than like a misconfiguration.
+  RPC_URL_BASE: ${RPC_URL_BASE:-}
+  RPC_URL_ARBITRUM: ${RPC_URL_ARBITRUM:-}
+  RPC_URL_XLAYER: ${RPC_URL_XLAYER:-}
+  ARBITRUM_RPC_FALLBACK_URLS: ${ARBITRUM_RPC_FALLBACK_URLS:-}
+  XLAYER_RPC_FALLBACK_URLS: ${XLAYER_RPC_FALLBACK_URLS:-}
+  RPC_BATCH: ${RPC_BATCH:-}
 
   # The read model. Reached over the private network; the browser never talks to
   # it directly, the API proxies it.
@@ -94,6 +131,11 @@ x-app-env: &app-env
   # mainnet-beta, and Relay carries USDC between the two.
   KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
   KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+  # LI.FI. Unused by the three chains in this build — X Layer reads its
+  # Uniswap V3 pools directly — and kept for a fourth.
+  LIFI_BASE_URL: ${LIFI_BASE_URL:-https://li.quest}
+  LIFI_INTEGRATOR: ${LIFI_INTEGRATOR:-lemon-markets}
+  LIFI_API_KEY: ${LIFI_API_KEY:-}
   PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
   SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}
   RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
@@ -139,6 +181,65 @@ x-app-env: &app-env
 
 x-restart: &restart
   restart: unless-stopped
+
+# The agent, minus the one thing that differs between its containers.
+#
+# Extracted because there is one per chain and they must not drift: a second
+# agent that missed a timeout change, or came up before the indexer was healthy,
+# would trade a different policy against a half-synced redemption queue.
+x-agent-service: &agent-service
+  working_dir: /usr/src/app
+  command: ["bun", "run", "apps/agent/src/index.ts"]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+    # Healthy, not started: the agent reports NAV and fulfils redemptions from
+    # what the indexer tells it. Acting on a half-synced queue would mean
+    # fulfilling against a partial view of who is owed what.
+    indexer:
+      condition: service_healthy
+    web:
+      condition: service_healthy
+  networks:
+    - internal
+
+# Everything an agent reads that the other services do not. Chain-independent:
+# the chain is AGENT_CHAIN_ID on each container, and nothing else here changes
+# with it.
+x-agent-env: &agent-env
+  # The vault list comes from the API, not the indexer: a vault's derivation
+  # path and venue configuration are deliberately off-chain, and the raw
+  # index would hand the agent vaults it has no way to act on.
+  AGENT_API_URL: http://web:3002/api
+  # How long a crossing may take before a tick gives up on it. Giving up
+  # does not cancel anything: the transfer stays recorded as in flight and
+  # keeps counting towards NAV.
+  BRIDGE_FILL_TIMEOUT_MS: ${BRIDGE_FILL_TIMEOUT_MS:-1200000}
+  VENUE_WITHDRAWAL_TIMEOUT_MS: ${VENUE_WITHDRAWAL_TIMEOUT_MS:-900000}
+  # Each tick reads both venues and may report a valuation, so this
+  # interacts with the vault's own minNavReportInterval.
+  AGENT_TICK_INTERVAL_MS: ${AGENT_TICK_INTERVAL_MS:-60000}
+  # The smallest spot leg worth opening, in dollars. Measured on the leg
+  # rather than on the deployment that funds it, so at 1x a vault needs
+  # roughly twice this idle before it can deploy at all.
+  MIN_DEPLOY_USDC: ${MIN_DEPLOY_USDC:-30}
+  # How far below its ceiling a hedge is opened, in basis points. Reported
+  # leverage is marked to market on both sides, so a hedge sized at exactly
+  # its ceiling breaches on a fraction of a percent — and a conservative
+  # vault has no headroom of its own to drift into. 300 bps covers a 1.55%
+  # move, at the cost of that much less spot leg per dollar deployed.
+  MARGIN_BUFFER_BPS: ${MARGIN_BUFFER_BPS:-300}
+  # The smallest margin top-up worth bridging, in dollars. Restoring the
+  # buffer is often a matter of cents, and bridging cents costs more than
+  # the vault earns. Worth lowering for a small vault.
+  MIN_TOP_UP_USDC: ${MIN_TOP_UP_USDC:-5}
+  # Optional. With no key the agent runs on its deterministic policy alone,
+  # which is strictly less clever and equally safe.
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.5}
+  OPENROUTER_REFERER: ${OPENROUTER_REFERER:-}
 
 services:
   postgres:
@@ -202,12 +303,20 @@ services:
     environment:
       <<: *app-env
       PORT: 42069
-      # A dedicated endpoint is worth having: a backfill will rate-limit a
-      # public one immediately.
+      # Comma separated, and worth setting to more than one endpoint: Ponder
+      # measures each one's rate limit and splits the backfill between them,
+      # where a single public node is throttled within seconds and then warns
+      # that no provider is available until someone reads the logs.
       PONDER_RPC_URL_BASE: ${PONDER_RPC_URL_BASE:-}
+      PONDER_RPC_URL_ARBITRUM: ${PONDER_RPC_URL_ARBITRUM:-}
+      PONDER_RPC_URL_XLAYER: ${PONDER_RPC_URL_XLAYER:-}
       # Indexing from genesis is hours of RPC for nothing — there is no factory
-      # before the block it was deployed in.
+      # before the block it was deployed in. One per chain, because the chains
+      # were not deployed to at the same time and are not at the same height.
       VAULT_FACTORY_START_BLOCK: ${VAULT_FACTORY_START_BLOCK:-0}
+      VAULT_FACTORY_START_BLOCK_BASE: ${VAULT_FACTORY_START_BLOCK_BASE:-}
+      VAULT_FACTORY_START_BLOCK_ARBITRUM: ${VAULT_FACTORY_START_BLOCK_ARBITRUM:-}
+      VAULT_FACTORY_START_BLOCK_XLAYER: ${VAULT_FACTORY_START_BLOCK_XLAYER:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -365,56 +474,52 @@ services:
   # It trades for real: KyberSwap on Base, Pacifica on Solana, Relay in between.
   # It refuses to start without RELAY_API_KEY and SOLANA_FEE_PAYER_SECRET.
   agent:
-    <<: [*image, *restart]
-    working_dir: /usr/src/app
-    command: ["bun", "run", "apps/agent/src/index.ts"]
+    <<: [*image, *restart, *agent-service]
     environment:
-      <<: *app-env
-      # The vault list comes from the API, not the indexer: a vault's derivation
-      # path and venue configuration are deliberately off-chain, and the raw
-      # index would hand the agent vaults it has no way to act on.
-      AGENT_API_URL: http://web:3002/api
-      # How long a crossing may take before a tick gives up on it. Giving up
-      # does not cancel anything: the transfer stays recorded as in flight and
-      # keeps counting towards NAV.
-      BRIDGE_FILL_TIMEOUT_MS: ${BRIDGE_FILL_TIMEOUT_MS:-1200000}
-      VENUE_WITHDRAWAL_TIMEOUT_MS: ${VENUE_WITHDRAWAL_TIMEOUT_MS:-900000}
-      # Each tick reads both venues and may report a valuation, so this
-      # interacts with the vault's own minNavReportInterval.
-      AGENT_TICK_INTERVAL_MS: ${AGENT_TICK_INTERVAL_MS:-60000}
-      # The smallest spot leg worth opening, in dollars. Measured on the leg
-      # rather than on the deployment that funds it, so at 1x a vault needs
-      # roughly twice this idle before it can deploy at all.
-      MIN_DEPLOY_USDC: ${MIN_DEPLOY_USDC:-30}
-      # How far below its ceiling a hedge is opened, in basis points. Reported
-      # leverage is marked to market on both sides, so a hedge sized at exactly
-      # its ceiling breaches on a fraction of a percent — and a conservative
-      # vault has no headroom of its own to drift into. 300 bps covers a 1.55%
-      # move, at the cost of that much less spot leg per dollar deployed.
-      MARGIN_BUFFER_BPS: ${MARGIN_BUFFER_BPS:-300}
-      # The smallest margin top-up worth bridging, in dollars. Restoring the
-      # buffer is often a matter of cents, and bridging cents costs more than
-      # the vault earns. Worth lowering for a small vault.
-      MIN_TOP_UP_USDC: ${MIN_TOP_UP_USDC:-5}
-      # Optional. With no key the agent runs on its deterministic policy alone,
-      # which is strictly less clever and equally safe.
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.5}
-      OPENROUTER_REFERER: ${OPENROUTER_REFERER:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-      # Healthy, not started: the agent reports NAV and fulfils redemptions from
-      # what the indexer tells it. Acting on a half-synced queue would mean
-      # fulfilling against a partial view of who is owed what.
-      indexer:
-        condition: service_healthy
-      web:
-        condition: service_healthy
-    networks:
-      - internal
+      <<: [*app-env, *agent-env]
+      # Pinned, not `${AGENT_CHAIN_ID:-8453}`.
+      #
+      # The variable is shared by everything Compose renders, so an
+      # `AGENT_CHAIN_ID=196` left in `.env` — which is exactly what
+      # `deploy-xlayer.sh` offers to write — would point THIS container at X
+      # Layer too. Two processes would then tick the same vaults at once:
+      # duplicate deployments, and two NAV reports racing each other. Each
+      # container naming its own chain makes that unreachable.
+      AGENT_CHAIN_ID: 8453
+      # Its own NEAR access key, falling back to the shared one.
+      #
+      # Every signature is a NEAR transaction from one access key, and the
+      # client serialises them *within a process* — a queue in memory, which two
+      # containers cannot share. Two agents on one key race on the nonce and one
+      # of the pair is rejected as a duplicate, which during an unwind is a leg
+      # that did not close. A second access key on the SAME account fixes it:
+      # nonces are per key, while derived wallet addresses come from the account
+      # id and the path, so every vault's agent wallet is unchanged.
+      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY_BASE:-${NEAR_PRIVATE_KEY:-}}
+
+  # The same worker, on X Layer.
+  #
+  # A second container rather than a second value, because one agent process
+  # serves exactly one chain: the wallet client signs with its id, the USDC it
+  # moves is that chain's, and the vault it reports NAV to lives there. A
+  # process reading an X Layer vault's balances against Base would not revert —
+  # it would read zero, and report a NAV of zero to a funded vault, which wipes
+  # out every holder's share price.
+  #
+  # Deployed with everything else rather than behind a profile, for the reason
+  # written above the Base agent: a profiled service is never created on the
+  # host at all, so it shows up nowhere in Dokploy and there is no log to read
+  # when a vault is not being ticked. This repo has made that mistake once.
+  #
+  # The cost of it running before X Layer has a factory is that it ticks and
+  # finds nothing. The cost of it being invisible is a chain that silently never
+  # trades, which is worse and much harder to notice.
+  agent-xlayer:
+    <<: [*image, *restart, *agent-service]
+    environment:
+      <<: [*app-env, *agent-env]
+      AGENT_CHAIN_ID: 196
+      NEAR_PRIVATE_KEY: ${NEAR_PRIVATE_KEY_XLAYER:-${NEAR_PRIVATE_KEY:-}}
 
   # The API as its own scalable unit, on its own origin.
   #

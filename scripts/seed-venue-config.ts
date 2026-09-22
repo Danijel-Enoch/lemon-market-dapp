@@ -17,8 +17,8 @@
  * Usage: bun run scripts/seed-venue-config.ts
  */
 
-import { assetClassForTicker } from "@lemon/core";
-import { prisma } from "@lemon/db";
+import { assetClassForTicker, DEFAULT_CHAIN_ID, requireChainInfo } from "@lemon/core";
+import { prisma, vaultRef, vaultWhere } from "@lemon/db";
 import { agentDerivationPath, NearMpcClient } from "@lemon/near-mpc";
 import { findTokenByTicker } from "@lemon/registry";
 import { indexerHealth } from "../apps/api/src/services/indexer-health";
@@ -27,6 +27,8 @@ const API_URL = process.env.AGENT_API_URL ?? "http://localhost:3002/api";
 
 interface IndexedVault {
 	address: `0x${string}`;
+	/** Optional for the same reason it is elsewhere: an older API omits it, and meant Base. */
+	chainId?: number;
 	ticker: string | null;
 	riskTier: number;
 	agentWallet: `0x${string}`;
@@ -126,15 +128,31 @@ if (vaults.length === 0) {
  * Skipped entirely unless the read model is complete: see the health check
  * above. A vault missing from a backfilling indexer is not a vault that is gone.
  */
-const live = new Set(vaults.map((v) => v.address.toLowerCase()));
+/**
+ * Keyed by chain as well as address, and this one is not optional.
+ *
+ * The block below *deletes* configuration for any stored vault not present in
+ * the live list. Keyed by address alone, seeding one chain would look at that
+ * chain's vaults, find every other chain's vaults "missing", and delete all of
+ * them — along with their agent run history, which cascades. The same-address
+ * case makes it worse rather than better: a colliding address would appear live
+ * and be spared, while the genuinely distinct ones were removed.
+ */
+const key = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
+
+const live = new Set(vaults.map((v) => key(v.chainId ?? DEFAULT_CHAIN_ID, v.address)));
 const stored = canPrune
-	? await prisma.vaultConfig.findMany({ select: { address: true, ticker: true } })
+	? await prisma.vaultConfig.findMany({ select: { address: true, chainId: true, ticker: true } })
 	: [];
-const stale = stored.filter((row) => !live.has(row.address.toLowerCase()));
+const stale = stored.filter((row) => !live.has(key(row.chainId, row.address)));
 
 for (const row of stale) {
-	const runs = await prisma.agentRun.count({ where: { vaultAddress: row.address } });
-	await prisma.vaultConfig.delete({ where: { address: row.address } });
+	const runs = await prisma.agentRun.count({
+		where: { chainId: row.chainId, vaultAddress: row.address },
+	});
+	await prisma.vaultConfig.delete({
+		where: vaultWhere({ chainId: row.chainId, address: row.address }),
+	});
 	console.log(
 		`removed stale config for ${row.ticker} ${row.address} (not on this chain)` +
 			(runs > 0 ? ` — and ${runs} agent run${runs === 1 ? "" : "s"} with it` : ""),
@@ -149,6 +167,8 @@ for (const vault of vaults) {
 		continue;
 	}
 
+	const chain = requireChainInfo(vault.chainId ?? DEFAULT_CHAIN_ID);
+
 	// The whole spot universe, not just the crypto half. This looked up
 	// `PERP_CRYPTO_TOKENS` until an equity vault needed backfilling and was told
 	// its own ticker "is not in the curated token registry" — the B20 tokenized
@@ -156,16 +176,22 @@ for (const vault of vaults) {
 	// both. A vault whose spot leg is GOOGLc is exactly as configurable as one
 	// whose spot leg is WETH, and the seeder claiming otherwise stranded the
 	// equity vaults with no way to record them short of writing SQL by hand.
-	const token = findTokenByTicker(ticker);
+	// Scoped to the vault's own chain. Unscoped, this returned whichever chain's
+	// token matched the ticker first — which for an Arbitrum vault meant writing
+	// a Base token address into its venue configuration, and an agent that then
+	// approved and swapped against a contract that does not exist on Arbitrum.
+	const token = findTokenByTicker(ticker, chain.id);
 	if (!token) {
 		// Refusing beats guessing: a wrong spot token hedges the position against
 		// a different asset while every dashboard reads healthy.
-		console.warn(`${vault.address}: ${ticker} is not in the curated token registry, skipping.`);
+		console.warn(
+			`${vault.address}: ${ticker} is not in the curated ${chain.name} token registry, skipping.`,
+		);
 		continue;
 	}
 
 	const tier = vault.riskTier === 1 ? "leveraged" : "conservative";
-	const path = agentDerivationPath(ticker, tier);
+	const path = agentDerivationPath(ticker, tier, chain.key);
 	const derived = mpc.derive(path);
 
 	if (derived.evmAddress.toLowerCase() !== vault.agentWallet.toLowerCase()) {
@@ -179,6 +205,7 @@ for (const vault of vaults) {
 	}
 
 	const row = {
+		chainId: chain.id,
 		ticker,
 		riskTier: vault.riskTier === 1 ? ("LEVERAGED" as const) : ("CONSERVATIVE" as const),
 		// Classified from the curated ticker table rather than assumed. Hardcoding
@@ -198,13 +225,14 @@ for (const vault of vaults) {
 		createdBy: "scripts/seed-venue-config.ts",
 	};
 
+	const ref = vaultRef(chain.id, vault.address);
 	await prisma.vaultConfig.upsert({
-		where: { address: vault.address.toLowerCase() },
-		create: { address: vault.address.toLowerCase(), ...row },
+		where: vaultWhere(ref),
+		create: { address: ref.address, ...row },
 		update: row,
 	});
 
-	console.log(`${ticker.padEnd(5)} ${vault.address}`);
+	console.log(`${ticker.padEnd(5)} ${vault.address} on ${chain.name}`);
 	console.log(`      spot ${token.symbol} ${token.address}`);
 	console.log(`      perp ${ticker}  agent ${derived.evmAddress} / ${derived.solanaAddress}`);
 }

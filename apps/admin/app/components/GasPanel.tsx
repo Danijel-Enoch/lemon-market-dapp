@@ -1,4 +1,5 @@
 import { adminApi, type GasBalance, useWithdrawableGas, type VaultGas } from "@lemon/client";
+import { chainInfo, explorerAddress } from "@lemon/core";
 import { Button, cn, Segmented } from "@lemon/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Copy, ExternalLink, Fuel, Loader2, Undo2 } from "lucide-react";
@@ -137,17 +138,17 @@ function GasWithdrawForm({ vault }: { vault: string }) {
 	const queryClient = useQueryClient();
 	const { data, isLoading, error: loadError } = useWithdrawableGas(vault, true);
 
-	const [chain, setChain] = useState<"BASE" | "SOLANA">("BASE");
+	const [chain, setChain] = useState<"EVM" | "SOLANA">("EVM");
 	const [to, setTo] = useState("");
 	const [amount, setAmount] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [sent, setSent] = useState<{ formatted: string; symbol: string; url: string } | null>(null);
 
-	const side = chain === "BASE" ? data?.base : data?.solana;
-	// The connected wallet is the obvious destination for ETH and a meaningless
-	// one for SOL, so it prefills only where it is actually usable.
-	const destination = to.trim() || (chain === "BASE" ? (connected ?? "") : "");
+	const side = chain === "EVM" ? data?.base : data?.solana;
+	// The connected wallet is the obvious destination for an EVM sweep and a
+	// meaningless one for SOL, so it prefills only where it is actually usable.
+	const destination = to.trim() || (chain === "EVM" ? (connected ?? "") : "");
 	const nothingToSend = side ? side.spendable === "0" : false;
 
 	async function onWithdraw() {
@@ -198,14 +199,23 @@ function GasWithdrawForm({ vault }: { vault: string }) {
 	return (
 		<div className="mt-3 space-y-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] p-4">
 			<p className="text-xs leading-relaxed text-[var(--pon-fg-3)]">
-				Sends the agent's own ETH or SOL somewhere else. Only the native unit moves — USDC, the spot
-				token and the Pacifica balance are depositor capital and leave through the vault, not
-				through here.
+				Sends the agent's own gas token or SOL somewhere else. Only the native unit moves — USDC,
+				the spot token and the Pacifica balance are depositor capital and leave through the vault,
+				not through here.
 			</p>
 
-			<Segmented<"BASE" | "SOLANA">
+			<Segmented<"EVM" | "SOLANA">
 				options={[
-					{ value: "BASE", label: "ETH on Base" },
+					// Labelled from the balance the API returned rather than written
+					// here, because neither half is fixed any more: the chain is the
+					// vault's, and its native unit is ETH on Base and Arbitrum but OKB
+					// on X Layer.
+					{
+						value: "EVM",
+						label: data?.base
+							? `${data.base.symbol} on ${chainInfo(data.base.chainId)?.name ?? "its chain"}`
+							: "Native token",
+					},
 					{ value: "SOLANA", label: "SOL" },
 				]}
 				value={chain}
@@ -238,7 +248,7 @@ function GasWithdrawForm({ vault }: { vault: string }) {
 				<input
 					value={destination}
 					onChange={(e) => setTo(e.target.value)}
-					placeholder={chain === "BASE" ? "0x…" : "A Solana address"}
+					placeholder={chain === "EVM" ? "0x…" : "A Solana address"}
 					spellCheck={false}
 					className="w-full rounded-[var(--pon-r-sm,8px)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-2 py-1.5 font-mono text-xs text-[var(--pon-fg-0)] outline-none"
 				/>
@@ -441,8 +451,8 @@ function Header({ balance, label }: { balance: GasBalance; label: string }) {
 			{balance.address && (
 				<a
 					href={
-						balance.chain === "BASE"
-							? `https://basescan.org/address/${balance.address}`
+						balance.chain === "EVM" && balance.chainId !== null
+							? explorerAddress(balance.chainId, balance.address)
 							: `https://solscan.io/account/${balance.address}`
 					}
 					target="_blank"

@@ -1,5 +1,6 @@
 import { vaultFactoryAbi } from "@lemon/contracts";
-import { baseClient } from "../chain";
+import { allChains, requireChainInfo } from "@lemon/core";
+import { clientFor } from "../chain";
 import { config } from "../config";
 
 /**
@@ -48,7 +49,13 @@ export type IndexerState =
 	| "behind"
 	| "synced";
 
-export interface IndexerHealth {
+/**
+ * One probe's verdict, with no knowledge of any other chain.
+ *
+ * Split from `IndexerHealth` so `classifyIndexer` keeps its shape: it judges a
+ * single sync against a single chain, and is reused unchanged for each of them.
+ */
+export interface IndexerVerdict {
 	state: IndexerState;
 	/** What this means for the dashboard, in a sentence an operator can act on. */
 	summary: string;
@@ -74,6 +81,34 @@ export interface IndexerHealth {
 	vaults: { indexed: number | null; expected: number | null };
 }
 
+export interface IndexerHealth extends IndexerVerdict {
+	/**
+	 * The same verdict, per chain, for every chain this deployment indexes.
+	 *
+	 * The single verdict above is the worst of these, which is what a dashboard
+	 * badge should show — but it cannot say *which* chain is unhappy, and with
+	 * chains indexed independently that is the whole question. A chain with no
+	 * factory configured is absent rather than reported as zero-of-something:
+	 * it is not indexed, so it has nothing to be behind on.
+	 */
+	chains: IndexerChainHealth[];
+}
+
+/** One chain's sync state, named. */
+export interface IndexerChainHealth {
+	chainId: number;
+	/** Ponder's key for the chain, and this deployment's env suffix in lower case. */
+	key: string;
+	/** As a person would say it — "X Layer". */
+	name: string;
+	state: IndexerState;
+	summary: string;
+	indexedBlock: number | null;
+	headBlock: number | null;
+	blocksBehind: number | null;
+	vaults: { indexed: number | null; expected: number | null };
+}
+
 /**
  * Ask the indexer and the chain, and reconcile the two.
  *
@@ -83,27 +118,121 @@ export interface IndexerHealth {
  * small joke.
  */
 export async function indexerHealth(): Promise<IndexerHealth> {
-	const [ready, indexedBlock, indexed, expected] = await Promise.all([
-		probeReady(),
-		probeStatus(),
-		probeVaultCount(),
-		factoryVaultCount(),
-	]);
+	const [ready, byChain] = await Promise.all([probeReady(), probeStatusByChain()]);
 
-	// The head is only worth asking for once we know there is something to
-	// compare it against; an unreachable indexer is unreachable whatever the
-	// chain is doing.
-	const headBlock = ready.reachable ? await chainHead() : null;
+	/**
+	 * Only chains this deployment actually indexes.
+	 *
+	 * The set is derived from the factory addresses, exactly as `ponder.config.ts`
+	 * derives its sources — so the two cannot disagree about which chains exist.
+	 * Asking about a chain with no factory would compare an empty read model
+	 * against a contract that was never deployed, which is how this check came to
+	 * report "0 of the 4 vaults" on a deployment whose four vaults are on a chain
+	 * it had been told not to index.
+	 */
+	const configured = allChains().filter((info) => Boolean(config.factories[info.envSuffix]));
 
-	return classifyIndexer({
+	const chains: IndexerChainHealth[] = await Promise.all(
+		configured.map(async (info) => {
+			const indexedBlock = byChain[info.key] ?? null;
+			const [headBlock, expected, indexed] = ready.reachable
+				? await Promise.all([
+						chainHead(info.id),
+						factoryVaultCount(info.id),
+						probeVaultCount(info.id),
+					])
+				: [null, null, null];
+
+			const verdict = classifyIndexer({
+				indexerUrl: config.indexerUrl,
+				reachable: ready.reachable,
+				historicalComplete: ready.complete,
+				indexedBlock,
+				headBlock,
+				indexedVaults: indexed,
+				expectedVaults: expected,
+			});
+
+			return {
+				chainId: info.id,
+				key: info.key,
+				name: info.name,
+				state: verdict.state,
+				summary: verdict.summary,
+				indexedBlock: verdict.indexedBlock,
+				headBlock: verdict.headBlock,
+				blocksBehind: verdict.blocksBehind,
+				vaults: verdict.vaults,
+			};
+		}),
+	);
+
+	/**
+	 * The headline is the worst chain, not an average.
+	 *
+	 * An operator needs to know something is wrong before they need to know how
+	 * much of it is fine, and a deployment where Base is synced and X Layer is
+	 * missing vaults is a deployment with a problem.
+	 */
+	const worst = [...chains].sort((a, b) => severity(b.state) - severity(a.state))[0];
+
+	const totals = chains.reduce(
+		(acc, chain) => ({
+			indexed: sum(acc.indexed, chain.vaults.indexed),
+			expected: sum(acc.expected, chain.vaults.expected),
+		}),
+		{ indexed: null as number | null, expected: null as number | null },
+	);
+
+	// Nothing configured anywhere: fall back to the single-chain shape so the
+	// card still explains itself rather than rendering an empty list.
+	if (!worst) {
+		const verdict = classifyIndexer({
+			indexerUrl: config.indexerUrl,
+			reachable: ready.reachable,
+			historicalComplete: ready.complete,
+			indexedBlock: null,
+			headBlock: null,
+			indexedVaults: null,
+			expectedVaults: null,
+		});
+		return { ...verdict, chains: [] };
+	}
+
+	const headline = classifyIndexer({
 		indexerUrl: config.indexerUrl,
 		reachable: ready.reachable,
 		historicalComplete: ready.complete,
-		indexedBlock,
-		headBlock,
-		indexedVaults: indexed,
-		expectedVaults: expected,
+		indexedBlock: worst.indexedBlock,
+		headBlock: worst.headBlock,
+		indexedVaults: totals.indexed,
+		expectedVaults: totals.expected,
 	});
+
+	return { ...headline, chains };
+}
+
+/** Worst first. The order the operator should be told about them in. */
+function severity(state: IndexerState): number {
+	switch (state) {
+		case "unreachable":
+			return 4;
+		case "incomplete":
+			return 3;
+		case "backfilling":
+			return 2;
+		case "behind":
+			return 1;
+		default:
+			return 0;
+	}
+}
+
+/** Adds two counts where both are known; unknown plus anything stays unknown. */
+function sum(a: number | null, b: number | null): number | null {
+	if (a === null) return b;
+	if (b === null) return a;
+	return a + b;
 }
 
 export interface IndexerProbe {
@@ -126,7 +255,7 @@ export interface IndexerProbe {
  * vaults" — it simply has not got to them yet, and reporting that as a
  * misconfiguration would send an operator to reset a perfectly healthy sync.
  */
-export function classifyIndexer(probe: IndexerProbe): IndexerHealth {
+export function classifyIndexer(probe: IndexerProbe): IndexerVerdict {
 	const { indexerUrl, indexedBlock, headBlock } = probe;
 	const indexed = probe.indexedVaults;
 	const expected = probe.expectedVaults;
@@ -175,7 +304,7 @@ export function classifyIndexer(probe: IndexerProbe): IndexerHealth {
 			state: "incomplete",
 			summary: `The indexer says it has finished, but holds ${indexed} of the ${expected} vaults the factory has created. Waiting will not fix this.`,
 			remedy:
-				"Check VAULT_FACTORY_ADDRESS and VAULT_FACTORY_START_BLOCK name the deployment that created them — a start block set after a vault was deployed misses it permanently — then `bun run indexer:reset` to reindex.",
+				"Check VAULT_FACTORY_ADDRESS_<CHAIN> and VAULT_FACTORY_START_BLOCK_<CHAIN> name the deployment that created them — a start block set after a vault was deployed misses it permanently, and a chain with no factory address configured is not indexed at all — then `bun run indexer:reset` to reindex.",
 			indexerUrl,
 			historicalComplete: true,
 			indexedBlock,
@@ -189,7 +318,8 @@ export function classifyIndexer(probe: IndexerProbe): IndexerHealth {
 		return {
 			state: "behind",
 			summary: `The indexer has finished its backfill but is ${blocksBehind.toLocaleString()} blocks behind the head, so recent deposits and withdrawals may not be shown yet.`,
-			remedy: "Usually a slow or rate-limited RPC. Check BASE_RPC_URL.",
+			remedy:
+				"Usually a slow or rate-limited RPC. Check RPC_URL_<CHAIN> — and note that with several chains indexed independently, one slow endpoint puts only its own chain's vaults behind.",
 			indexerUrl,
 			historicalComplete: true,
 			indexedBlock,
@@ -233,30 +363,41 @@ async function probeReady(): Promise<{ reachable: boolean; complete: boolean }> 
 	}
 }
 
-/** The highest block the read model has processed, from Ponder's `/status`. */
-async function probeStatus(): Promise<number | null> {
+/**
+ * The block each chain has reached, from Ponder's `/status`.
+ *
+ * Keyed by chain name, which is `ChainInfo.key` — the registry calls that
+ * agreement out as load-bearing, and this is one of the three places that
+ * depends on it. An earlier version took the maximum across the whole object
+ * on the grounds that there was only ever one chain; with several, that
+ * reported the furthest-ahead chain's block as though it were everyone's, so a
+ * stalled chain sitting behind a healthy one looked synced.
+ */
+async function probeStatusByChain(): Promise<Record<string, number>> {
 	try {
 		const response = await fetch(`${config.indexerUrl}/status`, {
 			signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
 		});
-		if (!response.ok) return null;
+		if (!response.ok) return {};
 		const body = (await response.json()) as Record<string, { block?: { number?: number } }>;
-		// Keyed by chain name rather than id, and this deployment has exactly one
-		// chain — so the highest of whatever is there is the answer without having
-		// to agree with Ponder about what the chain is called.
-		const blocks = Object.values(body)
-			.map((chain) => chain?.block?.number)
-			.filter((n): n is number => typeof n === "number" && n > 0);
-		return blocks.length ? Math.max(...blocks) : null;
+		const out: Record<string, number> = {};
+		for (const [key, chain] of Object.entries(body ?? {})) {
+			const block = chain?.block?.number;
+			if (typeof block === "number" && block > 0) out[key] = block;
+		}
+		return out;
 	} catch {
-		return null;
+		return {};
 	}
 }
 
-/** How many vaults the read model is actually serving. */
-async function probeVaultCount(): Promise<number | null> {
+/** How many vaults the read model is serving for one chain. */
+async function probeVaultCount(chainId: number): Promise<number | null> {
 	try {
-		const response = await fetch(`${config.indexerUrl}/vaults`, {
+		// Scoped, because the unscoped list is every chain's vaults and comparing
+		// that against one factory's count is the mismatch this file exists to
+		// report — only inverted, and therefore silent.
+		const response = await fetch(`${config.indexerUrl}/vaults?chainId=${chainId}`, {
 			signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
 		});
 		if (!response.ok) return null;
@@ -267,10 +408,10 @@ async function probeVaultCount(): Promise<number | null> {
 	}
 }
 
-/** The chain's head. Null rather than throwing: a status page reports outages. */
-async function chainHead(): Promise<number | null> {
+/** A chain's head. Null rather than throwing: a status page reports outages. */
+async function chainHead(chainId: number): Promise<number | null> {
 	try {
-		return Number(await baseClient.getBlockNumber());
+		return Number(await clientFor(chainId).getBlockNumber());
 	} catch {
 		return null;
 	}
@@ -284,11 +425,11 @@ async function chainHead(): Promise<number | null> {
  * mismatch, because "we could not ask" and "the answer is zero" are different
  * statements and only one of them is an alarm.
  */
-async function factoryVaultCount(): Promise<number | null> {
-	const factory = config.contracts.vaultFactory;
+async function factoryVaultCount(chainId: number): Promise<number | null> {
+	const factory = config.factories[requireChainInfo(chainId).envSuffix];
 	if (!factory) return null;
 	try {
-		const count = await baseClient.readContract({
+		const count = await clientFor(chainId).readContract({
 			abi: vaultFactoryAbi,
 			address: factory,
 			functionName: "vaultCount",

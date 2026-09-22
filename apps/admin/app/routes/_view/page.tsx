@@ -28,6 +28,7 @@ import {
 	Skeleton,
 	StatCard,
 } from "@lemon/ui";
+import { ENABLED_CHAINS } from "@lemon/wallet";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Lock, Plus, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -49,13 +50,33 @@ export const meta: MetaFunction = () => [
 	{ name: "robots", content: "noindex" },
 ];
 
-const FACTORY_ADDRESS = (import.meta.env.VITE_VAULT_FACTORY_ADDRESS ?? "") as `0x${string}`;
+/**
+ * The chains this console can create vaults on, and their factories.
+ *
+ * Derived from the build's configured factories rather than listed separately —
+ * a chain with no factory is not offered, which is the same rule the public app
+ * uses. `ENABLED_CHAINS` carries a zero-address entry when nothing at all is
+ * configured, which is what the warning below detects.
+ */
+const ZERO = "0x0000000000000000000000000000000000000000";
 
 type Tab = "vaults" | "markets" | "gas" | "runs";
 
 export default function AdminPage() {
 	const { data: session, isLoading } = useAdminSession();
 	const [tab, setTab] = useState<Tab>("vaults");
+
+	/**
+	 * Which chain the operator is looking at.
+	 *
+	 * Vault creation is per chain end to end: the board, the factory, and the
+	 * agent wallet's derivation path all depend on it. Defaulting to the first
+	 * enabled chain keeps a single-chain deployment exactly as it was.
+	 */
+	const [chainId, setChainId] = useState<number>(ENABLED_CHAINS[0].chain.id);
+	const activeChain = ENABLED_CHAINS.find((c) => c.chain.id === chainId) ?? ENABLED_CHAINS[0];
+	const factoryAddress = activeChain.factory;
+	const hasFactory = factoryAddress !== ZERO;
 
 	// Declared above the queries because one of them is gated on whether the
 	// market editor is open — the editor's "add a market" list comes from the
@@ -71,6 +92,7 @@ export default function AdminPage() {
 	// from a ticker the browser typed.
 	const { data: marketData, isFetching: marketsFetching } = useVaultableMarkets(
 		isAdmin && (tab === "markets" || editingMarkets !== null),
+		chainId,
 	);
 	const { data: runData } = useAgentRuns(undefined, isAdmin && tab === "runs");
 	// Fetched on every tab, not just its own: an agent out of gas is the failure
@@ -124,8 +146,8 @@ export default function AdminPage() {
 	// reachable behind a disclosure rather than vanishing, because "not listed"
 	// and "listed but unroutable today" need to look different to an operator.
 	const allMarkets = marketData?.markets ?? [];
-	const creatableMarkets = allMarkets.filter((m) => m.spotTradableOnBase && m.reasons.length === 0);
-	const blockedMarkets = allMarkets.filter((m) => !m.spotTradableOnBase || m.reasons.length > 0);
+	const creatableMarkets = allMarkets.filter((m) => m.spotTradable && m.reasons.length === 0);
+	const blockedMarkets = allMarkets.filter((m) => !m.spotTradable || m.reasons.length > 0);
 	const stale = vaults.filter((v) => v.navStale);
 	const needingGas = gasData?.needingTopUp ?? 0;
 
@@ -311,11 +333,23 @@ export default function AdminPage() {
 
 			{tab === "markets" && (
 				<section className="space-y-4">
-					{!FACTORY_ADDRESS && (
+					{ENABLED_CHAINS.length > 1 && (
+						<Segmented<string>
+							aria-label="Chain"
+							options={ENABLED_CHAINS.map((c) => ({
+								value: String(c.chain.id),
+								label: c.chain.name,
+							}))}
+							value={String(chainId)}
+							onChange={(next) => setChainId(Number(next))}
+						/>
+					)}
+
+					{!hasFactory && (
 						<Alert
 							tone="danger"
-							title="No factory address configured"
-							body="Set VITE_VAULT_FACTORY_ADDRESS to the deployed VaultFactory. Vaults cannot be created without it."
+							title={`No factory address configured for ${activeChain.chain.name}`}
+							body={`Set VITE_VAULT_FACTORY_ADDRESS_${activeChain.chain.name.toUpperCase().replace(/[^A-Z]/g, "")} to the deployed VaultFactory. Vaults cannot be created on this chain without it.`}
 						/>
 					)}
 
@@ -324,16 +358,17 @@ export default function AdminPage() {
 					) : (
 						<>
 							<p className="text-sm text-[var(--pon-fg-3)]">
-								Only markets whose spot token can be bought and sold on Base today. A vault holds
-								that token against the perp short, so one without a live route both ways would take
-								deposits it could not open or could not unwind.
+								Only markets whose spot token can be bought and sold on {activeChain.chain.name}{" "}
+								today. A vault holds that token against the perp short, so one without a live route
+								both ways would take deposits it could not open or could not unwind. The three
+								chains do not offer the same board — Arbitrum lists no tokenized equities at all.
 							</p>
 
 							{creatableMarkets.length === 0 ? (
 								<EmptyState
 									icon={AlertTriangle}
 									title="No market can be vaulted right now"
-									description="Every paired market is missing a spot route on Base or has a perp leg that is not accepting positions. The full list is below."
+									description={`Every paired market is missing a spot route on ${activeChain.chain.name} or has a perp leg that is not accepting positions. The full list is below.`}
 								/>
 							) : (
 								<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
@@ -341,8 +376,9 @@ export default function AdminPage() {
 										<MarketRow
 											key={market.id}
 											market={market}
-											canCreate={Boolean(FACTORY_ADDRESS)}
+											canCreate={hasFactory}
 											onCreate={setCreating}
+											chainName={activeChain.chain.name}
 										/>
 									))}
 								</ul>
@@ -364,6 +400,7 @@ export default function AdminPage() {
 												market={market}
 												canCreate={false}
 												onCreate={setCreating}
+												chainName={activeChain.chain.name}
 											/>
 										))}
 									</ul>
@@ -415,10 +452,11 @@ export default function AdminPage() {
 				</section>
 			)}
 
-			{creating && FACTORY_ADDRESS && (
+			{creating && hasFactory && (
 				<CreateVaultDialog
 					market={creating}
-					factoryAddress={FACTORY_ADDRESS}
+					chainId={chainId}
+					factoryAddress={factoryAddress}
 					onClose={() => setCreating(null)}
 				/>
 			)}
@@ -496,13 +534,16 @@ function MarketRow({
 	market,
 	canCreate,
 	onCreate,
+	chainName,
 }: {
 	market: VaultableMarket;
 	canCreate: boolean;
 	onCreate: (market: VaultableMarket) => void;
+	/** The chain this board is for. The badge names it rather than assuming Base. */
+	chainName: string;
 }) {
 	const bothTiersExist = Boolean(market.existing.conservative && market.existing.leveraged);
-	const spotUnavailable = !market.spotTradableOnBase;
+	const spotUnavailable = !market.spotTradable;
 	const blocked = spotUnavailable || market.reasons.length > 0;
 	const disabled = bothTiersExist || !canCreate;
 
@@ -514,7 +555,7 @@ function MarketRow({
 					<span className="font-mono text-[11px] text-[var(--pon-fg-4)]">{market.spot.symbol}</span>
 					{market.existing.conservative && <Pill tone="muted">Conservative vault</Pill>}
 					{market.existing.leveraged && <Pill tone="muted">Leveraged vault</Pill>}
-					{spotUnavailable && <Pill tone="danger">No spot on Base</Pill>}
+					{spotUnavailable && <Pill tone="danger">No spot on {chainName}</Pill>}
 					{/* Not "perp blocked": `reasons` also carries spot problems that are
 					    not routability — thin liquidity, most often — and naming the
 					    wrong leg sends an operator to look at the wrong venue. The

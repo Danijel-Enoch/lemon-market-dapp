@@ -316,11 +316,18 @@ contract LemonVault is ERC4626, AccessControl, Pausable, IERC7540Redeem {
         FUNDING_SETTLED
     }
 
-    /// @notice The chains this system touches. Base custody, Solana perps, NEAR signing.
+    /// @notice The chains this system touches. EVM custody, Solana perps, NEAR signing.
+    /// @dev Append only, and never reorder. These are emitted as their numeric index in
+    ///      `ActivityReported`, and the indexer decodes them positionally — so inserting
+    ///      ARBITRUM at position 1 would silently relabel every historical Solana fill on
+    ///      every vault already deployed. New chains go on the end, where an old vault's
+    ///      events keep meaning exactly what they meant when they were emitted.
     enum Chain {
         BASE,
         SOLANA,
-        NEAR
+        NEAR,
+        ARBITRUM,
+        XLAYER
     }
 
     struct ActivityReport {

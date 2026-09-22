@@ -1,5 +1,5 @@
-import { type AdlRisk, adlRisk } from "@lemon/core";
-import { prisma } from "@lemon/db";
+import { type AdlRisk, adlRisk, DEFAULT_CHAIN_ID, requireChainInfo } from "@lemon/core";
+import { prisma, vaultWhere } from "@lemon/db";
 import { agentDerivationPath } from "@lemon/near-mpc";
 import type { PacificaAccountInfo, PacificaPosition, PacificaPrice } from "@lemon/pacifica";
 import { findTokenByTicker, hedgeHealth } from "@lemon/registry";
@@ -145,6 +145,15 @@ export interface MarketHedge {
 
 export interface LivePosition {
 	vault: string;
+	/**
+	 * The chain the vault custodies on.
+	 *
+	 * Carried on the response rather than left for the browser to assume, because
+	 * the browser's assumption would be "the chain the wallet is connected to" —
+	 * and the position panel is readable without a wallet at all. Every explorer
+	 * link on that panel is built from this.
+	 */
+	chainId: number;
 	wallets: AgentWallets;
 	spot: SpotLeg;
 	perp: PerpLeg;
@@ -207,8 +216,22 @@ async function readLivePosition(address: string): Promise<LivePosition | null> {
 	if (!vault) return null;
 
 	const notes: string[] = [];
+	/**
+	 * The vault's chain comes from the indexed row, not from a parameter.
+	 *
+	 * This is a read path reached from a URL, so the caller may genuinely only
+	 * have an address — but `getVault` above has already resolved it, and using
+	 * its answer keeps the configuration lookup and the chain data describing the
+	 * same vault. Looking the address up separately could pair one chain's
+	 * on-chain state with the other chain's spot token and perp symbol.
+	 */
 	const record = await prisma.vaultConfig
-		.findUnique({ where: { address: address.toLowerCase() } })
+		.findUnique({
+			where: vaultWhere({
+				chainId: vault.chainId ?? DEFAULT_CHAIN_ID,
+				address: address.toLowerCase(),
+			}),
+		})
 		.catch(() => null);
 
 	const wallets = await resolveWallets(vault, record, notes);
@@ -256,6 +279,7 @@ async function readLivePosition(address: string): Promise<LivePosition | null> {
 
 	return {
 		vault: vault.address,
+		chainId: vault.chainId ?? DEFAULT_CHAIN_ID,
 		wallets,
 		spot,
 		perp,
@@ -323,12 +347,22 @@ async function resolveWallets(
 ): Promise<AgentWallets> {
 	const evm = vault.agentWallet;
 
+	/**
+	 * The recorded path first, and a re-derivation only as a fallback.
+	 *
+	 * The fallback needs the vault's chain, because the path carries it — and a
+	 * chain-less re-derivation would produce Base's path for every vault, so an
+	 * Arbitrum vault with no recorded path would be shown Base's agent wallet.
+	 * That wallet exists, holds a real balance, and belongs to a different vault,
+	 * which is the kind of wrong that reads as correct.
+	 */
 	const path =
 		record?.agentPath ??
 		(vault.ticker
 			? agentDerivationPath(
 					vault.ticker,
 					vault.tier === "CONSERVATIVE" ? "conservative" : "leveraged",
+					requireChainInfo(vault.chainId ?? DEFAULT_CHAIN_ID).key,
 				)
 			: null);
 
@@ -373,7 +407,12 @@ async function readSpotLeg(
 	record: VaultConfigRecord,
 	notes: string[],
 ): Promise<SpotLeg> {
-	const seed = vault.ticker ? findTokenByTicker(vault.ticker) : undefined;
+	// The vault's own chain, not the default: a ticker resolves to a different
+	// contract on each, and the wrong one describes the position with an address
+	// the agent has never traded.
+	const seed = vault.ticker
+		? findTokenByTicker(vault.ticker, vault.chainId ?? DEFAULT_CHAIN_ID)
+		: undefined;
 	const token = (record?.spotTokenAddress ?? seed?.address ?? null) as Address | null;
 	const decimals = record?.spotTokenDecimals ?? seed?.decimals ?? null;
 	const symbol = record?.spotTokenSymbol ?? seed?.symbol ?? null;

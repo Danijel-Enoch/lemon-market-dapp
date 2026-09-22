@@ -49,7 +49,9 @@ export default async function globalSetup() {
 	}
 
 	if (!CONFIG.factory) {
-		problems.push("no VAULT_FACTORY_ADDRESS in .env — the contracts have not been deployed");
+		problems.push(
+			"no VAULT_FACTORY_ADDRESS_BASE (or the older VAULT_FACTORY_ADDRESS) in .env — the contracts have not been deployed",
+		);
 	}
 
 	if (problems.length > 0) {

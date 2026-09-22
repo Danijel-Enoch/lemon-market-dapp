@@ -1,5 +1,6 @@
 import { ACTIVITY_FILTERS, ActivityFeed, CHAIN_FILTERS } from "@app/components/vault/ActivityFeed";
 import { DepositPanel } from "@app/components/vault/DepositPanel";
+import { FundingChart, FundingToday } from "@app/components/vault/FundingChart";
 import { HedgePanel } from "@app/components/vault/HedgePanel";
 import { NavChart, navChange } from "@app/components/vault/NavChart";
 import { PositionPanel } from "@app/components/vault/PositionPanel";
@@ -10,14 +11,18 @@ import {
 	formatRelative,
 	formatUsd,
 	formatUsdCompact,
+	formatUsdSigned,
 	shortAddress,
 	useAgentTransfers,
+	useFundingSeries,
 	useLivePosition,
 	useNavSeries,
 	usePortfolio,
 	useVault,
 	useVaultActivity,
+	type Vault,
 } from "@lemon/client";
+import { explorerAddress, explorerTx, usdcFor } from "@lemon/core";
 import {
 	ChipGroup,
 	cn,
@@ -27,6 +32,7 @@ import {
 	Skeleton,
 	StatCard,
 } from "@lemon/ui";
+import { APP_CHAIN } from "@lemon/wallet";
 import { AlertTriangle, ArrowLeft, ExternalLink, Vault as VaultIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, type MetaFunction, useParams } from "react-router";
@@ -52,8 +58,18 @@ export const meta: MetaFunction = ({ params }) => {
 	];
 };
 
-/** USDC on Base. The vault's asset, and what a deposit is denominated in. */
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+/**
+ * The vault's asset, and what a deposit is denominated in.
+ *
+ * Read from the registry by the vault's own chain rather than written here as a
+ * Base constant. The old literal was correct while every vault was on Base and
+ * is exactly wrong afterwards: an Arbitrum vault would have shown the user their
+ * *Base* USDC balance, offered an approval on the Base token, and produced a
+ * deposit that reverts — with a panel that looked entirely normal throughout.
+ */
+function usdcForVault(chainId: number | undefined): `0x${string}` {
+	return usdcFor(chainId ?? APP_CHAIN.id);
+}
 
 export default function VaultDetailPage() {
 	const { id } = useParams<{ id: string }>();
@@ -61,6 +77,7 @@ export default function VaultDetailPage() {
 
 	const { data: vault, isLoading, isError } = useVault(id);
 	const { data: navData } = useNavSeries(id, 30);
+	const { data: funding } = useFundingSeries(id, 30);
 	const { data: portfolio } = usePortfolio(address);
 
 	const [kindFilter, setKindFilter] = useState("");
@@ -131,7 +148,7 @@ export default function VaultDetailPage() {
 					</div>
 
 					<a
-						href={`https://basescan.org/address/${vault.address}`}
+						href={explorerAddress(vault.chainId ?? APP_CHAIN.id, vault.address)}
 						target="_blank"
 						rel="noreferrer noopener"
 						className="inline-flex items-center gap-1.5 rounded-full border border-[var(--pon-line-2)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
@@ -153,7 +170,7 @@ export default function VaultDetailPage() {
 			</div>
 
 			{/* --- headline numbers ------------------------------------------ */}
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
 				<StatCard
 					label="Share price"
 					value={formatUsd(vault.pricePerShare, 4)}
@@ -183,6 +200,7 @@ export default function VaultDetailPage() {
 								: "neutral"
 					}
 				/>
+				<FundingEarnedCard vault={vault} />
 				<StatCard label="Total deposits" value={formatUsdCompact(vault.totalAssets)} />
 				<StatCard
 					label="Deployed"
@@ -205,6 +223,40 @@ export default function VaultDetailPage() {
 							hourly on Pacifica — and nothing in between, so that is the interval the agent reports
 							on and the interval this line is drawn on. Every yield figure on this page is computed
 							from this series, so you can check them against it.
+						</p>
+					</section>
+
+					{/*
+					 * Under the share price rather than beside it, deliberately.
+					 *
+					 * The two charts answer questions that only sound alike. The line
+					 * above is what a share is worth after everything — funding, both
+					 * fees, and whatever the spot and perp legs did to each other; this
+					 * is the funding on its own, gross, which is the part the strategy
+					 * is actually for. Reading them in that order is the argument the
+					 * page is making, and side by side would invite them to be read as
+					 * two views of one number.
+					 */}
+					<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+						<div className="mb-4 flex items-start justify-between gap-4">
+							<div>
+								<h2 className="font-medium text-[var(--pon-fg-0)]">Funding earned</h2>
+								<span className="text-xs text-[var(--pon-fg-3)]">Last 30 days, per UTC day</span>
+							</div>
+							<FundingToday
+								amount={funding?.today ?? "0"}
+								settlements={funding?.todaySettlements ?? 0}
+							/>
+						</div>
+						<FundingChart points={funding?.points ?? []} />
+						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
+							One bar per UTC day, summed across every market the vault runs — the venue settles
+							hourly, so a day is up to twenty-four payments. Gross: this is what the strategy
+							collected, before the management and performance fees and before venue costs, all of
+							which come out of the share price above. A bar below the line is a day the short paid
+							rather than received, which is an ordinary outcome and not an error. Each bar is the
+							sum of the FUNDING_SETTLED rows in the feed below, so the two can be checked against
+							each other.
 						</p>
 					</section>
 
@@ -302,7 +354,7 @@ export default function VaultDetailPage() {
 												{formatUsd(t.amount)}
 											</span>
 											<a
-												href={`https://basescan.org/tx/${t.txHash}`}
+												href={explorerTx(vault.chainId ?? APP_CHAIN.id, t.txHash)}
 												target="_blank"
 												rel="noreferrer noopener"
 												className="text-[var(--pon-fg-4)] hover:text-[var(--pon-lime)]"
@@ -319,7 +371,7 @@ export default function VaultDetailPage() {
 
 				{/* --- sidebar ------------------------------------------------ */}
 				<div className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-					<DepositPanel vault={vault} usdcAddress={USDC_ADDRESS} />
+					<DepositPanel vault={vault} usdcAddress={usdcForVault(vault.chainId)} />
 					<WithdrawPanel vault={vault} pending={pending} />
 
 					{/* What the vault actually holds, and in what proportion. A vault may
@@ -393,6 +445,55 @@ export default function VaultDetailPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * What the vault has actually been paid, as opposed to what it might pay.
+ *
+ * The other four headline cards are rates: a share price, a projection, two
+ * annualised windows. This is the only one denominated in money the strategy has
+ * already earned, which is the question a depositor asks first and the app could
+ * not answer until the agent began reporting settlements.
+ *
+ * Two states, and the empty one matters. A vault whose agent has not yet
+ * reported a settlement has *no* total — not a zero — and showing "$0.00" there
+ * would read as a strategy that has earned nothing rather than one nobody has
+ * measured yet. The dash and its caption say which.
+ *
+ * Gross, and labelled so. This is funding before management, performance and
+ * venue fees; the share price above is what a depositor kept. Presenting the
+ * larger number without that word would be the more flattering of two readings
+ * and the wrong one.
+ */
+function FundingEarnedCard({ vault }: { vault: Vault }) {
+	const settlements = vault.fundingSettlementCount ?? 0;
+
+	if (settlements === 0) {
+		return (
+			<StatCard
+				label="Funding earned"
+				value="—"
+				delta="no settlements reported yet"
+				tone="neutral"
+			/>
+		);
+	}
+
+	const total = BigInt(vault.cumulativeFunding ?? "0");
+
+	return (
+		<StatCard
+			label="Funding earned"
+			value={formatUsdSigned(total)}
+			delta={
+				<span title="Gross funding across every settlement reported on-chain, before management, performance and venue fees.">
+					gross, over {settlements.toLocaleString("en-US")} settlement
+					{settlements === 1 ? "" : "s"}
+				</span>
+			}
+			tone={total > 0n ? "positive" : total < 0n ? "negative" : "neutral"}
+		/>
 	);
 }
 

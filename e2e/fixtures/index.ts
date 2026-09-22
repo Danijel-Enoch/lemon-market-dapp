@@ -41,9 +41,26 @@ const env = loadEnv();
 export const CONFIG = {
 	webUrl: process.env.E2E_WEB_URL ?? "http://localhost:3002",
 	adminUrl: process.env.E2E_ADMIN_URL ?? "http://localhost:3004",
+	/**
+	 * The chain the e2e stack runs against.
+	 *
+	 * Base, and deliberately one chain rather than all of them. These specs drive
+	 * a browser against a live deployment; running them per chain would multiply
+	 * the suite by three to re-test the same components with a different
+	 * constant. What is worth testing per chain is the configuration — which
+	 * chains are enabled, and that none inherits another's endpoint — and that is
+	 * a unit test in `packages/wallet/src/chain.test.ts`, where it runs in
+	 * milliseconds instead of minutes.
+	 */
 	chainName: "Base",
-	factory: env.VITE_VAULT_FACTORY_ADDRESS ?? env.VAULT_FACTORY_ADDRESS ?? "",
-	usdc: env.USDC_ADDRESS ?? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+	chainId: 8453,
+	factory:
+		env.VITE_VAULT_FACTORY_ADDRESS_BASE ??
+		env.VITE_VAULT_FACTORY_ADDRESS ??
+		env.VAULT_FACTORY_ADDRESS_BASE ??
+		env.VAULT_FACTORY_ADDRESS ??
+		"",
+	usdc: env.USDC_ADDRESS_BASE ?? env.USDC_ADDRESS ?? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
 };
 
 /**

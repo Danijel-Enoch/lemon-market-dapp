@@ -1,5 +1,5 @@
 import type { Vault } from "@lemon/client";
-import { formatPercent, formatUsdCompact } from "@lemon/client";
+import { formatPercent, formatUsdCompact, formatUsdSigned } from "@lemon/client";
 import { cn, RiskBadge } from "@lemon/ui";
 import { AlertTriangle, ChevronRight, Pause } from "lucide-react";
 import { Link } from "react-router";
@@ -28,7 +28,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 	return (
 		<div className="overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
 			{/* Header, desktop only — the mobile layout is cards, below. */}
-			<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-[var(--pon-line)] px-5 py-3 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase md:grid">
+			<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-[var(--pon-line)] px-5 py-3 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase md:grid">
 				<div>Vault</div>
 				<div
 					className="text-right"
@@ -38,6 +38,12 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 				</div>
 				<div className="text-right">7d realised</div>
 				<div className="text-right">30d realised</div>
+				<div
+					className="text-right"
+					title="Every funding payment this vault has been paid since its agent began reporting settlements, added up. Gross, before fees — a measurement, not a rate."
+				>
+					Funding earned
+				</div>
 				<div className="text-right">TVL</div>
 				<div className="w-5" />
 			</div>
@@ -51,7 +57,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 							className="block px-5 py-4 transition-colors hover:bg-[var(--pon-surface)] focus-visible:bg-[var(--pon-surface)] focus-visible:outline-none"
 						>
 							{/* Desktop row. */}
-							<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 md:grid">
+							<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 md:grid">
 								<div className="min-w-0">
 									<div className="flex items-center gap-2">
 										<span className="truncate font-medium text-[var(--pon-fg-0)]">
@@ -70,6 +76,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 								<ProjectedYieldCell outlook={vault.outlook} />
 								<YieldCell value={vault.apy7d?.apy ?? null} />
 								<YieldCell value={vault.apy30d?.apy ?? null} />
+								<FundingCell vault={vault} />
 
 								<div className="text-right">
 									<div className="font-medium tabular-nums text-[var(--pon-fg-0)]">
@@ -113,6 +120,57 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 					</li>
 				))}
 			</ul>
+		</div>
+	);
+}
+
+/**
+ * The one column on this board denominated in money rather than in percent.
+ *
+ * It answers a different question from the three beside it. Those are rates,
+ * which compare vaults of any size; this is the total a vault has actually been
+ * paid, which does not — a large vault earning poorly out-earns a small one
+ * doing well. Both belong here, and the column is deliberately the last of the
+ * four so the rates are read first.
+ *
+ * The dash is a real state, not a zero. A vault whose agent has not reported a
+ * settlement has nothing measured yet, and "$0.00" would say the opposite.
+ */
+function FundingCell({ vault }: { vault: Vault }) {
+	const settlements = vault.fundingSettlementCount ?? 0;
+
+	if (settlements === 0) {
+		return (
+			<div className="text-right">
+				<span
+					className="tabular-nums text-[var(--pon-fg-4)]"
+					title="No funding settlements reported for this vault yet."
+				>
+					—
+				</span>
+			</div>
+		);
+	}
+
+	const total = BigInt(vault.cumulativeFunding ?? "0");
+
+	return (
+		<div className="text-right">
+			<div
+				className={cn(
+					"font-medium tabular-nums",
+					total > 0n
+						? "text-[var(--pon-up)]"
+						: total < 0n
+							? "text-[var(--pon-down)]"
+							: "text-[var(--pon-fg)]",
+				)}
+			>
+				{formatUsdSigned(total)}
+			</div>
+			<div className="text-xs text-[var(--pon-fg-3)]">
+				{settlements.toLocaleString("en-US")} settlement{settlements === 1 ? "" : "s"}
+			</div>
 		</div>
 	);
 }

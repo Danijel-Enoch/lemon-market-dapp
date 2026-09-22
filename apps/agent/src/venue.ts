@@ -1,6 +1,5 @@
 import { BPS } from "@lemon/contracts";
-import { adlRisk, formatDuration, type LogLevel } from "@lemon/core";
-import type { KyberAggregatorClient } from "@lemon/kyber";
+import { adlRisk, formatDuration, type LogLevel, type SpotAggregator } from "@lemon/core";
 import {
 	isAccountNotFound,
 	type PacificaAccountInfo,
@@ -9,6 +8,7 @@ import {
 } from "@lemon/pacifica";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { erc20Abi, parseUnits } from "viem";
+import { createHaircutTracker, markSpotLeg, markValueUsdc } from "./haircut";
 import { MIN_DEPLOY_USDC } from "./policy";
 import { confirmed } from "./tx";
 import { fromUnits, toUnits, type Valuation, value } from "./valuation";
@@ -90,7 +90,18 @@ export interface VenueDeps {
 	config: VenueConfig;
 	publicClient: PublicClient;
 	walletClient: WalletClient;
-	kyber: KyberAggregatorClient;
+	/**
+	 * The spot aggregator for this vault's chain.
+	 *
+	 * The interface, not KyberSwap's client. The execution path below is
+	 * identical whichever venue answers — quote, encode, approve the router it
+	 * names, send — and the two differ only in details the adapter hides: LI.FI
+	 * returns calldata with the quote and may route through a second stablecoin
+	 * to reach X Layer's pools, KyberSwap encodes in a second call. Typing this
+	 * as one of them would make the other a special case in the one function
+	 * that moves depositor capital.
+	 */
+	kyber: SpotAggregator;
 	pacifica: PacificaClient;
 	/** Pacifica's canonical-payload signer, bound to this agent's derivation path. */
 	signPacifica: (message: string) => Promise<string>;
@@ -164,6 +175,15 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 	if (config.markets.length === 0) {
 		throw new Error("A venue adapter needs at least one market to trade.");
 	}
+
+	/**
+	 * How far each market's pool sits under the mark, sampled every tick.
+	 *
+	 * Per adapter, so it lives exactly as long as the agent process and is warm
+	 * for every market the vault runs. `observe()` is called once per tick, which
+	 * is what makes a count-based window a time-based one.
+	 */
+	const haircuts = createHaircutTracker();
 
 	/**
 	 * The configuration for one market, or a refusal.
@@ -397,7 +417,6 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				config.markets.map(async (market) => {
 					const balance = await spotBalance(market);
 					const route = await spotSellRoute(market, balance);
-					const sellQuote = route.value;
 
 					const position = positions.find((p) => p.symbol === market.perpSymbol);
 					const spec = venueMarkets.find((m) => m.symbol === market.perpSymbol);
@@ -411,6 +430,42 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					// Mark for the notional, with entry as the fallback: an unpriced mark
 					// should not silently value the leg at zero.
 					const markPrice = Number.isFinite(mark) && mark > 0 ? mark : entryPrice;
+
+					// The spot leg is valued off the same mark the perp leg is, at a
+					// haircut held steady across ticks — so the two legs move on one
+					// clock and cancel. See `haircut.ts`; every fallback in there is
+					// the raw quote, which is what this line used to be.
+					//
+					// `mark`, not `markPrice`: the entry-price fallback above exists so
+					// an unpriced notional does not read as zero, and it is the wrong
+					// number to value against. Entry is a stale price, and pricing the
+					// spot leg on one would put back the staleness this removes — and
+					// worse, feed a ratio measured against it into the window, so the
+					// error would outlive the outage. A dead feed leaves the reference
+					// at zero, which takes the raw quote and records nothing.
+					const spotMark = markSpotLeg(haircuts, {
+						ticker: market.ticker,
+						sellQuoteUsdc: route.value,
+						referenceUsdc: markValueUsdc(
+							balance,
+							market.spotTokenDecimals,
+							Number.isFinite(mark) && mark > 0 ? mark : 0,
+						),
+						at: deps.now(),
+					});
+					const sellQuote = spotMark.valueUsdc;
+
+					if (spotMark.basis === "dislocated") {
+						log(
+							"warn",
+							`${market.ticker}: the pool is quoting ${spotMark.haircutBps} bps off the mark, far enough from its settled level to be a dislocation rather than noise. Valuing the leg at the raw executable quote.`,
+						);
+					} else {
+						log(
+							"debug",
+							`${market.ticker}: spot leg marked ${spotMark.basis} at ${spotMark.haircutBps ?? "n/a"} bps under the mark (${haircuts.depth(market.ticker, deps.now())} samples).`,
+						);
+					}
 
 					return {
 						market,
@@ -437,6 +492,12 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 						spotGasUsd: route.gasUsd,
 						spotImpactPercent: route.impactPercent,
 						notional: BigInt(Math.round(Math.abs(perpSize) * markPrice * 1e6)),
+						// Read off the typed position rather than through a cast, and left
+						// null when there is no position — a vault that has not deployed has
+						// not accrued zero funding, it has accrued none, and the difference
+						// decides whether the next reading is a payment or a baseline.
+						fundingAccrued: position === undefined ? null : usdcFromDecimal(position.funding),
+						positionOpenedAt: position?.created_at ?? null,
 						// biome-ignore lint/suspicious/noExplicitAny: venue payloads are loosely typed.
 						fundingHourly: Number((spec as any)?.funding_rate ?? 0) * 100,
 						// Scored off the live mark, not the entry fallback. A stale mark
@@ -490,6 +551,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				// Pacifica quotes one rate where positive means longs pay shorts,
 				// so the short side receives exactly this. See the README.
 				fundingShortPercentPerHour: leg.fundingHourly,
+				fundingAccruedUsdc: leg.fundingAccrued,
+				positionOpenedAt: leg.positionOpenedAt,
+				perpNotionalUsdc: leg.notional,
 				spotBuyable: leg.sellQuote !== null,
 				spotSellable: leg.sellQuote !== null,
 				markPriceUsd: leg.markPrice,
@@ -695,6 +759,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 				tokenOut: market.spotToken,
 				amountIn: spend.toString(),
 				slippagePercent: config.slippagePercent,
+				// Named at quote time, not only at build time. LI.FI prices and
+				// encodes for a specific sender, so quoting anonymously and building
+				// for the agent can return a different route than the one whose
+				// output sized the short — and the short is placed off the quote.
+				sender: config.agentAddress,
 			});
 			if (!route.ok) {
 				throw new VenueExecutionError(
@@ -778,9 +847,9 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
 					account: deps.walletClient.account as any,
 					chain: null,
-					to: built.routerAddress as Address,
+					to: built.to as Address,
 					data: built.data as Hex,
-					value: 0n,
+					value: BigInt(built.value),
 				});
 				await confirmed(publicClient, swapTx, `The ${market.symbol} spot buy`);
 			} catch (error) {
@@ -1441,6 +1510,8 @@ async function closeLeg(
 		tokenOut: config.usdc,
 		amountIn: sellUnits.toString(),
 		slippagePercent: config.slippagePercent,
+		// As on the buy side: LI.FI encodes for the sender it quoted.
+		sender: config.agentAddress,
 	});
 	if (!route.ok) {
 		throw new VenueExecutionError(
@@ -1469,9 +1540,9 @@ async function closeLeg(
 			// biome-ignore lint/suspicious/noExplicitAny: account is set by the caller.
 			account: deps.walletClient.account as any,
 			chain: null,
-			to: built.routerAddress as Address,
+			to: built.to as Address,
 			data: built.data as Hex,
-			value: 0n,
+			value: BigInt(built.value),
 		});
 		await confirmed(publicClient, sellTx, `The ${market.symbol} spot sell`);
 	} catch (error) {
@@ -1819,6 +1890,18 @@ function numberOrNull(raw: string | number | null | undefined): number | null {
 	if (raw === null || raw === undefined) return null;
 	const n = Number(raw);
 	return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * A venue decimal string as signed USDC base units, or null if unparseable.
+ *
+ * Rounded rather than truncated, and signed rather than clamped: funding is a
+ * payment in either direction, and a short that paid rather than received has a
+ * negative total the vault should report as the loss it was.
+ */
+function usdcFromDecimal(raw: string | number | null | undefined): bigint | null {
+	const value = numberOrNull(raw);
+	return value === null ? null : BigInt(Math.round(value * 1e6));
 }
 
 function abs(value: bigint): bigint {

@@ -7,8 +7,9 @@ import {
 	rainbowWallet,
 	walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
+import type { Chain } from "viem";
 import { createConfig, http } from "wagmi";
-import { APP_CHAIN, APP_CHAIN_RPC_URL } from "./chain";
+import { ENABLED_CHAINS } from "./chain";
 
 /**
  * A shared WalletConnect id so the public app works out of the box.
@@ -44,10 +45,16 @@ export interface WalletConfigOptions {
 /**
  * One wagmi config, built the same way for both apps.
  *
- * `chains` is a single entry on purpose. Both apps trade on exactly one chain —
- * Base mainnet — and listing several would make wagmi's chain switching a
- * user-facing choice rather than the "you are on the wrong network, fix it"
- * prompt it should be.
+ * `chains` used to be a single entry, on the argument that listing several would
+ * turn chain switching into a user-facing choice rather than the "you are on the
+ * wrong network, fix it" prompt it should be. That argument survives the move to
+ * several chains, because the list here is not a menu — it is the set of chains
+ * this deployment has a factory on, and the prompt is still "switch to the chain
+ * *this vault* lives on" rather than "pick one".
+ *
+ * What the list buys is `wallet_addEthereumChain` for the chains a user's wallet
+ * has never seen. X Layer in particular is absent from most wallets' defaults,
+ * and wagmi can only offer to add a chain it was configured with.
  */
 export function createWalletConfig({ appName, extraWallets = [] }: WalletConfigOptions) {
 	const projectId =
@@ -72,10 +79,17 @@ export function createWalletConfig({ appName, extraWallets = [] }: WalletConfigO
 		{ appName, projectId },
 	);
 
+	// `chains` is typed as a non-empty tuple, which `ENABLED_CHAINS.map` cannot
+	// prove. The array is non-empty by construction — see the fallback in
+	// `chain.ts` — so the assertion states what that guarantee already is.
+	const chains = ENABLED_CHAINS.map((entry) => entry.chain) as [Chain, ...Chain[]];
+
 	return createConfig({
 		connectors,
-		chains: [APP_CHAIN],
+		chains,
 		ssr: true,
-		transports: { [APP_CHAIN.id]: http(APP_CHAIN_RPC_URL) },
+		transports: Object.fromEntries(
+			ENABLED_CHAINS.map((entry) => [entry.chain.id, http(entry.rpcUrl)]),
+		),
 	});
 }

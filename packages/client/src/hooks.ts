@@ -49,6 +49,23 @@ export function useNavSeries(address: string | undefined, days = 30) {
 }
 
 /**
+ * Funding paid per UTC day.
+ *
+ * Held a little less long than the NAV series. Today's bucket is the one figure
+ * on this page that fills in through the day — every settlement adds to it — and
+ * a five-minute cache would show a stale "today" for most of the hour it changed
+ * in. The historical days behind it do not move at all.
+ */
+export function useFundingSeries(address: string | undefined, days = 30) {
+	return useQuery({
+		queryKey: ["funding", address, days],
+		queryFn: () => vaultApi.funding(address as string, days),
+		enabled: Boolean(address),
+		staleTime: 60_000,
+	});
+}
+
+/**
  * The activity feed.
  *
  * Polled faster than the rest. It is the page people watch when they want to
@@ -131,10 +148,14 @@ export function useAdminSession() {
 	});
 }
 
-export function useVaultableMarkets(enabled: boolean) {
+export function useVaultableMarkets(enabled: boolean, chainId?: number) {
 	return useQuery({
-		queryKey: ["admin-markets"],
-		queryFn: () => adminApi.markets(),
+		// The chain is part of the key, not just the request. The three chains
+		// offer different boards — Arbitrum has no tokenized equities at all —
+		// and a shared key would serve one chain's markets under another's tab
+		// until the stale time expired.
+		queryKey: ["admin-markets", chainId ?? null],
+		queryFn: () => adminApi.markets(chainId),
 		enabled,
 		// The board runs a live liquidity probe per row, so it is expensive
 		// upstream. Two minutes, and a manual refresh button on the page.

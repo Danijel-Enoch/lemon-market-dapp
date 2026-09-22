@@ -64,6 +64,26 @@ export function formatUsdCompact(value: string | bigint | undefined | null): str
 	return `$${dollars.toFixed(2)}`;
 }
 
+/**
+ * The same figure with the sign outside the dollar sign: `-$1.2K`, not `$-1.2K`.
+ *
+ * For quantities that are genuinely signed rather than incidentally negative —
+ * funding, which a short receives in most periods and pays in some. The
+ * distinction earns a separate function because `$-1.2K` reads as a typo at a
+ * glance, and funding is the first figure in the app whose minus sign is
+ * ordinary rather than exceptional.
+ *
+ * A plus is shown too, for the same reason: a total that only ever renders bare
+ * gives a reader no way to tell "positive" from "unsigned", which is exactly the
+ * ambiguity a signed total needs to avoid.
+ */
+export function formatUsdSigned(value: string | bigint | undefined | null): string {
+	const raw = toBigInt(value);
+	if (raw === 0n) return "$0.00";
+	const magnitude = formatUsdCompact(raw < 0n ? -raw : raw);
+	return `${raw < 0n ? "−" : "+"}${magnitude}`;
+}
+
 export function formatShares(value: string | bigint | undefined | null): string {
 	return formatUnits(value, SHARE_DECIMALS, 4);
 }

@@ -1,8 +1,7 @@
-import type { TokenRoutability } from "@lemon/core";
-import { fromBaseUnits, toBaseUnits, USDC_ADDRESS, USDC_DECIMALS } from "@lemon/core";
-import type { KyberAggregatorClient, QuoteResult } from "@lemon/kyber";
+import type { QuoteResult, SpotAggregator, TokenRoutability } from "@lemon/core";
+import { fromBaseUnits, toBaseUnits, USDC_DECIMALS, usdcFor } from "@lemon/core";
 import { REFERENCE_NOTIONAL_USD } from "./basis";
-import { SPOT_TOKENS, type StockTokenSeed } from "./tokens";
+import type { StockTokenSeed } from "./tokens";
 
 /**
  * Notional used to probe whether a token is tradable, and at what cost.
@@ -31,7 +30,7 @@ type ProbeOutcome =
  * ($28M of liquidity) being reported as untradable.
  */
 async function quoteOnce(
-	kyber: KyberAggregatorClient,
+	kyber: SpotAggregator,
 	tokenIn: string,
 	tokenOut: string,
 	amountIn: string,
@@ -70,19 +69,23 @@ async function quoteOnce(
  * notional whatever the token is worth.
  */
 export async function probeToken(
-	kyber: KyberAggregatorClient,
+	kyber: SpotAggregator,
 	token: StockTokenSeed,
 ): Promise<TokenRoutability> {
 	const buyAmount = toBaseUnits(PROBE_USD, USDC_DECIMALS).toString();
 
-	const buy = await quoteOnce(kyber, USDC_ADDRESS, token.address, buyAmount);
+	// The aggregator's own chain decides the quote asset. Probing an Arbitrum
+	// token against Base's USDC address would find no pool and report a live
+	// market as unroutable.
+	const usdc = usdcFor(kyber.chainId);
+	const buy = await quoteOnce(kyber, usdc, token.address, buyAmount);
 
 	// Fall back to a nominal unit when the buy leg produced no amount, so a
 	// sell-only market is still detected.
 	const sellAmount =
 		buy.kind === "route" ? buy.quote.amountOut : toBaseUnits(1, token.decimals).toString();
 
-	const sell = await quoteOnce(kyber, token.address, USDC_ADDRESS, sellAmount);
+	const sell = await quoteOnce(kyber, token.address, usdc, sellAmount);
 
 	return {
 		symbol: token.symbol,
@@ -138,8 +141,9 @@ function priceFromProbe(amountOut: string, decimals: number, impactPercent: numb
  * ~23-token registry.
  */
 export async function probeAllTokens(
-	kyber: KyberAggregatorClient,
-	tokens: readonly StockTokenSeed[] = SPOT_TOKENS,
+	kyber: SpotAggregator,
+	/** One chain's tokens. No default — see `pairTokensWithMarkets` for why. */
+	tokens: readonly StockTokenSeed[],
 	concurrency = 2,
 ): Promise<TokenRoutability[]> {
 	const results: TokenRoutability[] = new Array(tokens.length);
