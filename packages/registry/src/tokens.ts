@@ -1,5 +1,8 @@
-import type { Address } from "@lemon/core";
+import type { Address, ChainId } from "@lemon/core";
+import { ARBITRUM_CHAIN_ID, BASE_CHAIN_ID, XLAYER_CHAIN_ID } from "@lemon/core";
+import { ARBITRUM_TOKENS } from "./arbitrum-tokens";
 import { PERP_CRYPTO_TOKENS } from "./crypto-tokens";
+import { XLAYER_TOKENS } from "./xlayer-tokens";
 
 export interface StockTokenSeed {
 	symbol: string;
@@ -125,27 +128,52 @@ export const COINBASE_STOCK_TOKENS: readonly StockTokenSeed[] = [
 export const ONCHAIN_REGISTRY_ADDRESS =
 	"0x3f3E8cf41cdd3b1D118c16471aB0113DfDDd5CaD" as const satisfies Address;
 
+/** A curated token, with the chain it exists on. */
+export interface ChainSpotToken extends StockTokenSeed {
+	chainId: ChainId;
+}
+
+const scoped = (chainId: ChainId, tokens: readonly StockTokenSeed[]): ChainSpotToken[] =>
+	tokens.map((token) => ({ ...token, chainId }));
+
 /**
- * Every Base token with a matching the reference design market — tokenized equities plus
- * verified crypto. This is the spot universe: if the reference design does not list the
- * underlying, it is not tradable here.
+ * Every curated token on every chain this app trades on.
+ *
+ * The chain is attached here rather than repeated on each literal: the lists
+ * are chain-homogeneous by construction — a file holds one chain's tokens and
+ * nothing else — so stamping it at assembly makes it impossible for an entry to
+ * carry the wrong one.
+ *
+ * Flat rather than grouped because most callers want "the whole universe" and
+ * the ones that do not say which chain they mean. What no caller may do is look
+ * a token up by symbol or ticker alone: `WETH` is a real, different contract on
+ * all three chains, and resolving one without a chain would return whichever
+ * happened to be listed first. Every lookup below therefore takes a chain, and
+ * the compiler enforces it.
  */
-export const SPOT_TOKENS: readonly StockTokenSeed[] = [
-	...COINBASE_STOCK_TOKENS,
-	...PERP_CRYPTO_TOKENS,
+export const SPOT_TOKENS: readonly ChainSpotToken[] = [
+	...scoped(BASE_CHAIN_ID, COINBASE_STOCK_TOKENS),
+	...scoped(BASE_CHAIN_ID, PERP_CRYPTO_TOKENS),
+	...scoped(ARBITRUM_CHAIN_ID, ARBITRUM_TOKENS),
+	...scoped(XLAYER_CHAIN_ID, XLAYER_TOKENS),
 ];
 
-export function findTokenBySymbol(symbol: string): StockTokenSeed | undefined {
+/** One chain's curated tokens, in registry order. Empty for a chain with none. */
+export function spotTokensFor(chainId: number): ChainSpotToken[] {
+	return SPOT_TOKENS.filter((token) => token.chainId === chainId);
+}
+
+export function findTokenBySymbol(symbol: string, chainId: number): ChainSpotToken | undefined {
 	const target = symbol.trim().toUpperCase();
-	return SPOT_TOKENS.find((token) => token.symbol.toUpperCase() === target);
+	return SPOT_TOKENS.find((t) => t.chainId === chainId && t.symbol.toUpperCase() === target);
 }
 
-export function findTokenByTicker(ticker: string): StockTokenSeed | undefined {
+export function findTokenByTicker(ticker: string, chainId: number): ChainSpotToken | undefined {
 	const target = ticker.trim().toUpperCase();
-	return SPOT_TOKENS.find((token) => token.ticker === target);
+	return SPOT_TOKENS.find((t) => t.chainId === chainId && t.ticker === target);
 }
 
-export function findTokenByAddress(address: string): StockTokenSeed | undefined {
+export function findTokenByAddress(address: string, chainId: number): ChainSpotToken | undefined {
 	const target = address.trim().toLowerCase();
-	return SPOT_TOKENS.find((token) => token.address.toLowerCase() === target);
+	return SPOT_TOKENS.find((t) => t.chainId === chainId && t.address.toLowerCase() === target);
 }
