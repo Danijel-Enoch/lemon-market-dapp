@@ -356,6 +356,33 @@ model VaultConfig {
   /// whenever a new order is given.
   closeCompletedAt DateTime?
 
+  // -------------------------------------------------------------------------
+  // A one-shot rebalance, asked for by hand
+  //
+  // Deliberately not shaped like the close order above. That one is *standing*:
+  // it must survive the position going flat, or the next tick would see idle
+  // USDC and undo it. This is the opposite — an operator saying "correct the
+  // hedge now" means once, and a flag that stayed set would have the agent
+  // re-trading the same legs on every tick for as long as nobody noticed.
+  //
+  // It lowers the drift threshold to zero for one tick and nothing else. It
+  // does not bypass the venue's minimum order notional, which is not a policy
+  // this app sets but a fact about Pacifica, and it does not outrank a
+  // redemption the vault owes — an operator wanting a tidier hedge does not
+  // outrank someone waiting to be paid.
+  // -------------------------------------------------------------------------
+
+  /// When an operator asked for a rebalance. Null once served, or never asked.
+  rebalanceRequestedAt DateTime?
+  /// The admin address that asked, lowercased.
+  rebalanceRequestedBy String?
+  /// When the agent acted on it — or decided it could not. Always paired with
+  /// `rebalanceOutcome`, so the dashboard can say what became of the request
+  /// rather than only that it is no longer pending.
+  rebalanceCompletedAt DateTime?
+  /// What happened, in a sentence: which market was corrected, or why none was.
+  rebalanceOutcome     String?
+
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -649,6 +649,59 @@ export async function setCloseOrder(params: {
 }
 
 /**
+ * Ask the agent to correct the hedge on its next tick.
+ *
+ * A one-shot instruction, which is why it is not shaped like the close order
+ * above. That one stands until lifted, because a flag that cleared itself when
+ * the position went flat would be undone by the very next tick. This is the
+ * opposite: an operator saying "correct it now" means once, and a flag left set
+ * would have the agent re-trading the same legs every minute until someone
+ * noticed.
+ *
+ * What it actually does is lower the drift threshold to zero for one tick. It
+ * does **not** bypass the venue's minimum order notional, and the distinction
+ * matters on exactly the vaults an operator is most tempted to press it on: a
+ * $16 position 20% off neutral needs a $3.45 correction against a $10 minimum,
+ * and no instruction from here makes that order placeable. The agent records
+ * that as the outcome rather than failing silently, so the answer comes back to
+ * the dashboard instead of being inferred from nothing happening.
+ */
+export async function requestRebalance(params: { address: string; chainId?: number; by: string }) {
+	const address = params.address.toLowerCase();
+	const existing = await assertConfigured(address, params.chainId);
+
+	// Refused rather than queued. A stopped agent will not tick, so the request
+	// would sit pending until someone re-enabled it and then fire against a
+	// position that had moved on — and "nothing happened" would be indisputable
+	// but unexplained.
+	if (!existing.agentEnabled) {
+		throw new AdminError(
+			"The agent is disabled for this vault, so it will not act on a rebalance. Enable it first.",
+			409,
+		);
+	}
+
+	if (existing.closeRequestedAt !== null) {
+		throw new AdminError(
+			"This vault is under a close order, so the agent holds no hedge to correct. Lift the close order first.",
+			409,
+		);
+	}
+
+	return prisma.vaultConfig.update({
+		where: vaultWhere({ chainId: existing.chainId, address }),
+		data: {
+			rebalanceRequestedAt: new Date(),
+			rebalanceRequestedBy: params.by.toLowerCase(),
+			// Cleared together: a pending request must not show last time's answer
+			// beside it, which would read as though it had already been served.
+			rebalanceCompletedAt: null,
+			rebalanceOutcome: null,
+		},
+	});
+}
+
+/**
  * The vault's configuration, or the error that explains its absence.
  *
  * Shared by everything an operator can do to a live vault. Letting Prisma's

@@ -237,6 +237,15 @@ export interface WorkerDeps {
 	 * returned. See `VaultConfig.closeRequestedAt`.
 	 */
 	closeRequested: boolean;
+
+	/**
+	 * An operator asked for the hedge to be corrected on this tick.
+	 *
+	 * Passed straight through to the policy, which lowers the drift threshold to
+	 * zero for it. The worker's only extra job is reporting what became of it —
+	 * see `rebalanceOutcome` on the tick result.
+	 */
+	rebalanceRequested: boolean;
 	/**
 	 * How far the two legs may drift before a rebalance is worth its fee.
 	 *
@@ -507,6 +516,7 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			}),
 		),
 		closeRequested: deps.closeRequested,
+		rebalanceRequested: deps.rebalanceRequested,
 		rebalanceDriftBps: deps.rebalanceDriftBps,
 		venueWithdrawalFeeUsdc: observation.venueWithdrawalFeeUsdc,
 		adl: observation.adl,

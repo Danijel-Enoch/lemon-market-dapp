@@ -164,6 +164,12 @@ export interface Vault {
 	 */
 	closeRequestedAt: string | null;
 	closeCompletedAt: string | null;
+
+	/** A hand-asked rebalance: when it was asked for, and what became of it. */
+	rebalanceRequestedAt: string | null;
+	rebalanceCompletedAt: string | null;
+	/** The answer, including when the answer is "the venue would not take it". */
+	rebalanceOutcome: string | null;
 	assetClass: string;
 	assetClassLabel: string;
 	/** One of "crypto" | "stocks" | "rwa" | "fx" — the board's tabs. */
@@ -830,6 +836,16 @@ export const adminApi = {
 
 	setAgent: (address: string, enabled: boolean) =>
 		post<{ vault: unknown }>(`/admin/vaults/${address}/agent`, { enabled }),
+
+	/**
+	 * Ask the agent to correct the hedge on its next tick.
+	 *
+	 * Returns as soon as the request is recorded, not when it is served — the
+	 * agent ticks on its own interval, and the answer arrives on the vault as
+	 * `rebalanceOutcome`.
+	 */
+	rebalance: (address: string) =>
+		post<{ vault: unknown }>(`/admin/vaults/${address}/rebalance`, {}),
 
 	vaultMarkets: (address: string, chainId?: number) =>
 		request<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, {

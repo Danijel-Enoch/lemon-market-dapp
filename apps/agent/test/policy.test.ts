@@ -79,6 +79,7 @@ function snapshot(overrides: Partial<VaultSnapshot> = {}): VaultSnapshot {
 		// The old fixed threshold, so the existing drift cases keep testing the
 		// behaviour they were written for. The default the agent now ships is
 		// higher; tests that care about that set it.
+		rebalanceRequested: false,
 		rebalanceDriftBps: 100,
 		venueWithdrawalFeeUsdc: 0n,
 		adl: CALM_ADL,
@@ -1488,6 +1489,76 @@ describe("a rebalance the venue would refuse", () => {
  * order notional: a threshold that suits a large vault has a small one placing
  * corrections the venue will not accept, forever.
  */
+describe("a rebalance asked for by hand", () => {
+	/**
+	 * Drift well inside any sensible threshold, on a position large enough that
+	 * the correction clears the venue's minimum. Untouched, this tick has nothing
+	 * to do; asked for, it has one thing to do.
+	 */
+	const barelyDrifted = (rebalanceRequested: boolean) =>
+		withMarket(
+			{ spotUnits: 100n * 10n ** 18n, perpUnits: 99_800_000_000_000_000_000n },
+			{ rebalanceDriftBps: 100, rebalanceRequested },
+		);
+
+	it("does nothing about drift under the threshold when nobody asked", () => {
+		expect(permittedActions(barelyDrifted(false), NOW).map((o) => o.kind)).not.toContain(
+			"REBALANCE",
+		);
+	});
+
+	it("corrects that same drift when an operator asks", () => {
+		expect(permittedActions(barelyDrifted(true), NOW).map((o) => o.kind)).toContain("REBALANCE");
+	});
+
+	it("says it was asked for, rather than quoting a threshold it did not use", () => {
+		const reason = permittedActions(barelyDrifted(true), NOW).find(
+			(o) => o.kind === "REBALANCE",
+		)?.reason;
+		expect(reason).toContain("An operator asked");
+		expect(reason).not.toContain("threshold");
+	});
+
+	it("takes the advisor out of the loop, because an instruction is not a suggestion", () => {
+		const option = permittedActions(barelyDrifted(true), NOW).find((o) => o.kind === "REBALANCE");
+		expect(option?.forced).toBe(true);
+	});
+
+	/**
+	 * The case that sent an operator here in the first place: a $16 position 20%
+	 * off neutral, needing a $3.45 correction against a $10 minimum. Asking does
+	 * not make the venue take the order, and the request must not turn a refusal
+	 * into an attempt that fails every tick.
+	 */
+	it("still cannot place a correction the venue would refuse", () => {
+		const dust = withMarket(
+			{
+				spotUnits: 72_087_700_000_000_000n,
+				perpUnits: 57_000_000_000_000_000n,
+				markPriceUsd: 228.37,
+				minOrderUsd: 10,
+			},
+			{ rebalanceRequested: true },
+		);
+		const kinds = permittedActions(dust, NOW).map((o) => o.kind);
+		expect(kinds).not.toContain("REBALANCE");
+	});
+
+	it("says why it could not, rather than going quiet about it", () => {
+		const dust = withMarket(
+			{
+				spotUnits: 72_087_700_000_000_000n,
+				perpUnits: 57_000_000_000_000_000n,
+				markPriceUsd: 228.37,
+				minOrderUsd: 10,
+			},
+			{ rebalanceRequested: true },
+		);
+		const hold = permittedActions(dust, NOW).find((o) => o.kind === "HOLD");
+		expect(hold?.reason).toContain("minimum order");
+	});
+});
+
 describe("the rebalance threshold", () => {
 	/** 2.89% off neutral on a position where the correction is comfortably placeable. */
 	const drifted = (rebalanceDriftBps: number) =>
