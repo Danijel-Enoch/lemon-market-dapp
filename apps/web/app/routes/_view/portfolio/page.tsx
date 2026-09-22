@@ -7,7 +7,9 @@ import {
 	toBigInt,
 	usePortfolio,
 } from "@lemon/client";
+import { explorerTx } from "@lemon/core";
 import { cn, EmptyState, PageHeader, Skeleton, StatCard } from "@lemon/ui";
+import { APP_CHAIN } from "@lemon/wallet";
 import { Clock, ExternalLink, Wallet } from "lucide-react";
 import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
@@ -224,7 +226,7 @@ export default function PortfolioPage() {
 								<div className="flex items-center gap-3">
 									<span className="tabular-nums text-[var(--pon-fg)]">{formatUsd(row.assets)}</span>
 									<a
-										href={`https://basescan.org/tx/${row.txHash}`}
+										href={explorerTx(row.chainId ?? APP_CHAIN.id, row.txHash)}
 										target="_blank"
 										rel="noreferrer noopener"
 										className="text-[var(--pon-fg-4)] hover:text-[var(--pon-lime)]"

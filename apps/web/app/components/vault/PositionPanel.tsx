@@ -1,5 +1,6 @@
 import type { AdlRisk, LivePosition } from "@lemon/client";
 import { formatRelative, formatUnits, formatUsd, toBigInt } from "@lemon/client";
+import { chainInfo, explorerAddress, explorerToken } from "@lemon/core";
 import { cn } from "@lemon/ui";
 import {
 	AlertTriangle,
@@ -27,6 +28,10 @@ import { useState } from "react";
  * catches a bad report.
  */
 export function PositionPanel({ position }: { position: LivePosition }) {
+	// The vault's chain, named once. Every explorer link and the "Token" row's
+	// label come from it rather than from the connected wallet, which may be on
+	// a different chain or absent entirely.
+	const chainName = chainInfo(position.chainId)?.name ?? "EVM";
 	const spotValue = position.spot.valueUsd;
 	const perpMargin = position.perp.marginUsd;
 	const discrepancy = position.discrepancyUsd ? BigInt(position.discrepancyUsd) : null;
@@ -85,12 +90,16 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 								label="Token"
 								value={
 									<a
-										href={`https://basescan.org/token/${position.spot.token}?a=${position.wallets.evm}`}
+										href={explorerToken(
+											position.chainId,
+											position.spot.token,
+											position.wallets.evm,
+										)}
 										target="_blank"
 										rel="noreferrer noopener"
 										className="inline-flex items-center gap-1 text-[var(--pon-fg-2)] underline decoration-dotted underline-offset-2 hover:text-[var(--pon-lime)]"
 									>
-										Base <ExternalLink className="size-3" />
+										{chainName} <ExternalLink className="size-3" />
 									</a>
 								}
 							/>
@@ -182,7 +191,12 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 					request — and the EVM address is fixed in the vault as the only place it can send funds.
 				</p>
 
-				<AddressRow label="Base (EVM)" value={position.wallets.evm} explorer="basescan" />
+				<AddressRow
+					label={`${chainName} (EVM)`}
+					value={position.wallets.evm}
+					explorer="evm"
+					chainId={position.chainId}
+				/>
 				{position.wallets.solana ? (
 					<AddressRow label="Solana" value={position.wallets.solana} explorer="solscan" />
 				) : (
@@ -391,15 +405,18 @@ function AddressRow({
 	label,
 	value,
 	explorer,
+	chainId,
 }: {
 	label: string;
 	value: string;
-	explorer?: "basescan" | "solscan";
+	/** "evm" needs a `chainId`; Solana has one explorer and no chain to pick. */
+	explorer?: "evm" | "solscan";
+	chainId?: number;
 }) {
 	const [copied, setCopied] = useState(false);
 	const href =
-		explorer === "basescan"
-			? `https://basescan.org/address/${value}`
+		explorer === "evm" && chainId !== undefined
+			? explorerAddress(chainId, value)
 			: explorer === "solscan"
 				? `https://solscan.io/account/${value}`
 				: null;

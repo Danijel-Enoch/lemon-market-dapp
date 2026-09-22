@@ -2,6 +2,7 @@ import type { Vault } from "@lemon/client";
 import { formatUnits, formatUsd, parseUnits, toBigInt, USDC_DECIMALS } from "@lemon/client";
 import { lemonVaultAbi } from "@lemon/contracts";
 import { Button, cn } from "@lemon/ui";
+import { APP_CHAIN, useAppChain } from "@lemon/wallet";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +30,17 @@ import { ProjectedYieldBreakdown } from "./ProjectedYield";
  */
 export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress: `0x${string}` }) {
 	const { address, isConnected } = useAccount();
+	/**
+	 * The vault's chain, not the deployment's default.
+	 *
+	 * Every read and write below is aimed at one chain, and which one is a
+	 * property of the vault rather than of the app. Without this the reads would
+	 * be issued against whatever chain the wallet is on — returning a balance of
+	 * zero from an address where the user genuinely holds USDC, and an allowance
+	 * of zero that has the panel offer an approval it does not need.
+	 */
+	const vaultChainId = vault.chainId ?? APP_CHAIN.id;
+	const { onWrongChain, promptSwitch, isSwitching, chain } = useAppChain(vaultChainId);
 	const queryClient = useQueryClient();
 	const [input, setInput] = useState("");
 	const [stage, setStage] = useState<"idle" | "approving" | "depositing">("idle");
@@ -38,6 +50,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	const { data: balance } = useReadContract({
 		abi: erc20Abi,
 		address: usdcAddress,
+		chainId: vaultChainId,
 		functionName: "balanceOf",
 		args: address ? [address] : undefined,
 		query: { enabled: Boolean(address), refetchInterval: 15_000 },
@@ -46,6 +59,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 	const { data: allowance } = useReadContract({
 		abi: erc20Abi,
 		address: usdcAddress,
+		chainId: vaultChainId,
 		functionName: "allowance",
 		args: address ? [address, vault.address] : undefined,
 		query: { enabled: Boolean(address), refetchInterval: 5_000 },
@@ -103,6 +117,12 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 		writeContract({
 			abi: erc20Abi,
 			address: usdcAddress,
+			// Named explicitly so wagmi refuses rather than sends if the wallet is
+			// on another chain. Unpinned, an approval meant for an Arbitrum vault
+			// would be signed against whatever chain the wallet happened to be on
+			// — spending gas to approve a token for an address that is not a vault
+			// there, with nothing in the UI to say it went somewhere else.
+			chainId: vaultChainId,
 			functionName: "approve",
 			// Exactly this deposit, not unlimited. A new contract holding funds
 			// should not also hold a standing claim on the rest of a wallet.
@@ -116,6 +136,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 		writeContract({
 			abi: lemonVaultAbi,
 			address: vault.address,
+			chainId: vaultChainId,
 			functionName: "deposit",
 			args: [amount, address],
 		});
@@ -131,6 +152,19 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 				<h3 className="font-medium text-[var(--pon-fg-0)]">Deposit</h3>
 				<span className="text-xs text-[var(--pon-fg-3)]">Balance {formatUsd(balance ?? 0n)}</span>
 			</div>
+
+			{onWrongChain ? (
+				<button
+					type="button"
+					onClick={promptSwitch}
+					disabled={isSwitching}
+					className="w-full rounded-[var(--pon-r,12px)] border border-[var(--pon-warn,#a16207)] px-3 py-2 text-left text-xs text-[var(--pon-fg-2)] disabled:opacity-60"
+				>
+					{isSwitching
+						? `Switching to ${chain.name}…`
+						: `This vault is on ${chain.name}. Switch to deposit.`}
+				</button>
+			) : null}
 
 			{blocked ? (
 				<BlockedNotice vault={vault} />
