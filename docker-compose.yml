@@ -61,8 +61,28 @@ services:
       # 429, which is the only thing the public default reliably returns.
       BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
       BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
+      # The other chains this build knows about. A chain with no
+      # VAULT_FACTORY_ADDRESS_<CHAIN> is simply not enabled — not indexed, not
+      # offered in the app — so leaving these blank keeps a Base-only deployment
+      # Base-only. Nothing falls through to another chain's endpoint.
+      RPC_URL_ARBITRUM: ${RPC_URL_ARBITRUM:-}
+      RPC_URL_XLAYER: ${RPC_URL_XLAYER:-}
+      ARBITRUM_RPC_FALLBACK_URLS: ${ARBITRUM_RPC_FALLBACK_URLS:-}
+      XLAYER_RPC_FALLBACK_URLS: ${XLAYER_RPC_FALLBACK_URLS:-}
+      VAULT_FACTORY_ADDRESS_BASE: ${VAULT_FACTORY_ADDRESS_BASE:-}
+      VAULT_FACTORY_ADDRESS_ARBITRUM: ${VAULT_FACTORY_ADDRESS_ARBITRUM:-}
+      VAULT_FACTORY_ADDRESS_XLAYER: ${VAULT_FACTORY_ADDRESS_XLAYER:-}
+      VAULT_FACTORY_START_BLOCK_BASE: ${VAULT_FACTORY_START_BLOCK_BASE:-}
+      VAULT_FACTORY_START_BLOCK_ARBITRUM: ${VAULT_FACTORY_START_BLOCK_ARBITRUM:-}
+      VAULT_FACTORY_START_BLOCK_XLAYER: ${VAULT_FACTORY_START_BLOCK_XLAYER:-}
       KYBER_BASE_URL: ${KYBER_BASE_URL:-https://aggregator-api.kyberswap.com}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      # LI.FI routes X Layer, which KyberSwap does not cover. The key is
+      # strongly recommended: the free tier answers exhaustion with a two-hour
+      # 429, which mid-deploy is a position with one leg on.
+      LIFI_BASE_URL: ${LIFI_BASE_URL:-https://li.quest}
+      LIFI_INTEGRATOR: ${LIFI_INTEGRATOR:-lemon-markets}
+      LIFI_API_KEY: ${LIFI_API_KEY:-}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
       # Deposits stay disabled (with an explanatory message) until this is set.
@@ -129,7 +149,27 @@ services:
       # 429, which is the only thing the public default reliably returns.
       BASE_RPC_FALLBACK_URLS: ${BASE_RPC_FALLBACK_URLS:-}
       BASE_RPC_BATCH: ${BASE_RPC_BATCH:-}
+      # The other chains this build knows about. A chain with no
+      # VAULT_FACTORY_ADDRESS_<CHAIN> is simply not enabled — not indexed, not
+      # offered in the app — so leaving these blank keeps a Base-only deployment
+      # Base-only. Nothing falls through to another chain's endpoint.
+      RPC_URL_ARBITRUM: ${RPC_URL_ARBITRUM:-}
+      RPC_URL_XLAYER: ${RPC_URL_XLAYER:-}
+      ARBITRUM_RPC_FALLBACK_URLS: ${ARBITRUM_RPC_FALLBACK_URLS:-}
+      XLAYER_RPC_FALLBACK_URLS: ${XLAYER_RPC_FALLBACK_URLS:-}
+      VAULT_FACTORY_ADDRESS_BASE: ${VAULT_FACTORY_ADDRESS_BASE:-}
+      VAULT_FACTORY_ADDRESS_ARBITRUM: ${VAULT_FACTORY_ADDRESS_ARBITRUM:-}
+      VAULT_FACTORY_ADDRESS_XLAYER: ${VAULT_FACTORY_ADDRESS_XLAYER:-}
+      VAULT_FACTORY_START_BLOCK_BASE: ${VAULT_FACTORY_START_BLOCK_BASE:-}
+      VAULT_FACTORY_START_BLOCK_ARBITRUM: ${VAULT_FACTORY_START_BLOCK_ARBITRUM:-}
+      VAULT_FACTORY_START_BLOCK_XLAYER: ${VAULT_FACTORY_START_BLOCK_XLAYER:-}
       KYBER_CLIENT_ID: ${KYBER_CLIENT_ID:-lemon-markets}
+      # LI.FI routes X Layer, which KyberSwap does not cover. The key is
+      # strongly recommended: the free tier answers exhaustion with a two-hour
+      # 429, which mid-deploy is a position with one leg on.
+      LIFI_BASE_URL: ${LIFI_BASE_URL:-https://li.quest}
+      LIFI_INTEGRATOR: ${LIFI_INTEGRATOR:-lemon-markets}
+      LIFI_API_KEY: ${LIFI_API_KEY:-}
       PACIFICA_API_URL: ${PACIFICA_API_URL:-https://api.pacifica.fi/api/v1}
       RELAY_API_URL: ${RELAY_API_URL:-https://api.relay.link}
       # Deposits stay disabled (with an explanatory message) until this is set.

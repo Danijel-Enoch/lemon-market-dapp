@@ -58,6 +58,7 @@
         "@lemon/core": "workspace:*",
         "@lemon/db": "workspace:*",
         "@lemon/kyber": "workspace:*",
+        "@lemon/lifi": "workspace:*",
         "@lemon/near-mpc": "workspace:*",
         "@lemon/pacifica": "workspace:*",
         "@lemon/registry": "workspace:*",
@@ -75,10 +76,12 @@
         "@lemon/core": "workspace:*",
         "@lemon/db": "workspace:*",
         "@lemon/kyber": "workspace:*",
+        "@lemon/lifi": "workspace:*",
         "@lemon/near-mpc": "workspace:*",
         "@lemon/pacifica": "workspace:*",
         "@lemon/registry": "workspace:*",
         "@lemon/relay": "workspace:*",
+        "@lemon/univ3": "workspace:*",
         "@scure/base": "^2.0.0",
         "@solana/web3.js": "^1.98.4",
         "elysia": "1.4.19",
@@ -212,6 +215,13 @@
         "viem": "^2.44.2",
       },
     },
+    "packages/lifi": {
+      "name": "@lemon/lifi",
+      "version": "0.2.0",
+      "dependencies": {
+        "@lemon/core": "workspace:*",
+      },
+    },
     "packages/near-mpc": {
       "name": "@lemon/near-mpc",
       "version": "0.2.0",
@@ -258,6 +268,14 @@
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
         "react-router": "^7.12.0",
+      },
+    },
+    "packages/univ3": {
+      "name": "@lemon/univ3",
+      "version": "0.2.0",
+      "dependencies": {
+        "@lemon/core": "workspace:*",
+        "viem": "^2.44.2",
       },
     },
     "packages/wallet": {
@@ -571,6 +589,8 @@
 
     "@lemon/kyber": ["@lemon/kyber@workspace:packages/kyber"],
 
+    "@lemon/lifi": ["@lemon/lifi@workspace:packages/lifi"],
+
     "@lemon/near-mpc": ["@lemon/near-mpc@workspace:packages/near-mpc"],
 
     "@lemon/pacifica": ["@lemon/pacifica@workspace:packages/pacifica"],
@@ -580,6 +600,8 @@
     "@lemon/relay": ["@lemon/relay@workspace:packages/relay"],
 
     "@lemon/ui": ["@lemon/ui@workspace:packages/ui"],
+
+    "@lemon/univ3": ["@lemon/univ3@workspace:packages/univ3"],
 
     "@lemon/wallet": ["@lemon/wallet@workspace:packages/wallet"],
 

@@ -23,6 +23,8 @@
 		"contracts:build": "bun run --filter '@lemon/contracts' build",
 		"contracts:test": "bun run --filter '@lemon/contracts' test",
 		"contracts:deploy": "bun run --filter '@lemon/contracts' deploy",
+		"deploy:xlayer": "scripts/deploy-xlayer.sh",
+		"chains:verify": "bun run scripts/verify-chain-assets.ts",
 		"db:generate": "bun run --filter '@lemon/db' generate",
 		"db:push": "bun run --filter '@lemon/db' push",
 		"db:migrate": "bun run --filter '@lemon/db' migrate",
