@@ -1,5 +1,5 @@
 import type { BasisAssetClass, BasisMarket } from "@lemon/core";
-import { formatUsd } from "@lemon/core";
+import { DEFAULT_CHAIN_ID, formatUsd, requireChainInfo } from "@lemon/core";
 import {
 	computeBasisEconomics,
 	REFERENCE_NOTIONAL_USD,
@@ -89,16 +89,31 @@ const MAX_PROBE_IMPACT_PERCENT = 10;
  */
 const MAX_PRICE_DIVERGENCE_PERCENT = 5;
 
-/** Why this pair cannot be entered right now. Empty means it can. */
-function blockersFor(token: SpotToken, market: MarketWithEconomics): string[] {
+/**
+ * Why this pair cannot be entered right now. Empty means it can.
+ *
+ * `chainName` is passed rather than assumed. This board is built per chain, and
+ * a blocker reading "on Base" under an X Layer board is worse than no chain at
+ * all — it reads as the routability check being pointed at the wrong chain.
+ */
+function blockersFor(token: SpotToken, market: MarketWithEconomics, chainName: string): string[] {
 	const blockers: string[] = [];
 
-	if (token.probeFailed) {
+	if (token.probeFailed || token.routabilityCheckedAt === null) {
 		// Distinct from "no pool": a throttled probe would otherwise mark a
 		// deeply liquid market as dead.
+		//
+		// `routabilityCheckedAt === null` belongs here for the same reason, and
+		// was the harder half to see. A token that has not been probed *at all*
+		// reports `buyable: false` and `probeFailed: false` — see the `?? false`
+		// defaults in `spot.ts` — which reads downstream as "the check ran and
+		// found nothing", the one conclusion the data cannot support. The board
+		// then told operators that every market on a healthy chain was
+		// unroutable, most visibly in the window after a restart while the first
+		// sweep was still running.
 		blockers.push("Liquidity check failed — routability is unknown right now.");
 	} else if (!token.buyable) {
-		blockers.push(`No route into ${token.symbol} on Base right now.`);
+		blockers.push(`No route into ${token.symbol} on ${chainName} right now.`);
 	} else if (!token.sellable) {
 		// Enterable but not exitable is worse than not enterable at all.
 		blockers.push(
@@ -135,7 +150,11 @@ function blockersFor(token: SpotToken, market: MarketWithEconomics): string[] {
 	return blockers;
 }
 
-function toBasisMarket(token: SpotToken, market: MarketWithEconomics): BasisMarket {
+function toBasisMarket(
+	token: SpotToken,
+	market: MarketWithEconomics,
+	chainName: string,
+): BasisMarket {
 	const funding = {
 		long: market.fundingLongPercentPerHour,
 		short: market.fundingShortPercentPerHour,
@@ -183,7 +202,7 @@ function toBasisMarket(token: SpotToken, market: MarketWithEconomics): BasisMark
 			spotBuyImpactPercent: token.buyPriceImpactPercent,
 		}),
 
-		blockers: blockersFor(token, market),
+		blockers: blockersFor(token, market, chainName),
 	};
 }
 
@@ -200,8 +219,21 @@ function toBasisMarket(token: SpotToken, market: MarketWithEconomics): BasisMark
  * last. A trader looking for a symbol that has fallen off the board cannot tell
  * an absent market from an untradable one, and the reason is what they need.
  */
-export async function listBasisMarkets(force = false): Promise<BasisMarketList> {
-	const [markets, spot] = await Promise.all([getMarkets(force), getSpotTokens(force)]);
+export async function listBasisMarkets(
+	/**
+	 * Which chain's board. Defaults to this deployment's primary chain.
+	 *
+	 * A basis market only exists where both legs do, and the spot leg is
+	 * chain-specific while the perp leg is not — Pacifica's ETH perp hedges
+	 * Base's WETH, Arbitrum's WETH and X Layer's xETH equally well. So the
+	 * perp catalog is shared and the spot half is scoped, which is why this
+	 * takes a chain and `getMarkets` does not.
+	 */
+	chainId: number = DEFAULT_CHAIN_ID,
+	force = false,
+): Promise<BasisMarketList> {
+	const chain = requireChainInfo(chainId);
+	const [markets, spot] = await Promise.all([getMarkets(force), getSpotTokens(chainId, force)]);
 	const bySymbol = new Map(markets.map((market) => [market.symbol, market]));
 
 	const unpaired: UnpairedSpotAsset[] = [];
@@ -211,7 +243,7 @@ export async function listBasisMarkets(force = false): Promise<BasisMarketList> 
 			unpaired.push({ symbol: token.symbol, ticker: token.ticker, name: token.name });
 			return [];
 		}
-		return [toBasisMarket(token, market)];
+		return [toBasisMarket(token, market, chain.name)];
 	});
 
 	rows.sort((a, b) => {
