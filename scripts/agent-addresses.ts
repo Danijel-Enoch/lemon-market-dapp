@@ -12,8 +12,14 @@
  *
  * Usage: bun run scripts/agent-addresses.ts [--env]
  *   --env  print as shell assignments, for `eval` or an overlay file
+ *
+ * Prints every chain, because the agent wallet for one market and tier is a
+ * *different* wallet on each. The derivation path carries the chain, so "the
+ * ETH conservative agent" is three addresses, and funding the Base one does
+ * nothing for the Arbitrum vault of the same name.
  */
 
+import { allChains } from "@lemon/core";
 import { agentDerivationPath, NearMpcClient } from "@lemon/near-mpc";
 
 const VAULTS = [
@@ -41,16 +47,23 @@ await client.verifyRootKeys();
 const asEnv = process.argv.includes("--env");
 const names = ["AGENT_A", "AGENT_B"];
 
-VAULTS.forEach((vault, i) => {
-	const path = agentDerivationPath(vault.ticker, vault.tier);
-	const { evmAddress, solanaAddress } = client.derive(path);
-	if (asEnv) {
-		console.log(`${names[i]}_ADDRESS=${evmAddress}`);
-		console.log(`${names[i]}_SOLANA=${solanaAddress}`);
-		console.log(`${names[i]}_PATH=${path}`);
-	} else {
-		console.log(`${vault.tier.padEnd(12)} ${vault.ticker.padEnd(4)} ${path}`);
-		console.log(`  EVM    ${evmAddress}`);
-		console.log(`  Solana ${solanaAddress}`);
-	}
-});
+for (const chain of allChains()) {
+	if (!asEnv) console.log(`\n${chain.name} (${chain.id})`);
+
+	VAULTS.forEach((vault, i) => {
+		const path = agentDerivationPath(vault.ticker, vault.tier, chain.key);
+		const { evmAddress, solanaAddress } = client.derive(path);
+		if (asEnv) {
+			// Suffixed by chain, because these are assignments an overlay file
+			// consumes and two chains' agents must not land on the same name.
+			const name = `${names[i]}_${chain.envSuffix}`;
+			console.log(`${name}_ADDRESS=${evmAddress}`);
+			console.log(`${name}_SOLANA=${solanaAddress}`);
+			console.log(`${name}_PATH=${path}`);
+		} else {
+			console.log(`  ${vault.tier.padEnd(12)} ${vault.ticker.padEnd(4)} ${path}`);
+			console.log(`    EVM    ${evmAddress}`);
+			console.log(`    Solana ${solanaAddress}`);
+		}
+	});
+}
