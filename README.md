@@ -603,6 +603,34 @@ docker compose up                # postgres + web + the standalone API on :3003
 docker compose up postgres web   # just the embedded-API stack
 ```
 
+`docker-compose.yml` builds the image locally. `docker-compose.dokploy.yml`
+**pulls** it — CI builds it once and publishes to GHCR, so a release is a pull
+rather than four to six minutes of compiling two browser bundles on the host
+that is meant to be serving traffic.
+
+```bash
+docker compose -f docker-compose.dokploy.yml pull
+docker compose -f docker-compose.dokploy.yml up -d
+IMAGE_TAG=<sha> docker compose -f docker-compose.dokploy.yml up -d   # roll back
+```
+
+`.github/workflows/docker-build-publish.yml` publishes from `dev` to
+`ghcr.io/danijel-enoch/lemon-market-dapp`, tagging every build with its commit
+sha and moving `latest` only for `dev`.
+
+**The `VITE_` values are build inputs, so they live in CI.** They are compiled
+into the browser bundle rather than read at runtime — a factory address is what
+makes a chain appear in the network switcher at all — so they are GitHub
+repository variables (Settings → Secrets and variables → Actions → Variables),
+and the published image is specific to the deployment whose values built it. The
+workflow fails rather than publishing a bundle with no chain in it, because that
+is not a broken build: it is a working app with an empty network switcher, found
+by a user rather than by CI.
+
+If the package is private, the host needs to authenticate once before it can
+pull — `docker login ghcr.io` with a token that has `read:packages`, or the
+equivalent registry entry in Dokploy. Making the package public avoids it.
+
 ## Commands
 
 ```bash

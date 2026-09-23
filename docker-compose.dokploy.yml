@@ -54,26 +54,22 @@
 # environment block, which is exactly how the two come to disagree about which
 # chain they are on.
 x-image: &image
-  build:
-    context: .
-    target: release
-    args:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
-      VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
-      VITE_BASE_RPC_URL: ${VITE_BASE_RPC_URL:-}
-      VITE_CHAIN_RPC_URL: ${VITE_CHAIN_RPC_URL:-}
-      VITE_VAULT_FACTORY_ADDRESS: ${VITE_VAULT_FACTORY_ADDRESS:-}
-      # Per chain. Baked into the bundle at build time, so adding a chain to a
-      # running deployment is a rebuild — a factory address here is what makes
-      # the chain appear in the app's network switcher at all.
-      VITE_VAULT_FACTORY_ADDRESS_BASE: ${VITE_VAULT_FACTORY_ADDRESS_BASE:-}
-      VITE_VAULT_FACTORY_ADDRESS_ARBITRUM: ${VITE_VAULT_FACTORY_ADDRESS_ARBITRUM:-}
-      VITE_VAULT_FACTORY_ADDRESS_XLAYER: ${VITE_VAULT_FACTORY_ADDRESS_XLAYER:-}
-      VITE_RPC_URL_BASE: ${VITE_RPC_URL_BASE:-}
-      VITE_RPC_URL_ARBITRUM: ${VITE_RPC_URL_ARBITRUM:-}
-      VITE_RPC_URL_XLAYER: ${VITE_RPC_URL_XLAYER:-}
-      VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-https://${DOMAIN}}
-  image: lemon-app:${IMAGE_TAG:-latest}
+  # Pulled, not built.
+  #
+  # This used to carry a `build:` block, so every release spent four to six
+  # minutes compiling two browser bundles on the host that is meant to be
+  # serving traffic — and did it again for every service that shares the image.
+  # CI builds it once now (.github/workflows/docker-build-publish.yml) and the
+  # host pulls it.
+  #
+  # That moves the `VITE_` build arguments to GitHub repository variables, which
+  # is where they now live. They are compiled into the browser bundle rather
+  # than read at runtime, so changing one is a rebuild in CI and a pull here,
+  # not a restart.
+  #
+  # `IMAGE_TAG` is how a rollback is expressed: set it to a commit sha that was
+  # published and pull that instead. `latest` follows `dev`.
+  image: ghcr.io/danijel-enoch/lemon-market-dapp:${IMAGE_TAG:-latest}
 
 x-database: &database
   DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lemon}
