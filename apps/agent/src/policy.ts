@@ -839,7 +839,7 @@ function perpRefusal(market: MarketSnapshot, correctionUnits: number, correction
  * sizes properly when it does. Refusing it here leaves that to the path that
  * can fund it.
  */
-function rebalancePlan(
+export function rebalancePlan(
 	market: MarketSnapshot,
 ): { ok: true; side: RebalanceSide; correctionUsd: string } | { ok: false; why: string } {
 	const deltaUnits = market.spotUnits - market.perpUnits;
