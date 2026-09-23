@@ -144,13 +144,87 @@ describe("marketHedge", () => {
 		expect(health.status).toBe("ready");
 	});
 
-	it("blocks a correction that rounds to nothing on the lot grid", () => {
-		// A whole-unit grid, and a gap of a fifth of a unit. Past the threshold and
-		// still unplaceable: there is no order that closes it.
+	it("sells spot when the gap is finer than the venue's lot grid", () => {
+		// A whole-unit grid, and a gap of a fifth of a unit. No perp order closes
+		// it — but a swap has no lot grid, and $36 of spot is well worth selling.
 		const health = hedge({ spotUnits: 1, perpUnits: 0.8, lotSize: 1 });
 		expect(health.driftPercent).toBeCloseTo(20, 6);
-		expect(health.correctionUnits).toBe(0);
+		expect(health.status).toBe("ready-spot");
+		// The whole gap, not the lot-snapped nothing. Reporting the perp figure
+		// here would tell a depositor the agent is about to sell zero units.
+		expect(health.correctionUnits).toBeCloseTo(0.2, 6);
+		expect(health.correctionUsd).toBeCloseTo(36, 6);
+	});
+
+	it("blocks a sub-lot gap too small to be worth selling either", () => {
+		// Same grid, on a position small enough that 10% of it is ninety cents.
+		// Neither leg can carry that: the perp has no order that closes it, and
+		// the swap would be mostly fee.
+		const health = hedge({ spotUnits: 0.05, perpUnits: 0.045, lotSize: 1 });
 		expect(health.status).toBe("below-lot-size");
+		expect(health.correctionUnits).toBe(0);
+	});
+
+	it("sells spot down when the perp venue will not take a correction that small", () => {
+		// The live NVDA vault, stranded by a half-executed unwind: the short was cut
+		// to 0.057 and the spot sale behind it failed, leaving 0.07208767 held
+		// against it. The $3.39 correction is under Pacifica's $10 minimum and the
+		// gap is fixed in units, so no amount of waiting makes the perp leg able to
+		// express it — the agent sells the holding down to meet the short instead,
+		// and this page has to say so rather than calling it "nothing is wrong".
+		const health = hedge({
+			spotUnits: 0.07208767,
+			perpUnits: 0.057,
+			markPrice: 224.7,
+		});
+		expect(health.driftPercent).toBeCloseTo(20.93, 2);
+		expect(health.status).toBe("ready-spot");
+		expect(health.spotFallback).toBe("available");
+		expect(health.exposure).toBe("long");
+		expect(health.correctionUnits).toBeCloseTo(0.01508767, 8);
+		expect(health.correctionUsd).toBeCloseTo(3.39, 2);
+	});
+
+	it("does not promise a spot sale into a pool that cannot be routed", () => {
+		// The same stranded NVDA gap, on a day the pool has no route. Worth selling
+		// and impossible to sell, which is a different answer from "not worth it"
+		// and has to read as one — the agent will not swap into this either.
+		const health = hedge({
+			spotUnits: 0.07208767,
+			perpUnits: 0.057,
+			markPrice: 224.7,
+			spotSellable: false,
+		});
+		expect(health.status).toBe("below-min-notional");
+		expect(health.spotFallback).toBe("no-route");
+	});
+
+	it("assumes a route when this page did not quote one", () => {
+		// Null is not false. Only the founding market's pool is quoted here, so
+		// every other market arrives unknown and is assumed routable — the agent
+		// re-checks against a live quote before it trades regardless.
+		const health = hedge({
+			spotUnits: 0.07208767,
+			perpUnits: 0.057,
+			markPrice: 224.7,
+			spotSellable: null,
+		});
+		expect(health.status).toBe("ready-spot");
+		expect(health.spotFallback).toBe("available");
+	});
+
+	it("does not promise a spot sale for an over-large short", () => {
+		// The mirror of the case above, and not the same problem. Meeting this gap
+		// means *buying* spot, which spends capital the agent deploys deliberately
+		// — so the fallback is sell-only and this stays blocked.
+		const health = hedge({
+			spotUnits: 0.057,
+			perpUnits: 0.07208767,
+			markPrice: 224.7,
+		});
+		expect(health.exposure).toBe("short");
+		expect(health.status).toBe("below-min-notional");
+		expect(health.spotFallback).toBe("wrong-direction");
 	});
 
 	it("blocks a correction worth less than the venue's minimum order", () => {

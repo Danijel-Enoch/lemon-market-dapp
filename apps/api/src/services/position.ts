@@ -76,23 +76,60 @@ export interface PerpLeg {
 /**
  * Why a rebalance is or is not happening, in a form the UI can branch on.
  *
- * The two blocked states are the reason this exists. A vault can sit visibly
- * off neutral for days with the agent doing nothing, and from the outside that
- * is indistinguishable from a broken agent — when in fact the venue is refusing
- * the correction and the agent is right not to keep offering it. Neither is an
- * error: they are both statements that the legs are already as close as this
- * market will let them be.
+ * The blocked states are the reason this exists. A vault can sit visibly off
+ * neutral for days with the agent doing nothing, and from the outside that is
+ * indistinguishable from a broken agent — when in fact the venue is refusing
+ * the correction and the agent is right not to keep offering it.
+ *
+ * But "the perp venue refuses it" is no longer the end of the story, and this
+ * type must not go on implying that it is. The agent's `rebalancePlan` tries
+ * the perp leg first and falls back to *selling spot* when the venue will not
+ * take an order that small — so a gap Pacifica cannot express is still a gap
+ * the agent closes, on the other leg. A page that reports it as blocked would
+ * be describing an agent that no longer exists, and would say "nothing is
+ * wrong" about a correction that is about to happen.
  */
 export type RebalanceStatus =
 	/** Drift is inside the vault's threshold. Nothing to do. */
 	| "neutral"
-	/** Past the threshold, and the correction is one the venue would accept. */
+	/** Past the threshold, and the correction is one the perp venue would accept. */
 	| "ready"
-	/** Past the threshold, but the correction rounds to zero on the lot grid. */
+	/**
+	 * Past the threshold and refused on the perp leg, but correctable by selling
+	 * spot — which is what the agent does next. Sell-only, so this is reachable
+	 * only when the vault holds *more* spot than it is short.
+	 */
+	| "ready-spot"
+	/** Past the threshold, but the correction rounds to zero on the lot grid and no spot sale can carry it. */
 	| "below-lot-size"
-	/** Past the threshold, but the correction is worth less than the venue's minimum order. */
+	/** Past the threshold, but neither leg can carry the correction economically. */
 	| "below-min-notional"
 	/** The mark, the lot grid or the minimum could not be read, so this cannot be judged. */
+	| "unknown";
+
+/**
+ * Why the spot leg is or is not carrying a correction the perp venue refused.
+ *
+ * Separated from `RebalanceStatus` because the status answers "is something
+ * happening" and this answers "why not", and the page needs both to say
+ * anything truthful. Without it the UI has to *infer* the reason from the
+ * numbers it can see — and the inference is wrong exactly when it matters: a
+ * gap the agent skips because the pool has no route looks identical to one it
+ * skips because the swap would be mostly fee, and telling a depositor the
+ * second when the first is true describes a healthy market that is not there.
+ */
+export type SpotFallback =
+	/** The perp leg took it, or there was nothing to correct. The fallback was not needed. */
+	| "not-needed"
+	/** The agent sells spot down to meet the short. This is the `ready-spot` case. */
+	| "available"
+	/** More short than spot: meeting this means *buying*, which the fallback does not do. */
+	| "wrong-direction"
+	/** An excess of spot, but worth too little to be worth a swap. */
+	| "too-small"
+	/** An excess of spot worth selling, but the pool could not be routed to a sale. */
+	| "no-route"
+	/** Not judgeable — the same inputs that make the status `unknown`. */
 	| "unknown";
 
 /**
@@ -136,11 +173,21 @@ export interface MarketHedge {
 	lotSize: number | null;
 	/** Pacifica's minimum order value in **USD**, not in units. Null when unread. */
 	minOrderUsd: number | null;
-	/** Units the perp leg would trade, already snapped down onto the lot grid. */
+	/**
+	 * Units the correcting leg would trade, signed the same way as `deltaUnits`.
+	 *
+	 * Which leg that is depends on `status`. For `ready` it is the perp leg, and
+	 * the figure is snapped down onto Pacifica's lot grid because an order off
+	 * the grid is rejected rather than filled approximately. For `ready-spot` it
+	 * is the spot leg, and the figure is the whole gap: a swap has no lot grid,
+	 * so there is nothing to snap to and no reason to leave a remainder behind.
+	 */
 	correctionUnits: number;
-	/** What that correction is worth, which is the figure the venue's minimum is checked against. */
+	/** What that correction is worth at the mark, and the figure both floors are checked against. */
 	correctionUsd: number | null;
 	status: RebalanceStatus;
+	/** Why the spot leg is or is not carrying this, so the page never has to guess. */
+	spotFallback: SpotFallback;
 }
 
 export interface LivePosition {
@@ -270,6 +317,10 @@ async function readLivePosition(address: string): Promise<LivePosition | null> {
 		venue,
 		record?.rebalanceDriftBps ?? DEFAULT_REBALANCE_DRIFT_BPS,
 		marketNotes,
+		// A null value means the pool was asked and could not be routed — the
+		// same reading `SpotLeg.valueUsd` is documented as carrying. Held to the
+		// founding market, because that is the only one quoted here.
+		record ? { ticker: record.ticker, sellable: spot.valueUsd !== null } : null,
 	);
 
 	notes.push(...spotNotes, ...perpNotes, ...idleNotes, ...inFlightNotes, ...marketNotes);
@@ -638,6 +689,27 @@ export function unrealisedPnl(input: {
  */
 const DEFAULT_REBALANCE_DRIFT_BPS = 500;
 
+/**
+ * The smallest spot-side correction this page will say the agent is about to make.
+ *
+ * A preview of the agent's own test, not a second copy of it. `rebalancePlan`
+ * prices the swap against the live Kyber quote — pool impact and the route's
+ * own gas estimate — and refuses anything under ten times the fixed half of
+ * that cost. None of those inputs are read here: this endpoint quotes the
+ * founding market's route for the NAV comparison and nothing per market, and
+ * adding a route call per market to a page a depositor loads would cost more
+ * than the answer is worth.
+ *
+ * So this is the floor those numbers land near on Base — three transactions of
+ * gas plus a router estimate, times ten — rounded to a dollar and deliberately
+ * set on the *generous* side of the agent's. Erring this way means the page
+ * occasionally says "below the floor" about a correction the agent then makes,
+ * which reads as the agent doing better than promised. Erring the other way
+ * would promise a sale the agent refuses, which is the failure this whole
+ * endpoint exists to prevent.
+ */
+const MIN_SPOT_CORRECTION_USD = 1;
+
 /** One market's two legs as read from the chain, before the venue is consulted. */
 interface MarketLeg {
 	ticker: string;
@@ -734,6 +806,16 @@ async function readMarketHedges(
 	venue: VenueSnapshot,
 	rebalanceDriftBps: number,
 	notes: string[],
+	/**
+	 * The one market whose pool this page already quoted, and what it answered.
+	 *
+	 * `readSpotLeg` routes the founding market's whole holding for the NAV
+	 * comparison, so its routability is known for free — and routability is the
+	 * one input that decides whether the agent's spot-side correction is a plan
+	 * or a promise it cannot keep. Every other market passes null and is assumed
+	 * to route; see `MarketHedgeInput.spotSellable`.
+	 */
+	founding: { ticker: string | null; sellable: boolean } | null,
 ): Promise<MarketHedge[]> {
 	if (legs.length === 0) return [];
 
@@ -771,6 +853,7 @@ async function readMarketHedges(
 				lotSize: spec?.lotSize ?? null,
 				minOrderUsd: spec?.minOrderSize ?? null,
 				rebalanceDriftBps,
+				spotSellable: founding && founding.ticker === leg.ticker ? founding.sellable : null,
 			});
 		})
 		.sort((a, b) => Math.abs(b.driftPercent) - Math.abs(a.driftPercent));
@@ -790,6 +873,21 @@ export interface MarketHedgeInput {
 	/** Pacifica's minimum order value, in **USD**. Not comparable to `lotSize`. */
 	minOrderUsd: number | null;
 	rebalanceDriftBps: number;
+	/**
+	 * Whether this market's spot leg can actually be routed to a sale.
+	 *
+	 * Null when it is not known, which is the ordinary case: this endpoint quotes
+	 * one route — the founding market's, for the NAV comparison — and a route
+	 * call per market would cost more than the answer is worth on a page a
+	 * depositor loads. Null is read as "assume it routes", because a market whose
+	 * pool has dried up is rare and the agent re-checks with a live quote before
+	 * it trades either way.
+	 *
+	 * `false` is different, and is the whole reason this is here: it means the
+	 * pool was asked and could not be routed. The agent will not sell into that,
+	 * so the page must not say it is about to.
+	 */
+	spotSellable?: boolean | null;
 }
 
 /**
@@ -806,6 +904,12 @@ export interface MarketHedgeInput {
  *
  * `shouldRebalance` is also not sufficient on its own. It checks the lot grid
  * and stops there, and the lot grid is only one of the venue's two floors.
+ *
+ * Neither floor is the last word any more. Both are properties of *Pacifica*,
+ * and the agent has a second leg it can correct on: when the perp venue refuses
+ * an order this small, it sells the spot holding down to meet the short
+ * instead. So a gap under the venue's minimum is reported as a correction that
+ * is coming, not as one that cannot be made — see `MIN_SPOT_CORRECTION_USD`.
  */
 export function marketHedge(input: MarketHedgeInput): MarketHedge {
 	const { spotUnits, perpUnits, markPrice, lotSize, minOrderUsd, rebalanceDriftBps } = input;
@@ -839,6 +943,7 @@ export function marketHedge(input: MarketHedgeInput): MarketHedge {
 			correctionUnits: 0,
 			correctionUsd: null,
 			status: "unknown",
+			spotFallback: "unknown",
 		};
 	}
 
@@ -857,17 +962,65 @@ export function marketHedge(input: MarketHedgeInput): MarketHedge {
 	const driftPercent = spotUnits === 0 && perpUnits !== 0 ? -100 : health.driftPercent;
 	const past = Math.abs(driftPercent) >= thresholdPercent;
 
-	const correctionUsd = markPrice === null ? null : Math.abs(health.correctionUnits * markPrice);
+	const perpCorrectionUsd =
+		markPrice === null ? null : Math.abs(health.correctionUnits * markPrice);
+
+	// Why the perp leg cannot carry this, if it cannot. Two floors measured in
+	// different things, and clearing one says nothing about the other: `lotSize`
+	// is a quantity grid in units of the underlying, `minOrderUsd` a floor on the
+	// order's dollar notional.
+	const perpRefused =
+		health.correctionUnits === 0
+			? "lot"
+			: (minOrderUsd ?? 0) > 0 && (perpCorrectionUsd ?? 0) < (minOrderUsd ?? 0)
+				? "notional"
+				: null;
+
+	// The spot fallback, mirroring the agent's `rebalancePlan`. Sell-only: only
+	// an excess of *spot* can be corrected by selling it, and an over-large short
+	// would have to buy spot — capital that the agent's deployment path sizes and
+	// funds properly, so it is left to that path there and not promised here.
+	//
+	// Sized off the whole gap rather than the lot-snapped figure, because a swap
+	// has no lot grid. This is the number that makes `below-lot-size` correctable
+	// at all: a gap too fine for Pacifica's grid is an ordinary swap on Base.
+	const spotCorrectionUsd = markPrice === null ? null : Math.abs(health.deltaUnits) * markPrice;
+
+	// Worked out as a reason rather than a boolean, and in the order the agent
+	// refuses things: direction first, then the pool, then the floor. The page
+	// renders this sentence; it must not have to reconstruct it from the numbers.
+	const spotFallback: SpotFallback = !past
+		? "not-needed"
+		: markPrice === null || lotSize === null || minOrderUsd === null
+			? "unknown"
+			: perpRefused === null
+				? "not-needed"
+				: health.deltaUnits <= 0
+					? "wrong-direction"
+					: input.spotSellable === false
+						? "no-route"
+						: (spotCorrectionUsd ?? 0) < MIN_SPOT_CORRECTION_USD
+							? "too-small"
+							: "available";
+
+	const spotCanCarry = spotFallback === "available";
 
 	const status: RebalanceStatus = !past
 		? "neutral"
 		: markPrice === null || lotSize === null || minOrderUsd === null
 			? "unknown"
-			: health.correctionUnits === 0
-				? "below-lot-size"
-				: minOrderUsd > 0 && (correctionUsd ?? 0) < minOrderUsd
-					? "below-min-notional"
-					: "ready";
+			: perpRefused === null
+				? "ready"
+				: spotCanCarry
+					? "ready-spot"
+					: perpRefused === "lot"
+						? "below-lot-size"
+						: "below-min-notional";
+
+	// The leg that is actually going to trade. Reporting the perp-snapped figure
+	// against a spot correction would tell a depositor the agent is about to sell
+	// zero units, which is how `below-lot-size` would read.
+	const spotSide = status === "ready-spot";
 
 	return {
 		...shared,
@@ -879,9 +1032,10 @@ export function marketHedge(input: MarketHedgeInput): MarketHedge {
 		// Judged against this vault's threshold, so the word and the status agree.
 		// Drift inside the threshold is not exposure the vault is choosing to run.
 		exposure: !past ? "neutral" : health.deltaUnits > 0 ? "long" : "short",
-		correctionUnits: health.correctionUnits,
-		correctionUsd,
+		correctionUnits: spotSide ? health.deltaUnits : health.correctionUnits,
+		correctionUsd: spotSide ? spotCorrectionUsd : perpCorrectionUsd,
 		status,
+		spotFallback,
 	};
 }
 

@@ -343,17 +343,35 @@ export interface AdlRisk {
 /**
  * Why a market's hedge is or is not being corrected right now.
  *
- * Mirrors `RebalanceStatus` in the API, where the reasoning lives. The two
- * blocked states are the ones worth knowing: past the threshold, and the venue
- * will not take the order that would close it. Neither is an error — they say
- * the legs are already as close as this market allows — so a UI that paints
- * them red is telling the reader the wrong thing.
+ * Mirrors `RebalanceStatus` in the API, where the reasoning lives. Two of these
+ * say a correction is coming and differ only in which leg makes it: `ready` on
+ * the perp, `ready-spot` by selling the holding down when the perp venue
+ * refuses an order that small. The blocked pair mean the gap is real and
+ * neither leg can carry it — not an error, and a UI that paints them red is
+ * telling the reader the wrong thing.
  */
 export type RebalanceStatus =
 	| "neutral"
 	| "ready"
+	| "ready-spot"
 	| "below-lot-size"
 	| "below-min-notional"
+	| "unknown";
+
+/**
+ * Why the spot leg is or is not carrying a correction the perp venue refused.
+ *
+ * Mirrors `SpotFallback` in the API. The UI branches on this rather than
+ * inferring a reason from the numbers, because the inference is wrong in the
+ * case that matters: a pool with no route and a gap too small to bother with
+ * look identical from outside and mean different things.
+ */
+export type SpotFallback =
+	| "not-needed"
+	| "available"
+	| "wrong-direction"
+	| "too-small"
+	| "no-route"
 	| "unknown";
 
 /**
@@ -384,10 +402,13 @@ export interface MarketHedge {
 	lotSize: number | null;
 	/** The venue's minimum order value in **USD** — not comparable to `lotSize`. */
 	minOrderUsd: number | null;
+	/** Units the correcting leg trades — perp-snapped for `ready`, the whole gap for `ready-spot`. */
 	correctionUnits: number;
 	/** What the correction is worth, which is what the venue's minimum is checked against. */
 	correctionUsd: number | null;
 	status: RebalanceStatus;
+	/** Why the spot leg is or is not carrying this. Never inferred from the numbers. */
+	spotFallback: SpotFallback;
 }
 
 export interface LivePosition {
