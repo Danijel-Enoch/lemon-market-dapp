@@ -603,33 +603,55 @@ docker compose up                # postgres + web + the standalone API on :3003
 docker compose up postgres web   # just the embedded-API stack
 ```
 
-`docker-compose.yml` builds the image locally. `docker-compose.dokploy.yml`
-**pulls** it — CI builds it once and publishes to GHCR, so a release is a pull
-rather than four to six minutes of compiling two browser bundles on the host
-that is meant to be serving traffic.
+Both compose files build the image locally; there is no registry in the loop.
+`docker-compose.dokploy.yml` gives all eight app services the same image name,
+so Compose builds once and the rest reuse the result.
 
 ```bash
-docker compose -f docker-compose.dokploy.yml pull
+docker compose -f docker-compose.dokploy.yml build
 docker compose -f docker-compose.dokploy.yml up -d
-IMAGE_TAG=<sha> docker compose -f docker-compose.dokploy.yml up -d   # roll back
 ```
 
-`.github/workflows/docker-build-publish.yml` publishes from `dev` to
-`ghcr.io/danijel-enoch/lemon-market-dapp`, tagging every build with its commit
-sha and moving `latest` only for `dev`.
+A release therefore compiles two browser bundles on the host that is also
+serving traffic — four to six minutes, and the reason to keep the build cache
+below warm. A rollback is `git checkout` of the commit you want followed by a
+rebuild, rather than pinning a published tag.
 
-**The `VITE_` values are build inputs, so they live in CI.** They are compiled
-into the browser bundle rather than read at runtime — a factory address is what
-makes a chain appear in the network switcher at all — so they are GitHub
-repository variables (Settings → Secrets and variables → Actions → Variables),
-and the published image is specific to the deployment whose values built it. The
-workflow fails rather than publishing a bundle with no chain in it, because that
-is not a broken build: it is a working app with an empty network switcher, found
-by a user rather than by CI.
+**The `VITE_` values are build inputs, so they must be set on the build host.**
+They are compiled into the browser bundle rather than read at runtime — a
+factory address is what makes a chain appear in the network switcher at all — so
+they are `build.args` in the compose file, fed from Dokploy's Environment tab or
+the `.env` beside it. Leaving them unset is not a failed build: it is a working
+app with an empty network switcher, found by a user rather than by you. See
+`.env.example` for the full list.
 
-If the package is private, the host needs to authenticate once before it can
-pull — `docker login ghcr.io` with a token that has `read:packages`, or the
-equivalent registry entry in Dokploy. Making the package public avoids it.
+**Faster rebuilds.** BuildKit already caches between builds inside the daemon;
+`docker-compose.cache.yml` additionally writes that cache to a directory, so it
+survives a `docker system prune`, a recreated builder or a fresh CI runner.
+
+```bash
+docker buildx create --name lemon --driver docker-container \
+  --driver-opt image=moby/buildkit:latest                    # once per host
+docker compose -f docker-compose.yml -f docker-compose.cache.yml build
+```
+
+It is a separate file rather than three `cache_to:` keys in `docker-compose.yml`
+because cache export is a property of the *builder*, not of the compose file:
+the default `docker` driver on a stock Engine rejects it outright and fails the
+build, so folding it in would turn "no speedup" into "no build at all" on
+exactly the host that needs it. Measured on this repo, rebuilding the
+`manifests` stage with the builder's own cache wiped went from 40s to 11s.
+
+On Dokploy, prefer the builder alone over the overlay: a `docker-container`
+builder keeps its cache in its own volume, which a `docker system prune` on the
+host does not reach, so pointing the build at it (`BUILDX_BUILDER=lemon` in the
+Environment tab) gets the persistence without any `cache_to` to be rejected.
+
+It does not shorten the slow half of a release. The `build` stage opens with
+`COPY . .`, so any source edit rebuilds both browser bundles however warm the
+cache is — building only the target that changed is what fixes that, not a
+cache. `BUILDKIT_CACHE_DIR` relocates the directory, which grows without bound
+under `mode=max` and is safe to delete.
 
 ## Commands
 

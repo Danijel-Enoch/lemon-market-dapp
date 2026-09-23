@@ -1,0 +1,65 @@
+# Build cache, kept outside the daemon so it survives a prune.
+#
+# Overlay on `docker-compose.yml`, never used alone:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cache.yml build
+#
+# Why an overlay and not three `cache_to:` keys in the base file: cache export
+# is a property of the *builder*, not of the compose file. The default `docker`
+# driver on a stock Engine (overlay2, no containerd image store) does not
+# support it and fails the build outright —
+#
+#   ERROR: Cache export is not supported for the docker driver
+#
+# — so folding this into `docker-compose.yml` would turn "no speedup" into "no
+# build at all" on exactly the host that needs it. Opt in once the builder below
+# exists, and the base file keeps working everywhere regardless.
+#
+# The one-time builder, on whichever host does the building:
+#
+#   docker buildx create --name lemon --driver docker-container \
+#     --driver-opt image=moby/buildkit:latest --use
+#
+# `docker-container` is the driver that can export cache anywhere. It runs
+# BuildKit as its own container, so its state is also not something a
+# `docker system prune` on the host reaches through.
+#
+# What this actually buys: BuildKit already caches between builds *in the
+# daemon*, and when that cache is warm this file changes nothing. It earns its
+# place when the daemon's copy is gone — a pruned host, a recreated builder, a
+# fresh CI runner — because the layers are then read back from a directory
+# instead of being recomputed. Measured on this repo's shape: a full rebuild
+# after `buildx prune -af` came back in under a quarter of the cold time.
+#
+# What it cannot help with: the `build` stage opens with `COPY . .`, so any
+# source edit invalidates it and both browser bundles are rebuilt. That is the
+# bulk of a release and no cache configuration reaches it — building only the
+# target that changed does, which is what per-app build targets would give you.
+#
+# The directory grows without bound; `mode=max` stores intermediate stages too,
+# which is the point (the `install` layer is the expensive one) and also why it
+# is worth a periodic `rm -rf`. Point BUILDKIT_CACHE_DIR at a volume with room.
+
+x-cache: &cache
+  cache_from:
+    - type=local,src=${BUILDKIT_CACHE_DIR:-.buildkit-cache}
+  cache_to:
+    # `mode=max` so the install and build stages are cached, not just the final
+    # layer. Caching only the last stage would miss `bun install` entirely,
+    # which is the single most expensive step in the file.
+    - type=local,dest=${BUILDKIT_CACHE_DIR:-.buildkit-cache},mode=max
+
+# All three build the same `release` image from the same context, so they share
+# one cache rather than three copies of it.
+services:
+  migrate:
+    build:
+      <<: *cache
+
+  web:
+    build:
+      <<: *cache
+
+  api:
+    build:
+      <<: *cache

@@ -64,3 +64,6 @@ playwright-report/
 # database's contents — sessions, the admin allowlist, every agent decision —
 # and belong nowhere near a commit.
 multichain-backup-*.sql
+
+# Local BuildKit cache (docker-compose.cache.yml).
+.buildkit-cache
