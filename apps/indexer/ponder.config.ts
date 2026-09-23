@@ -3,6 +3,7 @@ import { allChains, type ChainInfo } from "@lemon/core";
 import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
 import { resolveRpc } from "./src/rpc";
+import { assertStartBlocks, resolveStartBlock } from "./src/start-block";
 
 /**
  * Note on the schema.
@@ -67,18 +68,11 @@ function sourceFor(info: ChainInfo): ChainSource | null {
 	if (!address) return null;
 
 	/**
-	 * The block the factory was deployed in.
-	 *
-	 * Indexing from genesis would be tens of millions of empty blocks and hours
-	 * of RPC. There is nothing to find before the factory existed — and on a
-	 * chain where this is left at 0, the backfill is long enough that it reads
-	 * as a hang rather than as a missing variable.
+	 * The block the factory was deployed in — see `src/start-block.ts` for why a
+	 * missing one is refused rather than defaulted, and for the empty-string trap
+	 * that used to make the unsuffixed variable silently do nothing under Compose.
 	 */
-	const startBlock = Number(
-		process.env[`VAULT_FACTORY_START_BLOCK_${suffix}`] ??
-			(suffix === "BASE" ? process.env.VAULT_FACTORY_START_BLOCK : undefined) ??
-			0,
-	);
+	const startBlock = resolveStartBlock(suffix, process.env);
 
 	return { info, factoryAddress: address as `0x${string}`, startBlock };
 }
@@ -86,6 +80,20 @@ function sourceFor(info: ChainInfo): ChainSource | null {
 const sources = allChains()
 	.map(sourceFor)
 	.filter((source): source is ChainSource => source !== null);
+
+/**
+ * Checked here rather than inside `sourceFor`, so the message can name every
+ * misconfigured chain at once instead of failing on the first and being fixed
+ * one restart at a time.
+ */
+assertStartBlocks(
+	sources.map(({ info, startBlock }) => ({
+		name: info.key,
+		envSuffix: info.envSuffix,
+		startBlock,
+	})),
+	process.env,
+);
 
 /**
  * Fall back to a disabled Base source rather than to nothing.

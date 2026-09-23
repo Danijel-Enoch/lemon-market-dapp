@@ -356,6 +356,9 @@ services:
       VAULT_FACTORY_START_BLOCK_BASE: ${VAULT_FACTORY_START_BLOCK_BASE:-}
       VAULT_FACTORY_START_BLOCK_ARBITRUM: ${VAULT_FACTORY_START_BLOCK_ARBITRUM:-}
       VAULT_FACTORY_START_BLOCK_XLAYER: ${VAULT_FACTORY_START_BLOCK_XLAYER:-}
+      # Block 0 is refused for a chain that has a factory; this is the opt-out,
+      # and is only ever correct on a local chain.
+      VAULT_FACTORY_ALLOW_GENESIS_SCAN: ${VAULT_FACTORY_ALLOW_GENESIS_SCAN:-}
     depends_on:
       postgres:
         condition: service_healthy
