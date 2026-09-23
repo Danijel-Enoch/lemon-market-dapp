@@ -1,4 +1,4 @@
-import type { MarketHedge } from "@lemon/client";
+import type { MarketHedge, SpotFallback } from "@lemon/client";
 import { cn } from "@lemon/ui";
 import { ArrowLeftRight, Info, Scale } from "lucide-react";
 
@@ -11,12 +11,22 @@ import { ArrowLeftRight, Info, Scale } from "lucide-react";
  * than the venue's minimum order and Pacifica would reject it. From the outside
  * that is indistinguishable from a broken agent, and the page said nothing at
  * all about it — so a depositor watching a stubborn drift number had no way to
- * learn that the position is fine, the venue is simply refusing an order this
- * small, and it clears itself as the vault grows.
+ * learn that the venue was simply refusing an order that small.
  *
- * Blocked is therefore rendered quietly rather than in red. Red is for danger,
- * and a hedge the venue will not let you tighten by half a dollar is ordinary
- * state on a small position.
+ * It then said something worse: that the gap "clears itself as the vault grows".
+ * It does not, and a vault carrying unhedged delta for a fortnight read as a
+ * quiet tick because of that sentence. A gap is a fixed number of *units*;
+ * deposits add matched legs either side of it and leave it exactly where it was.
+ *
+ * Which is why blocked is now the narrow case it should always have been. The
+ * agent corrects a refused gap on the spot leg instead — selling the holding
+ * down to meet the short — so the venue's minimum blocks nothing on its own,
+ * and this panel says a correction is coming and names the leg making it.
+ * Genuinely blocked means neither leg can carry it: see `GapDoesNotGrowOut`.
+ *
+ * Blocked is still rendered quietly rather than in red. Red is for danger, and a
+ * gap worth half a dollar that no venue will trade is ordinary state on a small
+ * position.
  *
  * Drift is a per-market fact and there is no such thing as the vault's drift:
  * two markets a percent out in opposite directions average to neutral and are
@@ -50,7 +60,11 @@ export function HedgePanel({ markets }: { markets: MarketHedge[] }) {
 }
 
 function MarketHedgeCard({ hedge }: { hedge: MarketHedge }) {
-	const ready = hedge.status === "ready";
+	// Both correcting states are highlighted the same way. A depositor asking
+	// "is something being done about this?" gets one answer, and which leg the
+	// agent uses to do it is detail for the paragraph below, not for the card's
+	// colour.
+	const ready = hedge.status === "ready" || hedge.status === "ready-spot";
 	const blocked = hedge.status === "below-lot-size" || hedge.status === "below-min-notional";
 
 	return (
@@ -176,6 +190,19 @@ function Explanation({ hedge }: { hedge: MarketHedge }) {
 					</>
 				)}
 
+				{hedge.status === "ready-spot" && (
+					<>
+						Past this vault's {hedge.thresholdPercent.toFixed(2)}% threshold. Pacifica will not
+						accept a perp order under{" "}
+						{hedge.minOrderUsd === null ? "its minimum" : formatUsd(hedge.minOrderUsd)} of notional,
+						so the agent corrects on the other leg instead: it sells{" "}
+						{formatQuantity(Math.abs(hedge.correctionUnits))} {hedge.spotSymbol}
+						{hedge.correctionUsd === null ? "" : ` (about ${formatUsd(hedge.correctionUsd)})`} on
+						its next tick, bringing the holding down to meet the short. The position gets that much
+						smaller, which is the cost of closing a gap this venue cannot.
+					</>
+				)}
+
 				{hedge.status === "below-min-notional" && (
 					<>
 						Past this vault's {hedge.thresholdPercent.toFixed(2)}% threshold, but the correction is
@@ -184,9 +211,9 @@ function Explanation({ hedge }: { hedge: MarketHedge }) {
 							? "less than the minimum"
 							: formatUsd(hedge.correctionUsd)}{" "}
 						and Pacifica will not accept a perp order under{" "}
-						{hedge.minOrderUsd === null ? "its minimum" : formatUsd(hedge.minOrderUsd)} of notional.
-						Nothing is wrong: the legs are as close as this venue lets them be on a position this
-						size, and this clears itself as the position grows.
+						{hedge.minOrderUsd === null ? "its minimum" : formatUsd(hedge.minOrderUsd)} of notional.{" "}
+						<WhyNotSpot fallback={hedge.spotFallback} symbol={hedge.spotSymbol} />{" "}
+						<GapDoesNotGrowOut />
 					</>
 				)}
 
@@ -194,9 +221,9 @@ function Explanation({ hedge }: { hedge: MarketHedge }) {
 					<>
 						Past this vault's {hedge.thresholdPercent.toFixed(2)}% threshold, but the gap is smaller
 						than {hedge.lotSize === null ? "one lot" : formatQuantity(hedge.lotSize)}{" "}
-						{hedge.perpSymbol} — the smallest quantity Pacifica trades. There is no order that
-						closes it, so the legs are already as level as this market allows. This clears itself as
-						the position grows.
+						{hedge.perpSymbol} — the smallest quantity Pacifica trades.{" "}
+						<WhyNotSpot fallback={hedge.spotFallback} symbol={hedge.spotSymbol} />{" "}
+						<GapDoesNotGrowOut />
 					</>
 				)}
 
@@ -218,17 +245,19 @@ function StatusPill({ status }: { status: MarketHedge["status"] }) {
 			? "In balance"
 			: status === "ready"
 				? "Rebalance due"
-				: status === "below-min-notional"
-					? "Below venue minimum"
-					: status === "below-lot-size"
-						? "Smaller than one lot"
-						: "Not readable";
+				: status === "ready-spot"
+					? "Rebalance due — spot leg"
+					: status === "below-min-notional"
+						? "Below venue minimum"
+						: status === "below-lot-size"
+							? "Smaller than one lot"
+							: "Not readable";
 
 	return (
 		<span
 			className={cn(
 				"firm-label rounded-[var(--pon-r-sm)] border px-2 py-0.5",
-				status === "ready"
+				status === "ready" || status === "ready-spot"
 					? "border-[var(--pon-amber)] text-[var(--pon-amber)]"
 					: status === "neutral"
 						? "border-[var(--pon-up)] text-[var(--pon-up)]"
@@ -239,6 +268,62 @@ function StatusPill({ status }: { status: MarketHedge["status"] }) {
 		>
 			{label}
 		</span>
+	);
+}
+
+/**
+ * Why selling spot is not closing this gap either.
+ *
+ * Read off the API's own answer rather than worked out from the numbers on
+ * screen. The page cannot tell a dry pool from a gap not worth the fees — both
+ * are "past the threshold and nothing is happening" — and guessing produces the
+ * one sentence a depositor must never be shown: a confident account of a
+ * healthy market when the real answer is that the agent cannot trade it.
+ */
+function WhyNotSpot({ fallback, symbol }: { fallback: SpotFallback; symbol: string }) {
+	switch (fallback) {
+		case "too-small":
+			return (
+				<>Selling that much {symbol} instead would be mostly swap fees, so the agent leaves it.</>
+			);
+		case "no-route":
+			return (
+				<>
+					The agent would ordinarily sell {symbol} down to meet the short instead, but the pool
+					could not be routed to a sale just now — so neither leg can carry it until that liquidity
+					returns.
+				</>
+			);
+		case "wrong-direction":
+			return (
+				<>
+					The vault is short more than it holds, so closing this means buying {symbol} rather than
+					selling it — capital the agent deploys deliberately, not something it spends on a
+					correction this small.
+				</>
+			);
+		default:
+			return null;
+	}
+}
+
+/**
+ * What a blocked gap actually does over time, which is not what we used to say.
+ *
+ * This card told depositors a blocked correction "clears itself as the position
+ * grows". It does not. The gap is fixed in *units*: deposits add matched legs
+ * either side of it and leave it exactly where it was, so the only thing that
+ * ever lifts it over the venue's dollar floor is a move in the underlying. One
+ * vault sat two weeks with stranded delta while this sentence made it read as a
+ * quiet tick.
+ */
+function GapDoesNotGrowOut() {
+	return (
+		<>
+			The gap is a fixed number of units, so deposits do not close it — they add to both legs and
+			leave it where it is. It clears when the price of the underlying moves far enough to lift it
+			over the floor, or when the position is closed.
+		</>
 	);
 }
 
