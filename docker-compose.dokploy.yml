@@ -264,13 +264,27 @@ services:
   # complete successfully, so a failed migration blocks the release instead of
   # letting a half-migrated schema serve traffic.
   #
-  # `db:push`, not `db:deploy`: this schema has no migration history, and
+  # `db push`, not `migrate deploy`: this schema has no migration history, and
   # `migrate deploy` fails outright against a database it did not create.
+  #
+  # Two steps, because push will not make every change. It refuses a primary-key
+  # swap without `--accept-data-loss`, so a deployment onto a database that
+  # predates multi-chain failed here and stayed failed. `db-migrate.ts` applies
+  # that one reviewed migration when — and only when — the database still needs
+  # it, then push handles everything additive as before.
+  #
+  # Deliberately not `--accept-data-loss` on push. That would not answer the
+  # question once; it would hand it to push permanently, for every future schema
+  # change, on a database holding custody records.
   migrate:
     <<: *image
     working_dir: /usr/src/app
     command:
-      ["bunx", "prisma", "db", "push", "--schema", "packages/db/prisma/schema.prisma", "--skip-generate"]
+      - sh
+      - -c
+      - >-
+        bun run scripts/db-migrate.ts &&
+        bunx prisma db push --schema packages/db/prisma/schema.prisma --skip-generate
     environment:
       <<: *database
     depends_on:
