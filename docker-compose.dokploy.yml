@@ -359,6 +359,18 @@ services:
       # Block 0 is refused for a chain that has a factory; this is the opt-out,
       # and is only ever correct on a local chain.
       VAULT_FACTORY_ALLOW_GENESIS_SCAN: ${VAULT_FACTORY_ALLOW_GENESIS_SCAN:-}
+      # Pace our own requests instead of letting Ponder discover the limit by
+      # being refused. Set to what a public endpoint actually allows; unset for
+      # a keyed one. One endpoint per chain only — see .env.example.
+      INDEXER_RPC_MAX_RPS_BASE: ${INDEXER_RPC_MAX_RPS_BASE:-}
+      INDEXER_RPC_MAX_RPS_ARBITRUM: ${INDEXER_RPC_MAX_RPS_ARBITRUM:-}
+      INDEXER_RPC_MAX_RPS_XLAYER: ${INDEXER_RPC_MAX_RPS_XLAYER:-}
+      INDEXER_RPC_MAX_CONCURRENT_BASE: ${INDEXER_RPC_MAX_CONCURRENT_BASE:-}
+      INDEXER_RPC_MAX_CONCURRENT_ARBITRUM: ${INDEXER_RPC_MAX_CONCURRENT_ARBITRUM:-}
+      INDEXER_RPC_MAX_CONCURRENT_XLAYER: ${INDEXER_RPC_MAX_CONCURRENT_XLAYER:-}
+      INDEXER_RPC_BATCH_BASE: ${INDEXER_RPC_BATCH_BASE:-}
+      INDEXER_RPC_BATCH_ARBITRUM: ${INDEXER_RPC_BATCH_ARBITRUM:-}
+      INDEXER_RPC_BATCH_XLAYER: ${INDEXER_RPC_BATCH_XLAYER:-}
     depends_on:
       postgres:
         condition: service_healthy

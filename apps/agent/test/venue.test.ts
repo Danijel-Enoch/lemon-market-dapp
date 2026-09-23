@@ -901,3 +901,107 @@ describe("closeAll", () => {
 		expect(returnToVault).toHaveBeenCalledWith(1_000n * USDC);
 	});
 });
+
+/**
+ * The correction made on the spot leg, for drift the perp venue will not touch.
+ *
+ * The state these are about is a half-executed close: `closeLeg` reduces the
+ * short before selling the spot behind it, so a failed sale leaves the position
+ * long by whatever the short gave up. That residue is usually worth less than
+ * Pacifica's minimum order notional, and reducing the short has also lowered the
+ * account's leverage enough to clear the breach that asked for the close — so
+ * nothing retries and the perp leg cannot express the fix. Selling the spot down
+ * to meet the short is the only correction left.
+ */
+describe("rebalance on the spot leg", () => {
+	it("sells the excess spot and leaves the short alone", async () => {
+		const { adapter, createMarketOrder } = harness({
+			// 0.072 held against a short of 0.057: the live NVDA numbers.
+			spotBalance: 7_200_000n,
+			spotTokenDecimals: 8,
+			perpSize: "0.057",
+			fillUsdc: 3_398_000n,
+		});
+
+		const activity = await adapter.rebalance({
+			market: "NVDA",
+			targetUnits: 57_000_000_000_000_000n,
+			side: "SPOT",
+		});
+
+		// One swap, no perp order at all — the hedge is what cannot move.
+		expect(createMarketOrder).not.toHaveBeenCalled();
+		expect(activity.map((a) => a.kind)).toEqual(["SPOT_SELL"]);
+		// 0.072 - 0.057 = 0.015, in the token's own eight decimals.
+		expect(activity[0]?.baseAmount).toBe(1_500_000n);
+		expect(activity[0]?.notionalAssets).toBe(3_398_000n);
+	});
+
+	/**
+	 * Sell-only, matching the policy that chose it. Buying spot to meet an
+	 * over-large short spends capital, and a deployment sizes and funds that.
+	 */
+	it("does nothing when the spot leg is already at or below the short", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotBalance: 5_700_000n,
+			spotTokenDecimals: 8,
+			perpSize: "0.072",
+		});
+
+		expect(
+			await adapter.rebalance({
+				market: "NVDA",
+				targetUnits: 72_000_000_000_000_000n,
+				side: "SPOT",
+			}),
+		).toEqual([]);
+		expect(createMarketOrder).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * The failure this path exists to clean up must not create a worse one. A
+	 * rebalance that cannot sell has moved nothing, and the operator is told that
+	 * rather than being left to infer it from a message about a reduced short.
+	 */
+	it("says nothing else moved when the sale fails", async () => {
+		const { adapter } = harness({
+			spotBalance: 7_200_000n,
+			spotTokenDecimals: 8,
+			perpSize: "0.057",
+			swapReverts: true,
+		});
+
+		await expect(
+			adapter.rebalance({
+				market: "NVDA",
+				targetUnits: 57_000_000_000_000_000n,
+				side: "SPOT",
+			}),
+		).rejects.toThrow(/Nothing else moved/);
+	});
+
+	/** The ordinary correction is untouched: it still trades the perp leg. */
+	it("still trades the perp leg when asked for the perp side", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotBalance: 7_200_000n,
+			spotTokenDecimals: 8,
+			perpSize: "0.057",
+			lotSize: "0.001",
+			mark: "1000",
+		});
+
+		const activity = await adapter.rebalance({
+			market: "NVDA",
+			targetUnits: 72_000_000_000_000_000n,
+			side: "PERP",
+		});
+
+		// One perp order and no swap: the holding that earns the funding is not
+		// touched, which is the whole reason this side is preferred.
+		expect(activity.map((a) => a.kind)).toEqual(["PERP_REBALANCE"]);
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ side: "ask", amount: "0.015" }),
+		);
+	});
+});

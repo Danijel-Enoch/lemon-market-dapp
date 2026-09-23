@@ -8,7 +8,7 @@ import {
 import type { Address } from "viem";
 import { type ActionCooldown, cooldownKey } from "./cooldown";
 import { type FundingSettlements, fundingSettlements } from "./funding";
-import type { Advisor, MarketSnapshot, VaultSnapshot } from "./policy";
+import type { Advisor, MarketSnapshot, RebalanceSide, VaultSnapshot } from "./policy";
 import { decide, driftBps, isFlat, sizingLeverageBps } from "./policy";
 import { leverageBps, type Valuation, ValuationError } from "./valuation";
 import { type ActivityInput, isRevert, type VaultClient, type VaultState } from "./vault";
@@ -183,8 +183,20 @@ export interface VenueAdapter {
 	 */
 	topUpMargin(params: { amount: bigint }): Promise<ActivityInput[]>;
 
-	/** Trade one market's perp leg back to its spot leg's size. */
-	rebalance(params: { market: string; targetUnits: bigint }): Promise<ActivityInput[]>;
+	/**
+	 * Trade one market's legs back to neutral, moving whichever side `side` names.
+	 *
+	 * `targetUnits` is always the size the *other* leg is already at, and so the
+	 * size the named leg is being moved to. `PERP` is the ordinary correction and
+	 * trades the hedge; `SPOT` sells the holding down instead, and exists for a
+	 * correction the perp venue refuses as too small. The policy picks between
+	 * them — see `rebalancePlan`.
+	 */
+	rebalance(params: {
+		market: string;
+		targetUnits: bigint;
+		side: RebalanceSide;
+	}): Promise<ActivityInput[]>;
 
 	/**
 	 * Sell everything, in every market, and send all of it back to the vault.
@@ -635,9 +647,17 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 			if (!decision.market) throw new Error("A rebalance named no market.");
 			const target = observation.markets.find((m) => m.ticker === decision.market);
 			if (!target) throw new Error(`No observation for ${decision.market} to rebalance against.`);
+			// Defaulting rather than throwing: an older decision replayed from a
+			// cooldown or a test fixture predates the field, and the perp side is
+			// what every one of those meant.
+			const side = decision.rebalanceSide ?? "PERP";
 			activity = await venue.rebalance({
 				market: decision.market,
-				targetUnits: target.spotUnits,
+				// The leg being moved is the one given a target, so the target is
+				// always the leg that is staying put: a perp correction is sized
+				// against the holding, a spot correction against the short.
+				targetUnits: side === "PERP" ? target.spotUnits : target.perpUnits,
+				side,
 			});
 		} else if (decision.kind === "CLOSE_ALL") {
 			activity = await venue.closeAll();

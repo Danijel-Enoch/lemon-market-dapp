@@ -107,13 +107,26 @@ export const MAX_BREAKEVEN_DAYS = numberFromEnv("MAX_BREAKEVEN_DAYS", 30);
  */
 const SHAPE = {
 	/** agentWithdraw, relay approve + deposit, router approve, swap, reportActivity. */
-	deploy: { baseTxs: 5, crossings: 1, withdrawals: 0 },
+	deploy: { baseTxs: 5, crossings: 1, withdrawals: 0, perp: true },
 	/** router approve, spot sell, agentReturn, reportActivity. */
-	unwind: { baseTxs: 4, crossings: 1, withdrawals: 1 },
+	unwind: { baseTxs: 4, crossings: 1, withdrawals: 1, perp: true },
 	/** agentWithdraw, relay approve + deposit, reportActivity. */
-	topUp: { baseTxs: 4, crossings: 1, withdrawals: 0 },
+	topUp: { baseTxs: 4, crossings: 1, withdrawals: 0, perp: true },
 	/** One signed API call to Pacifica. No chain, no bridge, no gas. */
-	rebalance: { baseTxs: 0, crossings: 0, withdrawals: 0 },
+	rebalance: { baseTxs: 0, crossings: 0, withdrawals: 0, perp: true },
+	/**
+	 * The same correction made on the spot leg: router approve, swap, reportActivity.
+	 *
+	 * The fallback for a correction the perp venue will not accept, so it is
+	 * priced as the mirror of `rebalance` — everything that one does not pay
+	 * (Base gas, pool impact, the spot taker fee) and nothing that it does. No
+	 * perp fill happens at all, which is why `perp` is false here and true
+	 * everywhere else: this is the only action in the table that leaves the
+	 * short alone. Charging it Pacifica's taker fee would price a fill the
+	 * venue never sees and make the fallback look more expensive than it is,
+	 * which matters because it is weighed against doing nothing.
+	 */
+	rebalanceSpot: { baseTxs: 3, crossings: 0, withdrawals: 0, perp: false },
 } as const;
 
 export interface ActionCost {
@@ -152,7 +165,7 @@ export const NO_FRICTIONS: TradeFrictions = {
  * behind it, which is two taker fills, not one.
  */
 export function costOf(
-	kind: "deploy" | "unwind" | "topUp" | "rebalance",
+	kind: "deploy" | "unwind" | "topUp" | "rebalance" | "rebalanceSpot",
 	notionalUsdc: bigint,
 	frictions: TradeFrictions = NO_FRICTIONS,
 ): ActionCost {
@@ -170,10 +183,11 @@ export function costOf(
 	const fixedUsdc = gas + bridge + withdrawal;
 
 	// A rebalance moves the perp leg only, so it pays one taker fee and no pool
-	// impact. Everything else crosses both venues.
-	const takerPercent = touchesSpot
-		? VENUE_FEES.perpTakerPercent + VENUE_FEES.spotTakerPercent
-		: VENUE_FEES.perpTakerPercent;
+	// impact; its spot-side fallback is the exact opposite. Everything else
+	// crosses both venues and pays both.
+	const takerPercent =
+		(shape.perp ? VENUE_FEES.perpTakerPercent : 0) +
+		(touchesSpot ? VENUE_FEES.spotTakerPercent : 0);
 	const impactPercent = touchesSpot ? Math.abs(frictions.spotImpactPercent) : 0;
 
 	const notional = notionalUsdc > 0n ? notionalUsdc : 0n;
