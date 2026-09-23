@@ -192,6 +192,7 @@ scripts/
   dev.sh                Run the stack against one environment, with an optional overlay
   deploy-contracts.sh   Deploy to one chain, verify, write the addresses back to an env file
   deploy-xlayer.sh      That, then the rest of X Layer's wiring: browser, indexer, agent
+  apply-multichain.sh   One-off: the schema change a deploy will not make unattended
   verify-chain-assets.ts  Read symbol()/decimals() for every chain's USDC
   indexer-reset.sh      Drop the read model so the next start reindexes
   seed-venue-config.ts  Backfill venue config for vaults made outside the admin flow
@@ -504,9 +505,31 @@ from the account id and the path, not from the key that authorises the call.
 Adding a chain to a database that predates multi-chain also needs the column
 that carries it. `packages/db/prisma/multichain.sql` holds the statements, with
 what they do and why none of them is destructive — every new column arrives
-defaulted to Base, which is what every existing row was. `bun run db:push` can
-make the same change, but it asks about the primary-key swap on `VaultConfig` in
-a prompt that is easy to answer wrongly at the wrong moment.
+defaulted to Base, which is what every existing row was.
+
+**A deployment onto a pre-multichain database fails until this is applied**, and
+fails in a way worth recognising. The `migrate` service runs `prisma db push`,
+which refuses a primary-key swap unattended:
+
+```
+⚠️  There might be data loss when applying the changes:
+  • The primary key for the `VaultConfig` table will be changed.
+Error: Use the --accept-data-loss flag ...
+```
+
+That is the correct outcome — it blocks the release rather than letting a
+half-migrated schema serve traffic — and the fix is to apply the change once, by
+hand, not to add `--accept-data-loss` to the pipeline:
+
+```bash
+scripts/apply-multichain.sh                      # via $DATABASE_URL
+CONTAINER=…-postgres-1 scripts/apply-multichain.sh   # or through docker
+```
+
+It refuses to run twice, takes a backup first, applies the file in one
+transaction, and verifies the result before reporting success. Stop the agents
+before running it: vault rows are repointed at a new primary key, and a tick
+landing halfway through would write against the old one.
 
 ### Connecting a wallet
 

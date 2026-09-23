@@ -59,3 +59,8 @@ generated
 test-results/
 playwright-report/
 .playwright/
+
+# Database dumps taken by scripts/apply-multichain.sh. These are a production
+# database's contents — sessions, the admin allowlist, every agent decision —
+# and belong nowhere near a commit.
+multichain-backup-*.sql
