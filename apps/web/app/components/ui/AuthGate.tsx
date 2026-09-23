@@ -43,7 +43,7 @@ export function AuthGate({
 		return (
 			<Card className="border-accent/20">
 				<CardContent className="flex flex-col items-center justify-center py-8 text-center">
-					<div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+					<div className="mb-4 flex size-11 items-center justify-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-lime-dim)]">
 						<Icon className="w-6 h-6 text-primary" />
 					</div>
 					<h3 className="text-lg font-medium mb-2">{title}</h3>
@@ -58,7 +58,7 @@ export function AuthGate({
 		<div className="min-h-screen">
 			<main className="container mx-auto px-6 py-8 max-w-screen-2xl">
 				<div className="flex flex-col items-center justify-center py-20 text-center">
-					<div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+					<div className="mb-6 flex size-14 items-center justify-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-lime-dim)]">
 						<Icon className="w-8 h-8 text-primary" />
 					</div>
 					<h2 className="text-2xl font-semibold mb-3">{title}</h2>

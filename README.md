@@ -176,7 +176,7 @@ apps/
   agent/      Per-vault worker: valuation, execution, the redemption queue
 packages/
   contracts/  Foundry. LemonVault (4626+7540), VaultFactory, InsuranceFund
-  ui/         The Pons design system. Presentational only — no wallet, no API
+  ui/         The design system. Presentational only — no wallet, no API
   client/     The shared read layer: API calls, formatting, data hooks
   wallet/     The shared wallet layer: the chain, RainbowKit, network switching
   core/       Shared types, unit conversion, fee constants

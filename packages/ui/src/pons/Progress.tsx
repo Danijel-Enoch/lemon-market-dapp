@@ -4,9 +4,9 @@ import { cn } from "../utils";
 /**
  * Progress bar.
  *
- * Pons runs progress as a lime gradient on a recessed track. The thin size is
- * the inline form that sits under a card figure; the thick one is the headline
- * form, which adds a bloom under the fill so the bar carries the accent.
+ * A solid ink fill in a ruled track, square at both ends. The thin size sits
+ * under a card figure; the thick one is the headline form. No gradient and no
+ * bloom — the bar is a measurement, and this system draws measurements flat.
  */
 export function ProgressBar({
 	value,
@@ -27,15 +27,15 @@ export function ProgressBar({
 			aria-valuenow={Math.round(pct)}
 			aria-valuemin={0}
 			aria-valuemax={100}
-			className={cn("w-full overflow-hidden rounded-full bg-[var(--pon-bg-2)]", height, className)}
+			className={cn(
+				"w-full overflow-hidden rounded-none border border-[var(--pon-line)] bg-transparent",
+				height,
+				className,
+			)}
 		>
 			<div
-				className="h-full rounded-full transition-[width] duration-500"
-				style={{
-					width: `${pct}%`,
-					background: "linear-gradient(90deg, var(--pon-lime-2), var(--pon-lime))",
-					boxShadow: size === "lg" ? "0 0 14px -2px var(--pon-glow)" : undefined,
-				}}
+				className="h-full rounded-none bg-[var(--pon-ink)] transition-[width] duration-500"
+				style={{ width: `${pct}%` }}
 			/>
 		</div>
 	);
@@ -68,12 +68,17 @@ export function LabelledProgress({
 					size === "lg" ? "mb-2.5" : "mb-2",
 				)}
 			>
-				<span className={cn("text-[var(--pon-fg-2)]", size === "lg" ? "text-[13px]" : "text-xs")}>
+				<span
+					className={cn(
+						"firm-label text-[var(--pon-fg-2)]",
+						size === "lg" ? "text-[11px]" : "text-[10.5px]",
+					)}
+				>
 					{label}
 				</span>
 				<span
 					className={cn(
-						"font-fono font-bold text-[var(--pon-lime)]",
+						"font-fono font-bold text-[var(--pon-fg-0)]",
 						size === "lg" ? "text-sm" : "text-xs",
 					)}
 				>

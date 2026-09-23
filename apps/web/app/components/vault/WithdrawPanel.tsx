@@ -104,7 +104,7 @@ export function WithdrawPanel({
 			</div>
 
 			{claimable > 0n && (
-				<div className="space-y-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-lime)]/30 bg-[var(--pon-lime-dim)] p-4">
+				<div className="space-y-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] p-4">
 					<div>
 						<p className="font-medium text-[var(--pon-lime)]">Ready to claim</p>
 						<p className="mt-1 text-sm text-[var(--pon-fg-2)]">
@@ -147,7 +147,7 @@ export function WithdrawPanel({
 							<button
 								type="button"
 								onClick={() => setInput(formatUnits(held, SHARE_DECIMALS, 18))}
-								className="rounded-full border border-[var(--pon-line-2)] px-2.5 py-1 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
+								className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-2.5 py-1 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-fg-2)] transition-colors hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]"
 							>
 								Max
 							</button>
@@ -240,7 +240,7 @@ function QueuedNotice({ pending, vault }: { pending: PendingWithdrawal; vault: V
 			className={cn(
 				"space-y-2 rounded-[var(--pon-r-md,12px)] border px-4 py-3",
 				overdue
-					? "border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10"
+					? "border-[var(--pon-down)] bg-[var(--pon-lime-dim)]"
 					: "border-[var(--pon-line-2)] bg-[var(--pon-surface)]",
 			)}
 		>

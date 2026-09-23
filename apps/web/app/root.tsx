@@ -40,16 +40,13 @@ export const links: Route.LinksFunction = () => {
 		{ rel: "preconnect", href: "https://fonts.googleapis.com" },
 		{ rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
 		{
-			// Pons sets everything in Space Grotesk — display, UI and data alike —
-			// and leans on tabular figures rather than switching to a mono face.
+			// Two faces, split by job. Newsreader is the editorial serif that
+			// carries every headline and every piece of prose; Space Mono is the
+			// utility face that carries every label, figure, address and control.
+			// One request, because a second stylesheet is a second round trip
+			// before the page can paint its own type.
 			rel: "stylesheet",
-			href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-		},
-		{
-			// Kept for the few places that want true fixed-width glyphs: stack
-			// traces and raw payloads.
-			rel: "stylesheet",
-			href: "https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap",
+			href: "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=Space+Mono:wght@400;700&display=swap",
 		},
 		{ rel: "icon", href: "/favicon.ico" },
 	];
@@ -57,15 +54,15 @@ export const links: Route.LinksFunction = () => {
 
 export default function App() {
 	return (
-		<html lang="en" className="dark">
+		<html lang="en">
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
-				<meta name="theme-color" content="#000000" />
+				<meta name="theme-color" content="#a3e635" />
 				<Meta />
 				<Links />
 			</head>
-			<body className="bg-[var(--pon-bg)] font-sans text-[var(--pon-fg)] antialiased">
+			<body className="bg-[var(--pon-bg)] font-mono text-[var(--pon-fg)] antialiased">
 				<Outlet />
 				<ScrollRestoration />
 				<Scripts />
@@ -87,7 +84,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 	}
 
 	return (
-		<html lang="en" className="dark">
+		<html lang="en">
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -95,50 +92,39 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 				<Meta />
 				<Links />
 			</head>
-			<body className="bg-[var(--pon-bg)] font-sans text-[var(--pon-fg)] antialiased">
-				<div className="relative flex min-h-screen items-center justify-center overflow-hidden p-5">
-					{/* The same aurora the landing hero runs, at half strength. */}
-					<div
-						aria-hidden
-						className="aurora left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2"
-						style={{ ["--aurora" as string]: "rgba(163,230,53,0.16)" }}
-					/>
+			<body className="bg-[var(--pon-bg)] font-mono text-[var(--pon-fg)] antialiased">
+				{/* The page's vertical rules run behind the error too — it is the same
+				    sheet, with nothing printed on it. */}
+				<div aria-hidden className="firm-rules" />
 
-					{/* The Pons hero panel, reused: gradient body, hairline frame,
-					    accent bloom in the corner. */}
-					<div className="relative z-10 w-full max-w-lg overflow-hidden rounded-[var(--pon-r-2xl)] border border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-bg-2)] to-[var(--pon-bg)] p-8">
-						<div aria-hidden className="pon-bloom-lg" />
+				<div className="relative flex min-h-screen items-center justify-center p-5">
+					<div className="w-full max-w-xl">
+						<p className="firm-label text-[var(--pon-fg-2)]">
+							{is404 ? "Error 404 · Not found" : "Error · Unhandled"}
+						</p>
 
-						<div className="relative flex flex-col items-center space-y-6 text-center">
-							<span className="flex size-16 items-center justify-center rounded-[18px] bg-[var(--pon-lime)] text-3xl">
-								🍋
-							</span>
+						<h1 className="t-display mt-4 text-[var(--pon-fg-0)]">
+							{is404 ? "Lost in the juice?" : "Squeeze hazard"}
+						</h1>
 
-							<div className="space-y-2.5">
-								<p className="t-eyebrow text-[var(--pon-lime)]">
-									{is404 ? "Error 404" : "Something broke"}
-								</p>
-								<h1 className="font-display text-[32px] font-bold leading-tight tracking-[-0.02em] text-[var(--pon-fg-0)]">
-									{is404 ? "Lost in the juice?" : "Squeeze hazard"}
-								</h1>
-								<p className="text-[15px] leading-relaxed text-[var(--pon-fg-2)]">{message}</p>
-							</div>
-
-							{stack && import.meta.env.DEV && (
-								<div className="max-h-64 w-full overflow-x-auto rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-4 text-left">
-									<pre className="font-mono text-[11px] leading-relaxed text-[var(--pon-down)]">
-										{stack}
-									</pre>
-								</div>
-							)}
-
-							<a
-								href="/"
-								className="inline-flex items-center justify-center rounded-full bg-[var(--pon-lime)] px-7 py-3.5 text-[15px] font-semibold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
-							>
-								Back to markets
-							</a>
+						<div className="mt-6 border-t border-[var(--pon-line)] pt-5">
+							<p className="t-body max-w-[52ch] text-[var(--pon-fg-2)]">{message}</p>
 						</div>
+
+						{stack && import.meta.env.DEV && (
+							<div className="mt-5 max-h-64 overflow-x-auto border border-[var(--pon-down)] p-3.5">
+								<pre className="font-mono text-[11px] leading-relaxed text-[var(--pon-down)]">
+									{stack}
+								</pre>
+							</div>
+						)}
+
+						<a
+							href="/"
+							className="mt-7 inline-flex items-center justify-center rounded-[var(--pon-r-lg)] border border-[var(--pon-ink)] bg-[var(--pon-ink)] px-5 py-3 font-mono text-[13px] tracking-[-0.02em] text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
+						>
+							Back to markets
+						</a>
 					</div>
 				</div>
 				<Scripts />

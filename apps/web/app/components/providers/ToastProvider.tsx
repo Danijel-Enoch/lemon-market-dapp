@@ -27,19 +27,19 @@ function ToastShell({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-3 rounded-[var(--pon-r-md)] border bg-[var(--pon-bg-2)] px-3.5 py-3",
+				"firm-paper flex items-center gap-3 rounded-[var(--pon-r-lg)] border px-3.5 py-3",
 				border,
 			)}
 		>
 			<span
 				className={cn(
-					"flex size-[26px] shrink-0 items-center justify-center rounded-full",
+					"flex size-[24px] shrink-0 items-center justify-center rounded-[var(--pon-r-sm)]",
 					badgeClass,
 				)}
 			>
 				{badge}
 			</span>
-			<p className="text-[12.5px] font-medium text-[var(--pon-fg)]">{children}</p>
+			<p className="font-mono text-[12px] tracking-[-0.02em] text-[var(--pon-fg)]">{children}</p>
 		</div>
 	);
 }
@@ -48,7 +48,7 @@ export function ErrorToast({ toast }: { toast: Toast }) {
 	return (
 		<ToastShell
 			border="border-[var(--pon-down)]"
-			badgeClass="bg-[var(--pon-down)]/15 text-[var(--pon-down)]"
+			badgeClass="border border-[var(--pon-down)] text-[var(--pon-down)]"
 			badge={<AlertTriangle size={13} aria-hidden />}
 		>
 			{toast.message?.toString()}
@@ -60,7 +60,7 @@ export function SuccessToast({ toast }: { toast: Toast }) {
 	return (
 		<ToastShell
 			border="border-[var(--pon-lime)]"
-			badgeClass="bg-[var(--pon-lime-dim)] text-[var(--pon-lime)]"
+			badgeClass="bg-[var(--pon-ink)] text-[var(--pon-on-lime)]"
 			badge={<Check size={13} aria-hidden />}
 		>
 			{toast.message?.toString()}
@@ -72,7 +72,7 @@ export function InfoToast({ toast }: { toast: Toast }) {
 	return (
 		<ToastShell
 			border="border-[var(--pon-line-2)]"
-			badgeClass="bg-[var(--pon-surface-2)] text-[var(--pon-fg-2)]"
+			badgeClass="border border-[var(--pon-line-2)] text-[var(--pon-fg-2)]"
 			badge={<Info size={13} aria-hidden />}
 		>
 			{toast.message?.toString()}
@@ -84,7 +84,7 @@ export function LoadingToast({ toast }: { toast: Toast }) {
 	return (
 		<ToastShell
 			border="border-[var(--pon-line-2)]"
-			badgeClass="bg-[var(--pon-surface-2)]"
+			badgeClass="border border-[var(--pon-line-2)]"
 			badge={
 				<span
 					aria-hidden

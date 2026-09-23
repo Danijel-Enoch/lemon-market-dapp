@@ -54,7 +54,7 @@ export function VaultTable({ vaults }: { vaults: Vault[] }) {
 						<Link
 							to={`/vaults/${vault.address}`}
 							data-tour="vault-link"
-							className="block px-5 py-4 transition-colors hover:bg-[var(--pon-surface)] focus-visible:bg-[var(--pon-surface)] focus-visible:outline-none"
+							className="block px-5 py-4 transition-colors hover:bg-[var(--pon-lime-dim)] focus-visible:bg-[var(--pon-lime-dim)] focus-visible:outline-none"
 						>
 							{/* Desktop row. */}
 							<div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 md:grid">
@@ -218,7 +218,7 @@ function VaultWarnings({ vault }: { vault: Vault }) {
 	if (vault.paused) {
 		return (
 			<span
-				className="inline-flex items-center gap-1 rounded-full bg-[var(--pon-fg-4)]/15 px-2 py-0.5 text-[11px] text-[var(--pon-fg-2)]"
+				className="inline-flex items-center gap-1 rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-2 py-0.5 text-[11px] text-[var(--pon-fg-2)]"
 				title="An operator has paused this vault. Withdrawals can still be requested."
 			>
 				<Pause className="size-3" /> Paused
@@ -229,7 +229,7 @@ function VaultWarnings({ vault }: { vault: Vault }) {
 	if (vault.navStale) {
 		return (
 			<span
-				className="inline-flex items-center gap-1 rounded-full bg-[var(--pon-amber)]/15 px-2 py-0.5 text-[11px] text-[var(--pon-amber)]"
+				className="inline-flex items-center gap-1 rounded-[var(--pon-r-sm)] border border-[var(--pon-amber)] px-2 py-0.5 text-[11px] text-[var(--pon-amber)]"
 				title="The agent has not reported a valuation recently, so deposits and withdrawals are on hold until it does."
 			>
 				<AlertTriangle className="size-3" /> Stale

@@ -412,7 +412,7 @@ function TourOverlay({
 					}}
 				/>
 			) : (
-				<div className="absolute inset-0 bg-black/76" />
+				<div className="absolute inset-0 bg-[var(--pon-ink)]/72" />
 			)}
 
 			{/* Tapping the dimmed area advances, the way a coach mark should. */}
@@ -426,7 +426,7 @@ function TourOverlay({
 
 			<div
 				ref={cardRef}
-				className="absolute rounded-[var(--pon-r-lg)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] p-4 shadow-2xl transition-all duration-300"
+				className="firm-paper absolute rounded-[var(--pon-r-lg)] border border-[var(--pon-ink)] p-4 transition-all duration-300"
 				style={{ top: cardTop, left: cardLeft, width: cardWidth }}
 			>
 				<div className="mb-2 flex items-center justify-between">
@@ -451,7 +451,7 @@ function TourOverlay({
 							<span
 								key={`${step.target}-dot-${dot}`}
 								className={cn(
-									"h-1 flex-1 rounded-full transition-colors",
+									"h-1 flex-1 transition-colors",
 									dot <= index ? "bg-[var(--pon-lime)]" : "bg-[var(--pon-line-2)]",
 								)}
 							/>
@@ -461,7 +461,7 @@ function TourOverlay({
 						<button
 							type="button"
 							onClick={onBack}
-							className="rounded-full border border-[var(--pon-line-2)] px-3 py-1.5 t-caption text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)]"
+							className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-3 py-1.5 t-caption text-[var(--pon-fg-2)] transition-colors hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]"
 						>
 							Back
 						</button>
@@ -469,7 +469,7 @@ function TourOverlay({
 					<button
 						type="button"
 						onClick={onNext}
-						className="rounded-full bg-[var(--pon-lime)] px-4 py-1.5 t-caption font-bold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
+						className="rounded-[var(--pon-r-sm)] bg-[var(--pon-lime)] px-4 py-1.5 t-caption font-bold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
 					>
 						{index + 1 === total ? "Done" : "Next"}
 					</button>

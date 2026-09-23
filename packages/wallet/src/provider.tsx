@@ -21,10 +21,15 @@ export const lemonWalletTheme = {
 	...base,
 	colors: {
 		...base.colors,
-		accentColor: "#65a30d",
-		accentColorForeground: "white",
-		modalBackground: "#0f1419",
-		modalBorder: "#1f2937",
+		// RainbowKit renders its own modal outside our stylesheet, so the design
+		// system's colours are restated here rather than referenced. Ink fill
+		// with lime type is the same inversion every primary control uses.
+		accentColor: "#12170b",
+		accentColorForeground: "#a3e635",
+		modalBackground: "#f7fee7",
+		modalBorder: "#12170b",
+		modalText: "#12170b",
+		modalTextSecondary: "rgba(18, 23, 11, 0.6)",
 	},
 };
 

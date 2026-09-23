@@ -44,7 +44,7 @@ export function GasPanel({ gas }: { gas: VaultGas[] }) {
 			</div>
 
 			{low.length > 0 && (
-				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-4">
+				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-4">
 					<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 					<div className="text-sm">
 						<p className="font-medium text-[var(--pon-fg-0)]">
@@ -77,7 +77,7 @@ function GasRow({ entry }: { entry: VaultGas }) {
 		<li
 			className={cn(
 				"rounded-[var(--pon-r-lg,16px)] border bg-[var(--pon-bg-2)] p-5",
-				entry.needsTopUp ? "border-[var(--pon-amber)]/30" : "border-[var(--pon-line)]",
+				entry.needsTopUp ? "border-[var(--pon-amber)]" : "border-[var(--pon-line)]",
 			)}
 		>
 			<div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ function GasWithdrawForm({ vault }: { vault: string }) {
 	// Repeating it here rather than paraphrasing keeps one sentence in one place.
 	if (loadError) {
 		return (
-			<p className="mt-3 rounded-[var(--pon-r-sm,8px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-3 text-xs leading-relaxed text-[var(--pon-fg-2)]">
+			<p className="mt-3 rounded-[var(--pon-r-sm,8px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-3 text-xs leading-relaxed text-[var(--pon-fg-2)]">
 				{loadError instanceof Error ? loadError.message : String(loadError)}
 			</p>
 		);

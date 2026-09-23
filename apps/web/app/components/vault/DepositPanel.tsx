@@ -213,7 +213,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 								<button
 									type="button"
 									onClick={() => setInput(formatUnits(balance ?? 0n, USDC_DECIMALS, 6))}
-									className="rounded-full border border-[var(--pon-line-2)] px-2.5 py-1 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
+									className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-2.5 py-1 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-fg-2)] transition-colors hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]"
 								>
 									Max
 								</button>
@@ -291,7 +291,7 @@ export function DepositPanel({ vault, usdcAddress }: { vault: Vault; usdcAddress
 
 function BlockedNotice({ vault }: { vault: Vault }) {
 	return (
-		<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 px-4 py-3">
+		<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] px-4 py-3">
 			<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 			<div className="text-sm text-[var(--pon-fg-2)]">
 				{vault.paused ? (

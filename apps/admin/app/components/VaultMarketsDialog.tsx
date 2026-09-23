@@ -246,7 +246,7 @@ export function VaultMarketsDialog({
 									{retired.map((market) => (
 										<li
 											key={market.ticker}
-											className="rounded-full bg-[var(--pon-surface-2)] px-2.5 py-1 font-mono text-[11px] text-[var(--pon-fg-2)]"
+											className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-2.5 py-1 font-mono text-[11px] text-[var(--pon-fg-2)]"
 										>
 											{market.ticker}
 										</li>
@@ -277,7 +277,7 @@ export function VaultMarketsDialog({
 						)}
 
 						{error && (
-							<div className="mt-5 flex gap-2 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10 p-3 text-sm">
+							<div className="mt-5 flex gap-2 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)] bg-[var(--pon-lime-dim)] p-3 text-sm">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-down)]" />
 								<p className="text-[var(--pon-fg-2)]">{error}</p>
 							</div>

@@ -2,85 +2,130 @@
 @import "tw-animate-css";
 
 /* ============================================================================
-   PONS DESIGN SYSTEM — Lemon Markets
-   Structure, type, radii, surfaces and components ported from the Pons design
-   system. Every colour is a Lemon token: the lime accent (#a3e635), the slate
-   ink ramp and the near-black surface ladder are unchanged. Pons contributes
-   the shape language — pill controls, 22px card corners, a four-rung surface
-   ladder, hairline framing and the radial accent glow — not the palette.
+   THE FIRM × LEMON — Lemon Markets design system
+
+   The structure, type and surface language are taken from The Firm's
+   MacroStrategy site: one saturated brand colour flooding the page, ink-black
+   type on top of it, hairline rules instead of shadows, square corners instead
+   of pills, an editorial serif for anything that speaks and a monospace for
+   anything that reports. Nothing here glows, gradients or floats.
+
+   The colour is Lemon's, not The Firm's. Where that site runs cobalt #1447E6
+   under paper-white, this one runs the Lemon lime #a3e635 under ink, with a
+   lime-tinted paper (#f7fee7) for the bands that invert.
+
+   Token NAMES are unchanged from the system this replaces (`--pon-*`), so the
+   several hundred call sites across the app and the admin pick the new
+   language up without being rewritten. What each one resolves to has changed
+   completely.
    ============================================================================ */
 
 /* ------------------------------------------------------------------ tokens */
 
 :root {
-    /* --- surface ladder ---------------------------------------------------
-       Pons layers bg → bg-2 → surface → surface-2 → surface-3. These are the
-       equivalent rungs built from Lemon's existing near-blacks. */
-    --pon-bg: #000000;
-    /* page ground */
-    --pon-bg-2: #0a0a0a;
+    /* --- the field --------------------------------------------------------
+       The Firm floods the page with one colour and lets panels sit on it as
+       bare hairline frames. So the "surface ladder" is not a ladder of fills
+       any more — bg, bg-2 and surface are the same field a shade apart, and
+       the only real jump is the inversion to paper. */
+    --pon-bg: #a3e635;
+    /* the field: every page ground */
+    --pon-bg-2: #a9e842;
     /* recessed fill: inputs, wells, inner panels */
-    --pon-surface: #0f1419;
-    /* card body */
-    --pon-surface-2: #1a1a1a;
-    /* raised chip / active segment */
-    --pon-surface-3: #1a1f26;
-    /* popovers, menus, sheets */
+    --pon-surface: #aeea4d;
+    /* card body — barely lifted, read by its hairline */
+    --pon-surface-2: #f7fee7;
+    /* inverted: active segment, filled chip */
+    --pon-surface-3: #f7fee7;
+    /* inverted: popovers, menus, sheets */
+
+    /* Paper and ink, named plainly, for the places that want to say which one
+       they mean rather than which rung they are on. */
+    --pon-paper: #f7fee7;
+    --pon-ink: #12170b;
 
     /* --- hairlines --------------------------------------------------------
-       line is the default frame; line-2 is the stronger edge Pons uses on
-       inputs and secondary buttons so they read as interactive. */
-    --pon-line: #222222;
-    --pon-line-2: #333333;
+       Ink at low alpha, so one pair of rules works on the field and inside a
+       paper panel alike. line is the default frame; line-2 is the edge that
+       says "interactive". */
+    --pon-line: rgba(18, 23, 11, 0.26);
+    --pon-line-2: rgba(18, 23, 11, 0.58);
 
     /* --- ink ramp --------------------------------------------------------- */
-    --pon-fg-0: #ffffff;
-    --pon-fg: #e8eaed;
-    --pon-fg-2: #94a3b8;
-    --pon-fg-3: #64748b;
-    --pon-fg-4: #475569;
+    --pon-fg-0: #0b0f06;
+    --pon-fg: #12170b;
+    --pon-fg-2: rgba(18, 23, 11, 0.74);
+    --pon-fg-3: rgba(18, 23, 11, 0.56);
+    --pon-fg-4: rgba(18, 23, 11, 0.4);
 
-    /* --- accent: Lemon lime ---------------------------------------------- */
-    --pon-lime: #a3e635;
-    --pon-lime-2: #84cc16;
-    --pon-lime-3: #65a30d;
-    --pon-lime-dim: #1a2e05;
-    /* text that sits on a lime fill */
-    --pon-on-lime: #000000;
+    /* --- accent -----------------------------------------------------------
+       On a lime field lime cannot be the accent, so the accent is the
+       inversion: ink fill, lime type. `--pon-lime` is the token every primary
+       action and emphasis already points at, so it is the ink here and
+       `--pon-on-lime` is the lime that sits on it. Emphasis is carried by
+       inversion and weight, the way The Firm carries it. */
+    --pon-lime: #12170b;
+    --pon-lime-2: #000000;
+    --pon-lime-3: #2a3616;
+    --pon-lime-dim: #fef9c3;
+    /* the cream chip — the one tint on the field */
+    --pon-on-lime: #a3e635;
 
-    /* --- secondary + semantic -------------------------------------------- */
-    --pon-accent: #10b981;
-    --pon-accent-2: #3b82f6;
-    --pon-up: #10b981;
-    --pon-down: #ef4444;
-    --pon-amber: #f59e0b;
-    --pon-purple: #8b5cf6;
-    --pon-glow: rgba(163, 230, 53, 0.3);
-    --pon-glow-soft: rgba(163, 230, 53, 0.14);
+    /* --- secondary + semantic ---------------------------------------------
+       Every one of these has to clear 4.5:1 against the lime field, which
+       rules out the usual mid-tone greens, ambers and reds. They are the dark
+       end of each hue instead. */
+    --pon-accent: #14532d;
+    --pon-accent-2: #1e3a8a;
+    --pon-up: #14532d;
+    --pon-down: #8c1111;
+    --pon-amber: #6b4a05;
+    --pon-purple: #4c1d95;
+    /* No bloom in this system. The glow tokens resolve to nothing so the
+       components that still paint one render a no-op rather than a haze. */
+    --pon-glow: transparent;
+    --pon-glow-soft: transparent;
 
-    /* --- brand gradients -------------------------------------------------- */
-    --pon-grad-lime: linear-gradient(90deg, #a3e635, #65a30d);
-    --pon-grad-deep: linear-gradient(90deg, #0a0a0a, #1a2e05);
-    --pon-grad-elevate: linear-gradient(90deg, #10b981, #a3e635);
+    /* --- brand "gradients" ------------------------------------------------
+       Kept as tokens because call sites reference them; flattened to solids
+       because the system has no gradients. */
+    --pon-grad-lime: linear-gradient(90deg, #12170b, #12170b);
+    --pon-grad-deep: linear-gradient(90deg, #12170b, #2a3616);
+    --pon-grad-elevate: linear-gradient(90deg, #12170b, #14532d);
 
-    /* --- type ------------------------------------------------------------- */
-    --font-display: "Space Grotesk", -apple-system, "Helvetica Neue", sans-serif;
-    --font-sans-stack: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --font-mono-stack: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+    /* --- type -------------------------------------------------------------
+       Two faces, split by job. The serif speaks: headlines, prose, anything
+       with a voice. The mono reports: labels, figures, addresses, controls,
+       navigation — every piece of chrome. There is no third face. */
+    --font-editorial: "Newsreader", "Times New Roman", Times, Georgia, serif;
+    --font-utility: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    /* --- radius ----------------------------------------------------------- */
-    --pon-r-sm: 8px;
-    --pon-r-md: 12px;
-    --pon-r-lg: 16px;
-    --pon-r-xl: 22px;
-    --pon-r-2xl: 28px;
-    --pon-r-pill: 999px;
+    --font-display: var(--font-editorial);
+    /* The app addresses the UI face as "sans". It is the mono now — the name
+       is legacy, the face is not. */
+    --font-sans-stack: var(--font-utility);
+    --font-mono-stack: var(--font-utility);
+
+    /* --- radius -----------------------------------------------------------
+       The Firm rounds by 3 or 4 pixels and never more. Pills are gone: the
+       pill token resolves to the same small corner as everything else, so a
+       control that asked for one gets a box. */
+    --pon-r-sm: 2px;
+    --pon-r-md: 3px;
+    --pon-r-lg: 4px;
+    --pon-r-xl: 4px;
+    --pon-r-2xl: 6px;
+    --pon-r-pill: 4px;
 
     /* --- rhythm ----------------------------------------------------------- */
     --section-y: 72px;
     --section-x: 20px;
     --shell-max: 1440px;
     --content-max: 1120px;
+
+    /* Width of the ruled column the page is drawn inside. The vertical rules
+       at its edges are the system's most visible structural device. */
+    --rule-max: 1240px;
 }
 
 @media (min-width: 768px) {
@@ -90,33 +135,68 @@
     }
 }
 
-/* Pons ships a light counterpart for every token. The app runs dark, but the
-   scale is defined here so a `.pon-light` subtree renders correctly. */
-.pon-light {
-    --pon-bg: #f4f6f3;
-    --pon-bg-2: #eaeee7;
+/* ---------------------------------------------------------- the inversion --
+   A paper band: ink on lime-white, with the accent flipped back to the field
+   colour's darker edge so links and fills still read. The Firm inverts its
+   footer and its media blocks exactly this way. `.pon-light` is the legacy
+   name for the same thing and is kept so existing subtrees keep working. */
+
+.pon-light,
+.firm-paper {
+    --pon-bg: #f7fee7;
+    --pon-bg-2: #eef8d6;
     --pon-surface: #ffffff;
-    --pon-surface-2: #f2f5ef;
+    --pon-surface-2: #12170b;
     --pon-surface-3: #ffffff;
-    --pon-line: #e2e6dd;
-    --pon-line-2: #cdd4c4;
-    --pon-fg-0: #0a0a0a;
-    --pon-fg: #16181a;
-    --pon-fg-2: #475569;
-    --pon-fg-3: #64748b;
-    --pon-fg-4: #94a3b8;
-    --pon-lime: #65a30d;
-    --pon-lime-2: #4d7c0f;
-    --pon-lime-dim: #ecfccb;
-    --pon-on-lime: #ffffff;
-    --pon-glow: rgba(101, 163, 13, 0.18);
-    --pon-glow-soft: rgba(101, 163, 13, 0.08);
+    --pon-line: rgba(18, 23, 11, 0.2);
+    --pon-line-2: rgba(18, 23, 11, 0.5);
+    --pon-fg-0: #0b0f06;
+    --pon-fg: #12170b;
+    --pon-fg-2: rgba(18, 23, 11, 0.72);
+    --pon-fg-3: rgba(18, 23, 11, 0.55);
+    --pon-fg-4: rgba(18, 23, 11, 0.4);
+    --pon-lime: #12170b;
+    --pon-lime-2: #000000;
+    --pon-lime-dim: #fef9c3;
+    --pon-on-lime: #a3e635;
+    --pon-glow: transparent;
+    --pon-glow-soft: transparent;
+
+    background: var(--pon-bg);
+    color: var(--pon-fg);
 }
 
-/* ------------------------------------------------- legacy token aliases ----
-   The app addresses surfaces and ink through these names. They now resolve to
-   the Pons ladder, so every existing `var(--surface-3)` / `var(--ink-2)` call
-   site picks up the new system without being rewritten. */
+/* The other inversion: an ink band carrying lime type. Used for the footer
+   link list and for any block that has to stop the page. */
+.firm-ink {
+    --pon-bg: #12170b;
+    --pon-bg-2: #1a2110;
+    --pon-surface: #1a2110;
+    --pon-surface-2: #a3e635;
+    --pon-surface-3: #1a2110;
+    --pon-line: rgba(163, 230, 53, 0.3);
+    --pon-line-2: rgba(163, 230, 53, 0.6);
+    --pon-fg-0: #f7fee7;
+    --pon-fg: #eaf7cf;
+    --pon-fg-2: rgba(234, 247, 207, 0.76);
+    --pon-fg-3: rgba(234, 247, 207, 0.56);
+    --pon-fg-4: rgba(234, 247, 207, 0.4);
+    --pon-lime: #a3e635;
+    --pon-lime-2: #cdf56d;
+    --pon-lime-dim: rgba(163, 230, 53, 0.16);
+    --pon-on-lime: #12170b;
+    /* Ink and paper swap roles here, so "fill with ink" means "fill with the
+       colour that stands out on this ground". */
+    --pon-ink: #a3e635;
+    --pon-paper: #12170b;
+    --pon-up: #a3e635;
+    --pon-down: #fca5a5;
+
+    background: var(--pon-bg);
+    color: var(--pon-fg);
+}
+
+/* ------------------------------------------------- legacy token aliases ---- */
 
 :root {
     --surface-0: var(--pon-bg);
@@ -137,18 +217,18 @@
     --ink-3: var(--pon-fg-3);
 
     /* shadcn surface tokens */
-    --radius: 0.75rem;
+    --radius: 4px;
 
-    --font-inter: var(--font-sans-stack);
-    --font-raleway: var(--font-sans-stack);
-    --font-roboto-mono: var(--font-mono-stack);
+    --font-inter: var(--font-utility);
+    --font-raleway: var(--font-editorial);
+    --font-roboto-mono: var(--font-utility);
 
-    --background: var(--pon-surface);
+    --background: var(--pon-bg);
     --foreground: var(--pon-fg);
 
     --card: var(--pon-surface);
     --card-foreground: var(--pon-fg);
-    --card-hover: var(--pon-surface-2);
+    --card-hover: var(--pon-bg-2);
 
     --popover: var(--pon-surface-3);
     --popover-foreground: var(--pon-fg);
@@ -157,49 +237,49 @@
     --primary-foreground: var(--pon-on-lime);
     --primary-hover: var(--pon-lime-2);
 
-    --secondary: var(--pon-surface-2);
+    --secondary: var(--pon-bg-2);
     --secondary-foreground: var(--pon-fg);
-    --secondary-hover: var(--pon-surface-3);
+    --secondary-hover: var(--pon-surface);
 
-    --muted: var(--pon-surface-2);
+    --muted: var(--pon-bg-2);
     --muted-foreground: var(--pon-fg-2);
 
-    --accent: var(--pon-surface-2);
+    --accent: var(--pon-bg-2);
     --accent-foreground: var(--pon-fg);
 
     --destructive: var(--pon-down);
-    --destructive-foreground: #ffffff;
+    --destructive-foreground: #f7fee7;
 
     --success: var(--pon-up);
-    --success-foreground: #ffffff;
+    --success-foreground: #f7fee7;
 
     --warning: var(--pon-amber);
-    --warning-foreground: #000000;
+    --warning-foreground: #f7fee7;
 
     --border: var(--pon-line);
     --border-subtle: var(--pon-line);
-    --input: var(--pon-bg-2);
+    --input: transparent;
     --input-focus: var(--pon-line-2);
-    --ring: var(--pon-lime);
+    --ring: var(--pon-ink);
 
-    --chart-1: var(--pon-accent-2);
-    --chart-2: var(--pon-accent);
-    --chart-3: var(--pon-amber);
-    --chart-4: var(--pon-purple);
-    --chart-5: var(--pon-down);
+    --chart-1: #12170b;
+    --chart-2: #14532d;
+    --chart-3: #6b4a05;
+    --chart-4: #1e3a8a;
+    --chart-5: #8c1111;
 
-    --sidebar: var(--pon-surface-3);
+    --sidebar: var(--pon-bg);
     --sidebar-foreground: var(--pon-fg);
     --sidebar-primary: var(--pon-lime);
     --sidebar-primary-foreground: var(--pon-on-lime);
-    --sidebar-accent: var(--pon-surface-2);
+    --sidebar-accent: var(--pon-bg-2);
     --sidebar-accent-foreground: var(--pon-fg);
     --sidebar-border: var(--pon-line);
-    --sidebar-ring: var(--pon-lime);
+    --sidebar-ring: var(--pon-ink);
 
     --trade-long: var(--pon-up);
     --trade-short: var(--pon-down);
-    --trade-surface: var(--pon-surface-3);
+    --trade-surface: var(--pon-surface);
 }
 
 /* --------------------------------------------------------- tailwind theme */
@@ -208,9 +288,9 @@
     --color-background: var(--background);
     --color-foreground: var(--foreground);
 
-    --font-sans: var(--font-sans-stack);
-    --font-display: var(--font-display);
-    --font-mono: var(--font-mono-stack);
+    --font-sans: var(--font-utility);
+    --font-display: var(--font-editorial);
+    --font-mono: var(--font-utility);
 
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -242,7 +322,6 @@
     --color-card-foreground: var(--card-foreground);
     --color-card: var(--card);
 
-    /* Pons radius scale, mapped onto Tailwind's rounded-* utilities. */
     --radius-sm: var(--pon-r-sm);
     --radius-md: var(--pon-r-md);
     --radius-lg: var(--pon-r-lg);
@@ -258,189 +337,283 @@
 }
 
 body {
-    font-family: var(--font-sans-stack);
+    font-family: var(--font-utility);
+    background: var(--pon-bg);
+    color: var(--pon-fg);
     -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-    background: var(--pon-lime);
+    background: var(--pon-ink);
     color: var(--pon-on-lime);
 }
 
 /* ------------------------------------------------------------- type scale
-   Pons runs Space Grotesk for everything — display, UI and data — with tabular
-   figures on anything numeric. These semantic classes carry the scale so the
-   existing `t-*` call sites move to it wholesale. */
+   The serif carries size; the mono carries structure. A heading is never
+   monospaced and a label never isn't. */
 
 .t-display,
 .t-display-lg {
-    font-family: var(--font-display);
-    font-size: clamp(40px, 6vw, 74px);
-    line-height: 1;
-    letter-spacing: -0.02em;
+    font-family: var(--font-editorial);
+    font-weight: 800;
+    font-size: clamp(44px, 8vw, 96px);
+    line-height: 0.92;
+    letter-spacing: -0.035em;
 }
 
 .t-h1 {
-    font-family: var(--font-display);
-    /* Fluid rather than fixed: 34px is a comfortable desktop headline and a
-       cramped one at 390px, where it wraps a two-word title onto two lines and
-       pushes the page's actual content below the fold. */
-    font-size: clamp(26px, 6.5vw, 34px);
-    line-height: 1.08;
-    letter-spacing: -0.02em;
+    font-family: var(--font-editorial);
+    font-weight: 800;
+    font-size: clamp(30px, 6.5vw, 44px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
 }
 
 .t-h2 {
-    font-family: var(--font-display);
-    font-size: clamp(23px, 5.5vw, 30px);
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-size: clamp(25px, 5.5vw, 34px);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
 }
 
 .t-h3 {
-    font-family: var(--font-display);
-    font-size: 22px;
-    line-height: 1.25;
-    letter-spacing: -0.01em;
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-size: 23px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
 }
 
+/* Figures are monospaced and tabular — this system reports numbers, it does
+   not style them. */
 .t-stat {
+    font-family: var(--font-utility);
     font-size: 22px;
     line-height: 1.1;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: -0.04em;
     font-variant-numeric: tabular-nums;
 }
 
+/* Prose is set in the serif, a size up from where a sans would sit: the face
+   has the smaller apparent size and the extra leading is what makes a serif
+   readable on a saturated ground. */
 .t-body-lg {
-    font-size: 17px;
-    line-height: 1.6;
+    font-family: var(--font-editorial);
+    font-size: 19px;
+    line-height: 1.55;
+    letter-spacing: -0.011em;
 }
 
 .t-body {
-    font-size: 15px;
+    font-family: var(--font-editorial);
+    font-size: 16.5px;
     line-height: 1.6;
+    letter-spacing: -0.008em;
 }
 
+/* Below prose, everything is chrome, and chrome is mono. */
 .t-label {
-    font-size: 13px;
-    line-height: 1.5;
+    font-family: var(--font-utility);
+    font-size: 12.5px;
+    line-height: 1.45;
+    letter-spacing: -0.02em;
 }
 
 .t-caption {
-    font-size: 12px;
-    line-height: 1.5;
+    font-family: var(--font-utility);
+    font-size: 11.5px;
+    line-height: 1.45;
+    letter-spacing: -0.02em;
 }
 
 .t-micro {
-    font-size: 11px;
+    font-family: var(--font-utility);
+    font-size: 10.5px;
     line-height: 1.4;
+    letter-spacing: -0.01em;
 }
 
-.t-eyebrow {
+/* The spaced mono caps that label everything on The Firm — stats, sections,
+   nav groups, table heads. */
+.t-eyebrow,
+.firm-label {
+    font-family: var(--font-utility);
     font-size: 11px;
     line-height: 1.4;
-    font-weight: 500;
-    letter-spacing: 0.2em;
+    font-weight: 400;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
-/* Every number on screen is tabular so a ticking row never jitters. Pons keeps
-   figures in the UI face rather than switching to a mono, so this is a numeric
-   treatment of Space Grotesk, not a family swap. */
+/* Numbers: mono, tabular, tight. A ticking row never changes width. */
 .font-fono,
 .tabular {
-    font-family: var(--font-sans-stack);
+    font-family: var(--font-utility);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+    letter-spacing: -0.04em;
 }
 
-/* ------------------------------------------------------------- surfaces */
+/* Anything with a voice, set in the serif — used where a utility class needs
+   to opt a single element back into prose. */
+.font-editorial {
+    font-family: var(--font-editorial);
+}
 
-/* The default Pons container: hairline frame, 22px corners, card body. */
-.pon-card {
-    background: var(--pon-surface);
+/* ------------------------------------------------------------- surfaces --
+   One container shape, drawn as a hairline on the field. No fill step, no
+   shadow, no soft corner. Panels differ by what is inside them, not by how
+   far they float. */
+
+.pon-card,
+.firm-frame {
+    background: transparent;
     border: 1px solid var(--pon-line);
-    border-radius: var(--pon-r-xl);
+    border-radius: var(--pon-r-lg);
 }
 
-/* One rung down — the recessed well inside a card (inputs, amount fields). */
+/* A recessed field — inputs, amount wells. Marked by the stronger hairline
+   rather than by a darker fill. */
 .pon-well {
     background: var(--pon-bg-2);
     border: 1px solid var(--pon-line-2);
     border-radius: var(--pon-r-md);
 }
 
-/* A flat inner panel: stat blocks and grouped readouts inside a card. */
 .pon-panel,
 .surface-panel {
-    background: var(--pon-bg-2);
+    background: transparent;
     border: 1px solid var(--pon-line);
     border-radius: var(--pon-r-md);
 }
 
-/* Section label above a group of controls. */
 .pon-section-label {
-    font-size: 12px;
+    font-family: var(--font-utility);
+    font-size: 11px;
     line-height: 1.4;
-    letter-spacing: 0.125em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--pon-fg-3);
 }
 
-/* Pons frames its accent moments with a lime hairline over a fading tint. */
-.pon-accent-frame {
-    border: 1px solid var(--pon-lime);
+/* The emphasised frame: a full-strength ink hairline over the cream tint. */
+.pon-accent-frame,
+.firm-cream {
+    border: 1px solid var(--pon-ink);
     border-radius: var(--pon-r-lg);
-    background: linear-gradient(180deg, var(--pon-lime-dim), transparent);
+    background: var(--pon-lime-dim);
 }
 
-/* The radial accent bloom Pons drops into hero and page headers. Paint it on a
-   `::before`-style absolute child so it never affects layout. */
-.pon-bloom {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(320px 160px at 90% 10%, var(--pon-glow), transparent 70%);
+/* The inverted block — ink fill, lime type. The strongest thing the system
+   can do to a box. */
+.firm-solid {
+    background: var(--pon-ink);
+    color: var(--pon-on-lime);
+    border-radius: var(--pon-r-lg);
 }
 
+/* The bloom this system inherited has nothing to paint: The Firm has no
+   glows. Kept as a no-op so the components that render one stay valid. */
+.pon-bloom,
 .pon-bloom-lg {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(420px 220px at 88% 20%, var(--pon-glow), transparent 70%);
+    display: none;
 }
 
-/* Hairline rules. */
-.rule-fade {
+/* Hairline rules — flat, full strength, no fade. The Firm rules a page the
+   way a newspaper does. */
+.rule-fade,
+.rule-center,
+.firm-rule {
     height: 1px;
-    background: linear-gradient(to right, var(--pon-line-2), transparent);
+    background: var(--pon-line);
 }
 
-.rule-center {
-    height: 1px;
-    background: linear-gradient(to right, transparent, var(--pon-line-2), transparent);
-}
-
-/* Legacy gradient-ring card, retuned to the Pons frame. */
 .surface-ring {
     position: relative;
-    border-radius: var(--pon-r-2xl);
-    padding: 1px;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.06), transparent);
+    border-radius: var(--pon-r-lg);
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--pon-line);
 }
 
 .surface-ring > * {
-    background: var(--pon-surface);
-    border-radius: calc(var(--pon-r-2xl) - 1px);
+    background: transparent;
+    border-radius: 0;
     height: 100%;
     width: 100%;
+}
+
+/* ------------------------------------------------------------ structure --
+   The vertical column rules that run the full height of the page behind
+   everything, and the horizontal rules that divide it into bands. This is the
+   device that makes the layout read as a ruled sheet rather than a stack of
+   cards. */
+
+.firm-rules {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.firm-rules::before,
+.firm-rules::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--pon-line);
+}
+
+.firm-rules::before {
+    left: max(0px, calc((100vw - var(--rule-max)) / 2));
+}
+
+.firm-rules::after {
+    right: max(0px, calc((100vw - var(--rule-max)) / 2));
+}
+
+/* A band: a full-bleed section closed by a hairline at its foot. */
+.firm-band {
+    border-bottom: 1px solid var(--pon-line);
+}
+
+/* A grid of cells divided by hairlines rather than by gaps — the shape The
+   Firm uses for its trade list and its stat rows. The rules are the grid's own
+   1px gaps showing the ruled ground through; each cell fills itself in the
+   markup, so a hover state can still paint over it and no cell needs to know
+   which row or column it landed in. */
+.firm-grid {
+    display: grid;
+    gap: 1px;
+    background: var(--pon-line);
+}
+
+/* Barber-pole hatching, for the frame around a media block and for the
+   "nothing here" state. */
+.firm-stripe {
+    background-image: repeating-linear-gradient(
+        45deg,
+        var(--pon-ink) 0,
+        var(--pon-ink) 2px,
+        transparent 2px,
+        transparent 8px
+    );
+}
+
+/* Halftone — the dot screen The Firm prints its imagery through. */
+.firm-halftone {
+    background-image: radial-gradient(var(--pon-ink) 1px, transparent 1px);
+    background-size: 4px 4px;
 }
 
 /* ------------------------------------------------------------ animations */
 
 @keyframes ponPulse {
-    0%, 100% { opacity: 0.55; }
+    0%, 100% { opacity: 0.35; }
     50% { opacity: 1; }
 }
 
@@ -450,7 +623,7 @@ body {
 }
 
 .animate-pon-pulse {
-    animation: ponPulse 1.6s ease-in-out infinite;
+    animation: ponPulse 1.6s steps(2, end) infinite;
 }
 
 .animate-pon-rise {
@@ -459,30 +632,20 @@ body {
 }
 
 @keyframes rise-in {
-    from { opacity: 0; transform: translateY(24px); }
+    from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: none; }
 }
 
-@keyframes glow-breathe {
-    0%, 100% { opacity: 0.55; transform: scale(1); }
-    50% { opacity: 0.85; transform: scale(1.06); }
-}
-
-@keyframes float-slow {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
 .animate-rise-in {
-    animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.animate-glow-breathe {
-    animation: glow-breathe 7s ease-in-out infinite;
-}
-
+/* The breathing glow and the float belong to the system this replaces. They
+   resolve to nothing rather than being deleted, because call sites still ask
+   for them and a still element is the correct answer here. */
+.animate-glow-breathe,
 .animate-float-slow {
-    animation: float-slow 6s ease-in-out infinite;
+    animation: none;
 }
 
 @keyframes scroll-ticker {
@@ -508,81 +671,48 @@ body {
     animation: scroll-ticker-reverse var(--scroll-ticker-duration, 90s) linear infinite;
 }
 
-@keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
 .animate-gradient-shift {
-    background-size: 200% 200%;
-    animation: gradient-shift 4s ease infinite;
+    animation: none;
 }
 
 .perspective-1000 {
-    perspective: 1000px;
+    perspective: none;
 }
 
 .tilt-hero {
-    transform: rotateX(6deg) scale(0.98);
-    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: none;
 }
 
-.tilt-hero:hover {
-    transform: rotateX(0deg) scale(1);
-}
-
-/* ------------------------------------------------------------ atmosphere */
-
-@keyframes aurora-drift {
-    0% { transform: translate3d(-6%, -3%, 0); }
-    33% { transform: translate3d(7%, 4%, 0); }
-    66% { transform: translate3d(-3%, 7%, 0); }
-    100% { transform: translate3d(-6%, -3%, 0); }
-}
+/* ------------------------------------------------------------ atmosphere --
+   There is none. The aurora and the grid floor are the previous system's
+   atmosphere; both are neutralised here so a page that still renders one is
+   simply flat. */
 
 .aurora {
-    position: absolute;
-    border-radius: 9999px;
-    background: radial-gradient(closest-side, var(--aurora, var(--pon-glow)), transparent 72%);
-    will-change: transform;
-    animation: aurora-drift 26s ease-in-out infinite;
+    display: none;
 }
 
 .grid-floor {
     background-image:
-        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        linear-gradient(to right, var(--pon-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--pon-line) 1px, transparent 1px);
     background-size: 64px 64px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
-    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
-}
-
-@keyframes sheen {
-    from { transform: translateX(-120%) skewX(-18deg); }
-    to { transform: translateX(220%) skewX(-18deg); }
+    mask-image: none;
+    -webkit-mask-image: none;
+    opacity: 0.5;
 }
 
 .group:hover .sheen {
-    animation: sheen 0.9s ease-out;
+    animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .animate-rise-in,
-    .animate-glow-breathe,
-    .animate-float-slow,
     .animate-scroll-ticker,
     .animate-scroll-ticker-reverse,
     .animate-pon-pulse,
-    .animate-pon-rise,
-    .aurora,
-    .group:hover .sheen {
+    .animate-pon-rise {
         animation: none !important;
-    }
-
-    .tilt-hero {
-        transform: none;
-        transition: none;
     }
 }
 
@@ -608,12 +738,12 @@ body {
 
 * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(155, 155, 155, 0.4) transparent;
+    scrollbar-color: var(--pon-line-2) transparent;
 }
 
 *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 
 *::-webkit-scrollbar-track {
@@ -621,49 +751,50 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-    background: rgba(155, 155, 155, 0.4);
-    border-radius: 10px;
-    border: 2px solid transparent;
+    background: var(--pon-line-2);
+    border-radius: 0;
+    border: 3px solid transparent;
     background-clip: content-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background: rgba(155, 155, 155, 0.7);
+    background: var(--pon-ink);
     background-clip: content-box;
 }
 
 button {
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
     cursor: pointer;
 }
 
-/* Range input, retuned to the Pons accent. */
+/* Range input — a square handle on a ruled track. */
 .slider {
     -webkit-appearance: none;
     appearance: none;
     background: var(--pon-bg-2);
     outline: none;
-    border-radius: var(--pon-r-pill);
+    border: 1px solid var(--pon-line);
+    border-radius: 0;
 }
 
 .slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--pon-lime);
+    width: 14px;
+    height: 14px;
+    border-radius: 0;
+    background: var(--pon-ink);
     cursor: pointer;
-    border: 2px solid var(--pon-bg);
+    border: 0;
 }
 
 .slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--pon-lime);
+    width: 14px;
+    height: 14px;
+    border-radius: 0;
+    background: var(--pon-ink);
     cursor: pointer;
-    border: 2px solid var(--pon-bg);
+    border: 0;
 }
 
 /* ---------------------------------------------------------- third party */
@@ -689,5 +820,4 @@ button {
     left: 0;
     border: 0;
     background-color: var(--pon-bg-2);
-    filter: brightness(0.8) contrast(1.15);
 }

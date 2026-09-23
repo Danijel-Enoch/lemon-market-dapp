@@ -6,36 +6,41 @@ import { cn } from "../utils";
 /**
  * Badge.
  *
- * Pons splits small labels in two. Chips are pills and describe a thing you
- * could act on — a token, an address, a filter. Tags are 8px-radius boxes and
- * describe a state a thing is already in — "Graduated", "Perp", "20x". The
- * default here is the tag, because that is what a badge is used for; `chip`
- * and its variants cover the pill side.
+ * All small labels are the same shape here — a monospaced box on a 2px corner
+ * — and they differ only in how they are filled. A state is a bare hairline or
+ * the cream tint; a thing you could act on is the paper inversion, which is
+ * what The Firm does with its "BREAKING" chips and its token pills. The
+ * chip/tag split the previous system drew by radius is now drawn by fill, so
+ * the variant names survive and the shapes agree.
  */
 const badgeVariants = cva(
-	"inline-flex w-fit shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border font-semibold [&>svg]:size-3 [&>svg]:pointer-events-none overflow-hidden transition-colors",
+	"inline-flex w-fit shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--pon-r-sm)] border font-mono font-normal tracking-[-0.02em] [&>svg]:size-3 [&>svg]:pointer-events-none overflow-hidden transition-colors",
 	{
 		variants: {
 			variant: {
-				/* Tag — a state. */
+				/* The cream tint — the one colour the field carries. */
 				default:
-					"rounded-[var(--pon-r-sm)] border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10px] text-[var(--pon-lime)]",
+					"border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10.5px] text-[var(--pon-ink)]",
 				neutral:
-					"rounded-[var(--pon-r-sm)] border-[var(--pon-line-2)] bg-black/55 px-2.5 py-1 text-[11px] text-[var(--pon-fg)]",
+					"border-[var(--pon-line-2)] bg-transparent px-2 py-0.5 text-[11px] text-[var(--pon-fg)]",
 				secondary:
-					"rounded-[var(--pon-r-sm)] border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-2.5 py-1 text-[11px] font-normal text-[var(--pon-fg-2)]",
+					"border-[var(--pon-line)] bg-transparent px-2 py-0.5 text-[11px] text-[var(--pon-fg-2)]",
 				outline:
-					"rounded-[var(--pon-r-sm)] border-[var(--pon-line)] px-2.5 py-1 text-[11px] font-normal text-[var(--pon-fg-3)]",
+					"border-[var(--pon-line)] bg-transparent px-2 py-0.5 text-[11px] text-[var(--pon-fg-3)]",
 				destructive:
-					"rounded-[var(--pon-r-sm)] border-[var(--pon-down)] bg-[var(--pon-down)]/12 px-2 py-0.5 text-[10px] text-[var(--pon-down)]",
-				/* Chip — a thing. */
-				chip: "rounded-full border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-3 py-1.5 text-xs font-normal text-[var(--pon-fg-2)]",
+					"border-[var(--pon-down)] bg-transparent px-2 py-0.5 text-[10.5px] text-[var(--pon-down)]",
+				/* Chips — same box, filled. */
+				chip: "border-[var(--pon-line)] bg-transparent px-2.5 py-1 text-[11px] text-[var(--pon-fg-2)]",
 				"chip-outline":
-					"rounded-full border-[var(--pon-line)] bg-transparent px-3 py-1.5 text-xs font-normal text-[var(--pon-fg-2)]",
+					"border-[var(--pon-line)] bg-transparent px-2.5 py-1 text-[11px] text-[var(--pon-fg-2)]",
 				"chip-accent":
-					"rounded-full border-transparent bg-[var(--pon-lime-dim)] px-2.5 py-1 text-[10px] text-[var(--pon-lime)]",
+					"border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] px-2 py-0.5 text-[10.5px] text-[var(--pon-ink)]",
+				/* The paper inversion — the loudest small label in the system. */
 				"chip-solid":
-					"rounded-full border-transparent bg-[var(--pon-lime)] px-3 py-1.5 text-xs text-[var(--pon-on-lime)]",
+					"border-[var(--pon-paper)] bg-[var(--pon-paper)] px-2.5 py-1 text-[11px] text-[var(--pon-ink)]",
+				/* The ink inversion. */
+				"chip-ink":
+					"border-[var(--pon-ink)] bg-[var(--pon-ink)] px-2.5 py-1 text-[11px] text-[var(--pon-on-lime)]",
 			},
 		},
 		defaultVariants: {
@@ -58,13 +63,13 @@ function Badge({
 }
 
 /**
- * Token chip — the pill with a colour dot Pons uses to name an asset inline,
- * in swap fields and amount rows.
+ * Token chip — a named asset inline. The colour swatch is a square, because a
+ * system printed on a 4px grid has no circles in it that are not a logo.
  */
 function TokenChip({
 	symbol,
-	color = "var(--pon-lime)",
-	round = true,
+	color = "var(--pon-ink)",
+	round = false,
 	className,
 }: {
 	symbol: string;
@@ -75,13 +80,13 @@ function TokenChip({
 	return (
 		<span
 			className={cn(
-				"inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--pon-line)] bg-[var(--pon-surface-2)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)]",
+				"inline-flex shrink-0 items-center gap-1.5 rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-2.5 py-1 font-mono text-[11px] tracking-[-0.02em] text-[var(--pon-fg-2)]",
 				className,
 			)}
 		>
 			<span
 				aria-hidden
-				className={cn("size-3.5 shrink-0", round ? "rounded-full" : "rounded-[4px]")}
+				className={cn("size-2.5 shrink-0", round ? "rounded-full" : "rounded-none")}
 				style={{ background: color }}
 			/>
 			{symbol}
@@ -89,12 +94,12 @@ function TokenChip({
 	);
 }
 
-/** Address chip — tabular, hairline, no fill. */
+/** Address chip — the contract-address treatment, mono and boxed. */
 function AddressChip({ address, className }: { address: string; className?: string }) {
 	return (
 		<span
 			className={cn(
-				"font-fono inline-flex w-fit items-center rounded-full border border-[var(--pon-line)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)]",
+				"font-fono inline-flex w-fit items-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-2.5 py-1 text-[11px] text-[var(--pon-fg-2)]",
 				className,
 			)}
 		>
@@ -103,13 +108,13 @@ function AddressChip({ address, className }: { address: string; className?: stri
 	);
 }
 
-/** Live indicator — the pulsing lime dot Pons puts on streaming panels. */
+/** Live indicator — a blinking square, stepped rather than eased. */
 function LiveDot({ label = "Live", className }: { label?: string; className?: string }) {
 	return (
 		<span
-			className={cn("inline-flex items-center gap-1.5 t-micro text-[var(--pon-lime)]", className)}
+			className={cn("firm-label inline-flex items-center gap-1.5 text-[var(--pon-fg)]", className)}
 		>
-			<span aria-hidden className="animate-pon-pulse size-1.5 rounded-full bg-[var(--pon-lime)]" />
+			<span aria-hidden className="animate-pon-pulse size-1.5 bg-[var(--pon-ink)]" />
 			{label}
 		</span>
 	);

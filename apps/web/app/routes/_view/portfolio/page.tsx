@@ -90,9 +90,9 @@ export default function PortfolioPage() {
 									className={cn(
 										"rounded-[var(--pon-r-lg,16px)] border p-5",
 										claimable
-											? "border-[var(--pon-lime)]/30 bg-[var(--pon-lime-dim)]"
+											? "border-[var(--pon-ink)] bg-[var(--pon-lime-dim)]"
 											: overdue
-												? "border-[var(--pon-down)]/30 bg-[var(--pon-down)]/5"
+												? "border-[var(--pon-down)] bg-[var(--pon-lime-dim)]"
 												: "border-[var(--pon-line)] bg-[var(--pon-bg-2)]",
 									)}
 								>
@@ -122,7 +122,7 @@ export default function PortfolioPage() {
 											{claimable ? (
 												<Link
 													to={`/vaults/${w.vault}`}
-													className="rounded-full bg-[var(--pon-lime)] px-3 py-1.5 text-xs font-medium text-[var(--pon-on-lime)]"
+													className="rounded-[var(--pon-r-sm)] bg-[var(--pon-lime)] px-3 py-1.5 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-on-lime)]"
 												>
 													Claim
 												</Link>
@@ -170,7 +170,7 @@ export default function PortfolioPage() {
 								<li key={vault.address}>
 									<Link
 										to={`/vaults/${vault.address}`}
-										className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-[var(--pon-surface)]"
+										className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-[var(--pon-lime-dim)]"
 									>
 										<div className="min-w-0">
 											<p className="font-medium text-[var(--pon-fg-0)]">

@@ -29,15 +29,11 @@ export function EmptyState({
 }: EmptyStateProps) {
 	return (
 		<div className={cn("flex flex-col items-center justify-center py-10 text-center", className)}>
-			<div className="mb-4 flex size-12 items-center justify-center rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+			<div className="mb-4 flex size-11 items-center justify-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-lime-dim)]">
 				<Icon className="size-5 text-[var(--pon-fg-3)]" />
 			</div>
-			<h3 className="text-[15px] font-semibold text-[var(--pon-fg)]">{title}</h3>
-			{description && (
-				<p className="mt-1.5 max-w-md text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">
-					{description}
-				</p>
-			)}
+			<h3 className="t-h3 text-[var(--pon-fg-0)]">{title}</h3>
+			{description && <p className="mt-2 max-w-md t-body text-[var(--pon-fg-2)]">{description}</p>}
 			{action && <div className="mt-4">{action}</div>}
 		</div>
 	);

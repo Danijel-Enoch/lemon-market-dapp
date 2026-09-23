@@ -12,7 +12,7 @@
 		"imageUrl": "https://lemonmarkets.xyz/image/features-image.png",
 		"buttonTitle": "Start Trading",
 		"splashImageUrl": "https://lemonmarkets.xyz/image/logo.png",
-		"splashBackgroundColor": "#000000",
+		"splashBackgroundColor": "#a3e635",
 		"description": "A decentralized trading platform for perpetual futures",
 		"subtitle": "Trade perps with leverage",
 		"primaryCategory": "finance",

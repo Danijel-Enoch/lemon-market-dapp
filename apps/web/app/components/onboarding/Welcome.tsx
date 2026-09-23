@@ -39,14 +39,14 @@ function LegsArt() {
 	return (
 		<div className="flex w-full items-end justify-center gap-3" aria-hidden>
 			<div className="flex flex-1 flex-col items-center gap-2">
-				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-lime)]/10 to-[var(--pon-lime)]/45" />
+				<div className="h-24 w-full border border-[var(--pon-ink)] bg-[var(--pon-lime-dim)]" />
 				<span className="t-micro text-[var(--pon-fg-2)]">OWN IT</span>
 			</div>
-			<div className="mb-7 shrink-0 rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-1.5">
+			<div className="mb-7 shrink-0 rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] p-1.5">
 				<ArrowLeftRight size={14} className="text-[var(--pon-fg-3)]" />
 			</div>
 			<div className="flex flex-1 flex-col items-center gap-2">
-				<div className="h-24 w-full rounded-t-[var(--pon-r-md)] bg-gradient-to-t from-[var(--pon-lime)]/10 to-[var(--pon-lime)]/45" />
+				<div className="h-24 w-full border border-[var(--pon-ink)] bg-[var(--pon-lime-dim)]" />
 				<span className="t-micro text-[var(--pon-fg-2)]">HEDGE IT</span>
 			</div>
 		</div>
@@ -62,7 +62,7 @@ function YieldArt() {
 					<span>WHAT THE MARKET PAYS</span>
 					<span className="text-[var(--pon-up)]">+10.95%</span>
 				</div>
-				<div className="h-3 w-full rounded-full bg-[var(--pon-up)]/40" />
+				<div className="h-3 w-full border border-[var(--pon-up)] bg-[var(--pon-up)]/25" />
 			</div>
 			<div className="space-y-1.5">
 				<div className="flex justify-between t-micro text-[var(--pon-fg-3)]">
@@ -71,14 +71,14 @@ function YieldArt() {
 						−{ROUND_TRIP_FEE_PERCENT.toFixed(2)}% + slippage
 					</span>
 				</div>
-				<div className="h-3 w-2/5 rounded-full bg-[var(--pon-down)]/40" />
+				<div className="h-3 w-2/5 border border-[var(--pon-down)] bg-[var(--pon-down)]/25" />
 			</div>
 			<div className="space-y-1.5 border-t border-[var(--pon-line)] pt-3">
 				<div className="flex justify-between t-micro text-[var(--pon-fg-3)]">
 					<span>WHAT YOU KEEP</span>
 					<span className="font-semibold text-[var(--pon-lime)]">NET APY</span>
 				</div>
-				<div className="h-3 w-3/5 rounded-full bg-[var(--pon-lime)]" />
+				<div className="h-3 w-3/5 bg-[var(--pon-ink)]" />
 			</div>
 		</div>
 	);
@@ -94,7 +94,7 @@ function FundingArt() {
 			].map((box) => (
 				<div
 					key={box.label}
-					className="rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-3.5"
+					className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] p-3.5"
 				>
 					<p className="t-micro text-[var(--pon-fg-3)]">{box.label}</p>
 					<p className="font-fono mt-1 text-[13px] font-semibold text-[var(--pon-fg)]">{box.sub}</p>
@@ -115,9 +115,9 @@ function RiskArt() {
 			].map((risk) => (
 				<div
 					key={risk}
-					className="flex items-center gap-2.5 rounded-[var(--pon-r-md)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/[0.06] px-3.5 py-2.5"
+					className="flex items-center gap-2.5 rounded-[var(--pon-r-sm)] border border-[var(--pon-amber)] px-3.5 py-2.5"
 				>
-					<span className="size-1.5 shrink-0 rounded-full bg-[var(--pon-amber)]" />
+					<span className="size-1.5 shrink-0 bg-[var(--pon-amber)]" />
 					<span className="text-[12.5px] text-[var(--pon-fg-2)]">{risk}</span>
 				</div>
 			))}
@@ -225,7 +225,7 @@ export function Welcome({ onDone }: { onDone: () => void }) {
 				<button
 					type="button"
 					onClick={onDone}
-					className="rounded-full px-3 py-1.5 t-caption text-[var(--pon-fg-3)] transition-colors hover:text-[var(--pon-fg)]"
+					className="px-3 py-1.5 t-caption text-[var(--pon-fg-3)] transition-colors hover:text-[var(--pon-fg)]"
 				>
 					Skip
 				</button>
@@ -260,7 +260,7 @@ export function Welcome({ onDone }: { onDone: () => void }) {
 							aria-label={`Go to slide ${dot + 1}`}
 							aria-current={dot === index}
 							className={cn(
-								"h-1.5 rounded-full transition-all",
+								"h-1.5 transition-all",
 								dot === index
 									? "w-6 bg-[var(--pon-lime)]"
 									: "w-1.5 bg-[var(--pon-line-2)] hover:bg-[var(--pon-fg-4)]",

@@ -90,11 +90,11 @@ export function WrongNetworkBanner({
 		<div
 			className={
 				className ??
-				"flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-warn,#a16207)] bg-[var(--pon-surface)] px-4 py-3"
+				"flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-lg)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] px-4 py-3"
 			}
 		>
 			<div className="min-w-0 text-sm">
-				<p className="font-medium text-[var(--pon-fg-0)]">Wrong network</p>
+				<p className="firm-label text-[var(--pon-fg-0)]">Wrong network</p>
 				<p className="text-[var(--pon-fg-3)]">
 					This vault is on {chain.name}. Switch, and your wallet will add it if it does not have it
 					yet.
@@ -106,14 +106,14 @@ export function WrongNetworkBanner({
 					type="button"
 					onClick={promptSwitch}
 					disabled={isSwitching}
-					className="rounded-full bg-[var(--pon-lime)] px-3.5 py-1.5 text-xs font-semibold text-[var(--pon-on-lime)] disabled:opacity-60"
+					className="rounded-[var(--pon-r-sm)] bg-[var(--pon-lime)] px-3.5 py-1.5 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-on-lime)] disabled:opacity-45"
 				>
 					{isSwitching ? "Switching…" : `Switch to ${chain.name}`}
 				</button>
 				<button
 					type="button"
 					onClick={() => setDismissed(true)}
-					className="rounded-full border border-[var(--pon-line-2)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)]"
+					className="rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-3 py-1.5 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-fg-2)]"
 				>
 					Dismiss
 				</button>

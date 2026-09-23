@@ -1,17 +1,7 @@
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { formatPercent, formatUsdCompact, useProtocolStats, useVaults } from "@lemon/client";
 import { Button, cn, RiskBadge, Skeleton } from "@lemon/ui";
-import {
-	ArrowRight,
-	Ban,
-	ChevronRight,
-	Eye,
-	Landmark,
-	Radio,
-	ShieldCheck,
-	Timer,
-	Wallet,
-} from "lucide-react";
+import { Ban, Eye, Landmark, Radio, ShieldCheck, Timer, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import type { MetaFunction } from "react-router";
 import { Link, useNavigate } from "react-router";
@@ -39,6 +29,11 @@ export const meta: MetaFunction = () => [
  * want a vault and are choosing between them. So the ordering here is the
  * order of the questions someone actually asks: what is it, does it work,
  * what stops the agent running off with the money, and what can go wrong.
+ *
+ * It is set as a broadsheet. Sections are bands divided by full-width rules
+ * rather than cards floating on a background, headings are set large in the
+ * serif, and every figure and label is monospaced. Nothing is boxed that a
+ * rule could separate instead.
  *
  * The numbers are live rather than illustrative. A landing page quoting a
  * yield the protocol is not currently paying is the one thing that would make
@@ -70,7 +65,7 @@ export default function LandingPage() {
 		.slice(0, 3);
 
 	return (
-		<div className="space-y-14 md:space-y-24">
+		<div>
 			<Hero stats={stats} />
 			<HowItWorks />
 			<FeaturedVaults vaults={featured} isLoading={isLoading} />
@@ -83,57 +78,94 @@ export default function LandingPage() {
 
 // ---------------------------------------------------------------------------
 
+/** A band: a section closed by a full-width rule, with the page's rhythm. */
+function Band({ children, className }: { children: React.ReactNode; className?: string }) {
+	return (
+		<section className={cn("border-b border-[var(--pon-line)] py-12 md:py-20", className)}>
+			{children}
+		</section>
+	);
+}
+
+/** The masthead for a band — mono caps kicker, serif heading, serif standfirst. */
+function BandHeading({
+	kicker,
+	title,
+	description,
+	className,
+}: {
+	kicker: string;
+	title: React.ReactNode;
+	description?: string;
+	className?: string;
+}) {
+	return (
+		<div className={cn("max-w-3xl", className)}>
+			<p className="firm-label text-[var(--pon-fg-2)]">{kicker}</p>
+			<h2 className="t-h2 mt-3 text-[var(--pon-fg-0)]">{title}</h2>
+			{description && (
+				<p className="t-body mt-4 max-w-[62ch] text-[var(--pon-fg-2)]">{description}</p>
+			)}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+
 function Hero({ stats }: { stats: ReturnType<typeof useProtocolStats>["data"] }) {
 	return (
-		<section className="pt-4 md:pt-10">
-			<span className="inline-flex items-center gap-2 rounded-full border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3 py-1.5 text-[11px] font-medium tracking-wide text-[var(--pon-fg-2)] uppercase">
-				<span className="size-1.5 rounded-full bg-[var(--pon-lime)]" aria-hidden />
-				Fully hedged · Base · USDC
-			</span>
+		<section>
+			{/* The masthead. Set as large as the viewport will carry it, the way a
+			    front page sets its own name — this is the only thing on the page
+			    that is allowed to be this size. */}
+			<div className="border-b border-[var(--pon-line)] pt-6 pb-10 md:pt-16 md:pb-14">
+				<p className="firm-label text-[var(--pon-fg-2)]">Fully hedged · Base · USDC</p>
+				<h1 className="t-display mt-5 text-[var(--pon-fg-0)]">
+					Lemon
+					<br />
+					Markets
+				</h1>
+			</div>
 
-			{/*
-			  clamp() rather than responsive type steps: the headline is the one
-			  place a phone between the breakpoints reads as broken, and three
-			  fixed sizes leave a 430px viewport with the 640px setting.
-			*/}
-			<h1
-				className="mt-5 font-semibold tracking-[-0.03em] text-[var(--pon-fg-0)]"
-				style={{ fontSize: "clamp(2.25rem, 7vw, 4.5rem)", lineHeight: 1.02 }}
-			>
-				Earn from stocks and crypto
-				<br />
-				<span className="text-[var(--pon-lime)]">without betting either way.</span>
-			</h1>
+			{/* The standfirst band: the claim on the left, the way in on the right. */}
+			<div className="grid gap-7 border-b border-[var(--pon-line)] py-8 md:grid-cols-[1fr_auto] md:items-center md:gap-12 md:py-10">
+				<p className="t-body-lg max-w-[46ch] text-[var(--pon-fg-0)]">
+					Earn from stocks and crypto{" "}
+					<em className="not-italic underline decoration-[2px] underline-offset-[5px]">
+						without betting either way
+					</em>
+					.
+				</p>
+				<div className="flex flex-col gap-2.5 sm:flex-row md:shrink-0">
+					<Button asChild size="lg" className="w-full sm:w-auto">
+						<Link to="/vaults">Browse vaults →</Link>
+					</Button>
+					<Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
+						<Link to="/activity">
+							<Radio className="size-4" />
+							Watch the agents
+						</Link>
+					</Button>
+				</div>
+			</div>
 
-			<p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[var(--pon-fg-2)] md:text-lg">
-				Each vault buys a real asset — NVDA on Base, or BTC — and hedges the same size against it,
-				so its value stops following the price. You are not long and you are not short. What is left
-				is the fee traders pay each other to keep their positions open, and the hedged side is the
-				side that collects it. You deposit USDC, hold a share token, and an agent runs it in public.
-				The trade is honest: no drawdown, and no upside either.
-			</p>
-
-			<div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-				<Button asChild size="lg" className="w-full sm:w-auto">
-					<Link to="/vaults">
-						Browse vaults
-						<ArrowRight className="size-4" />
-					</Link>
-				</Button>
-				<Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-					<Link to="/activity">
-						<Radio className="size-4" />
-						Watch the agents live
-					</Link>
-				</Button>
+			{/* The argument, in prose, set in the serif. */}
+			<div className="border-b border-[var(--pon-line)] py-8 md:py-12">
+				<p className="t-body max-w-[70ch] text-[var(--pon-fg-2)]">
+					Each vault buys a real asset — NVDA on Base, or BTC — and hedges the same size against it,
+					so its value stops following the price. You are not long and you are not short. What is
+					left is the fee traders pay each other to keep their positions open, and the hedged side
+					is the side that collects it. You deposit USDC, hold a share token, and an agent runs it
+					in public. The trade is honest: no drawdown, and no upside either.
+				</p>
 			</div>
 
 			{/*
-			  Live, not illustrative. Four across on a phone would give each
-			  figure about 80px, so two rows of two — and the labels stay short
-			  enough not to wrap at that width.
+			  Live, not illustrative. Four cells divided by rules rather than by
+			  gaps — two rows of two on a phone, where four across would give each
+			  figure about 80px.
 			*/}
-			<dl className="mt-10 grid grid-cols-2 gap-3 md:mt-14 md:grid-cols-4">
+			<dl className="firm-grid grid-cols-2 border-b border-[var(--pon-line)] md:grid-cols-4">
 				<HeroStat label="Total deposits" value={formatUsdCompact(stats?.tvl ?? "0")} />
 				<HeroStat label="Deployed" value={formatUsdCompact(stats?.deployed ?? "0")} />
 				<HeroStat label="Vaults" value={String(stats?.vaultCount ?? 0)} />
@@ -145,11 +177,9 @@ function Hero({ stats }: { stats: ReturnType<typeof useProtocolStats>["data"] })
 
 function HeroStat({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-4 md:p-5">
-			<dt className="text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase">
-				{label}
-			</dt>
-			<dd className="mt-2 font-fono text-[22px] font-semibold leading-none tracking-[-0.02em] text-[var(--pon-fg-0)] md:text-[30px]">
+		<div className="bg-[var(--pon-bg)] px-4 py-5 md:px-6 md:py-7">
+			<dt className="firm-label text-[var(--pon-fg-3)]">{label}</dt>
+			<dd className="font-display mt-2 text-[30px] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-[var(--pon-fg-0)] md:text-[40px]">
 				{value}
 			</dd>
 		</div>
@@ -178,33 +208,30 @@ const STEPS = [
 
 function HowItWorks() {
 	return (
-		<section>
-			<SectionHeading
-				eyebrow="How it works"
+		<Band>
+			<BandHeading
+				kicker="How it works"
 				title="Three steps, two of which are not yours"
 				description="Nothing here asks you to have a view. You put USDC in; the vault takes both sides of the same trade so no side is being taken at all."
 			/>
-			<ol className="mt-7 grid gap-3 md:grid-cols-3 md:gap-4">
+			<ol className="firm-grid mt-9 border-y border-[var(--pon-line)] md:grid-cols-3">
 				{STEPS.map((step, i) => {
 					const Icon = step.icon;
 					return (
-						<li
-							key={step.title}
-							className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-6"
-						>
+						<li key={step.title} className="bg-[var(--pon-bg)] px-4 py-6 md:px-6 md:py-8">
 							<div className="flex items-center gap-3">
-								<span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--pon-lime-dim)] text-[var(--pon-lime)]">
-									<Icon className="size-[18px]" aria-hidden />
+								<span className="font-display text-[34px] font-extrabold leading-none tracking-[-0.05em] text-[var(--pon-fg-0)]">
+									0{i + 1}
 								</span>
-								<span className="font-fono text-[13px] text-[var(--pon-fg-4)]">0{i + 1}</span>
+								<Icon className="size-[18px] text-[var(--pon-fg-2)]" aria-hidden />
 							</div>
-							<h3 className="mt-4 font-medium text-[var(--pon-fg-0)]">{step.title}</h3>
-							<p className="mt-2 text-sm leading-relaxed text-[var(--pon-fg-2)]">{step.body}</p>
+							<h3 className="t-h3 mt-4 text-[var(--pon-fg-0)]">{step.title}</h3>
+							<p className="t-body mt-2.5 text-[var(--pon-fg-2)]">{step.body}</p>
 						</li>
 					);
 				})}
 			</ol>
-		</section>
+		</Band>
 	);
 }
 
@@ -222,65 +249,65 @@ function FeaturedVaults({
 	if (!isLoading && vaults.length === 0) return null;
 
 	return (
-		<section>
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<SectionHeading
-					eyebrow="Open now"
+		<Band>
+			<div className="flex flex-wrap items-end justify-between gap-4">
+				<BandHeading
+					kicker="Open now"
 					title="What the vaults have actually paid"
 					description="The percentage is this vault's own share price over the last seven days, annualised — measured, not projected from today's funding rate. Every vault also carries a projection for what it would pay if funding held, which is the figure to look at where there is no history yet."
 				/>
 				<Link
 					to="/vaults"
-					className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-[var(--pon-lime)] hover:underline"
+					className="firm-label shrink-0 border-b border-[var(--pon-ink)] pb-0.5 text-[var(--pon-fg-0)]"
 				>
-					All vaults
-					<ChevronRight className="size-4" />
+					All vaults →
 				</Link>
 			</div>
 
-			<div className="mt-6 grid gap-3 md:grid-cols-3 md:gap-4">
+			<div className="firm-grid mt-9 border-y border-[var(--pon-line)] md:grid-cols-3">
 				{isLoading
 					? [0, 1, 2].map((i) => (
-							<Skeleton key={i} className="h-[152px] w-full rounded-[var(--pon-r-lg,16px)]" />
+							<div key={i} className="bg-[var(--pon-bg)] px-4 py-6 md:px-6 md:py-8">
+								<Skeleton className="h-[120px] w-full" />
+							</div>
 						))
 					: vaults.map((vault) => (
 							<Link
 								key={vault.address}
 								to={`/vaults/${vault.address}`}
-								className="group rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 transition-colors hover:border-[var(--pon-line-2)] hover:bg-[var(--pon-surface)] focus-visible:border-[var(--pon-lime)] focus-visible:outline-none md:p-6"
+								className="group bg-[var(--pon-bg)] px-4 py-6 transition-colors hover:bg-[var(--pon-lime-dim)] md:px-6 md:py-8"
 							>
 								<div className="flex items-center gap-2">
-									<span className="truncate font-medium text-[var(--pon-fg-0)]">
+									<span className="truncate font-mono text-[13px] font-bold tracking-[-0.02em] text-[var(--pon-fg-0)]">
 										{vault.ticker ?? vault.symbol}
 									</span>
 									<RiskBadge tier={vault.tier} leverageLabel={vault.leverageLabel} size="sm" />
 								</div>
-								<p className="mt-1 truncate text-xs text-[var(--pon-fg-3)]">
+								<p className="mt-1 truncate t-caption text-[var(--pon-fg-3)]">
 									{vault.assetClassLabel}
 								</p>
 
 								<p
 									className={cn(
-										"mt-5 font-fono text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums",
+										"font-display mt-6 text-[40px] font-extrabold leading-none tracking-[-0.045em] tabular-nums",
 										(vault.apy7d?.apy ?? 0) >= 0
 											? "text-[var(--pon-up)]"
 											: "text-[var(--pon-down)]",
 									)}
 								>
+									{(vault.apy7d?.apy ?? 0) >= 0 ? "▲" : "▼"}
 									{formatPercent(vault.apy7d?.apy ?? null)}
 								</p>
-								<p className="mt-1.5 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase">
-									7d realised
-								</p>
+								<p className="firm-label mt-2 text-[var(--pon-fg-3)]">7d realised</p>
 
-								<p className="mt-4 border-t border-[var(--pon-line)] pt-3 text-xs text-[var(--pon-fg-3)]">
+								<p className="mt-5 border-t border-[var(--pon-line)] pt-3 t-caption text-[var(--pon-fg-3)]">
 									{formatUsdCompact(vault.totalAssets)} deposited · {vault.depositorCount} depositor
 									{vault.depositorCount === 1 ? "" : "s"}
 								</p>
 							</Link>
 						))}
 			</div>
-		</section>
+		</Band>
 	);
 }
 
@@ -311,29 +338,26 @@ const GUARANTEES = [
 
 function TrustBoundary() {
 	return (
-		<section>
-			<SectionHeading
-				eyebrow="The trust boundary"
+		<Band>
+			<BandHeading
+				kicker="The trust boundary"
 				title="What stops the agent taking the money"
 				description="It is custodial — a contract holds your USDC and an agent trades it. The design does not pretend otherwise. It bounds what a compromised key can do, and makes the rest observable."
 			/>
 
-			<div className="mt-7 grid gap-3 md:grid-cols-2 md:gap-4">
+			<div className="firm-grid mt-9 border-y border-[var(--pon-line)] md:grid-cols-2">
 				{GUARANTEES.map((g) => {
 					const Icon = g.icon;
 					return (
-						<div
-							key={g.title}
-							className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-6"
-						>
-							<Icon className="size-5 text-[var(--pon-lime)]" aria-hidden />
-							<h3 className="mt-3.5 font-medium text-[var(--pon-fg-0)]">{g.title}</h3>
-							<p className="mt-2 text-sm leading-relaxed text-[var(--pon-fg-2)]">{g.body}</p>
+						<div key={g.title} className="bg-[var(--pon-bg)] px-4 py-6 md:px-6 md:py-8">
+							<Icon className="size-5 text-[var(--pon-fg-0)]" aria-hidden />
+							<h3 className="t-h3 mt-4 text-[var(--pon-fg-0)]">{g.title}</h3>
+							<p className="t-body mt-2.5 text-[var(--pon-fg-2)]">{g.body}</p>
 						</div>
 					);
 				})}
 			</div>
-		</section>
+		</Band>
 	);
 }
 
@@ -341,38 +365,42 @@ function TrustBoundary() {
 
 function Risks() {
 	return (
-		<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-8">
-			<h2 className="font-medium text-[var(--pon-fg-0)]">
-				Taking no side is not the same as no risk
-			</h2>
-			<p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--pon-fg-2)]">
-				The hedge removes the price risk and only the price risk. Everything below is still yours,
-				and this is the part a landing page usually leaves out.
-			</p>
-			<ul className="mt-5 grid gap-x-8 gap-y-3 text-sm leading-relaxed text-[var(--pon-fg-2)] md:grid-cols-2">
-				{[
-					"Funding can turn negative, in which case the position pays rather than earns.",
-					"The asset can become illiquid to sell, and a vault whose pool has dried up cannot be exited at the marked price.",
-					"A leveraged vault's hedge carries a liquidation price. The conservative tier does not.",
-					"The vault is custodial. Your USDC is held by a contract and traded by an agent.",
-				].map((line) => (
-					<li key={line} className="flex gap-2.5">
-						<span
-							className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[var(--pon-fg-4)]"
-							aria-hidden
-						/>
-						{line}
-					</li>
-				))}
-			</ul>
-			<p className="mt-5 text-xs leading-relaxed text-[var(--pon-fg-4)]">
-				Not investment advice. The contracts have not been independently audited.{" "}
-				<Link to="/docs" className="text-[var(--pon-lime)] hover:underline">
-					Read the docs
-				</Link>{" "}
-				before depositing.
-			</p>
-		</section>
+		<Band>
+			{/* The cream tint — the one fill the field carries, spent here because
+			    this is the section a landing page usually leaves out. */}
+			<div className="firm-cream p-5 md:p-9">
+				<p className="firm-label text-[var(--pon-fg-2)]">Read this part</p>
+				<h2 className="t-h2 mt-3 text-[var(--pon-fg-0)]">
+					Taking no side is not the same as no risk
+				</h2>
+				<p className="t-body mt-4 max-w-[66ch] text-[var(--pon-fg-2)]">
+					The hedge removes the price risk and only the price risk. Everything below is still yours.
+				</p>
+				<ul className="mt-6 grid gap-x-10 border-t border-[var(--pon-line)] md:grid-cols-2">
+					{[
+						"Funding can turn negative, in which case the position pays rather than earns.",
+						"The asset can become illiquid to sell, and a vault whose pool has dried up cannot be exited at the marked price.",
+						"A leveraged vault's hedge carries a liquidation price. The conservative tier does not.",
+						"The vault is custodial. Your USDC is held by a contract and traded by an agent.",
+					].map((line) => (
+						<li
+							key={line}
+							className="flex gap-3 border-b border-[var(--pon-line)] py-3 t-body text-[var(--pon-fg-2)]"
+						>
+							<span className="mt-[9px] size-1.5 shrink-0 bg-[var(--pon-ink)]" aria-hidden />
+							{line}
+						</li>
+					))}
+				</ul>
+				<p className="mt-5 t-caption text-[var(--pon-fg-3)]">
+					Not investment advice. The contracts have not been independently audited.{" "}
+					<Link to="/docs" className="text-[var(--pon-fg-0)] underline underline-offset-[3px]">
+						Read the docs
+					</Link>{" "}
+					before depositing.
+				</p>
+			</div>
+		</Band>
 	);
 }
 
@@ -380,59 +408,24 @@ function Risks() {
 
 function ClosingCta() {
 	return (
-		<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] p-6 text-center md:p-12">
-			<h2
-				className="font-semibold tracking-[-0.02em] text-[var(--pon-fg-0)]"
-				style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)", lineHeight: 1.1 }}
-			>
-				Put your USDC to work. Pick no side.
-			</h2>
-			<p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--pon-fg-2)] md:text-base">
-				Choose a market, and how hard you want that capital working. The agent does the rest, in
-				public.
-			</p>
-			<div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-				<Button asChild size="lg" className="w-full sm:w-auto">
-					<Link to="/vaults">
-						Browse vaults
-						<ArrowRight className="size-4" />
-					</Link>
-				</Button>
-				<Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-					<Link to="/docs">Read the docs</Link>
-				</Button>
+		<section className="py-12 md:py-20">
+			{/* The ink inversion — the page's last word, and the only block on it
+			    that stops the field entirely. */}
+			<div className="firm-ink rounded-[var(--pon-r-lg)] border border-[var(--pon-ink)] px-6 py-10 text-center md:px-12 md:py-16">
+				<h2 className="t-h1 text-[var(--pon-fg-0)]">Put your USDC to work. Pick no side.</h2>
+				<p className="t-body mx-auto mt-4 max-w-[52ch] text-[var(--pon-fg-2)]">
+					Choose a market, and how hard you want that capital working. The agent does the rest, in
+					public.
+				</p>
+				<div className="mt-7 flex flex-col justify-center gap-2.5 sm:flex-row">
+					<Button asChild size="lg" className="w-full sm:w-auto">
+						<Link to="/vaults">Browse vaults →</Link>
+					</Button>
+					<Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
+						<Link to="/docs">Read the docs</Link>
+					</Button>
+				</div>
 			</div>
 		</section>
-	);
-}
-
-// ---------------------------------------------------------------------------
-
-function SectionHeading({
-	eyebrow,
-	title,
-	description,
-}: {
-	eyebrow: string;
-	title: string;
-	description?: string;
-}) {
-	return (
-		<div className="max-w-2xl">
-			<p className="text-[11px] font-medium tracking-wide text-[var(--pon-lime)] uppercase">
-				{eyebrow}
-			</p>
-			<h2
-				className="mt-2 font-semibold tracking-[-0.02em] text-[var(--pon-fg-0)]"
-				style={{ fontSize: "clamp(1.5rem, 3.5vw, 2.25rem)", lineHeight: 1.12 }}
-			>
-				{title}
-			</h2>
-			{description && (
-				<p className="mt-3 text-sm leading-relaxed text-[var(--pon-fg-2)] md:text-[15px]">
-					{description}
-				</p>
-			)}
-		</div>
 	);
 }

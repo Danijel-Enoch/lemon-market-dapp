@@ -20,11 +20,11 @@ import { Outlet } from "react-router";
 export default function ViewLayout() {
 	return (
 		<div className="min-h-dvh bg-[var(--pon-bg)]">
-			<header className="sticky top-0 z-50 border-b border-[var(--pon-line)] bg-[var(--pon-bg)]/90 backdrop-blur">
-				<div className="mx-auto flex w-full max-w-[var(--shell-max)] items-center justify-between gap-4 px-4 py-3">
+			<header className="sticky top-0 z-50 border-b border-[var(--pon-line-2)] bg-[var(--pon-bg)]">
+				<div className="mx-auto flex w-full max-w-[var(--shell-max)] items-center justify-between gap-4 px-4 py-2.5">
 					<div className="flex items-center gap-3">
 						<Brand size={24} />
-						<span className="rounded-full border border-[var(--pon-line-2)] px-2 py-0.5 text-[11px] font-medium tracking-wide text-[var(--pon-fg-3)] uppercase">
+						<span className="firm-label rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-2 py-0.5 text-[var(--pon-fg-3)]">
 							Operator
 						</span>
 					</div>

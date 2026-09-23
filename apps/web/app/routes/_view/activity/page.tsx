@@ -77,19 +77,21 @@ export default function ActivityPage() {
 				</div>
 			)}
 
-			<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 text-sm leading-relaxed text-[var(--pon-fg-3)]">
-				<h2 className="font-medium text-[var(--pon-fg-0)]">What "verified" means here</h2>
-				<p className="mt-2">
+			<section className="t-body rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] p-5 text-[var(--pon-fg-2)]">
+				<h2 className="t-h3 text-[var(--pon-fg-0)]">What "verified" means here</h2>
+				<p className="mt-3">
 					Each row is something an agent reported to its vault contract on Base. The contract cannot
 					check a Solana fill from Base, so these are the agent's own account of itself — and we say
 					so on every row rather than presenting them all as established fact.
 				</p>
-				<p className="mt-2">
+				<p className="mt-3">
 					What makes them checkable anyway is the reference. Each names a real transaction on a
 					public chain, so it can be fetched and compared against what was claimed. A row marked{" "}
-					<span className="text-[var(--pon-up)]">verified</span> has been; one marked{" "}
-					<span className="text-[var(--pon-down)]">does not check out</span> has been and disagrees.
-					An unverified row has not been checked yet, which is not the same as being wrong.
+					<span className="font-mono text-[13px] text-[var(--pon-up)]">verified</span> has been; one
+					marked{" "}
+					<span className="font-mono text-[13px] text-[var(--pon-down)]">does not check out</span>{" "}
+					has been and disagrees. An unverified row has not been checked yet, which is not the same
+					as being wrong.
 				</p>
 			</section>
 		</div>

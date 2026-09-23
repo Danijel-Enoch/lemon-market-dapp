@@ -79,7 +79,7 @@ export default function StatsPage() {
 			{/* Anything wrong goes first. Burying it under TVL would be the whole
 			    problem with a stats page. */}
 			{problems > 0 && (
-				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-4">
+				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-4">
 					<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 					<div className="text-sm text-[var(--pon-fg-2)]">
 						<p className="font-medium text-[var(--pon-fg-0)]">Not everything is healthy</p>
@@ -210,7 +210,7 @@ export default function StatsPage() {
 							<li key={v.address}>
 								<Link
 									to={`/vaults/${v.address}`}
-									className="grid grid-cols-2 gap-3 px-5 py-3.5 hover:bg-[var(--pon-surface)] md:grid-cols-[2fr_1fr_1fr_1fr] md:gap-4"
+									className="grid grid-cols-2 gap-3 px-5 py-3.5 hover:bg-[var(--pon-lime-dim)] md:grid-cols-[2fr_1fr_1fr_1fr] md:gap-4"
 								>
 									<div className="min-w-0">
 										<span className="font-medium text-[var(--pon-fg-0)]">

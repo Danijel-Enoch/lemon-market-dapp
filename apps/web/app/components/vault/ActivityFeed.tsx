@@ -107,7 +107,7 @@ function ActivityRow({ row, showVault }: { row: Activity; showVault: boolean }) 
 	return (
 		<li className="px-4 py-3.5 sm:px-5">
 			<div className="flex items-start gap-3">
-				<div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--pon-line-2)] bg-[var(--pon-surface)]">
+				<div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)]">
 					<Icon className="size-4 text-[var(--pon-fg-2)]" />
 				</div>
 
@@ -196,10 +196,10 @@ function ChainChip({ label }: { label: string }) {
 	return (
 		<span
 			className={cn(
-				"rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase",
+				"firm-label rounded-[var(--pon-r-sm)] border px-1.5 py-0.5 text-[10px]",
 				label === "Base"
-					? "bg-[var(--pon-accent-2)]/15 text-[var(--pon-accent-2)]"
-					: "bg-[var(--pon-purple)]/15 text-[var(--pon-purple)]",
+					? "border-[var(--pon-accent-2)] text-[var(--pon-accent-2)]"
+					: "border-[var(--pon-purple)] text-[var(--pon-purple)]",
 			)}
 		>
 			{label}

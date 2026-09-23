@@ -227,7 +227,7 @@ export function CreateVaultDialog({
 
 				{done ? (
 					<div className="mt-5 space-y-4">
-						<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-lime)]/30 bg-[var(--pon-lime-dim)] p-4">
+						<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] p-4">
 							<Check className="mt-0.5 size-4 shrink-0 text-[var(--pon-lime)]" />
 							<div className="text-sm">
 								<p className="font-medium text-[var(--pon-fg-0)]">Vault created</p>
@@ -272,7 +272,7 @@ export function CreateVaultDialog({
 						</div>
 
 						{existing && (
-							<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-4 text-sm text-[var(--pon-fg-2)]">
+							<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-4 text-sm text-[var(--pon-fg-2)]">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 								<p>
 									A {tier} vault for {market.ticker} already exists at {shortAddress(existing)}. One
@@ -323,7 +323,7 @@ export function CreateVaultDialog({
 						)}
 
 						{shownError && (
-							<p className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10 p-3 text-sm text-[var(--pon-down)]">
+							<p className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)] bg-[var(--pon-lime-dim)] p-3 text-sm text-[var(--pon-down)]">
 								{shownError}
 							</p>
 						)}
