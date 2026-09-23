@@ -1479,6 +1479,115 @@ describe("a rebalance the venue would refuse", () => {
 		expect(rebalance?.market).toBe("NVDA");
 		// Two units at $100, which clears the $10 minimum many times over.
 		expect(rebalance?.reason ?? "").toContain("$200.00");
+		expect(rebalance?.rebalanceSide).toBe("PERP");
+	});
+});
+
+/**
+ * The correction the perp venue refuses, made on the spot leg instead.
+ *
+ * These are the live numbers from the NVDA vault on 2026-09-22, and they are the
+ * reason this path exists. A mandate breach asked for a partial close; the short
+ * was reduced by 0.013 and the spot sale behind it never happened. That left
+ * 0.0151 units of unhedged spot — a $3.39 correction against a $10 minimum order
+ * — and reducing the short had *also* taken leverage from 0.99x back to 0.79x,
+ * which cleared the breach that would have retried the close. Nothing
+ * re-triggered, and the perp leg could not express a correction that small, so
+ * the drift stood indefinitely while the vault reported itself healthy.
+ *
+ * The gap is fixed in units, so it does not clear as the position grows: at
+ * 0.0151 NVDA, the underlying would have to reach $663 for it to clear $10 on
+ * its own.
+ */
+describe("a rebalance the perp venue refuses but the spot leg can make", () => {
+	/** Spot 0.07208767 against a short of 0.057, priced off a live sell quote. */
+	const stranded = (overrides: Partial<MarketSnapshot> = {}) =>
+		withMarket({
+			spotUnits: 72_087_670_000_000_000n,
+			perpUnits: 57_000_000_000_000_000n,
+			spotValueUsdc: 16_243_448n,
+			markPriceUsd: 224.866942,
+			lotSize: 0.001,
+			minOrderUsd: 10,
+			spotGasUsd: 0.005,
+			spotImpactPercent: 0.02,
+			...overrides,
+		});
+
+	it("offers the correction on the spot side when the perp venue will not take it", () => {
+		// The perp-side correction really is refused: $3.39 against a $10 floor.
+		expect(driftBps(72_087_670_000_000_000n, 57_000_000_000_000_000n)).toBe(2_092);
+
+		const rebalance = permittedActions(stranded(), NOW).find((o) => o.kind === "REBALANCE");
+		expect(rebalance?.rebalanceSide).toBe("SPOT");
+		expect(rebalance?.market).toBe("NVDA");
+	});
+
+	/** The operator is told which leg moves, because the two do different things. */
+	it("says the holding is being sold down rather than the hedge traded", () => {
+		const rebalance = permittedActions(stranded(), NOW).find((o) => o.kind === "REBALANCE");
+		expect(rebalance?.reason ?? "").toContain("sold down to match the short");
+		// Valued at the spot price ($3.40), not the mark ($3.39) — the two differ
+		// by the basis the vault exists to earn.
+		expect(rebalance?.reason ?? "").toContain("$3.4 of spot");
+	});
+
+	/**
+	 * The fallback is a fallback. A correction the perp venue would take is still
+	 * made there: one signed API call, no gas, no pool, and the holding that earns
+	 * the funding is left alone.
+	 */
+	it("still prefers the perp leg whenever the venue would accept it", () => {
+		const s = stranded({ minOrderUsd: 1 });
+		expect(permittedActions(s, NOW).find((o) => o.kind === "REBALANCE")?.rebalanceSide).toBe(
+			"PERP",
+		);
+	});
+
+	/** Nothing to sell into is the same problem as a refused order, not a smaller one. */
+	it("is not offered when the spot leg cannot be routed either", () => {
+		const s = stranded({ spotSellable: false });
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	/**
+	 * Sell-only. More short than spot would have to *buy* spot, which spends
+	 * capital this path has not sized and `nextDeployment` already handles.
+	 */
+	it("is not offered when the excess is on the perp side", () => {
+		const s = stranded({
+			spotUnits: 57_000_000_000_000_000n,
+			perpUnits: 72_087_670_000_000_000n,
+		});
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	/**
+	 * A swap's cost is flat, so below the usual payoff multiple the correction is
+	 * mostly fee. Unlike the venue's minimum, this floor really does clear as the
+	 * position grows — the gap is a share of a holding that is getting bigger.
+	 */
+	it("is not offered when the swap would cost more than the drift is worth", () => {
+		const s = stranded({
+			// A $2 holding 21% adrift is a 42-cent correction, against $0.30 of
+			// fixed cost and a payoff multiple of ten.
+			spotValueUsdc: 2_000_000n,
+			spotGasUsd: 0.07,
+		});
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("REBALANCE");
+	});
+
+	/**
+	 * The blocked-hold line used to promise that a refused correction "clears
+	 * itself as the position grows", which is false for exactly this drift and is
+	 * what made the stranded state read as a quiet tick for two weeks.
+	 */
+	it("no longer tells the operator that a blocked drift clears on its own", () => {
+		const hold = permittedActions(stranded({ spotSellable: false }), NOW).find(
+			(o) => o.kind === "HOLD",
+		);
+		expect(hold?.reason ?? "").toContain("off neutral");
+		expect(hold?.reason ?? "").not.toContain("clears itself as the position grows");
 	});
 });
 

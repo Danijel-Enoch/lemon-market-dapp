@@ -273,6 +273,17 @@ export interface Decision {
 	 * spot leg it is supposed to hedge never gets bought.
 	 */
 	legs: DeploymentLegs | null;
+	/**
+	 * Which leg a REBALANCE moves. Null for every other kind.
+	 *
+	 * Carried rather than re-derived in the adapter because the choice is an
+	 * economic one and this file is where those are made: `PERP` is the ordinary
+	 * correction and `SPOT` is the fallback for one the venue will not accept.
+	 * An adapter that decided for itself would have to re-read the venue's floors
+	 * and re-price the swap, and could reach a different answer than the reason
+	 * string the operator was shown. See `rebalancePlan`.
+	 */
+	rebalanceSide: RebalanceSide | null;
 }
 
 /** A deployment's two halves, as the amounts each venue is actually given. */
@@ -543,6 +554,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					forced: true,
 					fundedFrom: null,
 					legs: null,
+					rebalanceSide: null,
 				},
 			];
 		}
@@ -557,6 +569,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 				forced: true,
 				fundedFrom: null,
 				legs: null,
+				rebalanceSide: null,
 			},
 		];
 	}
@@ -584,6 +597,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 					market: null,
 					fundedFrom: null,
 					legs: null,
+					rebalanceSide: null,
 					reason: urgent
 						? `${fmt(owed)} of redemptions are due within a day and the vault holds ${fmt(snapshot.freeAssets)}.`
 						: `${fmt(owed)} of redemptions are eligible and the vault holds ${fmt(snapshot.freeAssets)}.`,
@@ -630,6 +644,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 				forced: false,
 				fundedFrom: null,
 				legs: null,
+				rebalanceSide: null,
 			});
 		}
 	}
@@ -691,7 +706,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 		// to be managed but an outcome that cannot happen. Offering it anyway meant
 		// choosing it, logging it as the tick's action, sending it, and failing, on
 		// every tick, for as long as the drift stood.
-		const placeable = rebalanceIsPlaceable(market);
+		const placeable = rebalancePlan(market);
 		if (!placeable.ok) {
 			// Not an option, and not silent either. The drift is real, and an
 			// operator reading a tick has to be able to tell "nothing is wrong" from
@@ -703,13 +718,21 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			continue;
 		}
 
+		// Named in the reason, because the two corrections do different things to
+		// the depositor's position: one trades the hedge, the other sells part of
+		// the holding the hedge is against.
+		const move =
+			placeable.side === "PERP"
+				? `its perp leg needs to move ${placeable.correctionUsd} to match its spot leg`
+				: `the venue will not accept a correction that small on the perp leg, so ${placeable.correctionUsd} of spot is sold down to match the short instead`;
+
 		options.push({
 			kind: "REBALANCE",
 			amount: 0n,
 			market: market.ticker,
 			reason: snapshot.rebalanceRequested
-				? `An operator asked for a correction: the ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral, and its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`
-				: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral against a ${(threshold / 100).toFixed(1)}% threshold; its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`,
+				? `An operator asked for a correction: the ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral, and ${move}.`
+				: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral against a ${(threshold / 100).toFixed(1)}% threshold; ${move}.`,
 			// Forced when asked for by hand, which takes the advisor out of the loop:
 			// an operator's instruction is not a suggestion for a model to weigh
 			// against doing nothing. It still cannot outrank the obligations above,
@@ -717,6 +740,7 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			forced: snapshot.rebalanceRequested,
 			fundedFrom: null,
 			legs: null,
+			rebalanceSide: placeable.side,
 		});
 	}
 
@@ -740,20 +764,32 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			// quiet tick, and the tick log prints this line. Saying so here is what
 			// stops a vault whose hedge the venue refuses to let it maintain from
 			// reading, minute after minute, as a vault with nothing to do.
+			// Deliberately not "this clears itself as the position grows", which is
+			// what it used to say and was not true. A gap the venue will not let
+			// the perp leg close is fixed in *units*: deployments add matched legs
+			// either side of it, so growth leaves its dollar value untouched and
+			// only a move in the underlying can lift it over the floor. Every
+			// other refusal above — an unroutable pool, a correction not worth its
+			// gas — does clear on its own, so neither reading is safe to assume
+			// and the honest line names none.
 			reason: blocked.length
-				? `Nothing can be done this tick: ${blocked.join("; ")}. Reporting NAV and waiting; this clears itself as the position grows.`
+				? `Nothing can be done this tick: ${blocked.join("; ")}. Reporting NAV and waiting.`
 				: "Nothing needs doing; report NAV and wait.",
 			forced: false,
 			fundedFrom: null,
 			legs: null,
+			rebalanceSide: null,
 		});
 	}
 
 	return options;
 }
 
+/** Which leg a correction is made on. See `rebalancePlan`. */
+export type RebalanceSide = "PERP" | "SPOT";
+
 /**
- * Whether the venue would accept the correction this market's drift implies.
+ * Why the perp venue would refuse this correction, or null if it would take it.
  *
  * Two floors, in two different units, and an order has to clear both. The lot
  * grid bounds the *quantity*: a correction finer than one lot cannot be
@@ -766,40 +802,94 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
  * has not stated one, inventing a stricter one here would stop a hedge being
  * maintained to enforce a constraint that does not exist.
  */
-function rebalanceIsPlaceable(
+function perpRefusal(market: MarketSnapshot, correctionUnits: number, correctionUsd: number) {
+	if (market.lotSize > 0 && Math.floor(correctionUnits / market.lotSize) < 1) {
+		return `a ${correctionUnits} correction is finer than the venue's ${market.lotSize} lot grid`;
+	}
+	if (market.minOrderUsd > 0 && correctionUsd < market.minOrderUsd) {
+		return `the correction is worth $${correctionUsd.toFixed(2)}, under the venue's $${market.minOrderUsd} minimum order`;
+	}
+	return null;
+}
+
+/**
+ * Which leg, if either, can express this market's correction.
+ *
+ * **The perp leg first, and the spot leg only when it cannot.** Correcting on
+ * the perp is one signed API call: no chain, no pool, no gas, and the spot
+ * holding — which is what earns the funding — is left alone. Correcting on the
+ * spot side sells the holding down instead, which costs a swap and shrinks the
+ * position. So it is a fallback, not a choice, and it is offered only once the
+ * venue has refused the cheaper correction outright.
+ *
+ * The fallback exists because the venue's refusal is permanent, not a wait. A
+ * correction under Pacifica's minimum order notional does not become placeable
+ * by sitting there: the gap is fixed in *units*, so growth does not raise its
+ * dollar value and the drift stands until the price of the underlying moves far
+ * enough to lift it over the floor on its own. A vault left in that state holds
+ * unhedged delta indefinitely — which is exactly what a half-executed unwind
+ * produces, where the short was reduced and the spot sale behind it failed.
+ * `closeLeg` already promises the operator that "the next tick rebalances it";
+ * without this that promise cannot be kept for any gap under ten dollars.
+ *
+ * **Sell-only.** The fallback handles an excess of *spot*, which is the drift a
+ * failed close leaves behind and the direction lot-snapping biases towards.
+ * The mirror case — more short than spot — would have to *buy* spot, which
+ * spends capital the vault may not have and which `nextDeployment` already
+ * sizes properly when it does. Refusing it here leaves that to the path that
+ * can fund it.
+ */
+function rebalancePlan(
 	market: MarketSnapshot,
-): { ok: true; correctionUsd: string } | { ok: false; why: string } {
+): { ok: true; side: RebalanceSide; correctionUsd: string } | { ok: false; why: string } {
 	const deltaUnits = market.spotUnits - market.perpUnits;
 	const magnitude = deltaUnits < 0n ? -deltaUnits : deltaUnits;
 	if (magnitude === 0n) return { ok: false, why: "the legs already match" };
-
-	// Units here are the 1e18 basis the two legs are made comparable in, which is
-	// what the venue adapter also places the order in.
-	const correctionUnits = Number(magnitude) / 1e18;
-
-	if (market.lotSize > 0) {
-		const lots = Math.floor(correctionUnits / market.lotSize);
-		if (lots < 1) {
-			return {
-				ok: false,
-				why: `a ${correctionUnits} correction is finer than the venue's ${market.lotSize} lot grid`,
-			};
-		}
-	}
 
 	if (market.markPriceUsd <= 0) {
 		return { ok: false, why: "the perp leg has no mark to size the correction against" };
 	}
 
+	// Units here are the 1e18 basis the two legs are made comparable in, which is
+	// what the venue adapter also places the order in.
+	const correctionUnits = Number(magnitude) / 1e18;
 	const correctionUsd = correctionUnits * market.markPriceUsd;
-	if (market.minOrderUsd > 0 && correctionUsd < market.minOrderUsd) {
+	const refusal = perpRefusal(market, correctionUnits, correctionUsd);
+	if (!refusal) {
+		return { ok: true, side: "PERP", correctionUsd: `$${correctionUsd.toFixed(2)}` };
+	}
+
+	// Only an excess of spot can be corrected by selling it, and only if there is
+	// a pool to sell into. An unroutable leg is not a smaller problem than a
+	// refused order, it is the same one.
+	if (deltaUnits < 0n) return { ok: false, why: refusal };
+	if (!market.spotSellable) {
+		return { ok: false, why: `${refusal}, and its spot leg cannot be routed either` };
+	}
+
+	// Valued at the *spot* price rather than the mark, because a spot sale is
+	// what this would be. The two differ by the basis the vault exists to earn,
+	// and on a tokenised equity that is routinely a percent or more.
+	if (market.spotUnits <= 0n) return { ok: false, why: refusal };
+	const correctionUsdc = (market.spotValueUsdc * magnitude) / market.spotUnits;
+
+	// Worth the trip, on the same test every other action faces. A swap's cost is
+	// flat, so below this floor the correction is mostly fee — and unlike the
+	// venue's minimum, this one really does clear as the position grows.
+	const cost = costOf("rebalanceSpot", correctionUsdc, {
+		spotImpactPercent: market.spotImpactPercent,
+		spotGasUsdc: BigInt(Math.round(market.spotGasUsd * 1e6)),
+		withdrawalFeeUsdc: 0n,
+	});
+	const floor = economicFloor(cost);
+	if (correctionUsdc < floor) {
 		return {
 			ok: false,
-			why: `the correction is worth $${correctionUsd.toFixed(2)}, under the venue's $${market.minOrderUsd} minimum order`,
+			why: `${refusal}, and selling ${fmt(correctionUsdc)} of spot instead costs about ${fmt(cost.fixedUsdc)} in fixed fees, so it is not worth the trip either`,
 		};
 	}
 
-	return { ok: true, correctionUsd: `$${correctionUsd.toFixed(2)}` };
+	return { ok: true, side: "SPOT", correctionUsd: fmt(correctionUsdc) };
 }
 
 /**
@@ -912,6 +1002,7 @@ function marginTopUp(
 		forced: breached,
 		fundedFrom: source.fundedFrom,
 		legs: null,
+		rebalanceSide: null,
 	};
 }
 
@@ -1003,6 +1094,7 @@ function deleverage(
 			forced: true,
 			fundedFrom: null,
 			legs: null,
+			rebalanceSide: null,
 		};
 	}
 
@@ -1014,6 +1106,7 @@ function deleverage(
 		forced: true,
 		fundedFrom: null,
 		legs: null,
+		rebalanceSide: null,
 	};
 }
 
@@ -1222,6 +1315,7 @@ function deploymentFrom(snapshot: VaultSnapshot, source: DeploymentSource): Deci
 			forced: false,
 			fundedFrom: source.fundedFrom,
 			legs,
+			rebalanceSide: null,
 		};
 	}
 

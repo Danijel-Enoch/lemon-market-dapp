@@ -1178,8 +1178,44 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			return activity;
 		},
 
-		async rebalance({ market: ticker, targetUnits }) {
+		async rebalance({ market: ticker, targetUnits, side }) {
 			const market = marketFor(ticker);
+
+			// The spot-side correction, for a drift the perp venue will not let the
+			// hedge close. `targetUnits` names the short, and the holding is sold
+			// down to meet it — the opposite direction of travel from every other
+			// call in this adapter, which sizes the short against the holding.
+			//
+			// Sell-only, matching the policy that chose it. Buying spot to meet an
+			// over-large short would spend capital, and there is a path that sizes
+			// and funds that properly: a deployment.
+			if (side === "SPOT") {
+				const held = await spotBalance(market);
+				const target = fromUnits(targetUnits, market.spotTokenDecimals);
+				if (held <= target) {
+					log(
+						"debug",
+						`rebalance ${market.ticker}: the spot leg is already at or below the short; nothing to sell.`,
+					);
+					return [];
+				}
+
+				const excess = held - target;
+				const activity: ActivityInput[] = [];
+				log(
+					"info",
+					`rebalance ${market.ticker}: selling ${formatUnitsForVenue(excess, market.spotTokenDecimals)} ${market.symbol} to match the short, which the venue will not let the perp leg do.`,
+				);
+				await sellSpot(
+					deps,
+					market,
+					excess,
+					activity,
+					() => "Nothing else moved; the hedge is unchanged.",
+				);
+				return activity;
+			}
+
 			const current = await perpPosition(deps, market);
 
 			const delta = targetUnits - current;
@@ -1441,11 +1477,16 @@ async function perpPosition(deps: VenueDeps, market: VenueMarket): Promise<bigin
  * length of a bridge — minutes, on a leveraged position — whereas reducing the
  * short first leaves the position long-biased for exactly one Base transaction.
  *
- * Returns the USDC the sale actually produced, measured either side of the swap
- * rather than taken from the quote. The quote is a promise and the fill is the
- * fact, and the fact is what gets handed to `agentReturn`: that call moves real
- * tokens, so naming a number the wallet does not hold reverts a return whose
- * legs have already been closed.
+ * **That window is not always one transaction.** If the spot sale fails, the
+ * reduced short stands and the drift it leaves behind is permanent: it is
+ * usually far too small to clear the perp venue's minimum order notional, and
+ * reducing the short has also *lowered* the account's leverage, which clears
+ * the mandate breach that asked for the close in the first place. So nothing
+ * re-triggers it and the perp side cannot correct it. The spot-side fallback in
+ * `rebalance` is what makes the retry this promises actually possible; before
+ * it, a failed sale here stranded unhedged delta indefinitely.
+ *
+ * Returns the USDC the sale produced — see `sellSpot`, which performs it.
  */
 async function closeLeg(
 	deps: VenueDeps,
@@ -1455,7 +1496,7 @@ async function closeLeg(
 	notionalHint: bigint,
 	activity: ActivityInput[],
 ): Promise<bigint> {
-	const { config, publicClient, kyber, pacifica } = deps;
+	const { config, pacifica } = deps;
 
 	// Down onto the venue's grid, which for a reduce-only close means closing at
 	// most what is open rather than at least. The spot sale below still uses the
@@ -1493,16 +1534,57 @@ async function closeLeg(
 		});
 	}
 
-	// The spot side is capped at what is actually held. `closeUnits` can exceed
-	// it — a close order names the larger of the two legs so the perp reaches
-	// zero — and a swap for tokens the wallet does not have reverts.
+	return sellSpot(
+		deps,
+		market,
+		closeUnits,
+		activity,
+		(units) =>
+			`The short was already reduced, so the position is long by ${units} units until this is retried.`,
+	);
+}
+
+/**
+ * Sell part of one market's spot holding for USDC, and record it.
+ *
+ * Extracted from `closeLeg` so a rebalance can reach it. Those are the only two
+ * callers and they want different halves of the same thing: a close reduces the
+ * short and then sells the spot behind it, while a spot-side rebalance sells
+ * spot and deliberately leaves the short alone — it exists precisely because the
+ * perp leg is the one that cannot move. Sharing the swap keeps one routed,
+ * allowance-checked, balance-measured path instead of two that can drift apart.
+ *
+ * `unsoldWarning` is how the caller says what is already done if the sale fails,
+ * because that differs and it is the part an operator has to act on. A failed
+ * close has left a reduced short behind it; a failed rebalance has left
+ * everything exactly as it was.
+ *
+ * Returns the USDC the sale actually produced, measured either side of the swap
+ * rather than taken from the quote. The quote is a promise and the fill is the
+ * fact, and the fact is what gets handed to `agentReturn`: that call moves real
+ * tokens, so naming a number the wallet does not hold reverts a return whose
+ * legs have already been closed.
+ */
+async function sellSpot(
+	deps: VenueDeps,
+	market: VenueMarket,
+	/** The most to sell. Capped at the balance actually held. */
+	maxUnits: bigint,
+	activity: ActivityInput[],
+	unsoldWarning: (units: bigint) => string,
+): Promise<bigint> {
+	const { config, publicClient, kyber } = deps;
+
+	// Capped at what is actually held. `maxUnits` can exceed it — a close order
+	// names the larger of the two legs so the perp reaches zero — and a swap for
+	// tokens the wallet does not have reverts.
 	const balance = (await publicClient.readContract({
 		abi: erc20Abi,
 		address: market.spotToken,
 		functionName: "balanceOf",
 		args: [config.agentAddress],
 	})) as bigint;
-	const sellUnits = closeUnits < balance ? closeUnits : balance;
+	const sellUnits = maxUnits < balance ? maxUnits : balance;
 	if (sellUnits === 0n) return 0n;
 
 	const route = await kyber.getRoute({
@@ -1515,7 +1597,7 @@ async function closeLeg(
 	});
 	if (!route.ok) {
 		throw new VenueExecutionError(
-			`No spot route to exit ${market.symbol}: ${route.message}. The short was already reduced, so the position is long by ${sellUnits} units until this is retried.`,
+			`No spot route to exit ${market.symbol}: ${route.message}. ${unsoldWarning(sellUnits)}`,
 			activity,
 		);
 	}
@@ -1546,11 +1628,11 @@ async function closeLeg(
 		});
 		await confirmed(publicClient, sellTx, `The ${market.symbol} spot sell`);
 	} catch (error) {
-		// The short has been reduced and the spot behind it has not. The position
-		// is long-biased until the next tick rebalances it, which is a state the
-		// operator has to be able to see.
+		// What is left behind depends on the caller — a close has already reduced
+		// the short, a rebalance has touched nothing — and either way it is a
+		// state the operator has to be able to see.
 		throw new VenueExecutionError(
-			`Spot sell failed for ${market.symbol}; the short was already reduced, so the position is long by ${sellUnits} units until the next tick.`,
+			`Spot sell failed for ${market.symbol}. ${unsoldWarning(sellUnits)}`,
 			activity,
 			{ cause: error },
 		);
