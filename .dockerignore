@@ -36,3 +36,19 @@ coverage
 .turbo
 .cache
 *.log
+
+# Test output. `playwright-report` alone is 36 MB of screenshots and traces, and
+# every byte of it is uploaded to the daemon on every build to be ignored by
+# every stage.
+playwright-report
+test-results
+.playwright
+
+# Foundry's working directories. The image never compiles a contract — it reads
+# `packages/contracts/ts/abi.ts`, which is generated ahead of time and committed
+# — so the artifacts, the deploy logs and the forge-std submodule are all
+# context that is copied and never opened.
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/broadcast
+packages/contracts/lib
