@@ -4,10 +4,11 @@ import { cn } from "../utils";
 /**
  * Stat card.
  *
- * The Pons headline readout: a quiet label, a 38px tabular figure, and a delta
- * line under it coloured by direction. It is a full card — hairline frame, card
- * surface — rather than a flat tile, because Pons puts these in a row of three
- * at the top of a page where they carry the section.
+ * The headline readout: a monospaced caps label over a heavy serif figure,
+ * with the delta under it. The figure is the one number in the system set in
+ * the serif rather than the mono — The Firm prints its AUM that way, and at
+ * this size the serif is what makes a readout read as a statement rather than
+ * as a cell. A hairline box, no fill.
  */
 export function StatCard({
 	label,
@@ -25,14 +26,14 @@ export function StatCard({
 	return (
 		<div
 			className={cn(
-				// Two of these sit side by side on a phone, where 22px of padding
-				// around a 38px figure leaves the label with nowhere to go.
-				"rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-3.5 md:p-[22px]",
+				// Two of these sit side by side on a phone, where the desktop
+				// padding around a 40px figure leaves the label nowhere to go.
+				"rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] p-3.5 md:p-5",
 				className,
 			)}
 		>
-			<p className="t-caption text-[var(--pon-fg-3)]">{label}</p>
-			<p className="font-fono mt-2 text-[26px] font-semibold leading-none tracking-[-0.02em] text-[var(--pon-fg)] md:mt-3 md:text-[38px]">
+			<p className="firm-label text-[var(--pon-fg-3)]">{label}</p>
+			<p className="font-display mt-2 text-[28px] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-[var(--pon-fg-0)] md:mt-3 md:text-[40px]">
 				{value}
 			</p>
 			{delta && (
@@ -69,11 +70,11 @@ export function StatBlock({
 	return (
 		<div
 			className={cn(
-				"rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-3",
+				"rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-3 py-2.5",
 				className,
 			)}
 		>
-			<p className="t-micro text-[var(--pon-fg-3)]">{label}</p>
+			<p className="firm-label text-[var(--pon-fg-3)]">{label}</p>
 			<p
 				className={cn(
 					"font-fono mt-1.5 text-[15px] font-semibold",
@@ -106,7 +107,7 @@ export function StatInline({
 }) {
 	return (
 		<div className={className}>
-			<p className="t-micro text-[var(--pon-fg-3)]">{label}</p>
+			<p className="firm-label text-[var(--pon-fg-3)]">{label}</p>
 			<p
 				className={cn(
 					"font-fono mt-0.5 text-[12.5px] font-semibold",

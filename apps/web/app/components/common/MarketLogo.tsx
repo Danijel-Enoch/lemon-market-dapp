@@ -24,15 +24,22 @@ const COMMODITY_GLYPHS: Record<string, string> = {
 	BRENT: "🛢️",
 };
 
-/** Deterministic tint so monograms are distinguishable but never random. */
-const CLASS_TINTS: Record<string, string> = {
-	crypto: "bg-[var(--pon-amber)]/15 text-[var(--pon-amber)]",
-	equity: "bg-sky-500/15 text-sky-300",
-	fx: "bg-violet-500/15 text-violet-300",
-	commodity: "bg-orange-500/15 text-orange-300",
-	metal: "bg-yellow-500/15 text-yellow-300",
-	index: "bg-emerald-500/15 text-emerald-300",
-	unknown: "bg-white/10 text-[var(--pon-fg)]",
+/**
+ * Asset class, marked by the frame rather than by a hue.
+ *
+ * The tinted discs this replaced were built for a dark ground — sky-300 on a
+ * 15% fill disappears entirely on the lime field. The system has one tint, the
+ * cream, so class is carried by the edge instead: a rule for the classes that
+ * trade on a calendar, a solid for the ones that trade continuously.
+ */
+const CLASS_FRAMES: Record<string, string> = {
+	crypto: "border-[var(--pon-ink)] bg-[var(--pon-ink)] text-[var(--pon-on-lime)]",
+	equity: "border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] text-[var(--pon-ink)]",
+	fx: "border-[var(--pon-line-2)] bg-[var(--pon-lime-dim)] text-[var(--pon-ink)]",
+	commodity: "border-[var(--pon-line-2)] bg-transparent text-[var(--pon-ink)]",
+	metal: "border-[var(--pon-line-2)] bg-transparent text-[var(--pon-ink)]",
+	index: "border-[var(--pon-line-2)] bg-transparent text-[var(--pon-ink)]",
+	unknown: "border-[var(--pon-line)] bg-transparent text-[var(--pon-fg-2)]",
 };
 
 /**
@@ -78,7 +85,10 @@ export function MarketLogo({
 				width={size}
 				height={size}
 				onError={() => setFailed(true)}
-				className={cn("shrink-0 rounded-full bg-[var(--pon-surface-2)] object-cover", className)}
+				className={cn(
+					"shrink-0 rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-paper)] object-cover",
+					className,
+				)}
 				style={box}
 			/>
 		);
@@ -89,7 +99,7 @@ export function MarketLogo({
 			<span
 				aria-hidden
 				className={cn(
-					"inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--pon-surface-2)]",
+					"inline-flex shrink-0 items-center justify-center rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] bg-[var(--pon-paper)]",
 					className,
 				)}
 				style={{ ...box, fontSize: size * 0.55 }}
@@ -103,8 +113,8 @@ export function MarketLogo({
 		<span
 			aria-hidden
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
-				CLASS_TINTS[assetClass ?? "unknown"],
+				"inline-flex shrink-0 items-center justify-center rounded-[var(--pon-r-sm)] border font-mono font-bold tracking-[-0.04em]",
+				CLASS_FRAMES[assetClass ?? "unknown"],
 				className,
 			)}
 			style={{ ...box, fontSize: size * 0.36 }}

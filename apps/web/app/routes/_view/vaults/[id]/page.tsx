@@ -127,7 +127,10 @@ export default function VaultDetailPage() {
 				title="No vault here"
 				description="That address is not a vault this deployment knows about."
 				action={
-					<Link to="/vaults" className="text-sm text-[var(--pon-lime)] underline">
+					<Link
+						to="/vaults"
+						className="font-mono text-[12.5px] text-[var(--pon-fg-0)] underline underline-offset-[3px]"
+					>
 						Back to the board
 					</Link>
 				}
@@ -148,23 +151,21 @@ export default function VaultDetailPage() {
 		<div className="space-y-6">
 			<Link
 				to="/vaults"
-				className="inline-flex items-center gap-1.5 text-sm text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]"
+				className="firm-label inline-flex items-center gap-1.5 text-[var(--pon-fg-2)] hover:text-[var(--pon-fg-0)]"
 			>
 				<ArrowLeft className="size-4" /> All vaults
 			</Link>
 
 			{/* --- header ---------------------------------------------------- */}
-			<div className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5 md:p-6">
+			<div className="border-b border-[var(--pon-line)] pb-6">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-2">
-							<h1 className="text-2xl font-semibold text-[var(--pon-fg-0)] md:text-3xl">
-								{vault.ticker ?? vault.symbol}
-							</h1>
+							<h1 className="t-h1 text-[var(--pon-fg-0)]">{vault.ticker ?? vault.symbol}</h1>
 							<RiskBadge tier={vault.tier} leverageLabel={vault.leverageLabel} />
 						</div>
-						<p className="mt-1 text-sm text-[var(--pon-fg-2)]">{vault.name}</p>
-						<p className="mt-2 max-w-prose text-sm leading-relaxed text-[var(--pon-fg-3)]">
+						<p className="firm-label mt-2 text-[var(--pon-fg-2)]">{vault.name}</p>
+						<p className="t-body mt-3 max-w-[62ch] text-[var(--pon-fg-2)]">
 							{riskDescription(vault.tier)}
 						</p>
 					</div>
@@ -173,14 +174,14 @@ export default function VaultDetailPage() {
 						href={explorerAddress(vault.chainId ?? APP_CHAIN.id, vault.address)}
 						target="_blank"
 						rel="noreferrer noopener"
-						className="inline-flex items-center gap-1.5 rounded-full border border-[var(--pon-line-2)] px-3 py-1.5 text-xs text-[var(--pon-fg-2)] hover:border-[var(--pon-lime)] hover:text-[var(--pon-lime)]"
+						className="inline-flex items-center gap-1.5 rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-3 py-1.5 font-mono text-[11.5px] tracking-[-0.02em] text-[var(--pon-fg-2)] transition-colors hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]"
 					>
 						{shortAddress(vault.address)} <ExternalLink className="size-3" />
 					</a>
 				</div>
 
 				{(vault.paused || vault.navStale) && (
-					<div className="mt-4 flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 px-4 py-3 text-sm">
+					<div className="mt-4 flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] px-4 py-3 text-sm">
 						<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 						<p className="text-[var(--pon-fg-2)]">
 							{vault.paused
@@ -234,13 +235,13 @@ export default function VaultDetailPage() {
 			{/* --- chart + actions ------------------------------------------- */}
 			<div className="grid gap-5 lg:grid-cols-[1fr_380px]">
 				<div className="space-y-5">
-					<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+					<section className="rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] p-5">
 						<div className="mb-4 flex items-baseline justify-between">
-							<h2 className="font-medium text-[var(--pon-fg-0)]">Share price</h2>
-							<span className="text-xs text-[var(--pon-fg-3)]">Last 30 days</span>
+							<h2 className="t-h3 text-[var(--pon-fg-0)]">Share price</h2>
+							<span className="firm-label text-[var(--pon-fg-3)]">Last 30 days</span>
 						</div>
 						<NavChart points={points} />
-						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
+						<p className="mt-3 t-caption text-[var(--pon-fg-3)]">
 							One point per funding period. A hedged position earns when the venue settles funding —
 							hourly on Pacifica — and nothing in between, so that is the interval the agent reports
 							on and the interval this line is drawn on. Every yield figure on this page is computed
@@ -259,11 +260,11 @@ export default function VaultDetailPage() {
 					 * page is making, and side by side would invite them to be read as
 					 * two views of one number.
 					 */}
-					<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-5">
+					<section className="rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] p-5">
 						<div className="mb-4 flex items-start justify-between gap-4">
 							<div>
-								<h2 className="font-medium text-[var(--pon-fg-0)]">Funding earned</h2>
-								<span className="text-xs text-[var(--pon-fg-3)]">
+								<h2 className="t-h3 text-[var(--pon-fg-0)]">Funding earned</h2>
+								<span className="firm-label text-[var(--pon-fg-3)]">
 									{range.bucket === "hour"
 										? `Last ${range.window.hours} hours, per UTC hour`
 										: "Last 30 days, per UTC day"}
@@ -284,7 +285,7 @@ export default function VaultDetailPage() {
 							onChange={setFundingRange}
 						/>
 						<FundingChart points={funding?.points ?? []} bucket={range.bucket} />
-						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
+						<p className="mt-3 t-caption text-[var(--pon-fg-3)]">
 							{range.bucket === "hour"
 								? "One bar per UTC hour, summed across every market the vault runs — the venue settles hourly, so a bar is one payment per market. "
 								: "One bar per UTC day, summed across every market the vault runs — the venue settles hourly, so a day is up to twenty-four payments. "}
@@ -297,8 +298,8 @@ export default function VaultDetailPage() {
 					</section>
 
 					{holding && (
-						<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-lime)]/20 bg-[var(--pon-bg-2)] p-5">
-							<h2 className="font-medium text-[var(--pon-fg-0)]">Your position</h2>
+						<section className="rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-ink)] p-5">
+							<h2 className="t-h3 text-[var(--pon-fg-0)]">Your position</h2>
 							<dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
 								<Metric label="Shares" value={`${Number(holding.shares) / 1e18}`.slice(0, 10)} />
 								<Metric label="Value" value={formatUsd(holding.valueUsd)} />
@@ -329,8 +330,8 @@ export default function VaultDetailPage() {
 					<section className="space-y-4">
 						<div className="flex flex-wrap items-baseline justify-between gap-2">
 							<div>
-								<h2 className="font-medium text-[var(--pon-fg-0)]">Agent activity</h2>
-								<p className="mt-0.5 text-sm text-[var(--pon-fg-3)]">
+								<h2 className="t-h3 text-[var(--pon-fg-0)]">Agent activity</h2>
+								<p className="mt-1 t-body text-[var(--pon-fg-2)]">
 									Every trade and transfer, on every chain. Public, and linked to the chain it
 									happened on.
 								</p>
@@ -366,12 +367,12 @@ export default function VaultDetailPage() {
 					{(transferData?.transfers.length ?? 0) > 0 && (
 						<section className="space-y-3">
 							<div>
-								<h2 className="font-medium text-[var(--pon-fg-0)]">Capital movements</h2>
-								<p className="mt-0.5 text-sm text-[var(--pon-fg-3)]">
+								<h2 className="t-h3 text-[var(--pon-fg-0)]">Capital movements</h2>
+								<p className="mt-1 t-body text-[var(--pon-fg-2)]">
 									USDC leaving the vault for the agent to trade, and coming back.
 								</p>
 							</div>
-							<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+							<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)]">
 								{transferData?.transfers.map((t) => (
 									<li
 										key={t.id}
@@ -450,7 +451,7 @@ export default function VaultDetailPage() {
 					    either way — so it is said plainly rather than left to be inferred
 					    from a position that quietly went to zero. */}
 					{vault.closeRequestedAt && (
-						<div className="space-y-2 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-5 text-xs leading-relaxed text-[var(--pon-fg-2)]">
+						<div className="space-y-2 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-5 text-xs leading-relaxed text-[var(--pon-fg-2)]">
 							<h3 className="text-sm font-medium text-[var(--pon-fg-0)]">Standing down</h3>
 							<p>
 								{vault.closeCompletedAt

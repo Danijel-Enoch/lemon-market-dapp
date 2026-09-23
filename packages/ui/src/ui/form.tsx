@@ -29,12 +29,12 @@ export function Form({
 	return (
 		<RemixForm {...props}>
 			{showMessage && error && (
-				<div className="mb-4 p-3 bg-[var(--pon-down)]/10 border border-[var(--pon-down)]/30 rounded-lg">
+				<div className="mb-4 rounded-[var(--pon-r-sm)] border border-[var(--pon-down)] p-3">
 					<p className="text-sm text-[var(--pon-down)]">{error}</p>
 				</div>
 			)}
 			{showMessage && success && (
-				<div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+				<div className="mb-4 rounded-[var(--pon-r-sm)] border border-[var(--pon-up)] p-3">
 					<p className="text-sm text-[var(--pon-up)]">{success}</p>
 				</div>
 			)}

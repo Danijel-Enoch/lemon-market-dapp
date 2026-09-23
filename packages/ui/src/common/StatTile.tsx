@@ -4,9 +4,10 @@ import { cn } from "../utils";
 /**
  * Readout tile.
  *
- * The compact Pons stat: a hairline panel on the well surface with a quiet
- * label over a tabular figure. This is the dense form used inside cards and
- * strips — for the headline three-up row at the top of a page, use StatCard.
+ * The compact stat: a hairline cell with a monospaced caps label over a
+ * tabular figure. This is the dense form used inside cards and strips — for
+ * the headline three-up row at the top of a page, use StatCard, which sets its
+ * figure in the serif.
  */
 export function StatTile({
 	label,
@@ -24,14 +25,14 @@ export function StatTile({
 	return (
 		<div
 			className={cn(
-				"rounded-[var(--pon-r-md)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3.5 py-3",
+				"rounded-[var(--pon-r-sm)] border border-[var(--pon-line)] px-3 py-2.5",
 				className,
 			)}
 		>
-			<p className="t-micro text-[var(--pon-fg-3)]">{label}</p>
+			<p className="firm-label text-[var(--pon-fg-3)]">{label}</p>
 			<p
 				className={cn(
-					"font-fono mt-1.5 text-base font-semibold leading-tight",
+					"font-fono mt-1.5 text-[17px] font-bold leading-tight",
 					tone === "positive" && "text-[var(--pon-up)]",
 					tone === "negative" && "text-[var(--pon-down)]",
 					(!tone || tone === "neutral") && "text-[var(--pon-fg)]",

@@ -23,16 +23,16 @@ export function MarketHoursBadge({ market, className }: { market: Market; classN
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 t-micro",
+				"inline-flex items-center gap-1.5 whitespace-nowrap rounded-[var(--pon-r-sm)] border px-2 py-0.5 t-micro",
 				market.isOpen
-					? "border-[var(--pon-lime)] bg-[var(--pon-lime-dim)] font-semibold text-[var(--pon-lime)]"
-					: "border-[var(--pon-line)] bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
+					? "border-[var(--pon-ink)] bg-[var(--pon-lime-dim)] font-bold text-[var(--pon-ink)]"
+					: "border-[var(--pon-line)] bg-transparent text-[var(--pon-fg-3)]",
 				className,
 			)}
 		>
 			<span
 				className={cn(
-					"size-1.5 rounded-full",
+					"size-1.5",
 					market.isOpen ? "animate-pon-pulse bg-[var(--pon-lime)]" : "bg-[var(--pon-fg-3)]",
 				)}
 				aria-hidden

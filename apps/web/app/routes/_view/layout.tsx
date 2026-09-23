@@ -1,3 +1,4 @@
+import { Footer } from "@app/components/layout/Footer";
 import { Header } from "@app/components/layout/Header";
 import { FirstRun } from "@app/components/onboarding/FirstRun";
 import { TourProvider } from "@app/components/tour/TourProvider";
@@ -7,9 +8,16 @@ import { Outlet } from "react-router";
 /**
  * Application shell.
  *
- * The Pons nav floats as a pill rather than sitting in a bar, so the shell
- * reserves its full height as padding rather than relying on a fixed bar
- * height. The bottom tab bar reserves space below it on mobile.
+ * The page is a ruled sheet: one flat field, two vertical rules running its
+ * full height at the edges of the content column, and every section closed by
+ * a horizontal hairline. `firm-rules` paints the verticals behind everything
+ * on a fixed layer, so they stay put while the page scrolls past them — the
+ * detail that makes the layout read as a printed page rather than as a stack
+ * of cards.
+ *
+ * The header is a fixed masthead with the ticker under it, so the shell
+ * reserves both as top padding. The bottom tab bar reserves space below it on
+ * mobile.
  *
  * `TourProvider` wraps the outlet rather than sitting beside it: the
  * walkthrough spotlights elements inside the routed page and navigates between
@@ -22,16 +30,26 @@ import { Outlet } from "react-router";
 export default function ViewLayout() {
 	return (
 		<TourProvider>
-			<div className="min-h-screen bg-[var(--pon-bg)] pt-[60px] md:pt-[78px]">
+			<div className="relative flex min-h-screen flex-col bg-[var(--pon-bg)] pt-[70px] md:pt-[80px]">
+				<div aria-hidden className="firm-rules" />
+
 				<Header />
-				<main className="mx-auto w-full max-w-[var(--shell-max)] px-4 pb-[calc(84px+env(safe-area-inset-bottom))] pt-4 sm:pb-14 md:px-6 md:pt-6">
+
+				<main className="relative z-10 mx-auto w-full max-w-[var(--rule-max)] flex-1 px-5 pt-6 pb-[calc(76px+env(safe-area-inset-bottom))] md:px-8 md:pt-10 md:pb-20">
 					{/* Above the page, not instead of it: the board, the vault pages and
 					    the activity feed all read from the indexer and are correct
 					    whatever the wallet is connected to. Only depositing and
 					    withdrawing need the right chain. */}
-					<WrongNetworkBanner className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line-2)] bg-[var(--pon-surface)] px-4 py-3" />
+					<WrongNetworkBanner className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[var(--pon-r-lg)] border border-[var(--pon-down)] px-4 py-3" />
 					<Outlet />
 				</main>
+
+				{/* The tab bar covers the foot of the page on mobile, so the footer
+				    only shows where there is room for it. */}
+				<div className="hidden md:block">
+					<Footer />
+				</div>
+
 				<FirstRun />
 			</div>
 		</TourProvider>

@@ -4,11 +4,14 @@ import { cn } from "../utils";
 /**
  * Charts.
  *
- * The Pons chart language: a lime line over a gradient that fades to nothing,
- * dashed hairline gridlines behind it, and a filled dot with a soft halo on the
- * final point. Everything is plain SVG — no chart library — because these are
- * shapes in the design system rather than a plotting surface, and stretching
- * them with `preserveAspectRatio="none"` is what keeps them responsive.
+ * An ink line over a fill that fades to nothing, dashed hairline gridlines
+ * behind it, and a square marker on the final point. Every join is mitred and
+ * every cap is flat, because a rounded stroke is the one thing in a chart that
+ * would not have survived being printed.
+ *
+ * Everything is plain SVG — no chart library — because these are shapes in the
+ * design system rather than a plotting surface, and stretching them with
+ * `preserveAspectRatio="none"` is what keeps them responsive.
  */
 
 const W = 720;
@@ -58,7 +61,7 @@ export function AreaChart({
 		return (
 			<div
 				className={cn(
-					"flex items-center justify-center rounded-[var(--pon-r-md)] bg-[var(--pon-bg-2)] t-caption text-[var(--pon-fg-3)]",
+					"flex items-center justify-center rounded-[var(--pon-r-sm)] border border-dashed border-[var(--pon-line)] t-caption text-[var(--pon-fg-3)]",
 					className,
 				)}
 				style={{ height }}
@@ -109,15 +112,16 @@ export function AreaChart({
 				fill="none"
 				stroke={color}
 				strokeWidth="2.5"
-				strokeLinejoin="round"
-				strokeLinecap="round"
+				strokeLinejoin="miter"
+				strokeLinecap="butt"
 				vectorEffect="non-scaling-stroke"
 			/>
 
 			{showEndpoint && (
 				<>
-					<circle cx={lastX} cy={lastY} r="9" fill={color} opacity="0.22" />
-					<circle cx={lastX} cy={lastY} r="4.5" fill={color} />
+					{/* A square marker, not a haloed dot — the system has no soft
+					    edges, and the last reading is a tick on a chart. */}
+					<rect x={lastX - 3} y={lastY - 3} width="6" height="6" fill={color} />
 				</>
 			)}
 		</svg>
@@ -156,7 +160,7 @@ export function BarChart({
 						className="flex h-full flex-1 flex-col justify-end"
 					>
 						<div
-							className="animate-pon-rise rounded-t-[3px]"
+							className="animate-pon-rise"
 							style={{
 								height: `${pct}%`,
 								background: last
@@ -216,8 +220,8 @@ export function Sparkline({
 				fill="none"
 				stroke={color}
 				strokeWidth="2"
-				strokeLinejoin="round"
-				strokeLinecap="round"
+				strokeLinejoin="miter"
+				strokeLinecap="butt"
 				vectorEffect="non-scaling-stroke"
 			/>
 		</svg>

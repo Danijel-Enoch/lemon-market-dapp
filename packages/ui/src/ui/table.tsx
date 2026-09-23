@@ -4,10 +4,10 @@ import { cn } from "../utils";
 /**
  * Table.
  *
- * Pons tables live inside a card and carry no fill of their own: the header is
- * an uppercase micro-label row over a hairline, rows are separated by hairlines
- * and the last one drops its rule. Numeric cells are tabular so a ticking
- * column never shifts width.
+ * A table is the system's natural shape — ruled cells, no fill. The header is
+ * a row of monospaced caps over a full-strength rule, rows are divided by
+ * hairlines, and the last one drops its rule so the frame closes cleanly.
+ * Every cell is monospaced and tabular, so a ticking column never shifts.
  */
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
@@ -15,7 +15,10 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
 		<div data-slot="table-container" className="relative w-full overflow-x-auto scrollbar-hide">
 			<table
 				data-slot="table"
-				className={cn("w-full caption-bottom text-[13px]", className)}
+				className={cn(
+					"w-full caption-bottom font-mono text-[12.5px] tracking-[-0.02em]",
+					className,
+				)}
 				{...props}
 			/>
 		</div>
@@ -26,7 +29,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
 	return (
 		<thead
 			data-slot="table-header"
-			className={cn("[&_tr]:border-b [&_tr]:border-[var(--pon-line)]", className)}
+			className={cn("[&_tr]:border-b [&_tr]:border-[var(--pon-line-2)]", className)}
 			{...props}
 		/>
 	);
@@ -46,10 +49,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 	return (
 		<tfoot
 			data-slot="table-footer"
-			className={cn(
-				"border-t border-[var(--pon-line)] bg-[var(--pon-bg-2)] font-medium [&>tr]:last:border-b-0",
-				className,
-			)}
+			className={cn("border-t border-[var(--pon-line-2)] [&>tr]:last:border-b-0", className)}
 			{...props}
 		/>
 	);
@@ -60,7 +60,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
 		<tr
 			data-slot="table-row"
 			className={cn(
-				"border-b border-[var(--pon-line)] transition-colors hover:bg-[var(--pon-bg-2)] data-[state=selected]:bg-[var(--pon-surface-2)]",
+				"border-b border-[var(--pon-line)] transition-colors hover:bg-[var(--pon-lime-dim)] data-[state=selected]:bg-[var(--pon-lime-dim)]",
 				className,
 			)}
 			{...props}
@@ -73,7 +73,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 		<th
 			data-slot="table-head"
 			className={cn(
-				"whitespace-nowrap px-3 pb-2.5 text-left align-middle text-[11px] font-normal uppercase tracking-[0.05em] text-[var(--pon-fg-3)] [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+				"whitespace-nowrap px-3 pb-2 text-left align-middle text-[10.5px] font-normal uppercase tracking-[0.12em] text-[var(--pon-fg-3)] [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
 				className,
 			)}
 			{...props}
@@ -86,7 +86,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
 		<td
 			data-slot="table-cell"
 			className={cn(
-				"whitespace-nowrap px-3 py-3 align-middle text-[var(--pon-fg)] [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+				"whitespace-nowrap px-3 py-2.5 align-middle tabular-nums text-[var(--pon-fg)] [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
 				className,
 			)}
 			{...props}

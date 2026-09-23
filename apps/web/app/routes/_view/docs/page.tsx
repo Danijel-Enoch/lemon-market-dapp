@@ -38,10 +38,8 @@ function Section({
 }) {
 	return (
 		<section id={id} className="scroll-mt-28 space-y-3">
-			<h2 className="font-display text-[22px] font-bold text-[var(--pon-fg-0)]">{title}</h2>
-			<div className="space-y-3 text-[13.5px] leading-relaxed text-[var(--pon-fg-2)]">
-				{children}
-			</div>
+			<h2 className="t-h2 text-[var(--pon-fg-0)]">{title}</h2>
+			<div className="t-body space-y-4 text-[var(--pon-fg-2)]">{children}</div>
 		</section>
 	);
 }
@@ -49,7 +47,7 @@ function Section({
 /**
  * Numbered step.
  *
- * Pons runs a sequence as hairline-separated rows with a tabular ordinal in the
+ * A sequence runs as hairline-separated rows with a monospaced ordinal in the
  * margin — no counter badges. The rule between rows is what carries the order.
  */
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -59,14 +57,17 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 				{String(n).padStart(2, "0")}
 			</span>
 			<div className="min-w-0">
-				<p className="text-[13.5px] font-semibold text-[var(--pon-fg)]">{title}</p>
-				<p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--pon-fg-3)]">{children}</p>
+				<p className="font-mono text-[12.5px] font-bold tracking-[-0.02em] text-[var(--pon-fg-0)]">
+					{title}
+				</p>
+				<p className="t-body mt-1 text-[var(--pon-fg-2)]">{children}</p>
 			</div>
 		</li>
 	);
 }
 
-const strong = "font-semibold text-[var(--pon-fg)]";
+// Emphasis inside prose: the serif has a real bold, so it carries it.
+const strong = "font-bold text-[var(--pon-fg-0)]";
 
 export default function DocsPage() {
 	const [active, setActive] = useState<string>(SECTIONS[0].id);
@@ -91,31 +92,30 @@ export default function DocsPage() {
 	}, []);
 
 	return (
-		<div className="overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg)]">
-			<header className="border-b border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-lime-dim)] to-transparent px-5 py-7 sm:px-10 sm:py-9">
-				<p className="t-eyebrow text-[var(--pon-lime)]">Protocol</p>
-				<h1 className="font-display mt-3 text-[clamp(24px,4vw,38px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
-					One product, documented
-				</h1>
-				<p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[var(--pon-fg-2)]">
+		<div>
+			<header className="border-b border-[var(--pon-line)] pb-8 md:pb-10">
+				<p className="firm-label text-[var(--pon-fg-2)]">Protocol</p>
+				<h1 className="t-h1 mt-3 text-[var(--pon-fg-0)]">One product, documented</h1>
+				<p className="t-body mt-4 max-w-[62ch] text-[var(--pon-fg-2)]">
 					Vaults that run a delta-neutral basis position on Base. You deposit USDC; an agent does
 					the trading. This is what it does with the money, what it costs, and how to check any of
 					it without taking our word for it.
 				</p>
 			</header>
 
-			<div className="gap-10 px-5 py-8 sm:px-10 lg:flex">
-				<nav className="mb-8 hidden shrink-0 lg:sticky lg:top-24 lg:mb-0 lg:block lg:h-fit lg:w-52">
-					<ul className="space-y-0.5">
+			<div className="gap-12 py-8 md:py-10 lg:flex">
+				<nav className="mb-8 hidden shrink-0 lg:sticky lg:top-[104px] lg:mb-0 lg:block lg:h-fit lg:w-56">
+					<p className="firm-label mb-3 text-[var(--pon-fg-3)]">Contents</p>
+					<ul className="border-t border-[var(--pon-line)]">
 						{SECTIONS.map((section) => (
 							<li key={section.id}>
 								<a
 									href={`#${section.id}`}
 									className={cn(
-										"block rounded-[var(--pon-r-sm)] px-2.5 py-1.5 text-[12.5px] transition-colors",
+										"block border-b border-[var(--pon-line)] px-2.5 py-2 font-mono text-[12px] tracking-[-0.02em] transition-colors",
 										active === section.id
-											? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
-											: "text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
+											? "bg-[var(--pon-ink)] text-[var(--pon-on-lime)]"
+											: "text-[var(--pon-fg-2)] hover:bg-[var(--pon-lime-dim)] hover:text-[var(--pon-fg-0)]",
 									)}
 								>
 									{section.label}
@@ -125,7 +125,7 @@ export default function DocsPage() {
 					</ul>
 				</nav>
 
-				<div className="min-w-0 max-w-2xl flex-1 space-y-10">
+				<div className="min-w-0 max-w-[68ch] flex-1 space-y-12">
 					<Section id="getting-started" title="Getting started">
 						<p>There is one thing to do, and it takes one transaction.</p>
 						<ol className="mt-1">
@@ -225,7 +225,7 @@ export default function DocsPage() {
 								href="https://docs.near.org/chain-abstraction/chain-signatures"
 								target="_blank"
 								rel="noreferrer noopener"
-								className="text-[var(--pon-lime)] underline underline-offset-2"
+								className="text-[var(--pon-fg-0)] underline underline-offset-[3px]"
 							>
 								NEAR chain signatures
 							</a>
@@ -344,7 +344,10 @@ export default function DocsPage() {
 					<Section id="transparency" title="Checking it yourself">
 						<p>
 							Every action an agent takes is published to its vault contract and shown on the{" "}
-							<Link to="/activity" className="text-[var(--pon-lime)] underline underline-offset-2">
+							<Link
+								to="/activity"
+								className="text-[var(--pon-fg-0)] underline underline-offset-[3px]"
+							>
 								activity feed
 							</Link>{" "}
 							— spot fills, perp opens and closes, bridges in both directions, venue deposits and
@@ -406,7 +409,7 @@ export default function DocsPage() {
 					</Section>
 
 					<Section id="faq" title="FAQ">
-						<dl className="space-y-4">
+						<dl className="border-t border-[var(--pon-line)]">
 							{[
 								{
 									q: "Do I have to do anything after depositing?",
@@ -441,17 +444,17 @@ export default function DocsPage() {
 									a: "Yes, in the sense that matters: the contract holds your USDC and an agent trades it. What you hold is a share of the vault, redeemable through the queue. This is a real change from a design where the spot leg sat in your own wallet, and it is the trade you make for not having to run the position yourself.",
 								},
 							].map((item) => (
-								<div key={item.q}>
-									<dt className="text-[13.5px] font-semibold text-[var(--pon-fg)]">{item.q}</dt>
-									<dd className="mt-1 text-[13px] leading-relaxed text-[var(--pon-fg-3)]">
-										{item.a}
-									</dd>
+								<div key={item.q} className="border-b border-[var(--pon-line)] py-4">
+									<dt className="font-mono text-[12.5px] font-bold tracking-[-0.02em] text-[var(--pon-fg-0)]">
+										{item.q}
+									</dt>
+									<dd className="t-body mt-2 text-[var(--pon-fg-2)]">{item.a}</dd>
 								</div>
 							))}
 						</dl>
 					</Section>
 
-					<p className="border-t border-[var(--pon-line)] pt-6 text-[12px] leading-relaxed text-[var(--pon-fg-4)]">
+					<p className="border-t border-[var(--pon-line)] pt-6 t-caption text-[var(--pon-fg-3)]">
 						Not investment advice. A basis position is delta-neutral, not risk-free.
 					</p>
 				</div>

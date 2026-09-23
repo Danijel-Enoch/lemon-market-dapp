@@ -23,42 +23,34 @@ export function loader() {
 }
 export default function NotFound() {
 	return (
-		<main className="overflow-x-hidden bg-[var(--pon-bg)] text-[var(--pon-fg)]">
-			<div className="mx-auto max-w-[var(--shell-max)]">
-				<header className="px-5 py-6 sm:px-8">
-					<Link to="/">
-						<Brand size={26} />
-					</Link>
+		<main className="relative min-h-screen overflow-x-hidden bg-[var(--pon-bg)] text-[var(--pon-fg)]">
+			{/* The same ruled sheet the app runs on, with nothing printed on it. */}
+			<div aria-hidden className="firm-rules" />
+
+			<div className="relative z-10 mx-auto max-w-[var(--rule-max)] px-5 md:px-8">
+				<header className="border-b border-[var(--pon-line-2)] py-3">
+					<Brand size={26} />
 				</header>
 
-				<section className="flex min-h-[64vh] w-full items-center justify-center px-5 py-[var(--section-y)] sm:px-8">
-					<div className="relative w-full max-w-[var(--content-max)]">
-						<div
-							aria-hidden
-							className="aurora left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2"
-							style={{ ["--aurora" as string]: "rgba(163,230,53,0.16)" }}
-						/>
+				<section className="flex min-h-[64vh] w-full flex-col justify-center py-[var(--section-y)]">
+					<p className="firm-label text-[var(--pon-fg-2)]">Error 404 · Not found</p>
+					<h1 className="t-display mt-5 text-[var(--pon-fg-0)]">
+						Page
+						<br />
+						not found.
+					</h1>
 
-						<div className="relative z-10 overflow-hidden rounded-[var(--pon-r-2xl)] border border-[var(--pon-line)] bg-gradient-to-b from-[var(--pon-bg-2)] to-[var(--pon-bg)] p-8 text-center md:p-14">
-							<div aria-hidden className="pon-bloom-lg" />
-
-							<div className="relative flex flex-col items-center">
-								<p className="t-eyebrow text-[var(--pon-lime)]">Error 404</p>
-								<h1 className="font-display mt-4 text-[clamp(36px,6vw,64px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--pon-fg-0)]">
-									Page not found.
-								</h1>
-								<p className="mt-5 max-w-md text-[17px] leading-relaxed text-[var(--pon-fg-2)]">
-									We couldn&apos;t find the page you&apos;re looking for. It may have been moved or
-									deleted, or the URL is incorrect.
-								</p>
-								<Link
-									to="/"
-									className="mt-8 inline-flex items-center justify-center rounded-full bg-[var(--pon-lime)] px-7 py-3.5 text-[15px] font-semibold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
-								>
-									Back to markets
-								</Link>
-							</div>
-						</div>
+					<div className="mt-8 border-t border-[var(--pon-line)] pt-6">
+						<p className="t-body max-w-[52ch] text-[var(--pon-fg-2)]">
+							We couldn&apos;t find the page you&apos;re looking for. It may have been moved or
+							deleted, or the URL is incorrect.
+						</p>
+						<Link
+							to="/"
+							className="mt-7 inline-flex items-center justify-center rounded-[var(--pon-r-lg)] border border-[var(--pon-ink)] bg-[var(--pon-ink)] px-5 py-3 font-mono text-[13px] tracking-[-0.02em] text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]"
+						>
+							Back to markets →
+						</Link>
 					</div>
 				</section>
 			</div>

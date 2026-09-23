@@ -57,9 +57,7 @@ function MarketHedgeCard({ hedge }: { hedge: MarketHedge }) {
 		<div
 			className={cn(
 				"rounded-[var(--pon-r-md,12px)] border p-4",
-				ready
-					? "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/[0.07]"
-					: "border-[var(--pon-line-2)] bg-[var(--pon-surface)]",
+				ready ? "border-[var(--pon-amber)] bg-[var(--pon-lime-dim)]" : "border-[var(--pon-line)]",
 			)}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
@@ -229,14 +227,14 @@ function StatusPill({ status }: { status: MarketHedge["status"] }) {
 	return (
 		<span
 			className={cn(
-				"rounded-[var(--pon-r-pill,999px)] px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+				"firm-label rounded-[var(--pon-r-sm)] border px-2 py-0.5",
 				status === "ready"
-					? "bg-[var(--pon-amber)]/15 text-[var(--pon-amber)]"
+					? "border-[var(--pon-amber)] text-[var(--pon-amber)]"
 					: status === "neutral"
-						? "bg-[var(--pon-up)]/10 text-[var(--pon-up)]"
+						? "border-[var(--pon-up)] text-[var(--pon-up)]"
 						: // Blocked and unreadable are informational, not alarming. A hedge
 							// the venue will not let the agent tighten is not a failure.
-							"bg-[var(--pon-surface-2)] text-[var(--pon-fg-3)]",
+							"border-[var(--pon-line)] text-[var(--pon-fg-3)]",
 			)}
 		>
 			{label}

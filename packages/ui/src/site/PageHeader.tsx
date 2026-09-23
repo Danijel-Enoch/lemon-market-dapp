@@ -4,10 +4,12 @@ import { cn } from "../utils";
 /**
  * Page header.
  *
- * Pons opens a page with a framed panel rather than bare text: an eyebrow in
- * lime, a display-face title, one line of supporting copy, and a radial bloom
- * in the top-right corner. Page-level actions sit opposite the title and drop
- * underneath on narrow screens.
+ * A page opens the way The Firm opens a section: a monospaced caps eyebrow, a
+ * heavy serif title set straight on the field, and a rule under the whole
+ * thing. There is no panel around it — framing a masthead in a box is what the
+ * system this replaced did, and it is the thing that made every page look like
+ * a dashboard rather than a page. `framed` now means "ruled off", which is the
+ * only kind of framing left.
  */
 export function PageHeader({
 	eyebrow,
@@ -21,41 +23,33 @@ export function PageHeader({
 	title: ReactNode;
 	description?: ReactNode;
 	actions?: ReactNode;
-	/** Set false for dense app surfaces where the panel would crowd the page. */
+	/** Set false for dense app surfaces where the rule would crowd the page. */
 	framed?: boolean;
 	className?: string;
 }) {
-	const content = (
-		<div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-5">
-			<div className="min-w-0">
-				{eyebrow && <p className="mb-2 t-eyebrow text-[var(--pon-lime)] md:mb-2.5">{eyebrow}</p>}
-				<h1 className="t-h1 font-bold text-[var(--pon-fg-0)]">{title}</h1>
-				{description && (
-					// Clamped on phones. A four-line paragraph above the fold pushes
-					// the actual content off it, and the copy is explanatory rather
-					// than load-bearing — the full text is one tap away in the docs.
-					<p className="mt-2 line-clamp-3 max-w-[52ch] text-[13px] leading-relaxed text-[var(--pon-fg-2)] md:mt-2.5 md:line-clamp-none md:text-[13.5px]">
-						{description}
-					</p>
-				)}
-			</div>
-			{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
-		</div>
-	);
-
-	if (!framed) {
-		return <header className={cn("relative", className)}>{content}</header>;
-	}
-
 	return (
 		<header
 			className={cn(
-				"relative overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-5 py-6 md:px-[30px] md:py-[34px]",
+				"relative",
+				framed && "border-b border-[var(--pon-line)] pb-5 md:pb-7",
 				className,
 			)}
 		>
-			<div aria-hidden className="pon-bloom" />
-			{content}
+			<div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
+				<div className="min-w-0">
+					{eyebrow && <p className="firm-label mb-2 text-[var(--pon-fg-2)] md:mb-3">{eyebrow}</p>}
+					<h1 className="t-h1 text-[var(--pon-fg-0)]">{title}</h1>
+					{description && (
+						// Clamped on phones. A four-line paragraph above the fold pushes
+						// the actual content off it, and the copy is explanatory rather
+						// than load-bearing — the full text is one tap away in the docs.
+						<p className="t-body mt-3 line-clamp-3 max-w-[56ch] text-[var(--pon-fg-2)] md:line-clamp-none">
+							{description}
+						</p>
+					)}
+				</div>
+				{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+			</div>
 		</header>
 	);
 }
@@ -73,9 +67,9 @@ export function SubHeading({
 	className?: string;
 }) {
 	return (
-		<div className={cn("flex items-start justify-between gap-3", className)}>
+		<div className={cn("flex items-end justify-between gap-3", className)}>
 			<div className="min-w-0">
-				<h2 className="font-display text-[17px] font-bold text-[var(--pon-fg)]">{title}</h2>
+				<h2 className="t-h3 text-[var(--pon-fg-0)]">{title}</h2>
 				{description && <p className="mt-1 t-caption text-[var(--pon-fg-3)]">{description}</p>}
 			</div>
 			{actions && <div className="shrink-0">{actions}</div>}
@@ -83,7 +77,7 @@ export function SubHeading({
 	);
 }
 
-/** The spaced uppercase micro-label Pons puts above a group of controls. */
+/** The spaced mono caps label above a group of controls. */
 export function SectionLabel({ className, children }: { className?: string; children: ReactNode }) {
 	return <div className={cn("pon-section-label", className)}>{children}</div>;
 }

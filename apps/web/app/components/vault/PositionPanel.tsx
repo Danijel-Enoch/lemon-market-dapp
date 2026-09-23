@@ -236,7 +236,7 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 			</div>
 
 			{position.notes.length > 0 && (
-				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 p-4">
+				<div className="flex gap-3 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] p-4">
 					<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-amber)]" />
 					<ul className="space-y-1 text-xs leading-relaxed text-[var(--pon-fg-2)]">
 						{position.notes.map((note) => (
@@ -266,9 +266,9 @@ export function PositionPanel({ position }: { position: LivePosition }) {
 function AdlPanel({ adl, spotSymbol }: { adl: AdlRisk; spotSymbol: string | null }) {
 	const alarming = adl.lamps >= 3;
 	const tone = alarming
-		? "border-[var(--pon-down)]/40 bg-[var(--pon-down)]/10"
+		? "border-[var(--pon-down)] bg-[var(--pon-lime-dim)]"
 		: adl.lamps > 0
-			? "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/[0.07]"
+			? "border-[var(--pon-amber)] bg-[var(--pon-lime-dim)]"
 			: "border-[var(--pon-line)]";
 
 	return (

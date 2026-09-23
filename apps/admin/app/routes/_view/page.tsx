@@ -253,7 +253,7 @@ export default function AdminPage() {
 							description="Open the Create tab to add one from the basis board."
 						/>
 					) : (
-						<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+						<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)]">
 							{vaults.map((vault) => (
 								<li key={vault.address} className="px-5 py-4">
 									<div className="flex flex-wrap items-start justify-between gap-3">
@@ -423,7 +423,7 @@ export default function AdminPage() {
 									description={`Every paired market is missing a spot route on ${activeChain.chain.name} or has a perp leg that is not accepting positions. The full list is below.`}
 								/>
 							) : (
-								<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+								<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)]">
 									{creatableMarkets.map((market) => (
 										<MarketRow
 											key={market.id}
@@ -475,16 +475,16 @@ export default function AdminPage() {
 					{(runData?.runs.length ?? 0) === 0 ? (
 						<EmptyState title="No agent runs recorded yet" />
 					) : (
-						<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)]">
+						<ul className="divide-y divide-[var(--pon-line)] overflow-hidden rounded-[var(--pon-r-lg)] border border-[var(--pon-line)]">
 							{runData?.runs.map((run) => (
 								<li key={run.id} className="px-5 py-3.5">
 									<div className="flex flex-wrap items-baseline gap-2">
 										<span
 											className={cn(
-												"rounded px-1.5 py-0.5 text-[11px] font-medium",
+												"rounded-[var(--pon-r-sm)] border px-1.5 py-0.5 text-[11px]",
 												run.error
-													? "bg-[var(--pon-down)]/15 text-[var(--pon-down)]"
-													: "bg-[var(--pon-surface-2)] text-[var(--pon-fg-2)]",
+													? "border-[var(--pon-down)] text-[var(--pon-down)]"
+													: "border-[var(--pon-line)] text-[var(--pon-fg-2)]",
 											)}
 										>
 											{run.action}
@@ -534,8 +534,8 @@ function Alert({ tone, title, body }: { tone: "danger" | "warning"; title: strin
 			className={cn(
 				"flex gap-3 rounded-[var(--pon-r-md,12px)] border p-4",
 				tone === "danger"
-					? "border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10"
-					: "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10",
+					? "border-[var(--pon-down)] bg-[var(--pon-lime-dim)]"
+					: "border-[var(--pon-amber)] bg-[var(--pon-lime-dim)]",
 			)}
 		>
 			<AlertTriangle
@@ -562,10 +562,10 @@ function Pill({
 	return (
 		<span
 			className={cn(
-				"rounded-full px-2 py-0.5 text-[11px]",
-				tone === "muted" && "bg-[var(--pon-surface-2)] text-[var(--pon-fg-2)]",
-				tone === "warning" && "bg-[var(--pon-amber)]/15 text-[var(--pon-amber)]",
-				tone === "danger" && "bg-[var(--pon-down)]/15 text-[var(--pon-down)]",
+				"rounded-[var(--pon-r-sm)] border px-2 py-0.5 text-[11px]",
+				tone === "muted" && "border-[var(--pon-line)] text-[var(--pon-fg-2)]",
+				tone === "warning" && "border-[var(--pon-amber)] text-[var(--pon-amber)]",
+				tone === "danger" && "border-[var(--pon-down)] text-[var(--pon-down)]",
 			)}
 		>
 			{children}

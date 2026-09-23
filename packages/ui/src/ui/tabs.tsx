@@ -5,9 +5,9 @@ import { cn } from "../utils";
 /**
  * Tabs.
  *
- * Pons has one tab shape: a pill track on the well surface holding pill
- * segments, where the active segment is filled with the next surface up. There
- * is no underline and no shadow. The track scrolls rather than wrapping on
+ * One tab shape: a hairline track holding square segments divided by rules,
+ * where the active segment inverts to an ink fill with lime type. There is no
+ * underline, no pill and no shadow. The track scrolls rather than wrapping on
  * narrow screens so a long set never reflows the panel under it.
  */
 
@@ -26,7 +26,7 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
 		<TabsPrimitive.List
 			data-slot="tabs-list"
 			className={cn(
-				"inline-flex w-fit max-w-full items-stretch overflow-x-auto rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-[3px] scrollbar-hide",
+				"inline-flex w-fit max-w-full items-stretch overflow-x-auto rounded-[var(--pon-r-lg)] border border-[var(--pon-line-2)] scrollbar-hide [&>*+*]:border-l [&>*+*]:border-[var(--pon-line-2)]",
 				className,
 			)}
 			{...props}
@@ -39,10 +39,10 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
 		<TabsPrimitive.Trigger
 			data-slot="tabs-trigger"
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4.5 py-2 text-[13px] font-medium text-[var(--pon-fg-3)] outline-none transition-colors",
-				"hover:text-[var(--pon-fg)] focus-visible:ring-2 focus-visible:ring-[var(--pon-lime)]/40",
-				"disabled:pointer-events-none disabled:opacity-50",
-				"data-[state=active]:bg-[var(--pon-surface-2)] data-[state=active]:font-semibold data-[state=active]:text-[var(--pon-fg)]",
+				"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-4 py-2 font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-fg-3)] outline-none transition-colors",
+				"hover:text-[var(--pon-fg)] focus-visible:text-[var(--pon-fg)]",
+				"disabled:pointer-events-none disabled:opacity-45",
+				"data-[state=active]:bg-[var(--pon-ink)] data-[state=active]:text-[var(--pon-on-lime)]",
 				className,
 			)}
 			{...props}

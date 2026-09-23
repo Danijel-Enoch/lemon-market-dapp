@@ -69,70 +69,62 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent
-				showCloseButton
-				className="max-w-sm w-full bg-[#0f1419]/95 backdrop-blur-xl border border-[var(--pon-line)] rounded-lg p-0 overflow-hidden"
-			>
-				<div className="absolute inset-0 pon-bloom" />
-
-				<div className="relative p-6">
+			<DialogContent showCloseButton className="w-full max-w-sm p-0">
+				<div className="p-6">
+					{/* Identity. The avatar is framed as a square like every other
+					    image in the system — a round portrait is the one shape that
+					    would give away that this panel came from somewhere else. */}
 					<div className="flex flex-col items-center gap-4">
 						<div className="relative">
-							<div className="w-20 h-20 rounded-full bg-linear-to-br from-lime-500/20 to-emerald-500/20 border-2 border-[var(--pon-lime)] flex items-center justify-center shadow-lg shadow-lime-500/10 overflow-hidden">
+							<div className="flex size-20 items-center justify-center overflow-hidden rounded-[var(--pon-r-sm)] border border-[var(--pon-ink)] bg-[var(--pon-lime-dim)]">
 								{account?.ensAvatar ? (
-									<img
-										src={account.ensAvatar}
-										alt="Avatar"
-										className="w-full h-full rounded-full object-cover"
-									/>
+									<img src={account.ensAvatar} alt="Avatar" className="size-full object-cover" />
 								) : account?.address ? (
 									<img
 										src={`https://effigy.im/a/${account.address}.svg`}
 										alt="Avatar"
-										className="w-full h-full rounded-full object-cover"
+										className="size-full object-cover"
 									/>
 								) : (
-									<span className="text-2xl font-bold text-[var(--pon-lime)]">
+									<span className="font-display text-3xl font-extrabold text-[var(--pon-ink)]">
 										{account?.displayName?.[0]?.toUpperCase() ?? "?"}
 									</span>
 								)}
 							</div>
 							{chain?.hasIcon && chain?.iconUrl && (
 								<div
-									className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-[#0f1419] shadow-md"
-									style={{ background: chain.iconBackground || "#1a1f26" }}
+									className="absolute -right-1.5 -bottom-1.5 size-6 overflow-hidden rounded-[var(--pon-r-sm)] border border-[var(--pon-ink)]"
+									style={{ background: chain.iconBackground || "var(--pon-paper)" }}
 								>
-									<img
-										src={chain.iconUrl}
-										alt={chain.name ?? "Chain"}
-										className="w-full h-full rounded-full"
-									/>
+									<img src={chain.iconUrl} alt={chain.name ?? "Chain"} className="size-full" />
 								</div>
 							)}
 						</div>
 
-						<div className="text-center space-y-1">
-							<h3 className="text-xl font-bold text-white">
+						<div className="space-y-2 text-center">
+							<h3 className="t-h3 text-[var(--pon-fg-0)]">
 								{account?.ensName || account?.displayName}
 							</h3>
 							<button
 								type="button"
 								onClick={handleCopy}
-								className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--pon-surface-2)] hover:bg-white/10 border border-[var(--pon-line)] transition-all duration-200"
+								className="group flex items-center gap-2 rounded-[var(--pon-r-sm)] border border-[var(--pon-line-2)] px-3 py-1.5 transition-colors hover:bg-[var(--pon-lime-dim)]"
 							>
-								<span className="text-sm text-[var(--pon-fg-2)] font-fono">{shortenedAddress}</span>
+								<span className="font-fono text-[12.5px] text-[var(--pon-fg-2)]">
+									{shortenedAddress}
+								</span>
 								{copied ? (
-									<Check className="w-3.5 h-3.5 text-[var(--pon-lime)]" />
+									<Check className="size-3.5 text-[var(--pon-fg-0)]" />
 								) : (
-									<CopyIcon className="w-3.5 h-3.5 text-[var(--pon-fg-2)] group-hover:text-[var(--pon-lime)] transition-colors" />
+									<CopyIcon className="size-3.5 text-[var(--pon-fg-3)] transition-colors group-hover:text-[var(--pon-fg-0)]" />
 								)}
 							</button>
 						</div>
 
 						{balanceData && (
 							<div className="flex items-center gap-2 text-[var(--pon-fg-2)]">
-								<Wallet className="w-4 h-4" />
-								<span className="text-base font-medium">
+								<Wallet className="size-4" />
+								<span className="font-fono text-[13px] font-bold">
 									{formatQuantity(
 										parseFloat(formatUnits(balanceData.value, balanceData.decimals)),
 										4,
@@ -143,22 +135,21 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 						)}
 					</div>
 
-					<div className="h-px bg-linear-to-r from-transparent via-white/10 to-transparent my-5" />
+					<div className="my-5 h-px bg-[var(--pon-line)]" />
 
 					{accountExplorerUrl && (
 						<motion.a
 							href={accountExplorerUrl}
 							target="_blank"
 							rel="noreferrer"
-							whileHover={{ scale: 1.02 }}
-							whileTap={{ scale: 0.98 }}
+							whileTap={{ scale: 0.99 }}
 							className={cn(
-								"w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
-								"bg-[var(--pon-surface-2)] hover:bg-white/10 border border-[var(--pon-line)] hover:border-white/20",
-								"text-sm font-medium text-[var(--pon-fg)] hover:text-white transition-all duration-200",
+								"flex w-full items-center justify-center gap-2 rounded-[var(--pon-r-lg)] border border-[var(--pon-line-2)] px-4 py-2.5",
+								"font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-fg)] transition-colors",
+								"hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]",
 							)}
 						>
-							<ExternalLinkIcon className="w-4 h-4" />
+							<ExternalLinkIcon className="size-4" />
 							<span>View on Explorer</span>
 						</motion.a>
 					)}
@@ -169,16 +160,14 @@ export function AccountModal({ open, onOpenChange, account, chain }: AccountModa
 							disconnect();
 							onOpenChange(false);
 						}}
-						whileHover={{ scale: 1.02 }}
-						whileTap={{ scale: 0.98 }}
+						whileTap={{ scale: 0.99 }}
 						className={cn(
-							"w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-lg",
-							"bg-[var(--pon-down)]/10 hover:bg-[var(--pon-down)]/20",
-							"border border-[var(--pon-down)]/30 hover:border-red-500/40",
-							"text-sm font-medium text-[var(--pon-down)] hover:text-red-300 transition-all duration-200",
+							"mt-2.5 flex w-full items-center justify-center gap-2 rounded-[var(--pon-r-lg)] border border-[var(--pon-down)] px-4 py-2.5",
+							"font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-down)] transition-colors",
+							"hover:bg-[var(--pon-down)] hover:text-[var(--pon-paper)]",
 						)}
 					>
-						<LogOut className="w-4 h-4" />
+						<LogOut className="size-4" />
 						<span>Disconnect Wallet</span>
 					</motion.button>
 				</div>

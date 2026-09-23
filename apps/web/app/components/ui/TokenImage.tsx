@@ -11,7 +11,7 @@ export function TokenImage({
 	src,
 	symbol,
 	size = 32,
-	className = "rounded-full",
+	className = "rounded-[var(--pon-r-sm)] border border-[var(--pon-line)]",
 }: TokenImageProps) {
 	const [imageError, setImageError] = useState(false);
 

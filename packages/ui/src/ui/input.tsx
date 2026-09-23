@@ -4,12 +4,12 @@ import { cn } from "../utils";
 /**
  * Input.
  *
- * Pons recesses every field: the fill drops a rung to the well surface, the
- * border steps up to the stronger hairline so the field reads as interactive,
- * and focus is signalled by the lime edge alone — no ring, no shadow.
+ * A field is a ruled well: a square box on the stronger hairline, its value
+ * set in the mono at the same size the rest of the chrome is. Focus doubles
+ * the edge to full-strength ink — no ring, no glow, no shadow.
  */
 const fieldClass =
-	"w-full rounded-[var(--pon-r-md)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3.5 py-3 text-sm text-[var(--pon-fg)] outline-none transition-colors placeholder:text-[var(--pon-fg-3)] selection:bg-[var(--pon-lime)] selection:text-[var(--pon-on-lime)] focus-visible:border-[var(--pon-lime)] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-[var(--pon-down)]";
+	"w-full rounded-[var(--pon-r-md)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3 py-2.5 font-mono text-[13px] tracking-[-0.02em] text-[var(--pon-fg)] outline-none transition-colors placeholder:text-[var(--pon-fg-3)] selection:bg-[var(--pon-ink)] selection:text-[var(--pon-on-lime)] focus-visible:border-[var(--pon-ink)] disabled:pointer-events-none disabled:opacity-45 aria-invalid:border-[var(--pon-down)]";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 	return (
@@ -54,11 +54,13 @@ function InputGroup({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-2.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3.5 py-3 transition-colors focus-within:border-[var(--pon-lime)]",
+				"flex items-center gap-2.5 rounded-[var(--pon-r-md)] border border-[var(--pon-line-2)] bg-[var(--pon-bg-2)] px-3 py-2.5 transition-colors focus-within:border-[var(--pon-ink)]",
 				className,
 			)}
 		>
-			{prefix && <span className="shrink-0 text-sm text-[var(--pon-fg-3)]">{prefix}</span>}
+			{prefix && (
+				<span className="shrink-0 font-mono text-[13px] text-[var(--pon-fg-3)]">{prefix}</span>
+			)}
 			{children}
 			{suffix && <span className="ml-auto shrink-0">{suffix}</span>}
 		</div>
@@ -70,7 +72,7 @@ function BareInput({ className, ...props }: React.ComponentProps<"input">) {
 	return (
 		<input
 			className={cn(
-				"min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--pon-fg)] outline-none placeholder:text-[var(--pon-fg-3)]",
+				"min-w-0 flex-1 border-none bg-transparent font-mono text-[13px] tracking-[-0.02em] text-[var(--pon-fg)] outline-none placeholder:text-[var(--pon-fg-3)]",
 				className,
 			)}
 			{...props}
@@ -78,7 +80,7 @@ function BareInput({ className, ...props }: React.ComponentProps<"input">) {
 	);
 }
 
-/** Field help text, per Pons: 11.5px, tertiary ink, sits under the field. */
+/** Field help text: 10.5px mono, tertiary ink, sits under the field. */
 function FieldHint({ className, ...props }: React.ComponentProps<"p">) {
 	return <p className={cn("mt-1.5 t-micro text-[var(--pon-fg-3)]", className)} {...props} />;
 }

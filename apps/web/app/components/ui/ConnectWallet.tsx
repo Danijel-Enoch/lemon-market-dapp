@@ -9,17 +9,17 @@ import { useNavigate } from "react-router";
 /**
  * Wallet control.
  *
- * Pons gives the wallet the only solid lime pill in the nav — it is the one
- * action the bar exists to offer. Once connected the fill is spent, so the
- * chain and the address drop back to hairline pills and the accent is free to
- * mark something else on the page.
+ * The wallet gets the only inverted control in the bar — ink fill, lime type
+ * — because it is the one action the bar exists to offer. Once connected the
+ * inversion is spent, so the chain and the address drop back to hairline boxes
+ * and the emphasis is free to mark something else on the page.
  */
 
 const SOLID =
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--pon-lime)] px-[18px] py-2 text-[13px] font-semibold text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]";
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--pon-r-lg)] border border-[var(--pon-ink)] bg-[var(--pon-ink)] px-4 py-[7px] font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-on-lime)] transition-colors hover:bg-[var(--pon-lime-2)]";
 
 const HAIRLINE =
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[var(--pon-line-2)] px-3.5 py-2 text-[13px] font-medium text-[var(--pon-fg-2)] transition-colors hover:border-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]";
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--pon-r-lg)] border border-[var(--pon-line-2)] px-3 py-[7px] font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-fg)] transition-colors hover:bg-[var(--pon-ink)] hover:text-[var(--pon-on-lime)]";
 
 export function ConnectWallet({
 	text = "Connect",
@@ -82,7 +82,7 @@ export function ConnectWallet({
 									<button
 										type="button"
 										onClick={openChainModal}
-										className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[var(--pon-down)] bg-[var(--pon-down)]/12 px-[18px] py-2 text-[13px] font-semibold text-[var(--pon-down)] transition-colors hover:bg-[var(--pon-down)]/20"
+										className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--pon-r-lg)] border border-[var(--pon-down)] px-4 py-[7px] font-mono text-[12.5px] tracking-[-0.02em] text-[var(--pon-down)] transition-colors hover:bg-[var(--pon-down)] hover:text-[var(--pon-paper)]"
 									>
 										Wrong network
 									</button>

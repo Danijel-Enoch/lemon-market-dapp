@@ -26,11 +26,11 @@ export function RiskBadge({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-				size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
+				"inline-flex items-center gap-1.5 rounded-[var(--pon-r-sm)] border font-mono tracking-[-0.02em] whitespace-nowrap",
+				size === "sm" ? "px-2 py-0.5 text-[10.5px]" : "px-2.5 py-1 text-[11.5px]",
 				conservative
-					? "border-[var(--pon-accent)]/30 bg-[var(--pon-accent)]/10 text-[var(--pon-accent)]"
-					: "border-[var(--pon-amber)]/30 bg-[var(--pon-amber)]/10 text-[var(--pon-amber)]",
+					? "border-[var(--pon-accent)] bg-transparent text-[var(--pon-accent)]"
+					: "border-[var(--pon-amber)] bg-[var(--pon-lime-dim)] text-[var(--pon-amber)]",
 				className,
 			)}
 		>

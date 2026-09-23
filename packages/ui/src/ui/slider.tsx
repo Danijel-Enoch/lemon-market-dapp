@@ -31,13 +31,13 @@ function Slider({
 			<SliderPrimitive.Track
 				data-slot="slider-track"
 				className={cn(
-					"relative grow overflow-hidden rounded-full bg-[var(--pon-bg-2)] data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
+					"relative grow overflow-hidden rounded-none border border-[var(--pon-line)] bg-transparent data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5",
 				)}
 			>
 				<SliderPrimitive.Range
 					data-slot="slider-range"
 					className={cn(
-						"absolute bg-[var(--pon-lime)] data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
+						"absolute bg-[var(--pon-ink)] data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
 					)}
 				/>
 			</SliderPrimitive.Track>
@@ -46,7 +46,7 @@ function Slider({
 					data-slot="slider-thumb"
 					// biome-ignore lint/suspicious/noArrayIndexKey: thumbs order doesn't change
 					key={index}
-					className="block size-4 shrink-0 rounded-full border-2 border-[var(--pon-bg)] bg-[var(--pon-lime)] transition-[box-shadow] hover:ring-4 hover:ring-[var(--pon-lime)]/25 focus-visible:ring-4 focus-visible:ring-[var(--pon-lime)]/25 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+					className="block size-3.5 shrink-0 rounded-none border border-[var(--pon-ink)] bg-[var(--pon-ink)] transition-colors hover:bg-[var(--pon-lime-2)] focus-visible:bg-[var(--pon-lime-2)] focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-45"
 				/>
 			))}
 		</SliderPrimitive.Root>

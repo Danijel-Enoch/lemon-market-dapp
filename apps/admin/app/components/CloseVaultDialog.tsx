@@ -168,7 +168,7 @@ function since(iso: string | null): string {
 
 function Problem({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="mt-5 flex gap-2 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)]/30 bg-[var(--pon-down)]/10 p-3 text-sm">
+		<div className="mt-5 flex gap-2 rounded-[var(--pon-r-md,12px)] border border-[var(--pon-down)] bg-[var(--pon-lime-dim)] p-3 text-sm">
 			<AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--pon-down)]" />
 			<p className="text-[var(--pon-fg-2)]">{children}</p>
 		</div>

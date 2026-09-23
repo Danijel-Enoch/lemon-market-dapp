@@ -3,10 +3,10 @@ import { cn } from "../utils";
 /**
  * Segmented control.
  *
- * The Pons switch: a pill track on the well surface holding pill segments,
- * where the active one is filled with the next surface up and gains weight.
- * This is the controlled, non-Radix form — for anything that is just picking a
- * value rather than swapping a panel, where Tabs would be the wrong semantics.
+ * A hairline track of square segments divided by rules, where the active one
+ * inverts to ink. This is the controlled, non-Radix form — for anything that
+ * is just picking a value rather than swapping a panel, where Tabs would be
+ * the wrong semantics.
  */
 export function Segmented<T extends string>({
 	options,
@@ -32,7 +32,7 @@ export function Segmented<T extends string>({
 			role="tablist"
 			aria-label={ariaLabel}
 			className={cn(
-				"inline-flex w-fit max-w-full items-stretch overflow-x-auto rounded-full border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-[3px] scrollbar-hide",
+				"inline-flex w-fit max-w-full items-stretch overflow-x-auto rounded-[var(--pon-r-lg)] border border-[var(--pon-line-2)] scrollbar-hide [&>*+*]:border-l [&>*+*]:border-[var(--pon-line-2)]",
 				className,
 			)}
 		>
@@ -46,11 +46,11 @@ export function Segmented<T extends string>({
 						aria-selected={active}
 						onClick={() => onChange(item.value)}
 						className={cn(
-							"shrink-0 whitespace-nowrap rounded-full transition-colors",
-							size === "sm" ? "px-3.5 py-1.5 text-xs" : "px-4.5 py-2 text-[13px]",
+							"shrink-0 whitespace-nowrap font-mono tracking-[-0.02em] transition-colors",
+							size === "sm" ? "px-3 py-1.5 text-[11.5px]" : "px-4 py-2 text-[12.5px]",
 							active
-								? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
-								: "font-medium text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
+								? "bg-[var(--pon-ink)] text-[var(--pon-on-lime)]"
+								: "text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
 						)}
 					>
 						{item.label}
@@ -64,9 +64,9 @@ export function Segmented<T extends string>({
 /**
  * Filter chips.
  *
- * Pons' other selector: free-standing hairline pills where the selected one
- * inverts to a lime fill. Used for ranges and quick amounts — anywhere the
- * options are peers rather than a track of adjacent segments.
+ * The other selector: free-standing hairline boxes where the selected one
+ * inverts to ink. Used for ranges and quick amounts — anywhere the options are
+ * peers rather than a track of adjacent segments.
  */
 export function ChipGroup<T extends string>({
 	options,
@@ -99,10 +99,10 @@ export function ChipGroup<T extends string>({
 						aria-pressed={active}
 						onClick={() => onChange(item.value)}
 						className={cn(
-							"rounded-full border px-3.5 py-1.5 text-xs transition-colors",
+							"rounded-[var(--pon-r-sm)] border px-3 py-1.5 font-mono text-[11.5px] tracking-[-0.02em] transition-colors",
 							active
-								? "border-[var(--pon-lime)] bg-[var(--pon-lime)] font-semibold text-[var(--pon-on-lime)]"
-								: "border-[var(--pon-line)] bg-transparent text-[var(--pon-fg-2)] hover:border-[var(--pon-fg-3)]",
+								? "border-[var(--pon-ink)] bg-[var(--pon-ink)] text-[var(--pon-on-lime)]"
+								: "border-[var(--pon-line)] bg-transparent text-[var(--pon-fg-2)] hover:border-[var(--pon-ink)]",
 						)}
 					>
 						{item.label}
@@ -114,8 +114,9 @@ export function ChipGroup<T extends string>({
 }
 
 /**
- * Timeframe picker — the borderless variant Pons puts inside chart headers,
- * where a bordered chip would compete with the card frame it sits in.
+ * Timeframe picker — the borderless variant for chart headers, where a
+ * bordered box would compete with the frame it sits in. The active one is
+ * underscored rather than filled, so the row stays quiet.
  */
 export function TimeframeGroup<T extends string>({
 	options,
@@ -144,10 +145,10 @@ export function TimeframeGroup<T extends string>({
 						aria-pressed={active}
 						onClick={() => onChange(option)}
 						className={cn(
-							"rounded-full px-2.5 py-1 text-xs transition-colors",
+							"rounded-none border-b px-2 py-1 font-mono text-[11.5px] tracking-[-0.02em] transition-colors",
 							active
-								? "bg-[var(--pon-surface-2)] font-semibold text-[var(--pon-fg)]"
-								: "font-medium text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
+								? "border-[var(--pon-ink)] text-[var(--pon-fg-0)]"
+								: "border-transparent text-[var(--pon-fg-3)] hover:text-[var(--pon-fg)]",
 						)}
 					>
 						{option}
