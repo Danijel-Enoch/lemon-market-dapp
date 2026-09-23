@@ -157,6 +157,21 @@ export interface VaultView extends IndexedVault {
 	 */
 	closeRequestedAt: string | null;
 	closeCompletedAt: string | null;
+
+	/**
+	 * A hand-asked rebalance: when it was asked for, and what became of it.
+	 *
+	 * Both halves, because "pending" and "served" are different states and the
+	 * dashboard has to tell them apart. `rebalanceOutcome` carries the answer
+	 * even when the answer is that nothing could be done — a correction under
+	 * the venue's minimum order is the common case on a small vault, and
+	 * reporting it as an outcome is the difference between an operator learning
+	 * why and watching a button appear to do nothing.
+	 */
+	rebalanceRequestedAt: string | null;
+	rebalanceCompletedAt: string | null;
+	rebalanceOutcome: string | null;
+
 	/**
 	 * The NEAR path the vault's agent wallet was derived from.
 	 *
@@ -370,6 +385,9 @@ function decorate(
 		agentEnabled: record?.agentEnabled ?? false,
 		closeRequestedAt: record?.closeRequestedAt?.toISOString() ?? null,
 		closeCompletedAt: record?.closeCompletedAt?.toISOString() ?? null,
+		rebalanceRequestedAt: record?.rebalanceRequestedAt?.toISOString() ?? null,
+		rebalanceCompletedAt: record?.rebalanceCompletedAt?.toISOString() ?? null,
+		rebalanceOutcome: record?.rebalanceOutcome ?? null,
 		agentPath: record?.agentPath ?? null,
 		navStale: v.lastNavReportAt !== null && now - v.lastNavReportAt > NAV_STALENESS_SECONDS,
 		assetClass,
@@ -746,8 +764,16 @@ export async function getNavSeries(address: string, days: number) {
  * own, which is the part the vault exists to collect and the only part that
  * arrives as a payment rather than as a revaluation.
  */
-export async function getFundingSeries(address: string, days: number) {
-	return fromIndexer(`/vaults/${address}/funding?days=${days}`);
+/**
+ * Funding paid, bucketed.
+ *
+ * `hours` wins when given, and draws hourly buckets; otherwise the window is
+ * days and the buckets are days. See the indexer route for why the two are not
+ * independent knobs.
+ */
+export async function getFundingSeries(address: string, window: { days?: number; hours?: number }) {
+	const query = window.hours ? `hours=${window.hours}` : `days=${window.days ?? 30}`;
+	return fromIndexer(`/vaults/${address}/funding?${query}`);
 }
 
 export async function getTransfers(address: string) {

@@ -210,6 +210,7 @@ function harness(options: {
 		advisor: null,
 		queue: async () => options.queue ?? [],
 		closeRequested: options.closeRequested ?? false,
+		rebalanceRequested: false,
 		rebalanceDriftBps: 100,
 		cooldown: options.cooldown,
 		now: () => options.now ?? NOW,

@@ -93,10 +93,14 @@ export const vaultRoutes = new Elysia({ prefix: "/vaults" })
 	 */
 	.get(
 		"/:address/funding",
-		async ({ params, query }) => getFundingSeries(params.address, Number(query.days ?? 30)),
+		async ({ params, query }) =>
+			getFundingSeries(params.address, {
+				days: query.days ? Number(query.days) : undefined,
+				hours: query.hours ? Number(query.hours) : undefined,
+			}),
 		{
 			params: t.Object({ address: addressSchema }),
-			query: t.Object({ days: t.Optional(t.String()) }),
+			query: t.Object({ days: t.Optional(t.String()), hours: t.Optional(t.String()) }),
 		},
 	)
 

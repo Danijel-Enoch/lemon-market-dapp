@@ -31,11 +31,26 @@ import {
  * for it. This is money that arrived, which is the claim the rest of this page
  * is making.
  */
-export function FundingChart({ points }: { points: FundingPoint[] }) {
+export function FundingChart({
+	points,
+	bucket = "day",
+}: {
+	points: FundingPoint[];
+	/**
+	 * How wide each bar is, which is the only thing that changes between the
+	 * hourly and daily views. The labels have to follow it: "Sep 22" on twelve
+	 * bars that are all the same day tells a reader nothing, and an hour on a
+	 * thirty-day chart is noise.
+	 */
+	bucket?: "hour" | "day";
+}) {
 	const data = useMemo(
 		() =>
 			points.map((point) => ({
-				day: point.day,
+				// `start` on a current API, `day` from one that predates hourly
+				// buckets. Same number; the fallback is what lets a cached bundle
+				// keep drawing during a rollout.
+				day: point.start ?? point.day,
 				// A day's funding is a few dollars to a few thousand — far inside
 				// float precision at six decimals. Balances are not, and are kept as
 				// bigint everywhere else for that reason.
@@ -63,10 +78,26 @@ export function FundingChart({ points }: { points: FundingPoint[] }) {
 	// floating the smallest bar off it.
 	const pad = Math.max((max - min) * 0.15, 0.01);
 
-	const label = (day: number) =>
-		new Date(day * 1000).toLocaleDateString(undefined, {
+	const label = (start: number) =>
+		bucket === "hour"
+			? new Date(start * 1000).toLocaleTimeString(undefined, {
+					hour: "2-digit",
+					minute: "2-digit",
+					timeZone: "UTC",
+				})
+			: new Date(start * 1000).toLocaleDateString(undefined, {
+					month: "short",
+					day: "numeric",
+					timeZone: "UTC",
+				});
+
+	/** Date and hour together: an axis tick has room for one, a tooltip for both. */
+	const hourLabel = (start: number) =>
+		new Date(start * 1000).toLocaleString(undefined, {
 			month: "short",
 			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
 			timeZone: "UTC",
 		});
 
@@ -106,7 +137,11 @@ export function FundingChart({ points }: { points: FundingPoint[] }) {
 							borderRadius: 8,
 							fontSize: 12,
 						}}
-						labelFormatter={(day) => `${label(Number(day))} (UTC)`}
+						labelFormatter={(start) =>
+							bucket === "hour"
+								? `${hourLabel(Number(start))} (UTC)`
+								: `${label(Number(start))} (UTC)`
+						}
 						formatter={(value, _name, item) => {
 							const settlements = (item?.payload as { settlements: number } | undefined)
 								?.settlements;
@@ -137,21 +172,33 @@ export function FundingChart({ points }: { points: FundingPoint[] }) {
  * closes, and a number presented without that reads as a finished day that
  * happened to earn very little every time somebody looks in the morning.
  */
-export function FundingToday({ amount, settlements }: { amount: string; settlements: number }) {
+export function FundingToday({
+	amount,
+	settlements,
+	bucket = "day",
+}: {
+	amount: string;
+	settlements: number;
+	bucket?: "hour" | "day";
+}) {
 	const value = toBigInt(amount);
+	// It is always the newest bucket, which is the one still being paid into —
+	// so on an hourly chart it is this hour, not today, and calling it "today"
+	// there would overstate it by up to twenty-three hours of earnings.
+	const period = bucket === "hour" ? "hour" : "day";
 
 	return (
 		<div className="text-right">
 			<div
 				className={cnTone(value)}
-				title="Funding credited to this vault since 00:00 UTC, across every market it runs."
+				title={`Funding credited to this vault so far this UTC ${period}, across every market it runs.`}
 			>
 				{settlements === 0 ? "—" : formatUsdSigned(value)}
 			</div>
 			<div className="text-[11px] text-[var(--pon-fg-4)]">
 				{settlements === 0
-					? "nothing settled yet today"
-					: `today so far · ${settlements} settlement${settlements === 1 ? "" : "s"}`}
+					? `nothing settled yet this ${period}`
+					: `this ${period} so far · ${settlements} settlement${settlements === 1 ? "" : "s"}`}
 			</div>
 		</div>
 	);

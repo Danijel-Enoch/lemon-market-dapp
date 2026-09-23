@@ -4,7 +4,7 @@ import { ACTIVITY_KINDS } from "@lemon/contracts";
 import { isSupportedChainId } from "@lemon/core";
 import { Hono } from "hono";
 import { and, asc, client, desc, eq, graphql, gte, inArray, sql } from "ponder";
-import { bucketFunding, DAY } from "./funding";
+import { bucketFunding, DAY, HOUR } from "./funding";
 
 /**
  * The read API.
@@ -281,11 +281,28 @@ app.get("/vaults/:address/funding", async (c) => {
 	if (!address) return c.json({ error: "Not an address" }, 400);
 	const scope = await resolveChain(address, asChainId(c.req.query("chainId")) ?? undefined);
 	if ("error" in scope) return c.json({ error: scope.error }, scope.status);
-	const days = Math.min(Math.max(Number(c.req.query("days") ?? 30), 1), 365);
+	/**
+	 * Hourly when asked for hours, daily otherwise.
+	 *
+	 * `hours` rather than a `bucket` parameter, because the two things a caller
+	 * varies — how far back, and how finely — are not independent here. An hour
+	 * is the atom the venue settles in, so any window measured in hours is drawn
+	 * in hours, and any window measured in days is drawn in days. Offering the
+	 * cross product would mostly offer nonsense: a month of hourly buckets is
+	 * seven hundred columns, and a day of daily buckets is one.
+	 *
+	 * Capped at a month of hours. Beyond that the series is longer than any
+	 * chart can resolve and the caller wants `days`.
+	 */
+	const hoursParam = c.req.query("hours");
+	const width = hoursParam ? HOUR : DAY;
+	const buckets = hoursParam
+		? Math.min(Math.max(Number(hoursParam), 1), 744)
+		: Math.min(Math.max(Number(c.req.query("days") ?? 30), 1), 365);
 
 	const now = Math.floor(Date.now() / 1000);
-	const todayStart = Math.floor(now / DAY) * DAY;
-	const since = todayStart - (days - 1) * DAY;
+	const todayStart = Math.floor(now / width) * width;
+	const since = todayStart - (buckets - 1) * width;
 
 	const rows = await db
 		.select()
@@ -301,7 +318,7 @@ app.get("/vaults/:address/funding", async (c) => {
 		.orderBy(asc(schema.activity.occurredAt))
 		.limit(20_000);
 
-	return c.json(serialise(bucketFunding(rows, since, todayStart)), 200, JSON_HEADERS);
+	return c.json(serialise(bucketFunding(rows, since, todayStart, width)), 200, JSON_HEADERS);
 });
 
 // ---------------------------------------------------------------------------

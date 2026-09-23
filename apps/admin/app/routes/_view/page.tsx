@@ -123,6 +123,27 @@ export default function AdminPage() {
 		}
 	}
 
+	/**
+	 * Ask for a correction, then leave it alone.
+	 *
+	 * No optimistic state and no spinner waiting for a result: the agent ticks on
+	 * its own interval, so the honest feedback is "asked, pending" until it
+	 * reports back. Pretending otherwise would mean a button that looks like it
+	 * finished before anything has happened.
+	 */
+	async function rebalance(address: string) {
+		setActionError(null);
+		setBusyVault(address);
+		try {
+			await adminApi.rebalance(address);
+			queryClient.invalidateQueries({ queryKey: ["admin-vaults"] });
+		} catch (error) {
+			setActionError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBusyVault(null);
+		}
+	}
+
 	if (isLoading) {
 		return <Skeleton className="h-64 w-full rounded-[var(--pon-r-lg,16px)]" />;
 	}
@@ -266,6 +287,12 @@ export default function AdminPage() {
 														{vault.closeCompletedAt ? "Closed out" : "Closing"}
 													</Pill>
 												)}
+												{/* Pending only. Once the agent has answered, the answer itself
+												    is printed below — a badge that stayed would say a request
+												    exists without saying what came of it. */}
+												{vault.rebalanceRequestedAt && !vault.rebalanceCompletedAt && (
+													<Pill tone="warning">Rebalance asked</Pill>
+												)}
 											</div>
 											<p className="mt-1 text-xs text-[var(--pon-fg-3)]">
 												Agent {shortAddress(vault.agentWallet)} ·{" "}
@@ -274,6 +301,16 @@ export default function AdminPage() {
 													: "never reported"}{" "}
 												· leverage {(vault.lastObservedLeverageBps / 10_000).toFixed(2)}x
 											</p>
+											{/* The agent's own words about the last hand-asked rebalance.
+											    Printed in full, because the useful ones are the refusals — "the
+											    correction is worth $3.45, under the venue's $10 minimum order"
+											    is the difference between an operator understanding a small
+											    vault and pressing the button again every hour. */}
+											{vault.rebalanceOutcome && (
+												<p className="mt-1 text-xs text-[var(--pon-fg-4)]">
+													Last rebalance request: {vault.rebalanceOutcome}
+												</p>
+											)}
 											{/* A vault runs one basis position per market. On the row rather
 											    than behind the editor, because otherwise a three-market vault
 											    is indistinguishable from a one-market vault at a glance. */}
@@ -317,6 +354,21 @@ export default function AdminPage() {
 														: vault.agentEnabled
 															? "Stop agent"
 															: "Start agent"}
+												</Button>
+												{/* Disabled under a close order and with the agent stopped,
+												    because in both cases the API refuses it — better to say so
+												    with the control than with an error after the click. */}
+												<Button
+													variant="outline"
+													size="sm"
+													disabled={
+														busyVault === vault.address ||
+														!vault.agentEnabled ||
+														vault.closeRequestedAt !== null
+													}
+													onClick={() => rebalance(vault.address)}
+												>
+													Rebalance now
 												</Button>
 												<Button variant="outline" size="sm" onClick={() => setClosingVault(vault)}>
 													{vault.closeRequestedAt ? "Resume trading" : "Close positions"}

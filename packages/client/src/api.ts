@@ -164,6 +164,12 @@ export interface Vault {
 	 */
 	closeRequestedAt: string | null;
 	closeCompletedAt: string | null;
+
+	/** A hand-asked rebalance: when it was asked for, and what became of it. */
+	rebalanceRequestedAt: string | null;
+	rebalanceCompletedAt: string | null;
+	/** The answer, including when the answer is "the venue would not take it". */
+	rebalanceOutcome: string | null;
 	assetClass: string;
 	assetClassLabel: string;
 	/** One of "crypto" | "stocks" | "rwa" | "fx" — the board's tabs. */
@@ -255,7 +261,9 @@ export interface NavPoint {
 
 /** One UTC day's funding. Every day in the window is present, paid or not. */
 export interface FundingPoint {
-	/** Unix seconds at UTC midnight — the bucket, not a settlement time. */
+	/** Unix seconds at the start of the bucket — not a settlement time. */
+	start: number;
+	/** @deprecated Read `start`. Identical value, kept for older bundles. */
 	day: number;
 	/** Funding paid that day, signed USDC. Zero on a day with no settlements. */
 	amount: string;
@@ -488,8 +496,17 @@ export const vaultApi = {
 	nav: (address: string, days = 30) =>
 		request<{ points: NavPoint[] }>(`/vaults/${address}/nav`, { query: { days } }),
 
-	funding: (address: string, days = 30) =>
-		request<FundingSeries>(`/vaults/${address}/funding`, { query: { days } }),
+	/**
+	 * Funding paid, bucketed by day or — with `hours` — by hour.
+	 *
+	 * The venue settles hourly, so hours is the finer of the two real views and
+	 * days is the summary. Passing `hours` picks both the window and the bucket;
+	 * see the indexer route for why they are not separate knobs.
+	 */
+	funding: (address: string, window: { days?: number; hours?: number } = {}) =>
+		request<FundingSeries>(`/vaults/${address}/funding`, {
+			query: window.hours ? { hours: window.hours } : { days: window.days ?? 30 },
+		}),
 
 	activity: (
 		address: string,
@@ -830,6 +847,16 @@ export const adminApi = {
 
 	setAgent: (address: string, enabled: boolean) =>
 		post<{ vault: unknown }>(`/admin/vaults/${address}/agent`, { enabled }),
+
+	/**
+	 * Ask the agent to correct the hedge on its next tick.
+	 *
+	 * Returns as soon as the request is recorded, not when it is served — the
+	 * agent ticks on its own interval, and the answer arrives on the vault as
+	 * `rebalanceOutcome`.
+	 */
+	rebalance: (address: string) =>
+		post<{ vault: unknown }>(`/admin/vaults/${address}/rebalance`, {}),
 
 	vaultMarkets: (address: string, chainId?: number) =>
 		request<{ markets: VaultMarketConfig[] }>(`/admin/vaults/${address}/markets`, {

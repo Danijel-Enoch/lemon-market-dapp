@@ -10,6 +10,7 @@ import {
 	prepareVault,
 	recentRuns,
 	recordVault,
+	requestRebalance,
 	setAgentEnabled,
 	setCloseOrder,
 	setVaultMarkets,
@@ -424,6 +425,27 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 	 * flat. `assertCanCreateVaults` rather than `assertAdmin`, on the same
 	 * reasoning as every other route that moves money.
 	 */
+	/**
+	 * Ask the agent to correct the hedge on its next tick.
+	 *
+	 * One-shot, unlike the close order below: it lowers the drift threshold to
+	 * zero for a single tick and nothing else. It does not bypass the venue's
+	 * minimum order notional, so on a position too small to trade the answer
+	 * comes back as an outcome rather than as silence.
+	 *
+	 * Returns as soon as the request is recorded. The agent ticks on its own
+	 * interval and stamps `rebalanceCompletedAt` with what it did — or with why
+	 * it could not.
+	 */
+	.post(
+		"/vaults/:address/rebalance",
+		async ({ admin, params }) => {
+			await assertCanCreateVaults(admin);
+			return { vault: await requestRebalance({ address: params.address, by: admin as string }) };
+		},
+		{ params: t.Object({ address: addressSchema }) },
+	)
+
 	.post(
 		"/vaults/:address/close",
 		async ({ admin, params, body }) => {

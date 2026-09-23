@@ -197,6 +197,18 @@ export interface VaultSnapshot {
 	closeRequested: boolean;
 
 	/**
+	 * An operator asked for the hedge to be corrected on this tick.
+	 *
+	 * Lowers the drift threshold to zero and nothing else. It does not bypass the
+	 * venue's minimum order notional — that is a fact about Pacifica, not a
+	 * policy this app sets — and it does not outrank an obligation: someone
+	 * waiting to be paid still comes before a tidier hedge. What it does buy is
+	 * the ordinary case, where the drift is real, correctable, and simply has not
+	 * crossed a threshold chosen for a quieter market.
+	 */
+	rebalanceRequested: boolean;
+
+	/**
 	 * How far the legs may drift before a rebalance is worth making, in bps.
 	 *
 	 * Configuration rather than a constant, because the right answer depends on
@@ -656,7 +668,11 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	// is no such thing as the vault's drift: two markets a percent out in
 	// opposite directions average to neutral and are both wrong.
 
-	const threshold = snapshot.rebalanceDriftBps || DEFAULT_REBALANCE_DRIFT_BPS;
+	// Zero when an operator asked, so every drifted market is considered and the
+	// venue's own limits are the only thing left to refuse it.
+	const threshold = snapshot.rebalanceRequested
+		? 0
+		: snapshot.rebalanceDriftBps || DEFAULT_REBALANCE_DRIFT_BPS;
 	/** Markets drifted past the threshold that the venue will not let us correct. */
 	const blocked: string[] = [];
 	const drifted = snapshot.markets
@@ -691,8 +707,14 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			kind: "REBALANCE",
 			amount: 0n,
 			market: market.ticker,
-			reason: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral against a ${(threshold / 100).toFixed(1)}% threshold; its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`,
-			forced: false,
+			reason: snapshot.rebalanceRequested
+				? `An operator asked for a correction: the ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral, and its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`
+				: `The ${market.ticker} hedge is ${(drift / 100).toFixed(2)}% off neutral against a ${(threshold / 100).toFixed(1)}% threshold; its perp leg needs to move ${placeable.correctionUsd} to match its spot leg.`,
+			// Forced when asked for by hand, which takes the advisor out of the loop:
+			// an operator's instruction is not a suggestion for a model to weigh
+			// against doing nothing. It still cannot outrank the obligations above,
+			// which have already returned by the time this runs.
+			forced: snapshot.rebalanceRequested,
 			fundedFrom: null,
 			legs: null,
 		});

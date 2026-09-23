@@ -156,6 +156,41 @@ async function recordRun(vaultAddress: string, result: TickResult): Promise<void
  * Conditional on the column still being null so the recorded time is when the
  * position *became* flat rather than the most recent tick that noticed.
  */
+/**
+ * How long a hand-asked rebalance stays actionable.
+ *
+ * Ten minutes, which is several ticks at the default interval — long enough
+ * that a slow tick or a brief restart still serves the request, short enough
+ * that an instruction given about a position is not executed against a
+ * different one. An operator who still wants it can press the button again,
+ * looking at what is true then.
+ */
+const REBALANCE_REQUEST_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Answer the operator, whatever the answer is.
+ *
+ * Every pending request ends here — acted on, impossible, or expired. Leaving
+ * one unanswered would put the dashboard in the state this whole feature exists
+ * to avoid: a button pressed, nothing visibly happening, and no way to tell
+ * "working on it" from "this can never work".
+ */
+async function recordRebalanceOutcome(
+	vaultAddress: string,
+	chainId: number,
+	outcome: string,
+): Promise<void> {
+	try {
+		const { count } = await prisma.vaultConfig.updateMany({
+			where: { chainId, address: vaultAddress.toLowerCase(), rebalanceCompletedAt: null },
+			data: { rebalanceCompletedAt: new Date(), rebalanceOutcome: outcome },
+		});
+		if (count > 0) log("info", `${vaultAddress}: rebalance request — ${outcome}`);
+	} catch (error) {
+		log("warn", `Could not record the rebalance outcome for ${vaultAddress}`, error);
+	}
+}
+
 async function recordCloseSatisfied(vaultAddress: string, chainId: number): Promise<void> {
 	try {
 		const { count } = await prisma.vaultConfig.updateMany({
@@ -450,6 +485,7 @@ async function main() {
 				advisor,
 				queue: () => loadQueue(indexed.address),
 				closeRequested: resolved.closeRequested,
+				rebalanceRequested: resolved.rebalanceRequested,
 				rebalanceDriftBps: resolved.rebalanceDriftBps,
 				// Per vault and kept across ticks, which is the whole point: a cooldown
 				// that lived inside a tick would be forgotten by the next one, sixty
@@ -475,6 +511,31 @@ async function main() {
 			}
 
 			if (result.closeSatisfied) await recordCloseSatisfied(indexed.address, AGENT_CHAIN.id);
+
+			/**
+			 * Answer a hand-asked rebalance, whatever the answer turned out to be.
+			 *
+			 * The rationale is reused rather than rewritten: when the correction was
+			 * refused it already names why in the venue's own terms — "worth $3.45,
+			 * under the venue's $10 minimum order" — and an outcome written
+			 * separately here would be a second, vaguer account of the same tick
+			 * that could drift out of step with the run log beside it.
+			 */
+			if (resolved.rebalanceRequestStale) {
+				await recordRebalanceOutcome(
+					indexed.address,
+					AGENT_CHAIN.id,
+					"Expired before the agent reached it. Ask again if it is still wanted.",
+				);
+			} else if (resolved.rebalanceRequested) {
+				await recordRebalanceOutcome(
+					indexed.address,
+					AGENT_CHAIN.id,
+					result.action === "REBALANCE"
+						? `Corrected ${result.market ?? "the hedge"}. ${result.rationale}`
+						: `No correction made. ${result.rationale}`,
+				);
+			}
 
 			const summary = `${result.action}${result.market ? ` ${result.market}` : ""}${result.advised ? " (advised)" : ""} — nav=${result.navReported} activity=${result.activityReported} fulfilled=${result.fulfilled}${result.error ? ` error=${result.error}` : ""}`;
 			span.end(summary);
@@ -523,6 +584,10 @@ async function resolveVenue(params: {
 }): Promise<{
 	venue: VenueAdapter;
 	closeRequested: boolean;
+	/** An operator asked for a correction on this tick. */
+	rebalanceRequested: boolean;
+	/** One was asked for, but too long ago to act on. Recorded, not executed. */
+	rebalanceRequestStale: boolean;
 	rebalanceDriftBps: number;
 } | null> {
 	const { indexed, vault, wallet, walletClient, publicClient, solana, log } = params;
@@ -617,9 +682,27 @@ async function resolveVenue(params: {
 		log,
 	});
 
+	/**
+	 * A hand-asked rebalance, if one is pending and still recent.
+	 *
+	 * Bounded in time on purpose. An operator presses this looking at a position
+	 * as it is now; if the agent has been down for a day, firing that instruction
+	 * against a position that has since moved is not what they asked for — it is
+	 * a stale order arriving after the situation it described. Past the window it
+	 * is treated as expired rather than executed, and said so in the outcome.
+	 */
+	const requestedAt = record.rebalanceRequestedAt;
+	const rebalanceRequested =
+		requestedAt !== null &&
+		record.rebalanceCompletedAt === null &&
+		Date.now() - requestedAt.getTime() <= REBALANCE_REQUEST_TTL_MS;
+
 	return {
 		venue,
 		closeRequested: record.closeRequestedAt !== null,
+		rebalanceRequested,
+		rebalanceRequestStale:
+			requestedAt !== null && record.rebalanceCompletedAt === null && !rebalanceRequested,
 		// The operator's setting when there is one, and the shared default when
 		// there is not. Read from the same row the UI reads, so what a depositor is
 		// shown as the threshold is the threshold the agent actually acts on.

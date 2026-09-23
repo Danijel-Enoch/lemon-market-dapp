@@ -29,6 +29,7 @@ import {
 	EmptyState,
 	RiskBadge,
 	riskDescription,
+	Segmented,
 	Skeleton,
 	StatCard,
 } from "@lemon/ui";
@@ -71,13 +72,34 @@ function usdcForVault(chainId: number | undefined): `0x${string}` {
 	return usdcFor(chainId ?? APP_CHAIN.id);
 }
 
+/**
+ * The windows the funding chart offers.
+ *
+ * Hourly up to a week, because the venue settles on the hour and that is the
+ * grain the money actually arrives in. A month is drawn daily instead: seven
+ * hundred hourly bars is a pixel each, which is not a chart of anything. The
+ * caption under the chart says which grain is on screen, so the switch is never
+ * silent.
+ */
+const FUNDING_RANGES = [
+	{ value: "8h", label: "8H", window: { hours: 8 }, bucket: "hour" },
+	{ value: "12h", label: "12H", window: { hours: 12 }, bucket: "hour" },
+	{ value: "24h", label: "24H", window: { hours: 24 }, bucket: "hour" },
+	{ value: "1w", label: "1W", window: { hours: 24 * 7 }, bucket: "hour" },
+	{ value: "1m", label: "1M", window: { days: 30 }, bucket: "day" },
+] as const;
+
+type FundingRange = (typeof FUNDING_RANGES)[number]["value"];
+
 export default function VaultDetailPage() {
 	const { id } = useParams<{ id: string }>();
 	const { address } = useAccount();
 
 	const { data: vault, isLoading, isError } = useVault(id);
 	const { data: navData } = useNavSeries(id, 30);
-	const { data: funding } = useFundingSeries(id, 30);
+	const [fundingRange, setFundingRange] = useState<FundingRange>("24h");
+	const range = FUNDING_RANGES.find((r) => r.value === fundingRange) ?? FUNDING_RANGES[2];
+	const { data: funding } = useFundingSeries(id, range.window);
 	const { data: portfolio } = usePortfolio(address);
 
 	const [kindFilter, setKindFilter] = useState("");
@@ -241,22 +263,36 @@ export default function VaultDetailPage() {
 						<div className="mb-4 flex items-start justify-between gap-4">
 							<div>
 								<h2 className="font-medium text-[var(--pon-fg-0)]">Funding earned</h2>
-								<span className="text-xs text-[var(--pon-fg-3)]">Last 30 days, per UTC day</span>
+								<span className="text-xs text-[var(--pon-fg-3)]">
+									{range.bucket === "hour"
+										? `Last ${range.window.hours} hours, per UTC hour`
+										: "Last 30 days, per UTC day"}
+								</span>
 							</div>
 							<FundingToday
 								amount={funding?.today ?? "0"}
 								settlements={funding?.todaySettlements ?? 0}
+								bucket={range.bucket}
 							/>
 						</div>
-						<FundingChart points={funding?.points ?? []} />
+						<Segmented<FundingRange>
+							className="mb-3"
+							size="sm"
+							aria-label="Funding window"
+							options={FUNDING_RANGES.map((r) => ({ value: r.value, label: r.label }))}
+							value={fundingRange}
+							onChange={setFundingRange}
+						/>
+						<FundingChart points={funding?.points ?? []} bucket={range.bucket} />
 						<p className="mt-3 text-xs leading-relaxed text-[var(--pon-fg-4)]">
-							One bar per UTC day, summed across every market the vault runs — the venue settles
-							hourly, so a day is up to twenty-four payments. Gross: this is what the strategy
-							collected, before the management and performance fees and before venue costs, all of
-							which come out of the share price above. A bar below the line is a day the short paid
-							rather than received, which is an ordinary outcome and not an error. Each bar is the
-							sum of the FUNDING_SETTLED rows in the feed below, so the two can be checked against
-							each other.
+							{range.bucket === "hour"
+								? "One bar per UTC hour, summed across every market the vault runs — the venue settles hourly, so a bar is one payment per market. "
+								: "One bar per UTC day, summed across every market the vault runs — the venue settles hourly, so a day is up to twenty-four payments. "}
+							Gross: this is what the strategy collected, before the management and performance fees
+							and before venue costs, all of which come out of the share price above. A bar below
+							the line is a day the short paid rather than received, which is an ordinary outcome
+							and not an error. Each bar is the sum of the FUNDING_SETTLED rows in the feed below,
+							so the two can be checked against each other.
 						</p>
 					</section>
 
