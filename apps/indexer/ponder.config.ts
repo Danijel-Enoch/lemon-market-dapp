@@ -4,6 +4,7 @@ import { createConfig, factory } from "ponder";
 import { parseAbiItem } from "viem";
 import { resolveRpc } from "./src/rpc";
 import { assertStartBlocks, resolveStartBlock } from "./src/start-block";
+import { resolveThrottle, throttledHttp } from "./src/throttle";
 
 /**
  * Note on the schema.
@@ -114,6 +115,31 @@ const effectiveSources: ChainSource[] =
 				},
 			];
 
+/**
+ * The endpoints for one chain, throttled if the operator asked for it.
+ *
+ * Ponder's `rpc` accepts a list of URLs *or* one transport, never a list of
+ * transports — so throttling and multi-endpoint balancing are exclusive. That
+ * is not a limitation worth working around: the two solve the same problem from
+ * opposite ends. More endpoints is more capacity, and Ponder splits the
+ * backfill across them itself; a throttle is for when there is only one and it
+ * is small. Configuring both is a contradiction rather than a belt and braces,
+ * and is refused here instead of one of them being silently dropped.
+ */
+function chainRpc(envSuffix: string) {
+	const endpoints = resolveRpc(envSuffix, process.env);
+	const throttle = resolveThrottle(envSuffix, process.env);
+	if (throttle === null) return endpoints;
+
+	if (endpoints.length > 1) {
+		throw new Error(
+			`INDEXER_RPC_MAX_RPS_${envSuffix} is set, but ${endpoints.length} endpoints are configured for ${envSuffix}. Ponder balances the backfill across a list itself and cannot do that through a throttled transport. Drop to one endpoint, or unset the throttle and let the extra capacity do the work.`,
+		);
+	}
+
+	return throttledHttp(endpoints[0], throttle);
+}
+
 const chains = Object.fromEntries(
 	effectiveSources.map(({ info }) => [
 		info.key,
@@ -135,7 +161,7 @@ const chains = Object.fromEntries(
 			 * `src/rpc.ts` for what it does with more than one and why a single URL
 			 * is the configuration that stalls a backfill.
 			 */
-			rpc: resolveRpc(info.envSuffix, process.env),
+			rpc: chainRpc(info.envSuffix),
 			// `ethGetLogsBlockRange` is left unset on purpose. Ponder starts at 500
 			// blocks and halves the range whenever a provider complains — including
 			// on Base's "backend response too large" — then remembers the smaller
