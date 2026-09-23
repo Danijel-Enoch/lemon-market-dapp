@@ -52,3 +52,9 @@ packages/contracts/out
 packages/contracts/cache
 packages/contracts/broadcast
 packages/contracts/lib
+
+# The local build cache written by `docker-compose.cache.yml`. It holds whole
+# cached stages — `install` among them — so leaving it in the context would
+# upload a copy of the layers to the daemon on every build, and grow it again
+# on every export. The one directory that must never be build input.
+.buildkit-cache
