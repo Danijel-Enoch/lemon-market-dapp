@@ -826,7 +826,15 @@ export interface IndexerChainHealth {
  * directly, which is what an operator needs when the agent is stopped or has
  * failed part-way through a close and left one leg open.
  */
-export type OperatorStep = "CLOSE_SPOT" | "CLOSE_PERP" | "BRIDGE_HOME" | "RETURN_TO_VAULT";
+export type OperatorStep =
+	/** The whole close in one press: both legs, the margin, and the money home. */
+	| "CLOSE_ALL"
+	| "CLOSE_SPOT"
+	| "CLOSE_PERP"
+	| "BRIDGE_HOME"
+	| "RETURN_TO_VAULT"
+	/** The other direction: deploy the vault's idle capital back into one market. */
+	| "REOPEN";
 
 export interface OperatorAction {
 	id: string;

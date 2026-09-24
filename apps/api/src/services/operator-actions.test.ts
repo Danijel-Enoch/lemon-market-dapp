@@ -90,6 +90,35 @@ describe("describeStep", () => {
 		}
 	});
 
+	it("gives the whole close one sentence, ending with what reached the vault", () => {
+		const sentence = describeStep("CLOSE_ALL", [
+			row({ kind: "PERP_CLOSE", chain: "SOLANA", symbol: "NVDA" }),
+			row({ kind: "SPOT_SELL", notionalAssets: 1_000n * USDC }),
+			row({ kind: "VENUE_WITHDRAW", chain: "SOLANA", symbol: "USDC" }),
+			row({ kind: "BRIDGE_OUT", chain: "SOLANA", symbol: "USDC", baseAmount: 500n * USDC }),
+			row({ kind: "BRIDGE_IN", symbol: "USDC", notionalAssets: 1_500n * USDC }),
+		]);
+
+		expect(sentence).toBe(
+			"Sold 1 spot leg, closed 1 short, swept the margin account and returned $1,500 to the vault.",
+		);
+	});
+
+	it("describes a re-open that failed part-way by the legs that landed", () => {
+		// The only time this sentence is used: a run that placed the position
+		// reports the policy's own reasoning instead. A half-built position is
+		// exactly the state worth being precise about — margin at the venue and a
+		// short open, with no spot bought against it.
+		const sentence = describeStep("REOPEN", [
+			row({ kind: "VENUE_DEPOSIT", chain: "SOLANA", symbol: "USDC", notionalAssets: 400n * USDC }),
+			row({ kind: "PERP_OPEN", chain: "SOLANA", symbol: "NVDA" }),
+		]);
+
+		expect(sentence).toContain("Bridged $400 of margin");
+		expect(sentence).toContain("opened the NVDA short");
+		expect(sentence).not.toContain("bought");
+	});
+
 	it("ignores rows from another step", () => {
 		// The rows are whatever the adapter produced, and a failed step's carried
 		// activity can hold legs from earlier in the same call. Counting a
