@@ -165,48 +165,64 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 
 				{error && <Notice tone="danger">{error}</Notice>}
 
-				<ol className="mt-5 space-y-2">
+				<StepCard
+					step={CLOSE_ALL}
+					primary
+					disabled={agentRunning || running !== null || starting !== null}
+					running={running?.step === "CLOSE_ALL"}
+					starting={starting === "CLOSE_ALL"}
+					onRun={run}
+				/>
+
+				<p className="mt-5 text-xs uppercase tracking-wide text-[var(--pon-fg-4)]">
+					Or take it one step at a time
+				</p>
+				<ol className="mt-2 space-y-2">
 					{STEPS.map((step) => (
-						<li
-							key={step.step}
-							className="rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line)] p-4"
-						>
-							<div className="flex flex-wrap items-start justify-between gap-3">
-								<div className="min-w-0 flex-1">
-									<p className="font-medium text-[var(--pon-fg-0)]">{step.title}</p>
-									<p className="mt-1 text-sm text-[var(--pon-fg-3)]">{step.body}</p>
-									{step.caution && (
-										<p className="mt-1 text-sm text-[var(--pon-amber)]">{step.caution}</p>
-									)}
-								</div>
-								<Button
-									variant="outline"
-									size="sm"
-									// Disabled while *any* step runs, not just this one. They share one
-									// agent wallet, and the API refuses a second step for that reason —
-									// better to say so with the control than with an error after the click.
-									disabled={agentRunning || running !== null || starting !== null}
-									onClick={() => run(step.step)}
-								>
-									{running?.step === step.step
-										? "Running…"
-										: starting === step.step
-											? "Starting…"
-											: step.action}
-								</Button>
-							</div>
+						<li key={step.step}>
+							<StepCard
+								step={step}
+								// Disabled while *any* step runs, not just this one. They share one
+								// agent wallet, and the API refuses a second step for that reason —
+								// better to say so with the control than with an error after the click.
+								disabled={agentRunning || running !== null || starting !== null}
+								running={running?.step === step.step}
+								starting={starting === step.step}
+								onRun={run}
+							/>
 						</li>
 					))}
 				</ol>
 
-				{/* The thing an operator forgets at exactly the wrong moment. The steps
-				    leave the vault flat but say nothing about what happens next, and
-				    the agent's first tick after being restarted sees idle USDC and
-				    does what it is for. */}
+				{/* The other direction, and last because it is the one that spends. An
+				    operator arrives at this dialog to take a position off; putting the
+				    control that puts one back on at the top would be an easy misclick
+				    with a vault's whole idle balance behind it. */}
+				<p className="mt-6 text-xs uppercase tracking-wide text-[var(--pon-fg-4)]">
+					When the vault should hold a position again
+				</p>
+				<div className="mt-2">
+					<StepCard
+						step={REOPEN}
+						disabled={
+							agentRunning ||
+							running !== null ||
+							starting !== null ||
+							vault.closeRequestedAt !== null
+						}
+						running={running?.step === "REOPEN"}
+						starting={starting === "REOPEN"}
+						onRun={run}
+					/>
+				</div>
+
+				{/* The thing an operator forgets at exactly the wrong moment: the steps
+				    above leave the vault flat, and the agent's first tick after being
+				    restarted sees idle USDC and does what it is for. */}
 				<p className="mt-4 text-sm text-[var(--pon-fg-4)]">
-					When you start the agent again it will see the returned USDC as capital to deploy and open
-					the position back up on its first tick. If the vault should stay flat, give it a close
-					order — "Close positions" on the row — before restarting it.
+					{vault.closeRequestedAt
+						? "A close order stands, so re-opening is refused here and the agent will keep the vault flat when it is started again. Lift the order first if it should hold a position."
+						: 'Starting the agent again has the same effect as pressing re-open, on its own schedule: it sees the returned USDC as capital to deploy and opens the position back up on its first tick. If the vault should stay flat, give it a close order — "Close positions" on the row — before restarting it.'}
 				</p>
 
 				<History rows={rows} loading={steps.isLoading} />
@@ -215,7 +231,97 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 	);
 }
 
-/** The four steps, in the order an unwind takes them. */
+/**
+ * One action and its button.
+ *
+ * Shared by the whole close, the four steps it is made of and the re-open, so
+ * the composite actions cannot drift into describing themselves differently
+ * from the parts they are made of.
+ */
+function StepCard({
+	step,
+	primary,
+	disabled,
+	running,
+	starting,
+	onRun,
+}: {
+	step: Step;
+	/** The headline action, which is the one most operators want. */
+	primary?: boolean;
+	disabled: boolean;
+	running: boolean;
+	starting: boolean;
+	onRun: (step: OperatorStep) => void;
+}) {
+	return (
+		<div
+			className={cn(
+				"rounded-[var(--pon-r-md,12px)] border p-4",
+				primary ? "border-[var(--pon-line-2)]" : "border-[var(--pon-line)]",
+			)}
+		>
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div className="min-w-0 flex-1">
+					<p className="font-medium text-[var(--pon-fg-0)]">{step.title}</p>
+					<p className="mt-1 text-sm text-[var(--pon-fg-3)]">{step.body}</p>
+					{step.caution && <p className="mt-1 text-sm text-[var(--pon-amber)]">{step.caution}</p>}
+				</div>
+				<Button
+					variant={primary ? "shine" : "outline"}
+					size="sm"
+					disabled={disabled}
+					onClick={() => onRun(step.step)}
+				>
+					{running ? "Running…" : starting ? "Starting…" : step.action}
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+interface Step {
+	step: OperatorStep;
+	title: string;
+	body: string;
+	/** The exposure this step opens or leaves open, when it opens one. */
+	caution?: string;
+	action: string;
+}
+
+/**
+ * The whole close, which is what an operator usually wants.
+ *
+ * The same four steps below, run back to back by the adapter — and in its own
+ * order, not this list's: it closes each market's short *before* selling the
+ * spot behind it, so the position is one-sided for a single Base transaction
+ * rather than for however long an operator takes between two presses.
+ */
+const CLOSE_ALL: Step = {
+	step: "CLOSE_ALL",
+	title: "Close everything and send it home",
+	body: "Sells every spot leg, closes every short, sweeps the margin account and returns all of it to the vault — one press, minutes per market. This is the agent's own close, run now instead of on a tick.",
+	action: "Close all positions",
+};
+
+/**
+ * Putting capital back to work, which is deliberately not the inverse of a close.
+ *
+ * A close is mechanical: sell what is there. A deployment is a judgement — how
+ * much, into which market, at what leverage, against what the vault owes — so
+ * this asks the agent's own policy and places what it answers, rather than
+ * inventing a second opinion about sizing.
+ */
+const REOPEN: Step = {
+	step: "REOPEN",
+	title: "Re-open the position",
+	body: "Asks the agent's own policy what it would deploy right now and places exactly that: it draws idle USDC from the vault, buys the spot leg and opens the short against it.",
+	caution:
+		"One market per press, as one tick would do — press again for the next. If the policy would rather hold, nothing is placed and it says why.",
+	action: "Re-open",
+};
+
+/** The four steps of a close, in the order an unwind takes them. */
 const STEPS: Array<{
 	step: OperatorStep;
 	title: string;
@@ -415,6 +521,8 @@ function History({ rows, loading }: { rows: OperatorAction[]; loading: boolean }
 }
 
 const STEP_LABEL: Record<OperatorStep, string> = {
+	CLOSE_ALL: "Close all positions",
+	REOPEN: "Re-open",
 	CLOSE_SPOT: "Close spot",
 	CLOSE_PERP: "Close perps",
 	BRIDGE_HOME: "Bridge home",

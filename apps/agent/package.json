@@ -7,6 +7,7 @@
 	"exports": {
 		"./runtime": "./src/runtime.ts",
 		"./chain": "./src/chain.ts",
+		"./policy": "./src/policy.ts",
 		"./wallet": "./src/wallet.ts",
 		"./vault": "./src/vault.ts",
 		"./solana": "./src/solana.ts",

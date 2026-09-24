@@ -1,9 +1,10 @@
 import { AGENT_CHAIN, resolveAgentChain } from "@lemon/agent/chain";
+import { decide, sizingLeverageBps, type VaultSnapshot } from "@lemon/agent/policy";
 import { type IndexedVault, resolveVenue } from "@lemon/agent/runtime";
 import { createSolanaExecutor } from "@lemon/agent/solana";
 import { type ActivityInput, VaultClient } from "@lemon/agent/vault";
 import { agentWalletFor } from "@lemon/agent/wallet";
-import type { VenueAdapter } from "@lemon/agent/worker";
+import type { QueueEntry, VenueAdapter } from "@lemon/agent/worker";
 import { VenueExecutionError } from "@lemon/agent/worker";
 import { lemonVaultAbi } from "@lemon/contracts";
 import { createLogger, type LogLevel } from "@lemon/core";
@@ -62,28 +63,70 @@ import { AdminError, assertConfigured } from "./admin";
  * `assertOnThisChain` is for.
  */
 
-/** The four steps, in the order an unwind takes them. */
+/**
+ * Everything an operator can run by hand, in the order they would run it.
+ *
+ * `CLOSE_ALL` and the four steps after it are two ways of doing the same thing,
+ * and both are worth having. The whole close is one press for the ordinary case
+ * — an operator who wants the vault flat and the money home and has no reason to
+ * stand between the legs. The four are for when that is not the situation: a
+ * close that failed at the bridge needs the bridge retried and nothing else, and
+ * running the whole thing again would start from a spot sale with nothing left
+ * to sell.
+ *
+ * `REOPEN` is the other direction, and the only one here that spends rather than
+ * raises. It is not the inverse of a close — see `reopen` for why one press
+ * deploys into one market.
+ */
 export const OPERATOR_STEPS = [
+	"CLOSE_ALL",
 	"CLOSE_SPOT",
 	"CLOSE_PERP",
 	"BRIDGE_HOME",
 	"RETURN_TO_VAULT",
+	"REOPEN",
 ] as const;
 
 export type OperatorStep = (typeof OPERATOR_STEPS)[number];
 
 /**
- * Which adapter method each step runs. One mapping, so nothing can drift.
+ * What a step did, over and above the activity it produced.
  *
- * Typed to the four step methods rather than to `keyof VenueAdapter`, because
- * the adapter's other methods take arguments and answer with other shapes —
- * widening this would make `venue[method]()` a call the compiler cannot check.
+ * `detail` overrides the sentence `describeStep` would derive from the rows, and
+ * exists for the one step whose interesting outcome is not visible in them:
+ * `REOPEN` can finish correctly having deployed nothing, because the agent's own
+ * policy looked at the vault and said not yet. That answer is the whole result,
+ * and it produces no activity to read it off.
  */
-const STEP_METHOD: Record<OperatorStep, "closeSpot" | "closePerp" | "bridgeHome" | "returnIdle"> = {
-	CLOSE_SPOT: "closeSpot",
-	CLOSE_PERP: "closePerp",
-	BRIDGE_HOME: "bridgeHome",
-	RETURN_TO_VAULT: "returnIdle",
+interface StepResult {
+	activity: ActivityInput[];
+	detail?: string;
+}
+
+/** What every step is handed. The wiring, built once per run. */
+interface StepContext {
+	venue: VenueAdapter;
+	vault: VaultClient;
+	config: VaultConfig;
+	log: (level: LogLevel, message: string, extra?: unknown) => void;
+}
+
+/**
+ * Run one step. One mapping from name to work, so nothing can drift.
+ *
+ * Five of the six are a single adapter call — the adapter is where every venue
+ * call lives, and these are the same ones the agent makes. `REOPEN` is the
+ * exception because deploying is a decision before it is a call: it needs the
+ * vault's state and the redemption queue, and those are the agent's policy's
+ * inputs rather than the adapter's.
+ */
+const STEP_RUNNERS: Record<OperatorStep, (ctx: StepContext) => Promise<StepResult>> = {
+	CLOSE_ALL: async ({ venue }) => ({ activity: await venue.closeAll() }),
+	CLOSE_SPOT: async ({ venue }) => ({ activity: await venue.closeSpot() }),
+	CLOSE_PERP: async ({ venue }) => ({ activity: await venue.closePerp() }),
+	BRIDGE_HOME: async ({ venue }) => ({ activity: await venue.bridgeHome() }),
+	RETURN_TO_VAULT: async ({ venue }) => ({ activity: await venue.returnIdle() }),
+	REOPEN: reopen,
 };
 
 /**
@@ -94,10 +137,12 @@ const STEP_METHOD: Record<OperatorStep, "closeSpot" | "closePerp" | "bridgeHome"
  * to completion and finds nothing to sell.
  */
 const NOTHING_HAPPENED: Record<OperatorStep, string> = {
+	CLOSE_ALL: "The vault was already flat and the agent held nothing, so nothing moved.",
 	CLOSE_SPOT: "No spot was held, so nothing was sold.",
 	CLOSE_PERP: "No short was open, so nothing was closed.",
 	BRIDGE_HOME: "The venue had no free margin and the Solana wallet was empty, so nothing crossed.",
 	RETURN_TO_VAULT: "The agent held no USDC, so nothing was returned.",
+	REOPEN: "Nothing was deployed.",
 };
 
 /**
@@ -273,6 +318,18 @@ export async function startOperatorAction(params: {
 		);
 	}
 
+	if (params.step === "REOPEN" && existing.closeRequestedAt !== null) {
+		// Refused rather than overridden. A close order is a standing instruction
+		// to hold no position, and the agent's own policy answers CLOSE_ALL to
+		// everything while one stands — so a hand-placed deployment underneath it
+		// would be undone by the first tick after the agent is started, having paid
+		// two sets of fees to get back where it was.
+		throw new AdminError(
+			`${existing.ticker} is under a close order, which says this vault should hold no position. Lift it — "Resume trading" on the vault's row — before re-opening.`,
+			409,
+		);
+	}
+
 	await releaseStale(existing.chainId, existing.address);
 
 	let action: OperatorAction;
@@ -394,12 +451,13 @@ async function run(action: OperatorAction, vaultConfig: VaultConfig): Promise<vo
 		runner = await resolveRunner(vaultConfig, log);
 
 		log("info", "starting; the agent is stopped and this process is the only writer.");
-		const activity = await runner.venue[STEP_METHOD[action.step as OperatorStep]]();
-		const reported = await publish(runner.vault, activity, log);
+		const step = action.step as OperatorStep;
+		const result = await STEP_RUNNERS[step]({ ...runner, config: vaultConfig, log });
+		const reported = await publish(runner.vault, result.activity, log);
 
 		await finish(action.id, {
 			status: "DONE",
-			detail: describeStep(action.step as OperatorStep, activity),
+			detail: result.detail ?? describeStep(step, result.activity),
 			activityReported: reported,
 		});
 		log("info", "done.");
@@ -514,10 +572,249 @@ export function describeStep(step: OperatorStep, activity: ActivityInput[]): str
 		return `Brought ${usd(sent - fees)} home to the agent's wallet${fees > 0n ? `, after ${usd(fees)} in bridge fees` : ""}. It still has to be returned to the vault.`;
 	}
 
-	const returns = of("BRIDGE_IN");
-	if (returns.length === 0) return NOTHING_HAPPENED.RETURN_TO_VAULT;
-	const returned = returns.reduce((sum, row) => sum + row.notionalAssets, 0n);
-	return `Returned ${usd(returned)} to the vault. It is free assets now, and redemptions can be paid out of it.`;
+	if (step === "RETURN_TO_VAULT") {
+		const returns = of("BRIDGE_IN");
+		if (returns.length === 0) return NOTHING_HAPPENED.RETURN_TO_VAULT;
+		const returned = returns.reduce((sum, row) => sum + row.notionalAssets, 0n);
+		return `Returned ${usd(returned)} to the vault. It is free assets now, and redemptions can be paid out of it.`;
+	}
+
+	if (step === "CLOSE_ALL") {
+		// Every leg of a whole close in one sentence, and the last figure is the
+		// one that matters: what reached the vault. The rest moved between
+		// accounts the agent controls, where a depositor cannot be paid out of it.
+		const closes = of("PERP_CLOSE");
+		const sells = of("SPOT_SELL");
+		const returned = of("BRIDGE_IN").reduce((sum, row) => sum + row.notionalAssets, 0n);
+		if (closes.length === 0 && sells.length === 0 && returned === 0n) {
+			return NOTHING_HAPPENED.CLOSE_ALL;
+		}
+		const parts: string[] = [];
+		if (sells.length > 0)
+			parts.push(`sold ${sells.length} spot leg${sells.length === 1 ? "" : "s"}`);
+		if (closes.length > 0)
+			parts.push(`closed ${closes.length} short${closes.length === 1 ? "" : "s"}`);
+		if (of("VENUE_WITHDRAW").length > 0) parts.push("swept the margin account");
+		// The return is the last clause because it is the only one that changed
+		// what a depositor can be paid out of. Its absence is said out loud rather
+		// than left as a missing clause: a close that sold everything and returned
+		// nothing is a close that is not finished.
+		if (returned > 0n) parts.push(`returned ${usd(returned)} to the vault`);
+		return returned > 0n
+			? `${sentence(parts)}.`
+			: `${sentence(parts)}, but nothing reached the vault.`;
+	}
+
+	// REOPEN. Only reached when a deployment failed part-way — a run that placed
+	// the position reports the policy's own reasoning instead, which says more
+	// than the rows do. So this describes a half-built position, which is exactly
+	// the state worth being precise about.
+	const bought = of("SPOT_BUY").reduce((sum, row) => sum + row.notionalAssets, 0n);
+	const opened = of("PERP_OPEN");
+	const bridged = of("VENUE_DEPOSIT").reduce((sum, row) => sum + row.notionalAssets, 0n);
+	if (bought === 0n && opened.length === 0 && bridged === 0n) return NOTHING_HAPPENED.REOPEN;
+	const legs: string[] = [];
+	if (bridged > 0n) legs.push(`bridged ${usd(bridged)} of margin to the venue`);
+	if (opened.length > 0)
+		legs.push(`opened the ${opened.map((row) => row.symbol).join(", ")} short`);
+	if (bought > 0n) legs.push(`bought ${usd(bought)} of spot`);
+	return `${sentence(legs)}.`;
+}
+
+/** "a", "a and b", "a, b and c" — with the first letter raised. */
+function sentence(parts: string[]): string {
+	const joined =
+		parts.length <= 1
+			? (parts[0] ?? "")
+			: `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+	return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
+// ---------------------------------------------------------------------------
+// Opening the position back up
+// ---------------------------------------------------------------------------
+
+/**
+ * Put the vault's capital back to work, now, without waiting for a tick.
+ *
+ * The decision is the agent's, not a second opinion: this builds the same
+ * `VaultSnapshot` a tick builds and hands it to the same `decide`, so what gets
+ * deployed, into which market and at what leverage is what the agent would have
+ * done on its next tick. Only the *placing* happens here.
+ *
+ * **It deploys, or it explains.** `decide` weighs a deployment against
+ * everything else the vault might need — a redemption to pay, a hedge to
+ * correct, margin to restore — and it often answers HOLD for good reasons: not
+ * enough idle to clear the minimum, funding that does not pay, a market with no
+ * route today. Anything that is not a DEPLOY is reported as the outcome and
+ * nothing is placed. Executing whatever the policy happened to prefer would mean
+ * a button labelled "re-open" that sometimes sells.
+ *
+ * **One market per press,** because one action per tick is the agent's design
+ * and this borrows it wholesale. A three-market vault is re-opened by pressing
+ * three times, each one going into whichever market is furthest below its
+ * weight — which is also how the agent would have rebuilt it, one tick at a
+ * time.
+ *
+ * **Deterministic policy only.** The advisor is deliberately not consulted: a
+ * language model choosing among permitted actions is a reasonable thing for a
+ * tick that runs every minute and a poor thing for a button an operator presses
+ * once and watches. `decide` with no advisor returns the policy's own first
+ * choice, which is the answer an operator can predict from the numbers in front
+ * of them.
+ */
+async function reopen({ venue, vault, config, log }: StepContext): Promise<StepResult> {
+	const now = Math.floor(Date.now() / 1000);
+
+	const state = await vault.read();
+	const observation = await venue.observe();
+	const queue = await redemptionQueue(config.address, state.pricePerShare);
+
+	const snapshot: VaultSnapshot = {
+		address: state.address,
+		riskTier: state.riskTier,
+		targetLeverageBps: state.targetLeverageBps,
+		maxLeverageBps: state.maxLeverageBps,
+		freeAssets: state.freeAssets,
+		totalAssets: state.totalAssets,
+		deployedAssets: state.deployedAssets,
+		maxDeployedBps: state.maxDeployedBps,
+		withdrawWindowRemaining: await vault.withdrawWindowRemaining(),
+		idleOnBase: observation.idleOnBase,
+		unallocatedMargin: observation.unallocatedMargin,
+		perpNotionalUsdc: observation.valuation.perp.notional,
+		perpEquityUsdc: observation.valuation.perp.equity,
+		ripeRedeemAssets: sum(queue.filter((q) => q.eligibleAt <= now).map((q) => q.pendingAssets)),
+		pendingRedeemAssets: sum(queue.filter((q) => q.eligibleAt > now).map((q) => q.pendingAssets)),
+		earliestDeadline: earliestDeadline(queue, now),
+		markets: observation.markets.map((market) => ({
+			ticker: market.ticker,
+			symbol: market.symbol,
+			targetWeightBps: market.targetWeightBps,
+			spotValueUsdc: market.spotValueUsdc,
+			spotUnits: market.spotUnits,
+			perpUnits: market.perpUnits,
+			fundingShortPercentPerHour: market.fundingShortPercentPerHour,
+			// A paused or exiting vault buys nothing, anywhere. The policy reads
+			// this per market, and it is what turns "the vault is paused" into a
+			// HOLD with a reason rather than a revert half way through a swap.
+			spotBuyable: market.spotBuyable && !state.paused && !state.emergencyExit,
+			spotSellable: market.spotSellable,
+			markPriceUsd: market.markPriceUsd,
+			lotSize: market.lotSize,
+			minOrderUsd: market.minOrderUsd,
+			spotGasUsd: market.spotGasUsd,
+			spotImpactPercent: market.spotImpactPercent,
+			adl: market.adl,
+		})),
+		// Both false, and both checked before the step was allowed to start. A
+		// standing close order makes the policy answer CLOSE_ALL to everything,
+		// which is correct and is why re-opening under one is refused rather than
+		// quietly overridden here.
+		closeRequested: false,
+		rebalanceRequested: false,
+		rebalanceDriftBps: config.rebalanceDriftBps,
+		venueWithdrawalFeeUsdc: observation.venueWithdrawalFeeUsdc,
+		adl: observation.adl,
+	};
+
+	const decision = await decide(snapshot, now, null);
+	log("info", `the policy answered ${decision.kind} — ${decision.rationale}`);
+
+	if (decision.kind !== "DEPLOY" || !decision.market || !decision.legs) {
+		return {
+			activity: [],
+			detail: `Nothing was deployed. Looking at the vault as it is now, the agent's own policy would ${decision.kind === "HOLD" ? "hold" : `choose ${decision.kind}`} rather than deploy: ${decision.rationale}`,
+		};
+	}
+
+	// `AGENT` means the capital has already left the vault — a previous
+	// deployment drew it down and failed to place it — so drawing again would
+	// take a second helping out of the vault to place the first one.
+	if (decision.fundedFrom === "VAULT") {
+		log("info", `drawing ${usd(decision.amount)} out of the vault.`);
+		await vault.agentWithdraw(decision.amount);
+	}
+
+	const activity = await venue.deploy({
+		...decision.legs,
+		market: decision.market,
+		// The policy's sizing leverage, not the vault's raw target: the two differ
+		// by the margin buffer, and the target would open the hedge at exactly the
+		// ceiling its own NAV report is checked against.
+		leverageBps: sizingLeverageBps(snapshot),
+	});
+
+	return {
+		activity,
+		detail: `Deployed ${usd(decision.amount)} into ${decision.market} at ${(sizingLeverageBps(snapshot) / 10_000).toFixed(2)}x — ${decision.rationale} Press again to place the next market; the agent deploys one per tick and so does this.`,
+	};
+}
+
+/**
+ * The redemption queue, in the shape the policy reasons about.
+ *
+ * Read from the indexer, which is the only place it exists — it is chain state
+ * the API does not itself index. A failure here is fatal to the step rather than
+ * treated as an empty queue, and that is the important part: an empty queue
+ * tells the policy nothing is owed, so an indexer that is merely *down* would
+ * look exactly like a vault with no redemptions pending and this would happily
+ * deploy capital that somebody is waiting to be paid.
+ *
+ * The queue stores shares; the policy reasons in USDC. The conversion uses the
+ * current share price rather than the price when the request was made, which is
+ * what the contract does too — it prices an exit at fulfilment.
+ */
+async function redemptionQueue(address: string, pricePerShare: bigint): Promise<QueueEntry[]> {
+	const response = await fetch(`${config.indexerUrl}/queue?vault=${address}`).catch(
+		(error: unknown) => {
+			throw new AdminError(
+				`The redemption queue could not be read from the indexer at ${config.indexerUrl} (${message(error)}), so there is no way to know what this vault owes. Nothing has been deployed.`,
+				503,
+			);
+		},
+	);
+	if (!response.ok) {
+		throw new AdminError(
+			`The indexer answered ${response.status} for this vault's redemption queue, so there is no way to know what it owes. Nothing has been deployed.`,
+			503,
+		);
+	}
+
+	const body = (await response.json()) as {
+		ripe?: RawQueueRow[];
+		waiting?: RawQueueRow[];
+	};
+
+	// Ripe and waiting, which together are every open request exactly once.
+	// `overdue` is a re-cut of the same rows and adding it would double-count.
+	return [...(body.ripe ?? []), ...(body.waiting ?? [])].map((row) => {
+		const shares = BigInt(row.pendingShares);
+		return {
+			controller: row.controller,
+			pendingShares: shares,
+			pendingAssets: (shares * pricePerShare) / 10n ** 18n,
+			eligibleAt: row.eligibleAt,
+			fulfillBy: row.fulfillBy,
+		};
+	});
+}
+
+interface RawQueueRow {
+	controller: `0x${string}`;
+	pendingShares: string;
+	eligibleAt: number;
+	fulfillBy: number;
+}
+
+function sum(values: bigint[]): bigint {
+	return values.reduce((total, value) => total + value, 0n);
+}
+
+/** The soonest deadline among the ripe requests, or null when none are. */
+function earliestDeadline(queue: QueueEntry[], now: number): number | null {
+	const ripe = queue.filter((entry) => entry.eligibleAt <= now);
+	return ripe.length > 0 ? Math.min(...ripe.map((entry) => entry.fulfillBy)) : null;
 }
 
 // ---------------------------------------------------------------------------
