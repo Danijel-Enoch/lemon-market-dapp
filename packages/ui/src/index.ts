@@ -23,6 +23,8 @@ export * from "./pons/StatCard";
 export * from "./pons/WindowFrame";
 export * from "./RiskBadge";
 export * from "./site/PageHeader";
+export * from "./ThemeToggle";
+export * from "./theme";
 // --- primitives ------------------------------------------------------------
 export * from "./ui/badge";
 export * from "./ui/button";

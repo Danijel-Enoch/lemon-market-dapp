@@ -1,3 +1,4 @@
+import { ThemeScript } from "@lemon/ui";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -34,9 +35,17 @@ export default function App() {
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				{/* Updated by the theme script and the toggle, because it is the one
+				    part of the page CSS cannot reach: it colours the mobile browser's
+				    own bar, and a lime bar above a dark app is exactly the mismatch a
+				    theme is supposed to remove. */}
 				<meta name="theme-color" content="#a3e635" />
 				<Meta />
 				<Links />
+				{/* Last in the head and before any bundle: it sets the theme attribute
+				    ahead of the first paint, which is what stops a flash of the wrong
+				    palette on every navigation. */}
+				<ThemeScript />
 			</head>
 			<body className="bg-[var(--pon-bg)] font-mono text-[var(--pon-fg)] antialiased">
 				<Outlet />

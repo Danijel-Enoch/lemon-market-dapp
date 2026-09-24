@@ -23,6 +23,12 @@
 /* ------------------------------------------------------------------ tokens */
 
 :root {
+    /* Stated rather than assumed. The inline theme script writes either value
+       onto `<html>`, and a browser set to dark has to be told that the default
+       palette here is a light one — otherwise its own form controls and
+       scrollbars render dark against a lime page. */
+    color-scheme: light;
+
     /* --- the field --------------------------------------------------------
        The Firm floods the page with one colour and lets panels sit on it as
        bare hairline frames. So the "surface ladder" is not a ladder of fills
@@ -194,6 +200,138 @@
 
     background: var(--pon-bg);
     color: var(--pon-fg);
+}
+
+/* ------------------------------------------------------------ dark mode ----
+   The same system at night: the ink band becomes the field.
+
+   Nothing below is a second design. The light theme floods the page with lime
+   and stops it with ink blocks; the dark theme floods it with ink and stops it
+   with lime. Every token keeps its job — `--pon-line` is still the hairline,
+   `--pon-lime` is still whatever a primary action is filled with — so no
+   component needs to know which theme it is in, and none of the several
+   hundred `var(--pon-*)` call sites changes.
+
+   Driven by one attribute on `<html>` and nothing else. The system preference
+   is read once, in the inline script that runs before first paint (see
+   `theme.ts`), and written into that attribute — so the cascade here has a
+   single source of truth rather than a media query and an override that have to
+   agree with each other. A stored choice beats the system; no stored choice
+   follows it, including when it changes while the page is open.
+
+   `color-scheme` is set so the browser's own furniture — scrollbars, form
+   controls, the empty space past the end of the document — matches the page. */
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --pon-bg: #12170b;
+    --pon-bg-2: #1a2110;
+    --pon-surface: #1f2714;
+    /* Inverted against this ground, which now means the lime. */
+    --pon-surface-2: #a3e635;
+    --pon-surface-3: #1f2714;
+
+    /* Ink and paper swap roles, so "fill with ink" keeps meaning "fill with the
+       colour that stands out here". */
+    --pon-paper: #12170b;
+    --pon-ink: #a3e635;
+
+    --pon-line: rgba(163, 230, 53, 0.26);
+    --pon-line-2: rgba(163, 230, 53, 0.58);
+
+    --pon-fg-0: #f7fee7;
+    --pon-fg: #eaf7cf;
+    --pon-fg-2: rgba(234, 247, 207, 0.74);
+    --pon-fg-3: rgba(234, 247, 207, 0.56);
+    --pon-fg-4: rgba(234, 247, 207, 0.4);
+
+    /* On an ink field the accent is the lime, which is the exact reverse of the
+       light theme's reasoning and lands on the same pair of colours. */
+    --pon-lime: #a3e635;
+    --pon-lime-2: #cdf56d;
+    --pon-lime-3: #d9f99d;
+    --pon-lime-dim: rgba(163, 230, 53, 0.16);
+    --pon-on-lime: #12170b;
+
+    /* The light theme picks the dark end of every hue to clear 4.5:1 on lime.
+       This one picks the light end, for the same reason against ink. */
+    --pon-accent: #86efac;
+    --pon-accent-2: #93c5fd;
+    --pon-up: #a3e635;
+    --pon-down: #fca5a5;
+    --pon-amber: #fcd34d;
+    --pon-purple: #c4b5fd;
+
+    --pon-grad-lime: linear-gradient(90deg, #a3e635, #a3e635);
+    --pon-grad-deep: linear-gradient(90deg, #a3e635, #d9f99d);
+    --pon-grad-elevate: linear-gradient(90deg, #a3e635, #86efac);
+
+    /* Hardcoded in the alias block because they are a palette rather than a
+       role, and a palette of near-blacks is invisible on a near-black field. */
+    --chart-1: #a3e635;
+    --chart-2: #86efac;
+    --chart-3: #fcd34d;
+    --chart-4: #93c5fd;
+    --chart-5: #fca5a5;
+
+    /* These three name the type that sits *on* a semantic fill, and every fill
+       above is now a light colour. */
+    --destructive-foreground: #12170b;
+    --success-foreground: #12170b;
+    --warning-foreground: #12170b;
+}
+
+/* The two inversions rotate with the ground.
+ *
+ * A band's job is to stop the page, and it can only do that relative to what
+ * the page currently is. Left alone, `.firm-paper` would be a sheet of white
+ * glare in a dark app and `.firm-ink` would disappear into the field it is
+ * supposed to interrupt. So under dark, paper becomes the lifted dark surface
+ * and ink becomes the lime block — the same two moves the light theme makes,
+ * measured from the other end. */
+
+:root[data-theme="dark"] .pon-light,
+:root[data-theme="dark"] .firm-paper {
+    --pon-bg: #1a2110;
+    --pon-bg-2: #1f2714;
+    --pon-surface: #252e18;
+    --pon-surface-2: #a3e635;
+    --pon-surface-3: #252e18;
+    --pon-line: rgba(163, 230, 53, 0.24);
+    --pon-line-2: rgba(163, 230, 53, 0.55);
+    --pon-fg-0: #f7fee7;
+    --pon-fg: #eaf7cf;
+    --pon-fg-2: rgba(234, 247, 207, 0.74);
+    --pon-fg-3: rgba(234, 247, 207, 0.56);
+    --pon-fg-4: rgba(234, 247, 207, 0.4);
+    --pon-lime: #a3e635;
+    --pon-lime-2: #cdf56d;
+    --pon-lime-dim: rgba(163, 230, 53, 0.16);
+    --pon-on-lime: #12170b;
+}
+
+:root[data-theme="dark"] .firm-ink {
+    --pon-bg: #a3e635;
+    --pon-bg-2: #a9e842;
+    --pon-surface: #aeea4d;
+    --pon-surface-2: #f7fee7;
+    --pon-surface-3: #f7fee7;
+    --pon-line: rgba(18, 23, 11, 0.26);
+    --pon-line-2: rgba(18, 23, 11, 0.58);
+    --pon-fg-0: #0b0f06;
+    --pon-fg: #12170b;
+    --pon-fg-2: rgba(18, 23, 11, 0.74);
+    --pon-fg-3: rgba(18, 23, 11, 0.56);
+    --pon-fg-4: rgba(18, 23, 11, 0.4);
+    --pon-lime: #12170b;
+    --pon-lime-2: #000000;
+    --pon-lime-dim: #fef9c3;
+    --pon-on-lime: #a3e635;
+    --pon-ink: #12170b;
+    --pon-paper: #a3e635;
+    --pon-up: #14532d;
+    --pon-down: #8c1111;
 }
 
 /* ------------------------------------------------- legacy token aliases ---- */
