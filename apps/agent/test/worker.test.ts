@@ -201,6 +201,13 @@ function harness(options: {
 				calls.push("closeAll");
 				return [activityRow()];
 			}),
+		// The hand-run steps of a close. The worker never calls them — they exist
+		// for an operator driving an unwind from the console — so the double only
+		// has to satisfy the interface and record that it was reached.
+		closeSpot: options.venue?.closeSpot ?? mock(async () => step(calls, "closeSpot")),
+		closePerp: options.venue?.closePerp ?? mock(async () => step(calls, "closePerp")),
+		bridgeHome: options.venue?.bridgeHome ?? mock(async () => step(calls, "bridgeHome")),
+		returnIdle: options.venue?.returnIdle ?? mock(async () => step(calls, "returnIdle")),
 	};
 
 	const logs: string[] = [];
@@ -220,6 +227,12 @@ function harness(options: {
 	};
 
 	return { deps, vault, venue, calls, logs };
+}
+
+/** One hand-run close step, recorded and answered with a row. */
+function step(calls: string[], name: string): ActivityInput[] {
+	calls.push(name);
+	return [activityRow()];
 }
 
 function activityRow(): ActivityInput {

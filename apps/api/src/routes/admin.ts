@@ -19,6 +19,12 @@ import { readSession, SESSION_COOKIE } from "../services/auth";
 import { getAllVaultGas, getVaultGas } from "../services/gas";
 import { withdrawableGas, withdrawGas } from "../services/gas-withdraw";
 import { indexerHealth } from "../services/indexer-health";
+import {
+	OPERATOR_STEPS,
+	positionSnapshot,
+	recentOperatorActions,
+	startOperatorAction,
+} from "../services/operator-actions";
 import { pacificaAccountStatus, setUpPacificaAccount } from "../services/pacifica-account";
 import { getQueue, listVaults } from "../services/vaults";
 
@@ -444,6 +450,90 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 			return { vault: await requestRebalance({ address: params.address, by: admin as string }) };
 		},
 		{ params: t.Object({ address: addressSchema }) },
+	)
+
+	/**
+	 * Close a vault's position by hand, one step at a time.
+	 *
+	 * The route above records an instruction for the agent. These three do the
+	 * work here, in this process, with the agent's own venue wiring — which is
+	 * what an operator needs when the agent is stopped, is on a build that
+	 * predates a fix the position needs, or has failed part-way through a close
+	 * and left one leg open. See `services/operator-actions.ts` for why that is a
+	 * separate lever rather than a use of the close order.
+	 *
+	 * `assertCanCreateVaults`, like every other route that moves money. A
+	 * read-only operator watching for stale NAVs has no business selling a
+	 * depositor's position.
+	 */
+	.get(
+		"/vaults/:address/position",
+		async ({ admin, params, query }) => {
+			await assertAdmin(admin);
+			return await positionSnapshot(params.address, chainOf(query.chainId));
+		},
+		{
+			params: t.Object({ address: addressSchema }),
+			query: t.Object({ chainId: t.Optional(t.String()) }),
+		},
+	)
+
+	/**
+	 * The steps run against this vault, newest first.
+	 *
+	 * Separate from the snapshot above, and cheap: one indexed read with no venue
+	 * calls. This is what the console polls while a step runs, and a poll that
+	 * quoted every market through the aggregator every few seconds would be a
+	 * self-inflicted rate limit at the moment an operator most needs the venues
+	 * answering.
+	 */
+	.get(
+		"/vaults/:address/steps",
+		async ({ admin, params, query }) => {
+			await assertAdmin(admin);
+			return {
+				steps: await recentOperatorActions(params.address, chainOf(query.chainId)),
+			};
+		},
+		{
+			params: t.Object({ address: addressSchema }),
+			query: t.Object({ chainId: t.Optional(t.String()) }),
+		},
+	)
+
+	/**
+	 * Run one step, and answer as soon as it has started.
+	 *
+	 * Not when it has finished: a spot sale is a swap and two confirmations, but a
+	 * bridge is a venue withdrawal settling on Pacifica's schedule and then a
+	 * Relay fill, which together can run for the better part of an hour. A request
+	 * held open across that is one a proxy closes long before the money lands, and
+	 * the operator would be left unable to tell a dropped request from a failed
+	 * unwind. The row this returns is the handle; `/steps` is where it is watched.
+	 */
+	.post(
+		"/vaults/:address/position/:step",
+		async ({ admin, params, body }) => {
+			await assertCanCreateVaults(admin);
+			return {
+				step: await startOperatorAction({
+					address: params.address,
+					chainId: body?.chainId,
+					step: params.step,
+					by: admin as string,
+				}),
+			};
+		},
+		{
+			params: t.Object({
+				address: addressSchema,
+				// The four steps by name. An unknown one is a 422 rather than
+				// something resolved to a default: there is no sensible default among
+				// "sell every spot leg" and "send every dollar back to the vault".
+				step: t.Union(OPERATOR_STEPS.map((step) => t.Literal(step))),
+			}),
+			body: t.Optional(t.Object({ chainId: t.Optional(t.Number()) })),
+		},
 	)
 
 	.post(

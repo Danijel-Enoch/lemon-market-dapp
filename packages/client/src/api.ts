@@ -818,6 +818,70 @@ export interface IndexerChainHealth {
 	vaults: { indexed: number | null; expected: number | null };
 }
 
+/**
+ * One step of a hand-driven unwind, and what became of it.
+ *
+ * Distinct from the close order, which is an instruction the *agent* carries
+ * out on its next tick. These run in the API process against the venues
+ * directly, which is what an operator needs when the agent is stopped or has
+ * failed part-way through a close and left one leg open.
+ */
+export type OperatorStep = "CLOSE_SPOT" | "CLOSE_PERP" | "BRIDGE_HOME" | "RETURN_TO_VAULT";
+
+export interface OperatorAction {
+	id: string;
+	vault: string;
+	chainId: number;
+	step: OperatorStep;
+	status: "RUNNING" | "DONE" | "FAILED" | "ABANDONED";
+	requestedBy: string;
+	/** What happened, in a sentence. Null while it is still happening. */
+	detail: string | null;
+	error: string | null;
+	/** Rows this step published to the vault's public activity feed. */
+	activityReported: number;
+	startedAt: string;
+	finishedAt: string | null;
+	/**
+	 * Running, but no longer saying so. The process that started it is gone —
+	 * which says nothing about whether its venue calls landed, so the position is
+	 * the thing to read next.
+	 */
+	stale: boolean;
+}
+
+/** One market's two legs, as the venues report them right now. */
+export interface PositionLeg {
+	ticker: string;
+	symbol: string;
+	perpSymbol: string;
+	/** Both legs at the same 1e18 basis, so they can be compared directly. */
+	spotUnits: string;
+	/** What the spot would fetch if sold now, in USDC base units. Null when unroutable. */
+	spotValueUsdc: string | null;
+	perpUnits: string;
+	perpNotionalUsdc: string;
+}
+
+/**
+ * What a vault is holding, read live from the venues.
+ *
+ * Not the vault's reported NAV. An operator running these steps has usually
+ * stopped the agent, which is exactly what makes the reported figure stale.
+ */
+export interface PositionSnapshot {
+	vault: string;
+	chainId: number;
+	chainName: string;
+	agentEnabled: boolean;
+	markets: PositionLeg[];
+	idleOnBase: string;
+	unallocatedMargin: string;
+	inFlight: string;
+	/** Why the venues could not be read. The steps still work without this. */
+	unavailable: string | null;
+}
+
 export const adminApi = {
 	session: () =>
 		request<{ isAdmin: boolean; canCreateVaults: boolean; address?: string }>("/admin/session"),
@@ -913,6 +977,29 @@ export const adminApi = {
 	/** `amount` is in ETH or SOL, not wei or lamports. Omit it to sweep. */
 	withdrawGas: (address: string, body: { chain: "EVM" | "SOLANA"; to: string; amount?: string }) =>
 		post<{ withdrawal: GasWithdrawal }>(`/admin/gas/${address}/withdraw`, body),
+
+	/**
+	 * What the venues say this vault is holding right now.
+	 *
+	 * A live read — a sell quote per market plus the perp account — so it is
+	 * fetched when the unwind panel opens and when an operator asks again, never
+	 * polled.
+	 */
+	position: (address: string) => request<PositionSnapshot>(`/admin/vaults/${address}/position`),
+
+	/** The hand-run steps against one vault, newest first. Cheap enough to poll. */
+	positionSteps: (address: string) =>
+		request<{ steps: OperatorAction[] }>(`/admin/vaults/${address}/steps`),
+
+	/**
+	 * Run one step of an unwind by hand, without the agent.
+	 *
+	 * Returns as soon as the step has *started*. A bridge can run for the better
+	 * part of an hour, so the row that comes back is a handle to watch through
+	 * `positionSteps`, not a result.
+	 */
+	runPositionStep: (address: string, step: OperatorStep) =>
+		post<{ step: OperatorAction }>(`/admin/vaults/${address}/position/${step}`, {}),
 
 	pacificaAccount: (address: string) =>
 		request<PacificaAccountStatus>(`/admin/vaults/${address}/pacifica`),

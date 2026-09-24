@@ -208,6 +208,79 @@ export interface VenueAdapter {
 	 * means.
 	 */
 	closeAll(): Promise<ActivityInput[]>;
+
+	/**
+	 * The four steps `closeAll` takes, each callable on its own.
+	 *
+	 * An operator unwinding a vault by hand needs them apart. `closeAll` is one
+	 * call that sells every spot leg, closes every short, sweeps the margin
+	 * account and returns the lot — and when one of those fails halfway, the only
+	 * tool for the remainder is the same all-or-nothing call, which starts again
+	 * from the top. Separating them lets the operator pick up exactly where it
+	 * stopped: a vault whose spot legs are already sold needs the perp closed and
+	 * the margin brought home, not a fresh attempt at a sale with nothing left to
+	 * sell.
+	 *
+	 * They are steps rather than alternatives, and the order matters — each one
+	 * leaves the vault somewhere the next one starts from:
+	 *
+	 *   closeSpot  → tokens become USDC in the agent's own wallet
+	 *   closePerp  → the shorts close; the margin stays with the venue
+	 *   bridgeHome → that margin crosses back to the agent's wallet
+	 *   returnIdle → the wallet's whole USDC balance goes back to the vault
+	 *
+	 * Nothing here is `closeAll` internally — it closes both legs of a market
+	 * together, short first, which is the right thing for an automatic close and
+	 * the wrong thing for a person taking one step at a time. What they do share
+	 * is every venue call underneath, so the token a hand-run step sells is the
+	 * token the agent would have sold.
+	 *
+	 * **Each leaves the position one-sided while it runs.** Selling the spot
+	 * before closing the short leaves the vault short and directionally exposed
+	 * until the second step; doing it the other way round leaves it long. That is
+	 * inherent in taking them separately and is the operator's to judge — the
+	 * agent's own close never leaves that window open for longer than one Base
+	 * transaction.
+	 */
+	closeSpot(): Promise<ActivityInput[]>;
+
+	/**
+	 * Close every market's short, and leave the margin where it is.
+	 *
+	 * Reduce-only, so it closes what is open and cannot flip a leg long. The
+	 * freed margin stays in the Pacifica account rather than being swept, because
+	 * bringing it home is the next step and a separate decision — a bridge takes
+	 * minutes and can fail on its own, and folding it in here would mean an
+	 * operator who wanted the shorts closed could not tell which half went wrong.
+	 */
+	closePerp(): Promise<ActivityInput[]>;
+
+	/**
+	 * Bring the venue's free margin back to the agent's wallet on this chain.
+	 *
+	 * Withdraws whatever Pacifica says is free — which with the shorts closed is
+	 * all of it — and sweeps any USDC stranded in the Solana wallet by an earlier
+	 * failure, in one crossing. Run before the shorts are closed it withdraws only
+	 * what the open positions are not backing, which is a smaller number and not a
+	 * failure.
+	 *
+	 * The slow step: a venue withdrawal settles on Pacifica's schedule and a Relay
+	 * fill takes minutes, so this can run for the better part of an hour before it
+	 * gives up. Nothing is lost when it does — the USDC is in the agent's Solana
+	 * wallet or recorded as in flight, and running it again sweeps it.
+	 */
+	bridgeHome(): Promise<ActivityInput[]>;
+
+	/**
+	 * Send every USDC the agent holds on this chain back to the vault.
+	 *
+	 * The whole balance, not an amount: this is the end of an unwind, and USDC
+	 * left at the agent still counts toward the vault's reported NAV as deployed
+	 * capital. It is also the only step that makes money `freeAssets` again —
+	 * everything above it moves value between accounts the agent controls, and a
+	 * depositor cannot be paid out of any of them.
+	 */
+	returnIdle(): Promise<ActivityInput[]>;
 }
 
 /**

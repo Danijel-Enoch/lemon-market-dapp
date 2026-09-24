@@ -271,3 +271,41 @@ export function useIndexerHealth(enabled: boolean) {
 		staleTime: 10_000,
 	});
 }
+
+/**
+ * What one vault is holding, read live from the venues.
+ *
+ * Not polled, and deliberately so: it costs a sell quote per market and a
+ * Pacifica read, which is a lot to spend every few seconds — and the operator
+ * reading it is about to act on it, so a figure that changes under a decision is
+ * worse than one that is a minute old. The unwind panel refetches it when a step
+ * finishes, which is the moment it has actually changed.
+ */
+export function useVaultPosition(vault: string | undefined, enabled: boolean) {
+	return useQuery({
+		queryKey: ["admin-vault-position", vault],
+		queryFn: () => adminApi.position(vault as string),
+		enabled: enabled && Boolean(vault),
+		staleTime: 15_000,
+	});
+}
+
+/**
+ * The hand-run unwind steps against one vault.
+ *
+ * Polled while the panel is open, because a step takes minutes to hours and the
+ * row is the only thing that says how it went. One indexed read per poll — the
+ * expensive picture is `useVaultPosition`, which is why the two are separate.
+ */
+export function useVaultPositionSteps(
+	vault: string | undefined,
+	enabled: boolean,
+	refetchInterval: number | false = 5_000,
+) {
+	return useQuery({
+		queryKey: ["admin-vault-steps", vault],
+		queryFn: () => adminApi.positionSteps(vault as string),
+		enabled: enabled && Boolean(vault),
+		refetchInterval,
+	});
+}

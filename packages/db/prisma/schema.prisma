@@ -389,10 +389,72 @@ model VaultConfig {
 
   runs    AgentRun[]
   markets VaultMarket[]
+  steps   OperatorAction[]
 
   @@id([chainId, address])
   @@index([ticker])
   @@index([chainId])
+}
+
+/// One step of an unwind an operator ran by hand, and what became of it.
+///
+/// The close order on `VaultConfig` is an instruction to the agent: it is
+/// recorded, the agent reads it on its next tick, and the agent does the work.
+/// This is the other thing — an operator closing the position themselves,
+/// because the agent is stopped, or is on a build that predates the fix they
+/// need, or has failed halfway through a close and left one leg open. The API
+/// process places the orders directly, using the agent's own venue wiring, and
+/// these rows are what happened.
+///
+/// A row per step rather than a flag per vault, for two reasons. Each step takes
+/// minutes — a bridge can take the better part of an hour — so an operator will
+/// reload the page while one is running and has to find it again. And the useful
+/// half is usually the failure: "the NVDA short is smaller than the venue's lot
+/// size, so no order can close it" is the difference between understanding a
+/// stuck vault and pressing the button every hour.
+model OperatorAction {
+  id String @id @default(cuid())
+
+  vaultAddress String
+  chainId      Int
+  vault        VaultConfig @relation(fields: [chainId, vaultAddress], references: [chainId, address], onDelete: Cascade)
+
+  /// CLOSE_SPOT, CLOSE_PERP, BRIDGE_HOME or RETURN_TO_VAULT.
+  step String
+  /// RUNNING, DONE, FAILED or ABANDONED.
+  ///
+  /// ABANDONED is the one that needs saying: these steps run inside an API
+  /// process and are not resumed if it restarts, so a row left RUNNING by a
+  /// deploy is marked abandoned once its heartbeat goes cold. The venue calls it
+  /// had already made stand — abandoned describes the record, not the money.
+  status String
+  /// The admin address that pressed the button, lowercased.
+  requestedBy String
+
+  /// `<chainId>:<vault>` while this step is running, null once it has finished.
+  ///
+  /// The lock, and the reason it is shaped like this: Postgres treats nulls in a
+  /// unique index as distinct, so any number of finished rows coexist while a
+  /// second running row for the same vault cannot be inserted at all. Two
+  /// operators pressing two buttons — or one operator reaching two API
+  /// containers — would otherwise put two writers on one agent wallet, which is
+  /// a nonce collision on Base and a pair of racing orders at the venue.
+  runningKey String? @unique
+
+  /// What happened, in a sentence, for the console to print.
+  detail String?
+  error  String?
+  /// Rows this step published to the vault's public activity feed.
+  activityReported Int @default(0)
+
+  startedAt   DateTime  @default(now())
+  /// Refreshed while the step runs. A cold one is how an abandoned step is told
+  /// apart from a slow bridge, without assuming anything about which process
+  /// started it.
+  heartbeatAt DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([chainId, vaultAddress, startedAt])
 }
 
 /// One market a vault runs a basis position in.

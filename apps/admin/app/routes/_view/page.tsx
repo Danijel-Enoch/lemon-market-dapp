@@ -2,6 +2,7 @@ import { CloseVaultDialog } from "@app/components/CloseVaultDialog";
 import { CreateVaultDialog } from "@app/components/CreateVaultDialog";
 import { GasPanel } from "@app/components/GasPanel";
 import { IndexerCard } from "@app/components/IndexerCard";
+import { UnwindPositionDialog } from "@app/components/UnwindPositionDialog";
 import { VaultMarketsDialog } from "@app/components/VaultMarketsDialog";
 import {
 	adminApi,
@@ -84,6 +85,9 @@ export default function AdminPage() {
 	const [creating, setCreating] = useState<VaultableMarket | null>(null);
 	const [editingMarkets, setEditingMarkets] = useState<Vault | null>(null);
 	const [closingVault, setClosingVault] = useState<Vault | null>(null);
+	// The hand-run unwind, which is a different lever from the close order above
+	// it: that one instructs the agent, this one runs the steps here without it.
+	const [unwindingVault, setUnwindingVault] = useState<Vault | null>(null);
 
 	const isAdmin = session?.isAdmin ?? false;
 	const { data: vaultData } = useAdminVaults(isAdmin);
@@ -373,6 +377,19 @@ export default function AdminPage() {
 												<Button variant="outline" size="sm" onClick={() => setClosingVault(vault)}>
 													{vault.closeRequestedAt ? "Resume trading" : "Close positions"}
 												</Button>
+												{/* The manual counterpart to the button beside it. Always
+												    offered rather than only when something has gone wrong: the
+												    occasions it exists for — an agent on an old build, a close
+												    that failed at the bridge — are exactly the ones where an
+												    operator does not want to discover a control for the first
+												    time. */}
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => setUnwindingVault(vault)}
+												>
+													Unwind by hand
+												</Button>
 											</div>
 										</div>
 									</div>
@@ -523,6 +540,10 @@ export default function AdminPage() {
 
 			{closingVault && (
 				<CloseVaultDialog vault={closingVault} onClose={() => setClosingVault(null)} />
+			)}
+
+			{unwindingVault && (
+				<UnwindPositionDialog vault={unwindingVault} onClose={() => setUnwindingVault(null)} />
 			)}
 		</div>
 	);

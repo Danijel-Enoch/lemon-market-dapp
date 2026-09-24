@@ -203,6 +203,11 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 		return market;
 	}
 
+	/** Every market this vault runs, for a log line that names them. */
+	function tickers(): string {
+		return config.markets.map((m) => m.ticker).join(", ");
+	}
+
 	async function spotBalance(market: VenueMarket): Promise<bigint> {
 		return publicClient.readContract({
 			abi: erc20Abi,
@@ -1092,10 +1097,7 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 			const failures: string[] = [];
 			const startedAt = performance.now();
 
-			log(
-				"info",
-				`closeAll: an operator has ordered every position closed — ${config.markets.map((m) => m.ticker).join(", ")}.`,
-			);
+			log("info", `closeAll: an operator has ordered every position closed — ${tickers()}.`);
 
 			for (const market of config.markets) {
 				const balance = await spotBalance(market);
@@ -1174,6 +1176,177 @@ export function createVenueAdapter(deps: VenueDeps): VenueAdapter {
 					activity,
 				);
 			}
+
+			return activity;
+		},
+
+		/**
+		 * `closeAll`, taken apart.
+		 *
+		 * The four methods below are the same venue calls in the same order, each
+		 * reachable on its own, for an operator unwinding a vault by hand rather
+		 * than by standing order. See `VenueAdapter` for why that is a separate
+		 * thing to want; the short version is that a close which fails halfway
+		 * leaves an all-or-nothing call with nothing useful to do about the
+		 * remainder.
+		 *
+		 * Each one is independently safe to repeat. They read what is actually
+		 * there — a token balance, the venue's own position size, the account's
+		 * free margin — rather than acting on what a previous step reported, so
+		 * running one twice closes what is left and finds nothing the second time.
+		 */
+		async closeSpot() {
+			const activity: ActivityInput[] = [];
+			const failures: string[] = [];
+			let sold = 0n;
+
+			log("info", `closeSpot: selling every spot leg — ${tickers()}.`);
+
+			for (const market of config.markets) {
+				const balance = await spotBalance(market);
+				if (balance === 0n) {
+					log("debug", `closeSpot: ${market.ticker} holds no spot.`);
+					continue;
+				}
+
+				log(
+					"info",
+					`closeSpot: selling ${formatUnitsForVenue(balance, market.spotTokenDecimals)} ${market.symbol}.`,
+				);
+				try {
+					// The whole balance, and the short is deliberately left alone. That
+					// is what makes this a step rather than a close: between here and
+					// `closePerp` the vault is short its hedge with nothing long against
+					// it, which is the operator's to sequence.
+					sold += await sellSpot(
+						deps,
+						market,
+						balance,
+						activity,
+						() =>
+							"The short is untouched, so the vault is now short this market until it is closed.",
+					);
+				} catch (error) {
+					// Recorded and carried on, as in `closeAll`: one market whose pool has
+					// dried up must not leave the others holding spot.
+					failures.push(`${market.ticker}: ${message(error)}`);
+					log("error", `closeSpot: ${market.ticker} could not be sold; carrying on.`, error);
+					if (error instanceof VenueExecutionError) activity.push(...error.activity);
+				}
+			}
+
+			log(
+				"info",
+				`closeSpot: raised ${usd(sold)}, which stays in the agent's wallet until it is returned${failures.length ? `, with ${failures.length} leg(s) unsold` : ""}.`,
+			);
+
+			if (failures.length > 0) {
+				throw new VenueExecutionError(
+					`Sold what could be sold for ${usd(sold)}, but ${failures.length} spot leg${failures.length === 1 ? "" : "s"} could not be — ${failures.join("; ")}.`,
+					activity,
+				);
+			}
+
+			return activity;
+		},
+
+		async closePerp() {
+			const activity: ActivityInput[] = [];
+			const failures: string[] = [];
+			let closed = 0;
+
+			log("info", `closePerp: closing every short — ${tickers()}.`);
+
+			for (const market of config.markets) {
+				// The venue's own position size, rescaled into the spot token's
+				// decimals — which is what `closePerpLeg` snaps to the lot grid in.
+				// `perpPosition` answers in the 1e18 basis the two legs are compared
+				// in, and an 8-decimal token confused between the two is off by ten
+				// orders of magnitude.
+				const position = fromUnits(await perpPosition(deps, market), market.spotTokenDecimals);
+				if (position === 0n) {
+					log("debug", `closePerp: ${market.ticker} has no short open.`);
+					continue;
+				}
+
+				log(
+					"info",
+					`closePerp: closing ${formatUnitsForVenue(position, market.spotTokenDecimals)} ${market.perpSymbol}.`,
+				);
+				try {
+					const units = await closePerpLeg(deps, market, position, 0n, activity);
+					if (units === 0n) {
+						// Not a failure and not a close either. A position under one lot
+						// cannot be reduced by any order, so saying so is the only honest
+						// outcome — the alternative is an operator pressing this every
+						// minute against a venue that will never accept it.
+						failures.push(
+							`${market.ticker}: the ${formatUnitsForVenue(position, market.spotTokenDecimals)} ${market.perpSymbol} short is smaller than the venue's lot size, so no order can close it`,
+						);
+						continue;
+					}
+					closed += 1;
+				} catch (error) {
+					failures.push(`${market.ticker}: ${message(error)}`);
+					log("error", `closePerp: ${market.ticker} could not be closed; carrying on.`, error);
+					if (error instanceof VenueExecutionError) activity.push(...error.activity);
+				}
+			}
+
+			log(
+				"info",
+				`closePerp: closed ${closed} short(s); the margin stays with the venue until it is bridged${failures.length ? `, with ${failures.length} still open` : ""}.`,
+			);
+
+			if (failures.length > 0) {
+				throw new VenueExecutionError(
+					`Closed ${closed} short${closed === 1 ? "" : "s"}, but ${failures.length} could not be closed — ${failures.join("; ")}.`,
+					activity,
+				);
+			}
+
+			return activity;
+		},
+
+		async bridgeHome() {
+			const activity: ActivityInput[] = [];
+
+			log("info", "bridgeHome: withdrawing the venue's free margin and bringing it home.");
+
+			// Swept rather than trimmed, and with no leverage to retain: this is only
+			// ever run against a position an operator is closing, so what the venue
+			// calls free is all of it. Run with shorts still open it takes only what
+			// they are not backing, which is the venue's own number and correct.
+			const landed = await repatriateMargin(deps, activity, { sweepIdle: true });
+
+			log(
+				"info",
+				landed === 0n
+					? "bridgeHome: the venue had nothing free to withdraw and the Solana wallet was empty."
+					: `bridgeHome: ${usd(landed)} arrived in the agent's wallet.`,
+			);
+
+			return activity;
+		},
+
+		async returnIdle() {
+			const activity: ActivityInput[] = [];
+
+			// The whole balance, read now rather than accumulated from the steps
+			// before it — so USDC that arrived by some other route, a bridge that
+			// landed late or a deployment that failed after drawing down, goes home
+			// too. Idle USDC at the agent still counts toward the vault's reported
+			// NAV as deployed capital, so a dollar left behind is a vault that never
+			// reads as flat.
+			const onBase = await usdcBalance(config.agentAddress);
+			if (onBase === 0n) {
+				log("info", "returnIdle: the agent holds no USDC; there is nothing to return.");
+				return activity;
+			}
+
+			log("info", `returnIdle: returning ${usd(onBase)} to the vault.`);
+			await returnAll(deps, onBase, activity);
+			log("info", `returnIdle: ${usd(onBase)} is back in the vault and free for redemptions.`);
 
 			return activity;
 		},
@@ -1470,6 +1643,61 @@ async function perpPosition(deps: VenueDeps, market: VenueMarket): Promise<bigin
 }
 
 /**
+ * Reduce one market's short, and record it.
+ *
+ * Extracted from `closeLeg` so an operator can close the hedge without also
+ * selling the holding behind it — the step a hand-driven unwind takes on its
+ * own. Those are the only two callers, and they differ in what happens next
+ * rather than in what happens here.
+ *
+ * Returns the units the order was placed for, which is zero when the position
+ * is smaller than one lot and therefore cannot be reduced at all.
+ */
+async function closePerpLeg(
+	deps: VenueDeps,
+	market: VenueMarket,
+	/** How much to close, in the spot token's decimals. */
+	closeUnits: bigint,
+	/** What this close was meant to raise, for the activity row. Zero when closing in full. */
+	notionalHint: bigint,
+	activity: ActivityInput[],
+): Promise<bigint> {
+	const { config, pacifica } = deps;
+
+	// Down onto the venue's grid, which for a reduce-only close means closing at
+	// most what is open rather than at least.
+	const perpUnits = snapToLot(closeUnits, await lotUnits(deps, market, market.spotTokenDecimals));
+	if (perpUnits === 0n) return 0n;
+
+	const closeReceipt = await pacifica.createMarketOrder(deps.signPacifica, {
+		account: config.solanaAddress,
+		symbol: market.perpSymbol,
+		side: "bid",
+		amount: formatUnitsForVenue(perpUnits, market.spotTokenDecimals),
+		slippagePercent: String(config.slippagePercent),
+		reduceOnly: true,
+	});
+
+	// No row when nothing was closed, which is why the early return above sits
+	// before the order rather than after it: recording a close that never
+	// happened would put a leg in the depositor's feed the venue has no order for.
+	activity.push({
+		kind: "PERP_CLOSE",
+		chain: "SOLANA",
+		symbol: market.perpSymbol,
+		baseAmount: perpUnits,
+		notionalAssets: notionalHint,
+		pnlAssets: 0n,
+		feeAssets: 0n,
+		// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
+		txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
+		occurredAt: deps.now(),
+	});
+
+	return perpUnits;
+}
+
+/**
  * Close `units` of one market's position: the short first, then the spot.
  *
  * The order is the same as it has always been, and for the same reason. Selling
@@ -1496,43 +1724,11 @@ async function closeLeg(
 	notionalHint: bigint,
 	activity: ActivityInput[],
 ): Promise<bigint> {
-	const { config, pacifica } = deps;
-
-	// Down onto the venue's grid, which for a reduce-only close means closing at
-	// most what is open rather than at least. The spot sale below still uses the
-	// full `closeUnits`: the balance is the agent's own and has no grid, and
+	// The spot sale below still uses the full `closeUnits` rather than what the
+	// short actually closed: the balance is the agent's own and has no grid, and
 	// leaving spot behind to match a coarser perp leg would strand tokens the
 	// close was asked to turn into USDC.
-	const perpUnits = snapToLot(closeUnits, await lotUnits(deps, market, market.spotTokenDecimals));
-
-	const closeReceipt =
-		perpUnits === 0n
-			? null
-			: await pacifica.createMarketOrder(deps.signPacifica, {
-					account: config.solanaAddress,
-					symbol: market.perpSymbol,
-					side: "bid",
-					amount: formatUnitsForVenue(perpUnits, market.spotTokenDecimals),
-					slippagePercent: String(config.slippagePercent),
-					reduceOnly: true,
-				});
-	// No row when nothing was closed. A position smaller than one lot cannot be
-	// reduced at all, and recording a close that never happened would put a leg
-	// in the depositor's feed that the venue has no order for.
-	if (closeReceipt) {
-		activity.push({
-			kind: "PERP_CLOSE",
-			chain: "SOLANA",
-			symbol: market.perpSymbol,
-			baseAmount: perpUnits,
-			notionalAssets: notionalHint,
-			pnlAssets: 0n,
-			feeAssets: 0n,
-			// biome-ignore lint/suspicious/noExplicitAny: receipt shape varies.
-			txRef: refToHex(String((closeReceipt as any).order_id ?? "")),
-			occurredAt: deps.now(),
-		});
-	}
+	await closePerpLeg(deps, market, closeUnits, notionalHint, activity);
 
 	return sellSpot(
 		deps,

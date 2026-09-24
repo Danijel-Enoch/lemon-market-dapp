@@ -72,6 +72,7 @@
       "name": "@lemon/api",
       "version": "0.2.0",
       "dependencies": {
+        "@lemon/agent": "workspace:*",
         "@lemon/contracts": "workspace:*",
         "@lemon/core": "workspace:*",
         "@lemon/db": "workspace:*",
