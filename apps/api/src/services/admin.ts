@@ -595,18 +595,29 @@ export async function setVaultMarkets(params: {
 // ---------------------------------------------------------------------------
 
 /**
- * Tell a vault's agent to close every position and send all of it back.
+ * Mark a vault as winding down, or let it trade again.
+ *
+ * A constraint, not an instruction, and the difference is the whole of what
+ * this flag means now. It used to tell the agent to close every position on its
+ * next tick; closing is the operator console's own action today — signed from
+ * the vault's MPC wallet while somebody watches it, through
+ * `startOperatorAction` — and what is left here is the standing rule that
+ * follows a close: **this vault deploys nothing.**
+ *
+ * That is what stops a wind-down being undone by accident. An agent restarted
+ * after a hand close would otherwise see idle USDC, correctly conclude it
+ * should be earning, and open the position straight back up.
  *
  * Deliberately not the same lever as `setAgentEnabled`. A stopped agent stops
  * *reporting*, which stales the NAV and blocks deposits and — worse — blocks the
- * withdrawal queue that an operator unwinding a vault is usually trying to
- * serve. Under a close order the agent keeps ticking: it reports NAV, it fulfils
- * redemptions, it simply holds no position and opens no new one.
+ * withdrawal queue that an operator winding a vault down is usually trying to
+ * serve. Under this flag the agent keeps ticking: it reports NAV, it fulfils
+ * redemptions, it corrects the hedge of whatever is still open. It simply opens
+ * nothing new.
  *
- * The order stands until it is lifted. Nothing here waits for the close to
- * happen — it cannot, because closing is minutes of venue round trips across two
- * chains — so this records the instruction and the agent acts on its next tick.
- * `closeCompletedAt` is stamped by the agent when it first finds the vault flat.
+ * Usually set by the close itself rather than called directly — see
+ * `recordStanding`. This route remains for the other direction, and for an
+ * operator who wants the rule without the trade.
  */
 export async function setCloseOrder(params: {
 	address: string;

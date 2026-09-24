@@ -193,11 +193,8 @@ function renderSituation(request: AdviceRequest): string {
 /**
  * What one option costs and how long its funding takes to cover that.
  *
- * Null for the actions where the question does not arise. HOLD trades nothing;
- * CLOSE_ALL is an operator's order and its cost is not a consideration the model
- * is allowed to weigh. Pricing them anyway would invite exactly the reasoning
- * this is meant to prevent — declining an instruction because it looked
- * expensive.
+ * Null for HOLD, where the question does not arise: it trades nothing, so there
+ * is no cost to weigh and no payback to quote.
  */
 function priceOption(
 	snapshot: VaultSnapshot,

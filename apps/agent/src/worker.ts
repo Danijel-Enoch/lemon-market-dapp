@@ -732,8 +732,6 @@ export async function tick(deps: WorkerDeps): Promise<TickResult> {
 				targetUnits: side === "PERP" ? target.spotUnits : target.perpUnits,
 				side,
 			});
-		} else if (decision.kind === "CLOSE_ALL") {
-			activity = await venue.closeAll();
 		}
 	} catch (error) {
 		// Recorded before anything else, so the next tick knows not to repeat this

@@ -521,18 +521,25 @@ export const adminRoutes = new Elysia({ prefix: "/admin" })
 					chainId: body?.chainId,
 					step: params.step,
 					by: admin as string,
+					reason: body?.reason,
 				}),
 			};
 		},
 		{
 			params: t.Object({
 				address: addressSchema,
-				// The four steps by name. An unknown one is a 422 rather than
-				// something resolved to a default: there is no sensible default among
-				// "sell every spot leg" and "send every dollar back to the vault".
+				// Each step by name. An unknown one is a 422 rather than something
+				// resolved to a default: there is no sensible default among "sell
+				// every spot leg" and "send every dollar back to the vault".
 				step: t.Union(OPERATOR_STEPS.map((step) => t.Literal(step))),
 			}),
-			body: t.Optional(t.Object({ chainId: t.Optional(t.Number()) })),
+			body: t.Optional(
+				t.Object({
+					chainId: t.Optional(t.Number()),
+					/** Why the vault is being wound down. Kept on the vault, not the step. */
+					reason: t.Optional(t.String({ maxLength: 500 })),
+				}),
+			),
 		},
 	)
 

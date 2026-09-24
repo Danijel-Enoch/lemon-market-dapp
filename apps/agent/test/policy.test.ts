@@ -659,31 +659,65 @@ describe("permittedActions, under a close order", () => {
 			],
 		});
 
-	it("offers only CLOSE_ALL, forced, while anything is open", () => {
-		const options = permittedActions(open(), NOW);
-		expect(options).toHaveLength(1);
-		expect(options[0].kind).toBe("CLOSE_ALL");
-		expect(options[0].forced).toBe(true);
+	/**
+	 * The order is a constraint, not an instruction. Closing a live position is
+	 * the console's own action, signed from the agent's MPC wallet while an
+	 * operator watches it — so the agent's job under a wind-down is to stop
+	 * adding to the position, not to take it off.
+	 */
+	it("never closes the position itself", () => {
+		const kinds = permittedActions(open(), NOW).map((o) => o.kind);
+		expect(kinds).not.toContain("DEPLOY");
+		// There is no close action left to offer, and nothing here stands in for
+		// one: a vault with an open position and nothing owed simply holds.
+		expect(kinds).toEqual(["HOLD"]);
 	});
 
-	it("names what is still open in its reason", () => {
-		expect(permittedActions(open(), NOW)[0].reason).toContain("BTC");
+	it("says it is winding down rather than that nothing needs doing", () => {
+		// The distinction matters in the tick log. "Nothing needs doing" against a
+		// vault visibly holding $9,000 reads as an agent that has missed it.
+		const reason = permittedActions(open(), NOW)[0].reason;
+		expect(reason).toContain("winding down");
+		expect(reason).toContain("BTC");
 	});
 
 	/**
-	 * An order to return *all* of the capital already satisfies every request in
-	 * the queue, so there is nothing an urgent unwind would additionally do — and
-	 * an unwind that stopped at the amount owed would leave the rest of the
-	 * position open against an order to close it.
+	 * The reversal this change turns on, and the one worth being loudest about.
+	 *
+	 * A close order used to outrank a redemption deadline, on the reasoning that
+	 * returning *all* the capital covers every request in the queue. That only
+	 * held while the order was itself an instruction to return all the capital.
+	 * It is not one any more — it forbids deployment and nothing else — so a
+	 * vault that owes somebody money must still raise it, wind-down or not.
 	 */
-	it("outranks even a redemption inside its deadline", () => {
+	it("still unwinds for a redemption inside its deadline", () => {
 		const s = {
 			...open(),
 			freeAssets: 0n,
 			ripeRedeemAssets: 3_000n * USDC,
 			earliestDeadline: NOW + 3600,
 		};
-		expect(permittedActions(s, NOW).map((o) => o.kind)).toEqual(["CLOSE_ALL"]);
+		const options = permittedActions(s, NOW);
+		expect(options.map((o) => o.kind)).toEqual(["UNWIND"]);
+		expect(options[0].forced).toBe(true);
+	});
+
+	/** Deployment is the one thing it forbids outright. */
+	it("refuses to deploy however attractive the market is", () => {
+		const s = {
+			...open(),
+			freeAssets: 500_000n * USDC,
+			markets: [
+				market({
+					ticker: "BTC",
+					targetWeightBps: 10_000,
+					spotValueUsdc: 0n,
+					fundingShortPercentPerHour: 0.05,
+				}),
+			],
+			deployedAssets: 0n,
+		};
+		expect(permittedActions(s, NOW).map((o) => o.kind)).not.toContain("DEPLOY");
 	});
 
 	/**
@@ -1370,9 +1404,14 @@ describe("a redemption is never gated on what it costs", () => {
 	});
 });
 
-describe("an operator's close order is never gated on what it costs", () => {
-	/** A position worth a fraction of one close, under a standing order to close it. */
-	it("offers CLOSE_ALL on a position far below any economic floor", () => {
+describe("a wind-down on a position too small to be worth trading", () => {
+	/**
+	 * Dust under a standing order, which used to be the case for forcing a close
+	 * whatever it cost. The console closes it now if an operator wants it closed,
+	 * and the agent's part is simply not to add to it — so the answer here is a
+	 * hold that says so rather than an unwind nobody can afford.
+	 */
+	it("holds rather than trading a position worth a fraction of one unwind", () => {
 		const s = snapshot({
 			closeRequested: true,
 			deployedAssets: UNWIND_FLOOR / 100n,
@@ -1385,8 +1424,8 @@ describe("an operator's close order is never gated on what it costs", () => {
 			],
 		});
 		const options = permittedActions(s, NOW);
-		expect(options.map((o) => o.kind)).toEqual(["CLOSE_ALL"]);
-		expect(options[0].forced).toBe(true);
+		expect(options.map((o) => o.kind)).toEqual(["HOLD"]);
+		expect(options[0].reason).toContain("winding down");
 	});
 });
 
