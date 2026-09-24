@@ -1,5 +1,5 @@
 import { AdminSignIn } from "@app/components/AdminSignIn";
-import { Brand } from "@lemon/ui";
+import { Brand, ThemeToggle } from "@lemon/ui";
 import { WrongNetworkBanner } from "@lemon/wallet";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Outlet } from "react-router";
@@ -30,6 +30,7 @@ export default function ViewLayout() {
 					</div>
 
 					<div className="flex items-center gap-3">
+						<ThemeToggle />
 						{/* Connecting proves nothing to the API; signing does. The two
 						    sit together so the second step is where the first ends. */}
 						<AdminSignIn />

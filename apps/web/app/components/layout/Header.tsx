@@ -2,7 +2,7 @@ import { Ticker } from "@app/components/layout/Ticker";
 import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { formatUsdCompact, useProtocolStats } from "@lemon/client";
-import { Brand, cn } from "@lemon/ui";
+import { Brand, cn, ThemeToggle } from "@lemon/ui";
 import { Activity, BookOpen, ChartNoAxesColumn, Vault, Wallet } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
@@ -106,6 +106,7 @@ export function Header() {
 								<BarStat label="TVL" value={formatUsdCompact(stats?.tvl ?? "0")} />
 								<BarStat label="Vaults" value={String(stats?.vaultCount ?? 0)} />
 							</span>
+							<ThemeToggle />
 							<ConnectWallet />
 						</div>
 					</div>
@@ -121,6 +122,7 @@ export function Header() {
 			<header className="fixed inset-x-0 top-0 z-40 md:hidden" style={safeAreaStyle}>
 				<div className="flex w-full items-center gap-3 overflow-clip border-b border-[var(--pon-line-2)] bg-[var(--pon-bg)] px-4 py-2">
 					<Brand size={22} className="min-w-px flex-1" />
+					<ThemeToggle />
 					<ConnectWallet />
 				</div>
 				{/* The wire runs on a phone too. It is the one piece of chrome that
