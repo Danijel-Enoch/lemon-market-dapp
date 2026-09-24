@@ -1,4 +1,3 @@
-import { CloseVaultDialog } from "@app/components/CloseVaultDialog";
 import { CreateVaultDialog } from "@app/components/CreateVaultDialog";
 import { GasPanel } from "@app/components/GasPanel";
 import { IndexerCard } from "@app/components/IndexerCard";
@@ -84,10 +83,17 @@ export default function AdminPage() {
 	// same curated board the Create tab uses.
 	const [creating, setCreating] = useState<VaultableMarket | null>(null);
 	const [editingMarkets, setEditingMarkets] = useState<Vault | null>(null);
-	const [closingVault, setClosingVault] = useState<Vault | null>(null);
-	// The hand-run unwind, which is a different lever from the close order above
-	// it: that one instructs the agent, this one runs the steps here without it.
-	const [unwindingVault, setUnwindingVault] = useState<Vault | null>(null);
+	/**
+	 * The vault whose position panel is open.
+	 *
+	 * One lever, not two. Closing a vault used to be an instruction the agent
+	 * carried out on its next tick, beside a hand-run panel that did it directly;
+	 * an operator had to know which of two buttons actually closed anything. The
+	 * order is a constraint now — it forbids deployment and nothing else — and
+	 * every close, every re-open and every step of either happens here, signed
+	 * from the agent's wallet while the operator watches.
+	 */
+	const [positionVault, setPositionVault] = useState<Vault | null>(null);
 
 	const isAdmin = session?.isAdmin ?? false;
 	const { data: vaultData } = useAdminVaults(isAdmin);
@@ -280,15 +286,15 @@ export default function AdminPage() {
 												{vault.paused && <Pill tone="muted">Paused</Pill>}
 												{!vault.agentEnabled && <Pill tone="muted">Agent off</Pill>}
 												{!vault.perpSymbol && <Pill tone="danger">No venue config</Pill>}
-												{/* The most consequential state a vault can be in short of a
-												    pause, so it is a badge rather than something an operator has
-												    to open a dialog to discover. The two phases are separated
-												    because "ordered" and "actually flat" are minutes to hours
-												    apart, and that gap is what an operator who has just given
-												    the order is watching for. */}
+												{/* A vault that deploys nothing, which is the most
+												    consequential state short of a pause — so it is a badge
+												    rather than something an operator has to open a panel to
+												    discover. "Winding down" is the standing constraint;
+												    "Wound down" adds that the position has actually been
+												    closed, which is a separate act. */}
 												{vault.closeRequestedAt && (
 													<Pill tone={vault.closeCompletedAt ? "muted" : "warning"}>
-														{vault.closeCompletedAt ? "Closed out" : "Closing"}
+														{vault.closeCompletedAt ? "Wound down" : "Winding down"}
 													</Pill>
 												)}
 												{/* Pending only. Once the agent has answered, the answer itself
@@ -374,21 +380,8 @@ export default function AdminPage() {
 												>
 													Rebalance now
 												</Button>
-												<Button variant="outline" size="sm" onClick={() => setClosingVault(vault)}>
-													{vault.closeRequestedAt ? "Resume trading" : "Close positions"}
-												</Button>
-												{/* The manual counterpart to the button beside it. Always
-												    offered rather than only when something has gone wrong: the
-												    occasions it exists for — an agent on an old build, a close
-												    that failed at the bridge — are exactly the ones where an
-												    operator does not want to discover a control for the first
-												    time. */}
-												<Button
-													variant="outline"
-													size="sm"
-													onClick={() => setUnwindingVault(vault)}
-												>
-													Unwind by hand
+												<Button variant="outline" size="sm" onClick={() => setPositionVault(vault)}>
+													Close positions
 												</Button>
 											</div>
 										</div>
@@ -538,12 +531,8 @@ export default function AdminPage() {
 				/>
 			)}
 
-			{closingVault && (
-				<CloseVaultDialog vault={closingVault} onClose={() => setClosingVault(null)} />
-			)}
-
-			{unwindingVault && (
-				<UnwindPositionDialog vault={unwindingVault} onClose={() => setUnwindingVault(null)} />
+			{positionVault && (
+				<UnwindPositionDialog vault={positionVault} onClose={() => setPositionVault(null)} />
 			)}
 		</div>
 	);

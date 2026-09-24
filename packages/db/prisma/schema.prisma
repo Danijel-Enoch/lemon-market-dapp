@@ -430,6 +430,9 @@ model OperatorAction {
   status String
   /// The admin address that pressed the button, lowercased.
   requestedBy String
+  /// Why, for a close that winds the vault down. Copied onto `VaultConfig` when
+  /// the close succeeds, where it outlives this row and the wind-down itself.
+  reason String?
 
   /// `<chainId>:<vault>` while this step is running, null once it has finished.
   ///
@@ -595,7 +598,11 @@ model AgentRun {
   chainId      Int         @default(8453)
   vault        VaultConfig @relation(fields: [chainId, vaultAddress], references: [chainId, address], onDelete: Cascade)
 
-  /// DEPLOY, UNWIND, REBALANCE, TOP_UP_MARGIN, CLOSE_ALL, HOLD or NONE.
+  /// DEPLOY, UNWIND, REBALANCE, TOP_UP_MARGIN, HOLD or NONE.
+  ///
+  /// Older rows also carry CLOSE_ALL, from when a standing close order was
+  /// carried out by the agent. Closing is the console's own action now — see
+  /// `OperatorAction` — and no new run records it.
   action String
   /// Which of the vault's markets the action was aimed at, when it was aimed at
   /// one. Null for the actions that are about the vault rather than a market —

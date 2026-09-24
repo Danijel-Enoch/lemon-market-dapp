@@ -456,7 +456,7 @@ export default function VaultDetailPage() {
 							<p>
 								{vault.closeCompletedAt
 									? "An operator has wound this vault's positions down. The capital is back in the contract and is not earning funding; deposits and withdrawals work as normal."
-									: "An operator has asked the agent to close every position and return the capital to the vault. It is being unwound now."}
+									: "An operator is winding this vault down. No new capital is being deployed, and whatever is still open is being closed and returned; deposits and withdrawals work as normal throughout."}
 							</p>
 						</div>
 					)}

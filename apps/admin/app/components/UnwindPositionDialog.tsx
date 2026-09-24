@@ -17,21 +17,18 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Close a vault's position by hand, one step at a time.
  *
- * The close order beside this is an instruction to the *agent*: it is recorded,
- * the agent reads it on its next tick, and the agent does everything in one
- * call. This is the other thing — the operator doing it themselves, with the
- * agent stopped, which is what is left when:
+ * This is the only way a vault's position is closed, and it never goes through
+ * the agent. Closing used to be an order recorded against the vault which the
+ * agent carried out on some later tick, and that was wrong in a way worth
+ * spelling out: the operator pressed a button and then waited, with no idea
+ * whether the tick was a minute away or the process was down, and learned what
+ * had happened to a live position only after it had happened. Every action here
+ * is signed from the vault's own MPC wallet by the API while they watch.
  *
- *  - the agent is on a build that predates a fix the position needs, and
- *    redeploying it is a slow answer to money that is exposed now;
- *  - a close got most of the way through and failed, so what is left is a short
- *    with no spot behind it and margin stranded at the venue;
- *  - the capital should come home and must not be re-deployed by a tick five
- *    minutes later.
- *
- * Four steps, in order, each run and reported separately. That separation is the
- * whole point: an all-or-nothing close that failed at the bridge has nothing
- * useful to offer except another all-or-nothing close.
+ * The whole close is one press. The four steps it is made of are offered
+ * separately because a close that failed at the bridge needs the bridge retried
+ * and nothing else — running the whole thing again would start from a spot sale
+ * with nothing left to sell.
  *
  * **Between step 1 and step 2 the vault is one-sided.** Selling the spot leaves
  * the short standing with nothing long against it, and the vault is directionally
@@ -51,6 +48,14 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 	const [error, setError] = useState<string | null>(null);
 	const [starting, setStarting] = useState<OperatorStep | null>(null);
 	const [stoppingAgent, setStoppingAgent] = useState(false);
+	const [lifting, setLifting] = useState(false);
+	const [reason, setReason] = useState("");
+	const [confirmation, setConfirmation] = useState("");
+
+	// Typed rather than clicked. This sells every depositor's position at
+	// whatever the market is in the next few minutes, and it is one button away
+	// from a row an operator was scrolling past.
+	const confirmed = confirmation.trim().toUpperCase() === label.toUpperCase();
 
 	const rows = steps.data?.steps ?? [];
 	// A stale row is one whose process is gone. It holds nothing up — the API
@@ -77,8 +82,11 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 		setError(null);
 		setStarting(step);
 		try {
-			await adminApi.runPositionStep(vault.address, step);
+			await adminApi.runPositionStep(vault.address, step, reason || undefined);
 			await steps.refetch();
+			// The vault row carries the wind-down badge and the panel's own banner
+			// reads it, and both change the moment a whole close or a re-open lands.
+			queryClient.invalidateQueries({ queryKey: ["admin-vaults"] });
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -108,6 +116,29 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 		}
 	}
 
+	/**
+	 * Let the agent deploy into this vault again, without deploying anything now.
+	 *
+	 * The counterpart to the badge rather than to the re-open button: an operator
+	 * who wants the agent running the vault normally again lifts the constraint
+	 * and lets it size its own first deployment, which is a different decision
+	 * from placing one by hand right now.
+	 */
+	async function liftWindDown() {
+		setError(null);
+		setLifting(true);
+		try {
+			await adminApi.setCloseOrder(vault.address, false);
+			queryClient.invalidateQueries({ queryKey: ["admin-vaults"] });
+			queryClient.invalidateQueries({ queryKey: ["vaults"] });
+			onClose();
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setLifting(false);
+		}
+	}
+
 	return (
 		<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
 			<div
@@ -120,10 +151,9 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 					<div>
 						<h2 className="text-lg font-medium text-[var(--pon-fg-0)]">Unwind {label} by hand</h2>
 						<p className="mt-1 text-sm text-[var(--pon-fg-3)]">
-							These run here and now, against the venues, without waiting for a tick — the same
-							orders the agent would place, in four steps you take one at a time. Use them when the
-							agent cannot do it: it is stopped, it is on an old build, or a close failed halfway
-							and left one leg open.
+							Every one of these is signed from this vault's own wallet and runs here and now,
+							against the venues. Nothing below asks the agent to do anything: an order given by a
+							person should happen while they are watching it, not on whatever tick comes next.
 						</p>
 					</div>
 					<Button variant="ghost" size="sm" onClick={onClose}>
@@ -150,6 +180,26 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 					</Notice>
 				)}
 
+				{vault.closeRequestedAt && (
+					<Notice tone="warning">
+						<span>
+							This vault is winding down — it has deployed nothing since{" "}
+							{since(vault.closeRequestedAt)}
+							{vault.closeCompletedAt ? ", and its position was closed out" : ""}. The agent keeps
+							reporting NAV and paying redemptions; it simply opens nothing.
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							className="mt-2"
+							disabled={lifting}
+							onClick={liftWindDown}
+						>
+							{lifting ? "Lifting…" : "Let the agent trade again"}
+						</Button>
+					</Notice>
+				)}
+
 				<Position snapshot={position.data} loading={position.isLoading} />
 				<div className="mt-2 flex justify-end">
 					<Button
@@ -168,11 +218,38 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 				<StepCard
 					step={CLOSE_ALL}
 					primary
-					disabled={agentRunning || running !== null || starting !== null}
+					disabled={agentRunning || running !== null || starting !== null || !confirmed}
 					running={running?.step === "CLOSE_ALL"}
 					starting={starting === "CLOSE_ALL"}
 					onRun={run}
-				/>
+				>
+					<label className="mt-3 block">
+						<span className="text-sm text-[var(--pon-fg-2)]">Why (optional)</span>
+						<input
+							value={reason}
+							onChange={(e) => setReason(e.target.value)}
+							maxLength={500}
+							placeholder="Funding has been negative for a week"
+							className="mt-1 w-full rounded-[var(--pon-r-sm,8px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3 py-2 text-[var(--pon-fg-0)]"
+						/>
+						<span className="mt-1 block text-xs text-[var(--pon-fg-4)]">
+							Kept on the vault after the wind-down is lifted. "Who unwound this vault in March and
+							why" gets asked long after the answer has left anyone's memory.
+						</span>
+					</label>
+
+					<label className="mt-3 block">
+						<span className="text-sm text-[var(--pon-fg-2)]">
+							Type <span className="font-mono text-[var(--pon-fg-0)]">{label}</span> to confirm
+						</span>
+						<input
+							value={confirmation}
+							onChange={(e) => setConfirmation(e.target.value)}
+							autoComplete="off"
+							className="mt-1 w-full rounded-[var(--pon-r-sm,8px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] px-3 py-2 font-mono text-[var(--pon-fg-0)]"
+						/>
+					</label>
+				</StepCard>
 
 				<p className="mt-5 text-xs uppercase tracking-wide text-[var(--pon-fg-4)]">
 					Or take it one step at a time
@@ -204,12 +281,7 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 				<div className="mt-2">
 					<StepCard
 						step={REOPEN}
-						disabled={
-							agentRunning ||
-							running !== null ||
-							starting !== null ||
-							vault.closeRequestedAt !== null
-						}
+						disabled={agentRunning || running !== null || starting !== null}
 						running={running?.step === "REOPEN"}
 						starting={starting === "REOPEN"}
 						onRun={run}
@@ -220,9 +292,9 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 				    above leave the vault flat, and the agent's first tick after being
 				    restarted sees idle USDC and does what it is for. */}
 				<p className="mt-4 text-sm text-[var(--pon-fg-4)]">
-					{vault.closeRequestedAt
-						? "A close order stands, so re-opening is refused here and the agent will keep the vault flat when it is started again. Lift the order first if it should hold a position."
-						: 'Starting the agent again has the same effect as pressing re-open, on its own schedule: it sees the returned USDC as capital to deploy and opens the position back up on its first tick. If the vault should stay flat, give it a close order — "Close positions" on the row — before restarting it.'}
+					Closing everything also marks the vault as winding down, so starting the agent again does
+					not put the capital straight back to work — it keeps reporting NAV and paying redemptions
+					and opens nothing. Re-opening lifts that again.
 				</p>
 
 				<History rows={rows} loading={steps.isLoading} />
@@ -245,6 +317,7 @@ function StepCard({
 	running,
 	starting,
 	onRun,
+	children,
 }: {
 	step: Step;
 	/** The headline action, which is the one most operators want. */
@@ -253,6 +326,8 @@ function StepCard({
 	running: boolean;
 	starting: boolean;
 	onRun: (step: OperatorStep) => void;
+	/** Anything the action has to be answered before it can be taken. */
+	children?: React.ReactNode;
 }) {
 	return (
 		<div
@@ -276,6 +351,7 @@ function StepCard({
 					{running ? "Running…" : starting ? "Starting…" : step.action}
 				</Button>
 			</div>
+			{children}
 		</div>
 	);
 }
@@ -300,7 +376,7 @@ interface Step {
 const CLOSE_ALL: Step = {
 	step: "CLOSE_ALL",
 	title: "Close everything and send it home",
-	body: "Sells every spot leg, closes every short, sweeps the margin account and returns all of it to the vault — one press, minutes per market. This is the agent's own close, run now instead of on a tick.",
+	body: "Sells every spot leg, closes every short, sweeps the margin account and returns all of it to the vault — one press, minutes per market. It also marks the vault as winding down, so nothing re-opens it by itself.",
 	action: "Close all positions",
 };
 
@@ -315,7 +391,7 @@ const CLOSE_ALL: Step = {
 const REOPEN: Step = {
 	step: "REOPEN",
 	title: "Re-open the position",
-	body: "Asks the agent's own policy what it would deploy right now and places exactly that: it draws idle USDC from the vault, buys the spot leg and opens the short against it.",
+	body: "Asks the agent's own policy what it would deploy right now and places exactly that: it draws idle USDC from the vault, buys the spot leg and opens the short against it. A vault that was winding down stops.",
 	caution:
 		"One market per press, as one tick would do — press again for the next. If the policy would rather hold, nothing is placed and it says why.",
 	action: "Re-open",

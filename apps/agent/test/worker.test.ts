@@ -269,6 +269,24 @@ function leverageRevert(observed: number, ceiling: number) {
 	});
 }
 
+/**
+ * A market with both legs on and a price for them.
+ *
+ * The default `observedMarket` is flat and unpriced, which is the right start
+ * for most cases and the wrong one for a vault that is supposed to be holding
+ * something: an unpriced leg cannot be sold, so an unwind sized against it comes
+ * out at zero, and a leg with no short against it is 100% drift.
+ */
+function hedgedMarket(overrides: Partial<MarketObservation> = {}): MarketObservation {
+	return observedMarket({
+		spotUnits: 10n ** 18n,
+		perpUnits: 10n ** 18n,
+		spotValueUsdc: 5_000n * USDC,
+		perpNotionalUsdc: 5_000n * USDC,
+		...overrides,
+	});
+}
+
 function queueEntry(overrides: Partial<QueueEntry> = {}): QueueEntry {
 	return {
 		controller: "0x00000000000000000000000000000000000000aa",
@@ -870,16 +888,28 @@ describe("tick, across several markets", () => {
 });
 
 describe("tick, under a close order", () => {
-	it("closes everything and does not deploy", async () => {
+	/**
+	 * The agent does not take the position off, and that is the whole change.
+	 *
+	 * Closing is the console's own action now, signed from this vault's MPC
+	 * wallet while an operator watches each leg land — so a tick under a
+	 * wind-down neither closes nor deploys. It reports, it settles, it holds.
+	 */
+	it("neither closes the position nor deploys into it", async () => {
 		const { deps, calls, vault } = harness({
 			closeRequested: true,
 			state: vaultState({ freeAssets: 10_000n * USDC, deployedAssets: 5_000n * USDC }),
-			observe: async () => observation({ markets: [observedMarket({ spotUnits: 10n ** 18n })] }),
+			// Hedged and priced, so the only thing left to want is a deployment —
+			// which is the one thing the order forbids. A drifted leg would be
+			// corrected, wind-down or not, and that is a different test.
+			observe: async () => observation({ markets: [hedgedMarket()] }),
 		});
 		const result = await tick(deps);
-		expect(result.action).toBe("CLOSE_ALL");
-		expect(calls).toContain("closeAll");
+		expect(result.action).toBe("HOLD");
+		expect(calls).not.toContain("closeAll");
+		expect(calls.some((c) => c.startsWith("deploy:"))).toBe(false);
 		expect(vault.agentWithdraw).not.toHaveBeenCalled();
+		expect(vault.reportNav).toHaveBeenCalled();
 	});
 
 	/**
@@ -927,23 +957,27 @@ describe("tick, under a close order", () => {
 	});
 
 	/**
-	 * A close that gets most of the way there has not served its purpose. The
-	 * legs that did land are still published, the order stays outstanding, and
-	 * the next tick tries the remainder.
+	 * A wind-down does not suspend what the vault owes.
+	 *
+	 * The order used to outrank a redemption deadline, because returning all the
+	 * capital covered every request in the queue. It is not an instruction to
+	 * return anything any more, so somebody who asked for their money still gets
+	 * it — and the legs of a failed unwind still reach the public feed.
 	 */
-	it("publishes what it closed when part of the close fails", async () => {
+	it("still unwinds for a ripe redemption, and publishes what landed if it fails", async () => {
 		const { deps, calls } = harness({
 			closeRequested: true,
 			state: vaultState({ freeAssets: 0n, deployedAssets: 5_000n * USDC }),
-			observe: async () => observation({ markets: [observedMarket({ spotUnits: 10n ** 18n })] }),
+			queue: [queueEntry()],
+			observe: async () => observation({ markets: [hedgedMarket()] }),
 			venue: {
-				closeAll: async () => {
+				unwind: async () => {
 					throw new VenueExecutionError("NVDA has no route", [activityRow()]);
 				},
 			},
 		});
 		const result = await tick(deps);
-		expect(result.action).toBe("CLOSE_ALL");
+		expect(result.action).toBe("UNWIND");
 		expect(result.closeSatisfied).toBe(false);
 		expect(result.error).toContain("no route");
 		expect(calls).toContain("reportActivity:1");

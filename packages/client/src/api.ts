@@ -1006,8 +1006,8 @@ export const adminApi = {
 	 * part of an hour, so the row that comes back is a handle to watch through
 	 * `positionSteps`, not a result.
 	 */
-	runPositionStep: (address: string, step: OperatorStep) =>
-		post<{ step: OperatorAction }>(`/admin/vaults/${address}/position/${step}`, {}),
+	runPositionStep: (address: string, step: OperatorStep, reason?: string) =>
+		post<{ step: OperatorAction }>(`/admin/vaults/${address}/position/${step}`, { reason }),
 
 	pacificaAccount: (address: string) =>
 		request<PacificaAccountStatus>(`/admin/vaults/${address}/pacifica`),

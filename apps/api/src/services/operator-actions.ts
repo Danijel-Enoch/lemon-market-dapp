@@ -8,7 +8,7 @@ import type { QueueEntry, VenueAdapter } from "@lemon/agent/worker";
 import { VenueExecutionError } from "@lemon/agent/worker";
 import { lemonVaultAbi } from "@lemon/contracts";
 import { createLogger, type LogLevel } from "@lemon/core";
-import { type OperatorAction, prisma, type VaultConfig } from "@lemon/db";
+import { type OperatorAction, prisma, type VaultConfig, vaultRef, vaultWhere } from "@lemon/db";
 import {
 	type Address,
 	createPublicClient,
@@ -20,26 +20,28 @@ import { clients, config } from "../config";
 import { AdminError, assertConfigured } from "./admin";
 
 /**
- * Closing a vault's position by hand.
+ * Closing and re-opening a vault's position, from the console.
  *
- * The close order an operator gives on the dashboard is an *instruction*: it is
- * written to `VaultConfig`, the agent reads it on its next tick, and the agent
- * does the work in one all-or-nothing call. That is the right shape when the
- * agent is healthy. It is no use at all in the situations an operator actually
- * reaches for it:
+ * **The agent is never asked to do this.** It used to be: an operator pressed
+ * "close positions", a flag went onto `VaultConfig`, and the agent carried it
+ * out in one all-or-nothing call on whatever tick came next. Every part of that
+ * is a bad fit for a decision a person makes about live money. The tick might be
+ * a minute away or the process might be down; the operator learned what had
+ * happened to the position only after it had happened; a close that failed
+ * halfway offered nothing but the same all-or-nothing call again; and the same
+ * flag that performed the close also had to survive it, which made "close this
+ * now" and "keep this vault flat" one setting instead of two.
  *
- *  - The agent is stopped, or is on a build that predates a fix the position
- *    needs, and redeploying it is a slow answer to money that is exposed now.
- *  - A close got most of the way through and failed. The remainder needs the
- *    perp closed and the margin brought home — not another attempt at selling
- *    spot that has already been sold.
- *  - The capital should come home but the position should not be re-opened by a
- *    tick five minutes later.
+ * So closing happens here, signed from the vault's own MPC-derived wallet by
+ * this process while the operator watches each leg land. The flag survives as a
+ * constraint — the vault deploys nothing — which is what stops a restarted
+ * agent undoing a wind-down, and which is all the agent's policy reads from it.
  *
- * So this runs the four steps of a close directly, from the API process, using
- * the agent's own wiring: `resolveVenue` builds the identical adapter against
- * the identical market list, so the token a hand-run step sells is the token the
- * agent would have sold. Nothing here re-implements a venue call.
+ * The work itself is the agent's own wiring, not a second implementation of it:
+ * `resolveVenue` builds the identical adapter against the identical market list,
+ * so the token a step sells is the token the agent would have sold, and
+ * `decide` picks what a re-open deploys. Nothing here re-implements a venue call
+ * or a sizing rule.
  *
  * **Three things it deliberately does not do.** It does not report NAV, settle
  * the redemption queue, or publish funding — those are the agent's writes on the
@@ -49,6 +51,12 @@ import { AdminError, assertConfigured } from "./admin";
  * unwind missing from the depositor-facing feed is a worse failure than a
  * duplicated row, and the exclusivity rules below mean there is no other writer
  * to duplicate against.
+ *
+ * It also does not pay redemptions, and the agent's continuing to do so is the
+ * reason a wind-down stops at "deploy nothing". Somebody who asked for their
+ * money out is owed it within seven days whatever an operator has decided about
+ * the vault's future, so the policy still unwinds for a ripe request — see
+ * `permittedActions`.
  *
  * **The agent must be stopped.** Enforced, not advised. Both processes sign from
  * one MPC-derived wallet with one nonce stream and one Pacifica account, so an
@@ -296,6 +304,14 @@ export async function startOperatorAction(params: {
 	chainId?: number;
 	step: OperatorStep;
 	by: string;
+	/**
+	 * Why, in the operator's own words, for a close that winds the vault down.
+	 *
+	 * Kept on the vault rather than on the step, and kept after the wind-down is
+	 * lifted: "who unwound this vault in March and why" is a question that gets
+	 * asked long after the answer has left anyone's memory.
+	 */
+	reason?: string;
 }): Promise<OperatorActionView> {
 	const existing = await assertConfigured(params.address, params.chainId);
 	assertOnThisChain(existing);
@@ -318,18 +334,6 @@ export async function startOperatorAction(params: {
 		);
 	}
 
-	if (params.step === "REOPEN" && existing.closeRequestedAt !== null) {
-		// Refused rather than overridden. A close order is a standing instruction
-		// to hold no position, and the agent's own policy answers CLOSE_ALL to
-		// everything while one stands — so a hand-placed deployment underneath it
-		// would be undone by the first tick after the agent is started, having paid
-		// two sets of fees to get back where it was.
-		throw new AdminError(
-			`${existing.ticker} is under a close order, which says this vault should hold no position. Lift it — "Resume trading" on the vault's row — before re-opening.`,
-			409,
-		);
-	}
-
 	await releaseStale(existing.chainId, existing.address);
 
 	let action: OperatorAction;
@@ -341,6 +345,7 @@ export async function startOperatorAction(params: {
 				step: params.step,
 				status: "RUNNING",
 				requestedBy: params.by.toLowerCase(),
+				reason: params.reason?.trim() || null,
 				// The lock. A unique column that is null once the step finishes, so a
 				// second running row for this vault cannot be inserted at all.
 				runningKey: runningKey(existing.chainId, existing.address),
@@ -454,10 +459,13 @@ async function run(action: OperatorAction, vaultConfig: VaultConfig): Promise<vo
 		const step = action.step as OperatorStep;
 		const result = await STEP_RUNNERS[step]({ ...runner, config: vaultConfig, log });
 		const reported = await publish(runner.vault, result.activity, log);
+		const standing = await recordStanding(step, action, result, log);
 
 		await finish(action.id, {
 			status: "DONE",
-			detail: result.detail ?? describeStep(step, result.activity),
+			detail: [result.detail ?? describeStep(step, result.activity), standing]
+				.filter(Boolean)
+				.join(" "),
 			activityReported: reported,
 		});
 		log("info", "done.");
@@ -479,6 +487,77 @@ async function run(action: OperatorAction, vaultConfig: VaultConfig): Promise<vo
 	} finally {
 		clearInterval(beat);
 	}
+}
+
+/**
+ * Say what the vault is *for* now that the step has finished.
+ *
+ * The flag on `VaultConfig` used to be an instruction — "agent, close
+ * everything" — and the agent carried it out on its next tick. It is a
+ * constraint now: it forbids deployment and nothing else, because closing is
+ * this service's own job. That makes it the natural bookkeeping for the two
+ * whole-vault steps, and it is the piece an operator would otherwise have to
+ * remember separately:
+ *
+ *  - A close that has emptied the vault sets it, so that starting the agent
+ *    again does not put the capital straight back to work. Without this, the
+ *    reward for closing a vault by hand is a position re-opened by the first
+ *    tick after somebody restarts the agent.
+ *  - A re-open lifts it, because an operator deploying by hand plainly means
+ *    the vault should hold a position — and leaving it set would stop the agent
+ *    adding to the position this step just opened.
+ *
+ * Best-effort and reported rather than thrown: the venue calls have already
+ * happened by this point, and failing the step over a database write would
+ * report a close that did happen as one that did not.
+ */
+async function recordStanding(
+	step: OperatorStep,
+	action: OperatorAction,
+	result: StepResult,
+	log: (level: LogLevel, message: string, extra?: unknown) => void,
+): Promise<string> {
+	const where = vaultWhere(vaultRef(action.chainId, action.vaultAddress));
+
+	try {
+		if (step === "CLOSE_ALL") {
+			await prisma.vaultConfig.update({
+				where,
+				data: {
+					closeRequestedAt: new Date(),
+					closeRequestedBy: action.requestedBy,
+					closeReason: action.reason,
+					// Stamped here rather than waiting for a tick to notice: this step
+					// is the thing that made the vault flat, and it has just finished.
+					closeCompletedAt: new Date(),
+				},
+			});
+			return "The vault is marked as winding down, so the agent will not deploy into it — including after it is started again.";
+		}
+
+		// Only when something was actually placed. A re-open that finished having
+		// deployed nothing — the policy would rather hold, and said why — has not
+		// changed what the vault is for, and lifting the wind-down on the strength
+		// of it would let the agent start deploying on the operator's behalf.
+		if (step === "REOPEN" && result.activity.length > 0) {
+			const { count } = await prisma.vaultConfig.updateMany({
+				where: {
+					chainId: action.chainId,
+					address: action.vaultAddress,
+					NOT: { closeRequestedAt: null },
+				},
+				data: { closeRequestedAt: null, closeRequestedBy: null, closeCompletedAt: null },
+			});
+			return count > 0
+				? "The wind-down was lifted, so the agent may deploy into this vault again."
+				: "";
+		}
+	} catch (error) {
+		log("warn", "could not record the vault's standing order.", error);
+		return "The venue calls landed, but the vault's wind-down flag could not be updated — check it before starting the agent.";
+	}
+
+	return "";
 }
 
 /** Close a row out, releasing the lock with it. */

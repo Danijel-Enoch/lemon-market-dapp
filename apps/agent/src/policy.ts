@@ -44,15 +44,20 @@ export type ActionKind =
 	 * vault's ceiling with room to spare. See `MARGIN_BUFFER_BPS`.
 	 */
 	| "TOP_UP_MARGIN"
-	/**
-	 * Close every position in every market and send all of it back to the vault.
-	 *
-	 * Only ever reached under an operator's standing close order, and never
-	 * chosen by the advisory model — see `permittedActions`.
-	 */
-	| "CLOSE_ALL"
 	/** Report NAV and nothing else. */
 	| "HOLD";
+
+/*
+ * There is deliberately no "close everything" action here any more.
+ *
+ * There was one, reached under an operator's standing close order, and it is
+ * now the console's own — signed from the agent's MPC wallet by the API when an
+ * operator presses the button, rather than queued for whenever the agent next
+ * ticks. An order given by a person should happen while they are watching it,
+ * and closing a position across two chains is the last thing to learn about
+ * after the fact. What the standing order still does here is forbid deployment;
+ * see `permittedActions`.
+ */
 
 /**
  * One market the vault runs, as the policy sees it.
@@ -245,7 +250,7 @@ export interface Decision {
 	/**
 	 * The market this action is aimed at, or null when it is not aimed at one.
 	 *
-	 * Null for HOLD and CLOSE_ALL, which are about the vault, for UNWIND, which
+	 * Null for HOLD, which is about the vault, for UNWIND, which
 	 * takes from whichever markets are furthest above their target weight rather
 	 * than from one the policy picked, and for TOP_UP_MARGIN, which pays into the
 	 * one account that backs every market's short. Set for DEPLOY and REBALANCE,
@@ -533,39 +538,40 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 
 	// --- the operator's standing order ------------------------------------
 	//
-	// First, and on its own. A close order is not a preference to be weighed
-	// against a funding rate, and it is the one instruction that outranks the
-	// redemption deadline — returning *all* of the capital already satisfies
-	// every request in the queue, so there is nothing an urgent unwind would
-	// additionally do.
+	// A wind-down says what the vault is *for* — hold no position, deploy nothing
+	// — and it does not hand the agent the job of getting there. Closing a live
+	// position is an operator's own action now, signed from the agent's MPC
+	// wallet by the console, so that it happens when they press the button and
+	// they can watch each leg land. It used to be this branch, forcing CLOSE_ALL
+	// on the next tick, and that made an operator's decision into something they
+	// could only wait for: the tick might be a minute away or the process might
+	// be down, and either way the first they knew of what happened was a position
+	// that had already changed.
 	//
-	// Returned as the only option in both branches, which means `decide` never
-	// consults the advisory model here. A model that could talk the agent out of
-	// an operator's order would make it something other than an order.
+	// So the order survives as a constraint rather than an instruction. Two
+	// things follow from it, and nothing else does:
+	//
+	//  - No deployment, ever, while it stands. See the growth section.
+	//  - A vault that is already flat holds, which is what stops a restarted
+	//    agent seeing idle USDC, deciding it should be earning, and undoing a
+	//    wind-down somebody performed by hand.
+	//
+	// What it deliberately does *not* suppress is everything the vault owes
+	// while it still holds something: a ripe redemption is still unwound for, the
+	// mandate is still corrected so the NAV keeps reporting, and a drifted hedge
+	// is still brought back. Those are obligations to depositors and to the
+	// contract, not preferences an operator's order outranks — and a wind-down
+	// that stopped paying people who had asked for their money would be a worse
+	// failure than the one this exists to prevent.
 
-	if (snapshot.closeRequested) {
-		if (!isFlat(snapshot)) {
-			return [
-				{
-					kind: "CLOSE_ALL",
-					amount: 0n,
-					market: null,
-					reason: `An operator has ordered every position closed. ${describeOpenMarkets(snapshot)} to sell, and ${fmt(snapshot.deployedAssets)} to bring home.`,
-					forced: true,
-					fundedFrom: null,
-					legs: null,
-					rebalanceSide: null,
-				},
-			];
-		}
-
+	if (snapshot.closeRequested && isFlat(snapshot)) {
 		return [
 			{
 				kind: "HOLD",
 				amount: 0n,
 				market: null,
 				reason:
-					"An operator's close order stands and the vault is flat. Reporting NAV and settling the queue; no capital is deployed until the order is lifted.",
+					"This vault is winding down and is flat. Reporting NAV and settling the queue; no capital is deployed until the order is lifted.",
 				forced: true,
 				fundedFrom: null,
 				legs: null,
@@ -746,7 +752,11 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 
 	// --- growth -----------------------------------------------------------
 
-	const deploy = nextDeployment(snapshot);
+	// The one thing a wind-down forbids outright. Everything above this line is
+	// an obligation the vault has whether or not it is winding down; this is the
+	// only part that is the vault deciding to hold more, which is the opposite of
+	// what the order says it is for.
+	const deploy = snapshot.closeRequested ? null : nextDeployment(snapshot);
 	if (deploy) options.push(deploy);
 
 	// The catch-all, unless something above already answered "do nothing" for a
@@ -772,9 +782,12 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 			// other refusal above — an unroutable pool, a correction not worth its
 			// gas — does clear on its own, so neither reading is safe to assume
 			// and the honest line names none.
-			reason: blocked.length
-				? `Nothing can be done this tick: ${blocked.join("; ")}. Reporting NAV and waiting.`
-				: "Nothing needs doing; report NAV and wait.",
+			reason: windDownNote(
+				snapshot,
+				blocked.length
+					? `Nothing can be done this tick: ${blocked.join("; ")}. Reporting NAV and waiting.`
+					: "Nothing needs doing; report NAV and wait.",
+			),
 			forced: false,
 			fundedFrom: null,
 			legs: null,
@@ -783,6 +796,18 @@ export function permittedActions(snapshot: VaultSnapshot, now: number): Decision
 	}
 
 	return options;
+}
+
+/**
+ * Say that a vault is winding down, when it is and still holds something.
+ *
+ * Without this the log reads "nothing needs doing" on a vault that is visibly
+ * holding a position an operator has ordered closed, which reads as the agent
+ * having missed it rather than as the agent correctly leaving it to the console.
+ */
+function windDownNote(snapshot: VaultSnapshot, otherwise: string): string {
+	if (!snapshot.closeRequested) return otherwise;
+	return `This vault is winding down, so it deploys nothing. ${describeOpenMarkets(snapshot)} still open, closed from the operator console rather than from here. Reporting NAV and settling the queue.`;
 }
 
 /** Which leg a correction is made on. See `rebalancePlan`. */
