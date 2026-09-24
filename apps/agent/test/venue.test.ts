@@ -903,6 +903,143 @@ describe("closeAll", () => {
 });
 
 /**
+ * `closeAll`, taken apart — the steps an operator runs by hand.
+ *
+ * The property that matters in every one of these is what each step leaves
+ * *alone*. An operator takes them separately precisely because a close that
+ * failed halfway needs one of them and not the others, so a step that helpfully
+ * did the next one as well would take that choice back — and in the case of the
+ * return, would hand a depositor's capital to the vault before the operator had
+ * looked at what came home.
+ */
+describe("the steps of a close, run by hand", () => {
+	it("sells the spot and leaves the short, the margin and the vault alone", async () => {
+		const { adapter, createMarketOrder, requestWithdrawal, returnToVault, balances } = harness({
+			perpSize: "10",
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		const activity = await adapter.closeSpot();
+
+		expect(activity.map((a) => a.kind)).toEqual(["SPOT_SELL"]);
+		// The USDC is at the agent, which is the state the next steps start from.
+		expect(balances.usdc).toBe(1_000n * USDC);
+		expect(createMarketOrder).not.toHaveBeenCalled();
+		expect(requestWithdrawal).not.toHaveBeenCalled();
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+
+	it("closes the short and leaves the spot and the margin alone", async () => {
+		const { adapter, createMarketOrder, requestWithdrawal, returnToVault, balances } = harness({
+			perpSize: "10",
+			availableToWithdraw: "500",
+		});
+
+		const activity = await adapter.closePerp();
+
+		expect(activity.map((a) => a.kind)).toEqual(["PERP_CLOSE"]);
+		expect(createMarketOrder).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ symbol: "NVDA", side: "bid", reduceOnly: true, amount: "10" }),
+		);
+		// Nothing was sold, so nothing was raised.
+		expect(balances.usdc).toBe(0n);
+		expect(requestWithdrawal).not.toHaveBeenCalled();
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * The answer an operator has to be given rather than left to infer.
+	 *
+	 * A short finer than one lot cannot be reduced by any order the venue will
+	 * accept. Reporting that as success would have them pressing the button every
+	 * hour against a position that will never close this way.
+	 */
+	it("says so when a short is too small for the venue to close", async () => {
+		const { adapter, createMarketOrder } = harness({
+			spotTokenDecimals: 8,
+			spotBalance: 50_000n, // 0.0005
+			perpSize: "0.0005",
+			lotSize: "0.001",
+		});
+
+		await expect(adapter.closePerp()).rejects.toThrow(/lot size/);
+		expect(createMarketOrder).not.toHaveBeenCalled();
+	});
+
+	it("brings the margin home without returning it to the vault", async () => {
+		const { adapter, toBase, requestWithdrawal, returnToVault, balances } = harness({
+			availableToWithdraw: "500",
+			solanaIdleUsdc: 40n * USDC,
+		});
+
+		const activity = await adapter.bridgeHome();
+
+		expect(activity.map((a) => a.kind)).toEqual(["VENUE_WITHDRAW", "BRIDGE_OUT"]);
+		// One crossing for both, because a bridge charges per crossing.
+		expect(requestWithdrawal).toHaveBeenCalled();
+		expect(toBase).toHaveBeenCalledWith(540n * USDC);
+		expect(balances.usdc).toBe(540n * USDC);
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+
+	it("returns the agent's whole balance, not just what a step raised", async () => {
+		const { adapter, returnToVault, balances } = harness({ availableToWithdraw: "0" });
+		// Left over from a deployment that drew capital down and then failed, plus
+		// what an earlier step brought home. The step cannot tell them apart and
+		// should not: both are the vault's, and both count toward its reported NAV
+		// until they are back inside the contract.
+		balances.usdc += 250n * USDC;
+
+		const activity = await adapter.returnIdle();
+
+		expect(activity.map((a) => a.kind)).toEqual(["BRIDGE_IN"]);
+		expect(returnToVault).toHaveBeenCalledWith(250n * USDC);
+	});
+
+	it("does nothing, loudly or otherwise, when there is nothing to do", async () => {
+		const { adapter, createMarketOrder, requestWithdrawal, returnToVault } = harness({
+			spotBalance: 0n,
+			spotValueUsdc: 0n,
+			availableToWithdraw: "0",
+		});
+
+		expect(await adapter.closeSpot()).toEqual([]);
+		expect(await adapter.closePerp()).toEqual([]);
+		expect(await adapter.bridgeHome()).toEqual([]);
+		expect(await adapter.returnIdle()).toEqual([]);
+
+		expect(createMarketOrder).not.toHaveBeenCalled();
+		expect(requestWithdrawal).not.toHaveBeenCalled();
+		expect(returnToVault).not.toHaveBeenCalled();
+	});
+
+	/**
+	 * The four in order, against the one call they were taken out of.
+	 *
+	 * Same position, same venues, same money home. If these ever diverge it will
+	 * be because a fix landed in one path and not the other, which is the failure
+	 * this whole arrangement is meant to make impossible — the steps share every
+	 * venue call underneath `closeAll`.
+	 */
+	it("adds up to what closeAll does", async () => {
+		const { adapter, returnToVault } = harness({
+			perpSize: "10",
+			fillUsdc: 1_000n * USDC,
+			availableToWithdraw: "500",
+		});
+
+		await adapter.closeSpot();
+		await adapter.closePerp();
+		await adapter.bridgeHome();
+		await adapter.returnIdle();
+
+		expect(returnToVault).toHaveBeenCalledWith(1_500n * USDC);
+	});
+});
+
+/**
  * The correction made on the spot leg, for drift the perp venue will not touch.
  *
  * The state these are about is a half-executed close: `closeLeg` reduces the

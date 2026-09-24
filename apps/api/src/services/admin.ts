@@ -710,7 +710,7 @@ export async function requestRebalance(params: { address: string; chainId?: numb
  * is both wrong and actively misleading — the database is fine, the vault simply
  * has no configuration because it was deployed outside this dashboard.
  */
-async function assertConfigured(address: string, chainId?: number) {
+export async function assertConfigured(address: string, chainId?: number) {
 	const lower = address.toLowerCase();
 
 	/**
