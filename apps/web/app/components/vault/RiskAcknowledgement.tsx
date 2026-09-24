@@ -119,7 +119,7 @@ export function RiskAcknowledgement({
 
 				<label
 					htmlFor={checkboxId}
-					className="mt-5 flex cursor-pointer items-start gap-3 rounded-[var(--pon-r-md,10px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] p-3"
+					className="mt-5 flex cursor-pointer items-start gap-3 rounded-[var(--pon-r-md,10px)] border border-[var(--pon-line)] bg-[var(--pon-surface)] p-3"
 				>
 					<input
 						id={checkboxId}
@@ -129,7 +129,7 @@ export function RiskAcknowledgement({
 						className="mt-0.5 size-4 shrink-0 accent-[var(--pon-accent)]"
 						data-testid="risk-acknowledgement-agree"
 					/>
-					<span className="text-sm text-[var(--pon-fg-1)]">
+					<span className="text-sm text-[var(--pon-fg)]">
 						I understand I could lose some or all of this money, and by depositing I accept every
 						risk described above and every other risk this protocol runs.
 					</span>

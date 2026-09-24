@@ -64,7 +64,7 @@ export function CloseVaultDialog({ vault, onClose }: { vault: Vault; onClose: ()
 				role="dialog"
 				aria-modal="true"
 				aria-label={standing ? `Resume trading ${label}` : `Close all positions in ${label}`}
-				className="w-full max-w-lg rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] p-6"
+				className="w-full max-w-lg rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-6"
 			>
 				{standing ? (
 					<>

@@ -163,7 +163,7 @@ function Line({
 				<dt
 					className={cn(
 						"min-w-0 truncate",
-						emphasis ? "font-medium text-[var(--pon-fg-1)]" : "text-[var(--pon-fg-3)]",
+						emphasis ? "font-medium text-[var(--pon-fg)]" : "text-[var(--pon-fg-3)]",
 					)}
 				>
 					{label}

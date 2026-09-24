@@ -155,7 +155,7 @@ export function VaultMarketsDialog({
 				role="dialog"
 				aria-modal="true"
 				aria-label={`Markets for ${vault.ticker ?? vault.symbol}`}
-				className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] p-6"
+				className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-6"
 			>
 				<header className="flex items-start justify-between gap-4">
 					<div>
