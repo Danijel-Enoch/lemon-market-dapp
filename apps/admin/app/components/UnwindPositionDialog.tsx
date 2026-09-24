@@ -114,7 +114,7 @@ export function UnwindPositionDialog({ vault, onClose }: { vault: Vault; onClose
 				role="dialog"
 				aria-modal="true"
 				aria-label={`Unwind ${label} by hand`}
-				className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] p-6"
+				className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[var(--pon-r-lg,16px)] border border-[var(--pon-line)] bg-[var(--pon-bg-2)] p-6"
 			>
 				<header className="flex items-start justify-between gap-4">
 					<div>
@@ -284,7 +284,7 @@ function Position({ snapshot, loading }: { snapshot?: PositionSnapshot; loading:
 	return (
 		<div className="mt-5 overflow-hidden rounded-[var(--pon-r-md,12px)] border border-[var(--pon-line)]">
 			<table className="w-full text-sm">
-				<thead className="bg-[var(--pon-bg-2)] text-left text-xs text-[var(--pon-fg-3)]">
+				<thead className="bg-[var(--pon-surface)] text-left text-xs text-[var(--pon-fg-3)]">
 					<tr>
 						<th className="px-4 py-2 font-normal">Market</th>
 						<th className="px-4 py-2 text-right font-normal">Spot held</th>
@@ -350,7 +350,7 @@ function Position({ snapshot, loading }: { snapshot?: PositionSnapshot; loading:
 
 function Figure({ label, value, note }: { label: string; value: string; note: string }) {
 	return (
-		<div className="bg-[var(--pon-bg-1)] px-4 py-3">
+		<div className="bg-[var(--pon-surface)] px-4 py-3">
 			<dt className="text-xs text-[var(--pon-fg-3)]">{label}</dt>
 			<dd className="mt-0.5 tabular-nums text-[var(--pon-fg-0)]">{value}</dd>
 			<p className="text-[11px] text-[var(--pon-fg-4)]">{note}</p>
@@ -381,7 +381,7 @@ function History({ rows, loading }: { rows: OperatorAction[]; loading: boolean }
 						<li key={row.id} className="flex gap-3 text-sm">
 							<StatusIcon row={row} />
 							<div className="min-w-0">
-								<p className="text-[var(--pon-fg-1)]">
+								<p className="text-[var(--pon-fg)]">
 									{STEP_LABEL[row.step]} ·{" "}
 									<span className="text-[var(--pon-fg-4)]">{since(row.startedAt)}</span>
 								</p>

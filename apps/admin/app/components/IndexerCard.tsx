@@ -101,7 +101,7 @@ export function IndexerCard({ health }: { health: IndexerHealth | undefined }) {
 function ChainRow({ chain }: { chain: IndexerChainHealth }) {
 	const look = LOOKS[chain.state];
 	return (
-		<li className="rounded-[var(--pon-r-md,10px)] border border-[var(--pon-line)] bg-[var(--pon-bg-1)] px-3 py-2">
+		<li className="rounded-[var(--pon-r-md,10px)] border border-[var(--pon-line)] bg-[var(--pon-surface)] px-3 py-2">
 			<div className="flex flex-wrap items-baseline gap-x-2">
 				<span className="text-xs font-medium text-[var(--pon-fg-0)]">{chain.name}</span>
 				<span className={cn("text-[11px] font-medium", look.icons)}>{look.label}</span>
