@@ -91,6 +91,18 @@ export interface BasisEconomics {
 export interface BasisMarket {
 	/** URL-safe identifier: the underlying ticker, e.g. "NVDA", "BTC", "AERO". */
 	id: string;
+	/**
+	 * The chain the spot leg lives on.
+	 *
+	 * Part of the market's identity rather than context the caller is expected to
+	 * remember. "BTC" on Base and "BTC" on X Layer are different markets — a
+	 * different token at a different address with different liquidity — that
+	 * happen to share a perp, and a caller holding a `BasisMarket` with no chain
+	 * on it has to reconstruct which board it came from before it can trade. The
+	 * perp leg has no chain of its own: there is one Pacifica, on Solana, whatever
+	 * the spot side was bought on.
+	 */
+	chainId: number;
 	ticker: string;
 	name: string;
 	assetClass: BasisAssetClass;

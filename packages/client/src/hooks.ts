@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { adminApi, vaultApi } from "./api";
+import { adminApi, authApi, selfApi, vaultApi } from "./api";
 
 /**
  * Data hooks.
@@ -307,5 +307,170 @@ export function useVaultPositionSteps(
 		queryFn: () => adminApi.positionSteps(vault as string),
 		enabled: enabled && Boolean(vault),
 		refetchInterval,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Self-managed positions
+// ---------------------------------------------------------------------------
+
+/**
+ * Who the API thinks the caller is, if anyone.
+ *
+ * Distinct from `useAdminSession`, which answers the narrower question of
+ * whether the caller may administer the protocol. This one answers "is there a
+ * session at all", which is what the self-managed routes gate on — and an
+ * ordinary user signing in to see their own positions is not, and must not have
+ * to be, an admin.
+ *
+ * `retry: false` because the failure mode is a 401 for a signed-out visitor,
+ * which is the ordinary state rather than a transient error. Retrying it three
+ * times makes every anonymous page load three rejected requests.
+ */
+export function useAccountSession() {
+	return useQuery({
+		queryKey: ["account-session"],
+		queryFn: () => authApi.me(),
+		staleTime: 60_000,
+		retry: false,
+	});
+}
+
+/**
+ * Whether this deployment offers self-managed positions at all.
+ *
+ * Effectively static — it answers a question about configuration, not about
+ * markets — so it is fetched once and never refetched. The app uses it to decide
+ * whether to show the entry points, and a feature that appears and then fails at
+ * the last step is worse than one that was never offered.
+ */
+export function useSelfStatus() {
+	return useQuery({
+		queryKey: ["self-status"],
+		queryFn: () => selfApi.status(),
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+}
+
+/**
+ * The basis board: every enterable pair, ranked by net yield.
+ *
+ * Thirty seconds, which is faster than the vault board and slower than a price
+ * feed. The ranking moves on funding rates and spot quotes rather than on ticks
+ * — funding is published hourly and the routability probe is cached upstream —
+ * so a shorter interval would re-fetch the same ordering, and a longer one lets
+ * a market that has just become unenterable keep offering a button.
+ */
+export function useBasisMarkets(chainId?: number) {
+	return useQuery({
+		queryKey: ["basis-markets", chainId ?? null],
+		queryFn: () => selfApi.markets({ chainId }),
+		refetchInterval: 30_000,
+		staleTime: 15_000,
+	});
+}
+
+/**
+ * One market from the board, by ticker.
+ *
+ * Served from the board's own cache rather than a second endpoint. The board is
+ * one request that already contains every market, so a detail page that fetched
+ * its own row would double the upstream load to show data it already had — and
+ * could show a *different* price from the row the user just clicked.
+ */
+export function useBasisMarket(ticker: string | undefined, chainId?: number) {
+	const board = useBasisMarkets(chainId);
+	const target = ticker?.trim().toUpperCase();
+
+	return {
+		...board,
+		data: target
+			? board.data?.markets.find(
+					(market) =>
+						market.id.toUpperCase() === target ||
+						market.ticker.toUpperCase() === target ||
+						market.spot.symbol.toUpperCase() === target ||
+						market.perp.pacificaSymbol.toUpperCase() === target,
+				)
+			: undefined,
+	};
+}
+
+/**
+ * The caller's derived wallet, without creating one.
+ *
+ * `enabled` is the caller's to set, because this 401s for a signed-out visitor
+ * and a rejected request on every page load is noise in the console and a
+ * retry loop in the query client.
+ */
+export function useDerivedWallet(enabled = true) {
+	return useQuery({
+		queryKey: ["self-wallet"],
+		queryFn: () => selfApi.wallet(),
+		enabled,
+		// An address is derived from a path and cannot change for a given user, so
+		// the only thing that moves here is onboarding state.
+		staleTime: 60_000,
+	});
+}
+
+/**
+ * Balances across Solana, Pacifica and the venue minimums.
+ *
+ * Fifteen seconds, the shortest interval in this file, and deliberately so.
+ * These are the numbers someone watches while a bridge lands — the one moment
+ * in the product where a user is genuinely waiting on a balance to change — and
+ * a minute of staleness there reads as a transfer that has gone missing.
+ */
+export function useSelfBalances(enabled = true) {
+	return useQuery({
+		queryKey: ["self-balances"],
+		queryFn: () => selfApi.balances(),
+		enabled,
+		refetchInterval: 15_000,
+		staleTime: 5_000,
+	});
+}
+
+/**
+ * The caller's positions, with both legs re-read from their venues.
+ *
+ * Twenty seconds. Each fetch re-reads an ERC-20 balance and the Pacifica
+ * account, so this is the most expensive hook here — but it is also the one
+ * showing whether someone is currently hedged, and that is not a figure to let
+ * go stale while a market moves underneath it.
+ */
+export function useSelfPositions(options: { enabled?: boolean; includeClosed?: boolean } = {}) {
+	return useQuery({
+		queryKey: ["self-positions", options.includeClosed ?? false],
+		queryFn: () => selfApi.positions({ includeClosed: options.includeClosed }),
+		enabled: options.enabled ?? true,
+		refetchInterval: 20_000,
+		staleTime: 10_000,
+	});
+}
+
+export function useSelfPosition(id: string | undefined) {
+	return useQuery({
+		queryKey: ["self-position", id],
+		queryFn: () => selfApi.position(id as string),
+		enabled: Boolean(id),
+		refetchInterval: 20_000,
+	});
+}
+
+/**
+ * One position's history.
+ *
+ * Append-only and mostly idle, so it is not polled. It changes when the user
+ * acts, and the action that changes it can invalidate this key itself — which is
+ * cheaper and more immediate than a timer that is wrong in both directions.
+ */
+export function useSelfPositionEvents(id: string | undefined) {
+	return useQuery({
+		queryKey: ["self-position-events", id],
+		queryFn: () => selfApi.events(id as string),
+		enabled: Boolean(id),
+		staleTime: 60_000,
 	});
 }

@@ -153,8 +153,9 @@ function blockersFor(token: SpotToken, market: MarketWithEconomics, chainName: s
 function toBasisMarket(
 	token: SpotToken,
 	market: MarketWithEconomics,
-	chainName: string,
+	chain: { id: number; name: string },
 ): BasisMarket {
+	const chainName = chain.name;
 	const funding = {
 		long: market.fundingLongPercentPerHour,
 		short: market.fundingShortPercentPerHour,
@@ -162,6 +163,7 @@ function toBasisMarket(
 
 	return {
 		id: token.ticker.toUpperCase(),
+		chainId: chain.id,
 		ticker: token.ticker,
 		name: token.name,
 		assetClass: toBasisAssetClass(market.assetClass),
@@ -243,7 +245,7 @@ export async function listBasisMarkets(
 			unpaired.push({ symbol: token.symbol, ticker: token.ticker, name: token.name });
 			return [];
 		}
-		return [toBasisMarket(token, market, chain.name)];
+		return [toBasisMarket(token, market, chain)];
 	});
 
 	rows.sort((a, b) => {
@@ -258,15 +260,25 @@ export async function listBasisMarkets(
 }
 
 /**
- * One market by id.
+ * One market by id, on one chain.
  *
  * Accepts the underlying ticker ("NVDA"), either leg's symbol ("NVDAc",
  * "NVDA/USD", "NVDA-USD"), or any casing of them. A URL that a user pasted from
  * one venue's vocabulary should not 404 because the platform keys on the other.
+ *
+ * `chainId` is not cosmetic and defaulting it is not free. The spot leg is
+ * chain-specific — "BTC" is a different token at a different address with
+ * different liquidity on Base and on X Layer — so a lookup that ignored the
+ * chain would answer an X Layer question with a Base token. Anything that then
+ * built a swap from the answer would be routing the wrong asset on the wrong
+ * chain, which reverts at best and fills at worst.
  */
-export async function getBasisMarket(id: string): Promise<BasisMarket | undefined> {
+export async function getBasisMarket(
+	id: string,
+	chainId: number = DEFAULT_CHAIN_ID,
+): Promise<BasisMarket | undefined> {
 	const target = id.trim().toUpperCase().replace("-", "/");
-	const { markets } = await listBasisMarkets();
+	const { markets } = await listBasisMarkets(chainId);
 
 	return markets.find(
 		(market) =>
