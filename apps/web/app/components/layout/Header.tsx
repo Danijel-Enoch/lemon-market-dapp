@@ -3,7 +3,15 @@ import { useMiniApp } from "@app/components/providers/MiniAppProvider";
 import { ConnectWallet } from "@app/components/ui/ConnectWallet";
 import { formatUsdCompact, useProtocolStats } from "@lemon/client";
 import { Brand, cn, ThemeToggle } from "@lemon/ui";
-import { Activity, BookOpen, ChartNoAxesColumn, Vault, Wallet } from "lucide-react";
+import {
+	Activity,
+	BookOpen,
+	CandlestickChart,
+	ChartNoAxesColumn,
+	Layers,
+	Vault,
+	Wallet,
+} from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 /**
@@ -14,16 +22,26 @@ import { Link, useLocation } from "react-router";
  * two figures that describe the protocol and the wallet — in that order, left
  * to right, the way The Firm runs its own. Under it the ticker.
  *
- * The app has five destinations, which is few enough for a flat row. Below md
- * the bar keeps only the brand and the wallet, and navigation moves to a tab
- * bar at the bottom.
+ * The destinations come in three groups, and the order encodes them: the vault
+ * product and the holdings it produces, then the self-managed product and the
+ * holdings *it* produces, then the reads that belong to neither. Vaults and
+ * Markets list the same underlying markets under different custody, so they are
+ * deliberately not adjacent — two boards side by side read as duplicates, while
+ * each sitting next to its own holdings page reads as two products.
+ *
+ * Below md the bar keeps only the brand and the wallet, and navigation moves to
+ * a tab bar at the bottom.
  */
 
 type NavLeaf = { href: string; label: string; icon: typeof Vault };
 
 const LINKS: NavLeaf[] = [
+	// Managed: hand capital to an agent, hold a share token.
 	{ href: "/vaults", label: "Vaults", icon: Vault },
 	{ href: "/portfolio", label: "Portfolio", icon: Wallet },
+	// Self-managed: run the same basis trade from your own wallet.
+	{ href: "/markets", label: "Markets", icon: CandlestickChart },
+	{ href: "/positions", label: "Positions", icon: Layers },
 	// Activity is a first-class destination rather than a tab inside a vault.
 	// The claim that anyone can audit the agents is only credible if the ledger
 	// is somewhere you can reach without knowing which vault to look in first.
@@ -33,12 +51,15 @@ const LINKS: NavLeaf[] = [
 ];
 
 /**
- * The bottom bar drops Docs and Stats.
+ * The bottom bar drops Docs, Stats and Activity.
  *
- * Both are reads rather than destinations mid-session, and five tabs on a phone
- * leaves each one too narrow to hit.
+ * All three are reads rather than destinations mid-session. Activity joined them
+ * when the self-managed pages arrived: seven links fit a desktop row and nowhere
+ * near a phone, and the four that remain are the ones someone returns to while
+ * actually holding something — the two boards and the two holdings pages.
  */
-const TABS: NavLeaf[] = LINKS.filter((link) => link.href !== "/docs" && link.href !== "/stats");
+const TAB_EXCLUDED = ["/docs", "/stats", "/activity"];
+const TABS: NavLeaf[] = LINKS.filter((link) => !TAB_EXCLUDED.includes(link.href));
 
 function isActive(pathname: string, href: string): boolean {
 	return pathname === href || pathname.startsWith(`${href}/`);

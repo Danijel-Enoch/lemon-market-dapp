@@ -1024,3 +1024,438 @@ export const authApi = {
 		post<{ account: { address: string; isAdmin: boolean } }>("/auth/sign-in", body),
 	signOut: () => post<{ ok: true }>("/auth/sign-out", {}),
 };
+
+// ---------------------------------------------------------------------------
+// Self-managed positions
+//
+// The other half of the product: the same basis trade a vault runs, run by the
+// user instead. Typed separately from `vaultApi` because the two share no
+// object — a vault has shares, a NAV and a withdrawal queue, and a self-managed
+// position has two legs at two venues and none of those things.
+//
+// The custody split is the thing to carry in mind reading these types, because
+// it is unusual and it is why several fields exist:
+//
+//   * The spot leg is in the user's own wallet. The app records it and reads it
+//     back off-chain; it cannot move it.
+//   * The perp leg is on Pacifica, under a Solana address derived through NEAR
+//     chain signatures. That one the app can sign for.
+// ---------------------------------------------------------------------------
+
+/** The Solana wallet derived for a user, and how far through setup it is. */
+export interface DerivedWallet {
+	/**
+	 * The derivation path — `lemon-v1/<connected address>`.
+	 *
+	 * Exposed rather than hidden because it is the only durable link between a
+	 * connected wallet and the funds these addresses hold. Someone should be able
+	 * to write it down.
+	 */
+	path: string;
+	/** Also the Pacifica account id; the venue keys balances by the signing address. */
+	solanaAddress: string;
+	evmAddress: string;
+	/** The USDC token account the Solana address deposits from. */
+	tokenAccount: string;
+	tokenAccountReady: boolean;
+	builderCodeApproved: boolean;
+	createdAt: string;
+}
+
+export interface UserBalances {
+	solana: {
+		address: string;
+		/** Bridged but not yet deposited into Pacifica, 6dp. */
+		idleUsdc: string;
+		tokenAccountReady: boolean;
+	};
+	pacifica: {
+		account: string;
+		/** False until the first deposit — Pacifica has no registration call. */
+		registered: boolean;
+		equityUsdc: string | null;
+		/** Margin not backing a position: what a new one can draw on. */
+		availableUsdc: string | null;
+		usedUsdc: string | null;
+	};
+	/**
+	 * The venue's own floors, carried with the balances they constrain.
+	 *
+	 * Here rather than hardcoded in the app because getting them wrong is
+	 * expensive in a specific way: a deposit under the minimum is accepted by the
+	 * bridge and rejected on arrival, stranding USDC on Solana with no visible
+	 * cause.
+	 */
+	minimums: {
+		depositUsdc: number;
+		positionUsdc: number;
+	};
+}
+
+export interface OnboardingCosts {
+	/** One-off rent for the USDC token account, in lamports. */
+	tokenAccountRentLamports: string;
+	depositFeeLamports: string;
+	/** Without a fee payer nobody on this deployment can deposit at all. */
+	feePayerConfigured: boolean;
+}
+
+export interface PositionLeg {
+	/** Underlying units the venue reports. Null when the venue could not be read. */
+	size: number | null;
+	valueUsd: number | null;
+	/**
+	 * Why the leg could not be read.
+	 *
+	 * Distinct from a size of zero, and the distinction is the point: a flat leg
+	 * and an unreadable one look identical in a number, and only one of them
+	 * means the holder is unhedged.
+	 */
+	unavailable: string | null;
+}
+
+export type SelfPositionStatus =
+	| "DRAFT"
+	| "SPOT_ONLY"
+	| "PERP_ONLY"
+	| "OPEN"
+	| "DRIFTED"
+	| "CLOSING"
+	| "CLOSED"
+	| "STALE";
+
+export interface SelfPosition {
+	id: string;
+	ticker: string;
+	chainId: number;
+	status: SelfPositionStatus;
+	statusReason: string | null;
+
+	spot: PositionLeg & {
+		symbol: string;
+		address: string;
+		costUsdc: string;
+	};
+
+	perp: PositionLeg & {
+		symbol: string;
+		entryPrice: string;
+		/** Null at 1x, where a fully collateralised short has no such price. */
+		liquidationPrice: number | null;
+		unrealisedPnlUsdc: string | null;
+	};
+
+	/** How far from delta-neutral this position actually is, right now. */
+	hedge: {
+		netUnits: number | null;
+		netUsd: number | null;
+		netPercent: number | null;
+		balanced: boolean;
+		/** The sentence to show. Composed server-side, where the context is. */
+		summary: string;
+	};
+
+	economics: {
+		marginUsdc: string;
+		leverageBps: number;
+		fundingUsdc: string;
+		fundingRatePercentPerHour: number | null;
+		netApyPercent: number | null;
+		valueUsdc: string | null;
+		unrealisedPnlUsdc: string | null;
+		realisedPnlUsdc: string | null;
+	};
+
+	openedAt: string | null;
+	closedAt: string | null;
+	updatedAt: string;
+}
+
+export interface PositionEvent {
+	id: string;
+	kind: string;
+	venue: string;
+	chainId: number | null;
+	/** A transaction hash or a Solana signature — the claim someone can check. */
+	txRef: string | null;
+	amount: string | null;
+	valueUsdc: string | null;
+	detail: string | null;
+	at: string;
+}
+
+/**
+ * One tradable spot-vs-perp pair — the platform's unit of inventory.
+ *
+ * Mirrors `BasisMarket` in `@lemon/core`, where the type and its reasoning
+ * live, for the same reason `AdlRisk` is mirrored above: this package is
+ * transport and formatting with no dependencies, so that any server-side caller
+ * can import it without dragging the registry along.
+ *
+ * Keyed by the underlying's ticker rather than by either leg's symbol. The two
+ * legs spell the same company differently — "NVDAc" on Base, "NVDA/USD" on
+ * Pacifica — and a URL built from one of them breaks the moment a venue renames
+ * its listing.
+ */
+export interface BasisMarket {
+	id: string;
+	/**
+	 * The chain the spot leg lives on.
+	 *
+	 * Part of the market's identity, not context the caller must remember. "BTC"
+	 * on Base and "BTC" on X Layer are different tokens with different liquidity
+	 * that happen to share a perp.
+	 */
+	chainId: number;
+	ticker: string;
+	name: string;
+	assetClass: "equity" | "crypto";
+	logoUrl: string | null;
+
+	/** The spot leg: a real ERC-20, bought through the chain's aggregator. */
+	spot: {
+		/** On-chain symbol, which is not the ticker — "NVDAc" for NVDA. */
+		symbol: string;
+		address: string;
+		decimals: number;
+		/** Executable price from a live route, not an oracle mid. Null when unrouted. */
+		priceUsd: number | null;
+		buyable: boolean;
+		sellable: boolean;
+		/** Measured on a probe trade, as a negative percent. */
+		priceImpactPercent: number | null;
+		/** The probe errored, as opposed to the aggregator reporting no pool. */
+		probeFailed: boolean;
+		checkedAt: number | null;
+	};
+
+	/** The perp leg: a Pacifica market, shorted against the spot holding. */
+	perp: {
+		symbol: string;
+		/** What Pacifica accepts on the wire, e.g. "NVDA". */
+		pacificaSymbol: string;
+		markPrice: number | null;
+		maxLeverage: number;
+		/** The venue's floor for this market. The number that decides enterability. */
+		minPositionUsdc: number;
+		lotSize: number;
+		tickSize: number;
+		openInterest: number;
+		availableOpenInterest: number;
+		/** False outside exchange hours, which only equities have. */
+		isOpen: boolean;
+		fundingShortPercentPerHour: number;
+		fundingLongPercentPerHour: number;
+	};
+
+	/**
+	 * What the market pays and what collecting it costs.
+	 *
+	 * Every figure is quoted at a reference size so rows are comparable. A
+	 * position sized differently is re-priced before it is opened — these rank,
+	 * they do not commit.
+	 */
+	economics: {
+		/** `(perp mark - spot) / spot`, percent. Null when either leg is unpriced. */
+		basisPercent: number | null;
+		fundingShortPercentPerHour: number;
+		fundingAprPercent: number;
+		fundingApyPercent: number;
+		/** Entry + exit fees and slippage, as a percent of notional. */
+		roundTripCostPercent: number;
+		/** After amortising the round trip over a year. The number to rank on. */
+		netApyPercent: number;
+		/** Days of funding needed to cover the round trip. Null when funding is negative. */
+		breakevenDays: number | null;
+		referenceNotionalUsd: number;
+		referenceLeverage: number;
+	};
+
+	/**
+	 * Why this market cannot be entered right now. Empty means it can.
+	 *
+	 * Carried on the market rather than discovered at submit time, so the board
+	 * shows an honest reason beside a row instead of hiding it — or worse,
+	 * offering a button that fails.
+	 */
+	blockers: string[];
+}
+
+/** A spot asset with no perp to hedge it — listable the moment one appears. */
+export interface UnpairedSpotAsset {
+	symbol: string;
+	ticker: string;
+	name: string;
+}
+
+export interface BasisBoard {
+	markets: BasisMarket[];
+	unpaired: UnpairedSpotAsset[];
+	/**
+	 * False while the first routability probe is still running.
+	 *
+	 * The board says "checking liquidity" rather than rendering every market as
+	 * unenterable, which would be actively wrong for the ~15 seconds a cold start
+	 * takes.
+	 */
+	routabilityKnown: boolean;
+}
+
+/** An unsigned transaction the user's own wallet has to send. */
+export interface UnsignedStep {
+	/** Why this transaction exists, for the text beside the wallet prompt. */
+	label: string;
+	to: string;
+	data: string;
+	value: string;
+	chainId: number;
+}
+
+/**
+ * A staged action, waiting on a signature.
+ *
+ * `steps` may be empty, and that is a real case rather than an error: closing a
+ * position whose spot leg is already gone needs no signature at all, only the
+ * short bought back. A browser that treats an empty list as a failure would
+ * strand exactly the positions most in need of closing.
+ */
+export interface PreparedAction {
+	actionId: string;
+	kind: string;
+	step: string;
+	steps: UnsignedStep[];
+	/** What the server will do once the steps are signed. Shown before signing. */
+	nextDescription: string;
+}
+
+export interface BridgeQuote {
+	requestId: string;
+	amount: string;
+	originChainId: number;
+	destinationChainId: number;
+	destinationAmountFormatted: string;
+	/** Where the funds land — the derived Solana address for a margin bridge. */
+	recipient: string;
+	steps: UnsignedStep[];
+}
+
+export interface BridgeProgress {
+	requestId: string;
+	/** Relay's own word: "pending", "success", "failure", "refund". */
+	status: string;
+	complete: boolean;
+	/** True when the bridge failed and the funds went back to the sender. */
+	refunded: boolean;
+	txRefs: string[];
+}
+
+export interface BridgeRecord {
+	requestId: string;
+	direction: string;
+	chainId: number;
+	amountUsdc: string;
+	landedUsdc: string | null;
+	status: string;
+	txRef: string | null;
+	at: string;
+}
+
+export const selfApi = {
+	/** Whether this deployment can run self-managed positions at all. */
+	status: () => request<{ available: boolean; reason: string | null }>("/self/status"),
+
+	/** The board of enterable pairs. Public — choosing comes before signing in. */
+	markets: (options: { chainId?: number; refresh?: boolean } = {}) =>
+		request<BasisBoard>("/self/markets", {
+			query: {
+				chainId: options.chainId,
+				refresh: options.refresh ? "true" : undefined,
+			},
+		}),
+
+	/** The caller's derived wallet, or null if they have never opened a position. */
+	wallet: () => request<{ wallet: DerivedWallet | null }>("/self/wallet"),
+
+	/** Derive it, creating the record on first ask. Idempotent. */
+	createWallet: () => post<{ wallet: DerivedWallet }>("/self/wallet", {}),
+
+	balances: () =>
+		request<{ wallet: DerivedWallet; balances: UserBalances; costs: OnboardingCosts }>(
+			"/self/balances",
+		),
+
+	positions: (options: { includeClosed?: boolean } = {}) =>
+		request<{ positions: SelfPosition[]; wallet: DerivedWallet | null }>("/self/positions", {
+			query: { includeClosed: options.includeClosed ? "true" : undefined },
+		}),
+
+	position: (id: string) => request<SelfPosition>(`/self/positions/${id}`),
+
+	events: (id: string) => request<{ events: PositionEvent[] }>(`/self/positions/${id}/events`),
+
+	// --- acting on a position --------------------------------------------
+	//
+	// Anything touching the spot leg is two calls, because the spot leg is in
+	// the user's own wallet and the server cannot sign it. `prepare` hands back
+	// unsigned transactions; the browser gets them signed; `confirm` reports the
+	// hash and the server finishes with the leg it *can* sign. The `actionId`
+	// binding the two is what survives a closed tab.
+
+	openPosition: (body: {
+		ticker: string;
+		chainId: number;
+		notionalUsd: number;
+		leverage: number;
+	}) => post<PreparedAction>("/self/positions/open", body),
+
+	confirmOpen: (body: { actionId: string; txHash: string }) =>
+		post<{ status: string; filled: number; shorted: number }>("/self/positions/open/confirm", body),
+
+	/** Place the hedge on a position left holding spot alone. No signature needed. */
+	hedge: (id: string) => post<{ shorted: number }>(`/self/positions/${id}/hedge`, {}),
+
+	/** Resize the perp to match the spot. Entirely server-side — no wallet prompt. */
+	rebalance: (id: string) =>
+		post<{ adjusted: number; direction: "increased" | "decreased" | "none" }>(
+			`/self/positions/${id}/rebalance`,
+			{},
+		),
+
+	closePosition: (id: string) => post<PreparedAction>(`/self/positions/${id}/close`, {}),
+
+	confirmClose: (body: { actionId: string; txHash?: string }) =>
+		post<{ status: string; closed: number }>("/self/positions/close/confirm", body),
+
+	// --- moving money -----------------------------------------------------
+
+	bridgeQuote: (body: {
+		to: "margin" | "chain";
+		originChainId: number;
+		destinationChainId?: number;
+		amount: string;
+	}) => post<BridgeQuote>("/self/bridge/quote", body),
+
+	bridgeSent: (body: {
+		requestId: string;
+		to: "margin" | "chain";
+		originChainId: number;
+		recipient: string;
+		amount: string;
+		txRef: string;
+	}) => post<{ id: string; requestId: string; status: string }>("/self/bridge/sent", body),
+
+	bridgeStatus: (requestId: string) => request<BridgeProgress>(`/self/bridge/${requestId}`),
+
+	bridges: () => request<{ bridges: BridgeRecord[] }>("/self/bridges"),
+
+	/** Credit USDC that has landed in the margin wallet to Pacifica. */
+	depositMargin: () =>
+		post<{ deposited: number; signature: string | null; reason?: string }>(
+			"/self/margin/deposit",
+			{},
+		),
+
+	/** Ask Pacifica to release margin back to the margin wallet. */
+	withdrawMargin: (amount: number) =>
+		post<{ requested: number }>("/self/margin/withdraw", { amount }),
+};

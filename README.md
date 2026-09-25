@@ -99,6 +99,96 @@ keep the risk — until the position is actually closed.
 The exit price is fixed at **fulfilment**, not at request. A price fixed on the
 day you asked would be a free option on everyone else's capital.
 
+## Running the trade yourself
+
+A vault is capital handed to an agent. Some people want the same trade and their
+own hands on it, so `/markets` is the board of enterable pairs and `/positions`
+is what they end up holding. **Nothing about the vaults changes** — a user can
+run both at once, and the two share a market list and nothing else: no shares,
+no queue, no agent, no NAV.
+
+What makes this awkward, and what most of the design is about, is that the two
+legs cannot live in the same place:
+
+| | where it lives | who signs | what that costs |
+|---|---|---|---|
+| **Spot leg** | the user's own connected wallet | the user | a signature per open, rebalance and close |
+| **Perp margin** | Pacifica, under a NEAR-derived Solana address | this deployment's relayer | a trust boundary, stated plainly in the UI |
+
+The perp leg is derived rather than connected because Pacifica is on Solana and
+keys every balance by the Ed25519 address that signed the deposit. Asking an EVM
+user to install a second wallet, fund it with SOL and keep the two in sync is
+most of the reason people do not run this trade themselves. So `derivationPath()`
+takes their connected address and NEAR chain signatures produce a Solana account
+for it — no seed phrase, no second install, and the address is a pure function of
+their wallet, so losing the database strands nothing.
+
+That is **not** self-custody of the margin, and the app does not imply it is. The
+MPC network signs for a path when our relayer asks, so a compromised
+`NEAR_ACCOUNT_ID` key is a compromised derived wallet — the same boundary the
+vault agents sit behind. It is exactly why the spot leg, which is the larger
+half, deliberately stays where we cannot reach it.
+
+**The database is not authoritative about money here.** A vault's agent is the
+only thing that can move a vault's legs; a self-managed spot leg sits in a wallet
+whose owner may sell it on any exchange without telling us. So every read goes
+back to both venues — the ERC-20 balance and the Pacifica position — and a
+disagreement is resolved in the venue's favour and surfaced rather than
+reconciled away. `SelfPosition.status` carries `SPOT_ONLY` and `PERP_ONLY` for
+that reason: a position caught with one leg on is a directional bet, and
+collapsing those into `OPEN` would render it as delta-neutral.
+
+**Funding is not yield**, and the board is built around saying so. A market can
+pay the best funding rate listed and still be the worst trade on it once a thin
+pool's slippage and the four fills of a round trip are priced in, so rows carry
+gross and net side by side, rank on net, and name the gap. The sizing panel
+prices the size actually typed rather than the board's reference notional —
+slippage, margin and breakeven all move with size, and quoting ranking numbers as
+commitment numbers is how someone opens a $200 position expecting the APY of a
+$50,000 one.
+
+Both of Pacifica's floors are shown before anyone bridges. A deposit below the
+minimum is accepted by the bridge and rejected on arrival, which strands USDC on
+Solana with no visible cause — the one failure in this flow with no good recovery.
+
+### The ordering rule
+
+Nothing here is one call, because no single party can move both legs. An open is
+prepare → the user signs → the server hedges, and **the user's leg always goes
+first.**
+
+That is not symmetry, it is a choice about which failure to keep. Short the perp
+first and a user who closes the tab is left *short only* — a directional bet
+against the market — for as long as they stay away, which may be forever. Buy
+spot first and the exposed window is the gap between the swap confirming and the
+hedge landing: seconds, and ours to shorten. The same argument gives the same
+answer for a close, which is worth saying because the instinct is to reverse it:
+someone closing a position is exactly the person who will walk away once they
+believe it is done.
+
+**The hedge is sized from the receipt, never from the quote.** A swap fills at
+whatever the pool gives. Hedging the quoted size leaves the difference naked in
+one direction or over-hedged in the other, and both are directional positions
+dressed as neutral ones — so the transfer log is read and the short is sized to
+what actually arrived.
+
+`SelfAction` carries the state across the gap between the two calls, with at most
+one live action per position enforced by a unique key rather than a read-then-write.
+Two tabs racing an open would otherwise buy spot twice and hedge it once.
+
+### Rebalancing needs no signature
+
+A drifted position is fixed by resizing the *perp*, which is the leg the server
+can move alone — one fill, no wallet prompt. Correcting the spot side instead
+would cost two fills and a signature to fix something the perp absorbs in one, and
+would make routine maintenance of a hedge depend on a human being awake.
+
+The same is true of the recovery path. A position left holding spot alone — a
+failed hedge, a closed tab — is repaired by **Place hedge**, which buys nothing
+and asks for nothing. Half-open states are named rather than cleared: `SPOT_ONLY`
+is directionally long, `PERP_ONLY` is directionally short, and an app that
+collapsed either into `OPEN` would render an unhedged bet as a basis position.
+
 ## Risk tiers
 
 Chosen when the vault is created and immutable afterwards. They are different
@@ -331,7 +421,9 @@ bun run contracts:build                   # compiles and regenerates ts/abi.ts
 bun run dev                               # http://localhost:3002
 ```
 
-`/` is the landing page and `/vaults` is the board. The split is deliberate:
+`/` is the landing page and `/vaults` is the board. `/markets` is the same set of
+markets for someone running the trade themselves, and `/positions` is what they
+hold. The split is deliberate:
 the board assumes you already want a vault and are choosing between them, which
 is the wrong first page for someone who has not decided yet. A mini-app frame
 skips the landing page entirely — someone who opened this from a cast has

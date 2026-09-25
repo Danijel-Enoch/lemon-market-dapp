@@ -148,6 +148,14 @@ model User {
   updatedAt DateTime @updatedAt
 
   sessions Session[]
+
+  /// The NEAR-derived wallet that holds this user's perp margin, once they have
+  /// one. Optional because it is created on first use rather than at sign-in:
+  /// most sessions never open a self-managed position, and deriving eagerly
+  /// would write a row for every wallet that ever looked at the board.
+  wallet    UserWallet?
+  positions SelfPosition[]
+  actions   SelfAction[]
 }
 
 /// A browser session, established by a wallet signature.
@@ -677,4 +685,406 @@ model AdminUser {
   label     String?
   addedBy   String?
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Self-managed positions
+//
+// The other half of the product. A vault is capital handed to an agent; this is
+// the same basis trade run by the user themselves, and the two share nothing
+// but the market list. Nothing here is a vault, has shares, or is touched by
+// `apps/agent` — a depositor and a self-manager can be the same person and
+// their two positions never meet.
+//
+// The split of custody is the thing to keep straight, because it is unusual and
+// every row below depends on it:
+//
+//   * The **spot leg** sits in the user's own connected wallet. We cannot move
+//     it. Every open, rebalance and close of that leg is a transaction they
+//     sign themselves, and this table only ever *records* what they signed.
+//   * The **perp leg** sits on Pacifica, under a Solana address derived for
+//     them through NEAR chain signatures. That one we can sign for.
+//
+// So a row here is not authoritative about money the way a vault contract is.
+// It is the join between two venues that have never heard of each other, plus
+// the intent that put them there. Both legs are re-read from their venue before
+// anything is shown; a disagreement between this table and the venue is
+// resolved in the venue's favour, always, and surfaced rather than reconciled
+// away — see `SelfPosition.status`.
+// ---------------------------------------------------------------------------
+
+/// The wallet NEAR chain signatures derive for one user.
+///
+/// Stored even though `derivationPath()` makes it a pure function of the
+/// connected address, and the reason is the failure it catches rather than the
+/// lookup it saves. Derivation takes the *relayer's* NEAR account id as an
+/// input, so changing `NEAR_ACCOUNT_ID` on a running deployment silently
+/// repoints every user at a fresh, empty address while their funds stay behind
+/// at one nothing derives any more. Recording what was derived turns that into
+/// a mismatch the API can refuse loudly on the next request, instead of a
+/// Pacifica account that appears to have been emptied overnight.
+model UserWallet {
+  id String @id @default(cuid())
+
+  /// One derived wallet per user, forever. The path is `lemon-v1/<address>`
+  /// and cannot be reissued: it is the only link between a connected wallet and
+  /// the funds its derived addresses hold.
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The full derivation path, stored verbatim rather than rebuilt from the
+  /// address. If the path *format* is ever versioned, existing rows must keep
+  /// deriving what they always derived.
+  path String @unique
+
+  /// The Solana address, which is also the Pacifica account id — Pacifica keys
+  /// balances by the address that signed the deposit, so there is no separate
+  /// account number anywhere in the system.
+  solanaAddress String @unique
+
+  /// The secp256k1 sibling of the same path.
+  ///
+  /// Unused by the spot leg, which lives in the user's own wallet, and recorded
+  /// anyway because it is where bridged USDC lands on the EVM side and because
+  /// a path derives both keys whether or not both are wanted.
+  evmAddress String @unique
+
+  /// The NEAR account the addresses above were derived under.
+  ///
+  /// The guard described on this model. Compared against live configuration on
+  /// every read; a mismatch means these addresses are unreachable and no
+  /// balance shown against them would be this user's.
+  derivedUnder String
+
+  /// When the Solana USDC token account was first observed on-chain.
+  ///
+  /// A derived address holds USDC but never SOL, so it cannot pay the rent on
+  /// its own token account — a fee payer creates it. Null means a first deposit
+  /// still has that one-off cost ahead of it, which is worth telling someone
+  /// before they bridge rather than after.
+  tokenAccountReadyAt DateTime?
+
+  /// When the user approved this deployment's Pacifica builder code.
+  ///
+  /// Perp fees are charged through a builder code the user approves, with a
+  /// rate they agree to as a ceiling. Null means they have not agreed, and the
+  /// honest consequence is that no fee is charged — not that trading is blocked.
+  builderCodeApprovedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  positions SelfPosition[]
+}
+
+/// What a self-managed position is currently doing.
+///
+/// The half-open states are the point of this enum. A position whose two legs
+/// live at two venues, one of which needs a human signature, can genuinely be
+/// caught with one leg on — and the product's only honest move is to name that
+/// state and keep saying so until it is fixed. Collapsing them into OPEN would
+/// render an unhedged directional bet as a delta-neutral position.
+enum SelfPositionStatus {
+  /// Intent recorded, nothing executed. No money has moved.
+  DRAFT
+
+  /// Spot bought, perp not yet shorted. **Directionally long and unhedged.**
+  SPOT_ONLY
+
+  /// Perp shorted, spot not yet bought. **Directionally short and unhedged.**
+  PERP_ONLY
+
+  /// Both legs on, sizes within tolerance. The only state that is delta-neutral.
+  OPEN
+
+  /// Both legs on, sizes drifted past the position's rebalance threshold.
+  /// Still hedged, just not exactly — a warning, not an alarm.
+  DRIFTED
+
+  /// A close is part-done: one leg is flat and the other is not.
+  CLOSING
+
+  /// Both legs flat. Kept rather than deleted, because it is the only record of
+  /// what the trade actually earned.
+  CLOSED
+
+  /// The venue disagrees with this row in a way that cannot be reconciled
+  /// automatically — most often a perp liquidated or closed outside the app.
+  /// Shown to the user as-is; never silently corrected.
+  STALE
+}
+
+/// One user-run delta-neutral position: long spot, short the matching perp.
+///
+/// Sized and keyed the way the board is — by the underlying's ticker, never by
+/// either leg's venue symbol. The two legs spell the same company differently
+/// ("NVDAc" on Base, "NVDA/USD" on Pacifica) and a row keyed on one of them
+/// cannot find the other after a venue renames a listing.
+model SelfPosition {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The derived wallet whose Pacifica account holds the perp leg.
+  ///
+  /// A relation rather than a copied address, so the mismatch guard on
+  /// `UserWallet.derivedUnder` protects positions too: a repointed deployment
+  /// cannot quietly attach an old position to a new account.
+  walletId String
+  wallet   UserWallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  /// The underlying, e.g. "NVDA" or "BTC". Joins this row to the basis board.
+  ticker String
+
+  /// Which chain the spot leg is on. The perp leg has no chain — there is one
+  /// Pacifica, on Solana, whatever the spot side is bought on.
+  chainId Int
+
+  status SelfPositionStatus @default(DRAFT)
+
+  // --- the spot leg, in the user's own wallet ------------------------------
+
+  /// The ERC-20 bought, recorded at open. Not looked up later: a registry edit
+  /// must not change what an existing position is understood to hold.
+  spotTokenAddress  String
+  spotTokenSymbol   String
+  spotTokenDecimals Int
+
+  /// Base units of the token this position accounts for, as a decimal string.
+  ///
+  /// A string because token amounts are up to 18 decimals and a float loses
+  /// precision well before it reaches the screen. This is *the position's* size,
+  /// which is not the wallet's balance — the same wallet may hold the same token
+  /// from somewhere else entirely, and hedging against that would short capital
+  /// the user never asked to hedge.
+  spotAmount String @default("0")
+
+  /// Average USD cost of the spot leg, 6dp, as a decimal string. The other half
+  /// of the P&L subtraction.
+  spotCostUsdc String @default("0")
+
+  // --- the perp leg, on Pacifica ------------------------------------------
+
+  /// Pacifica's wire symbol, e.g. "NVDA". Distinct from `ticker` because the
+  /// venue's spelling is the venue's to change.
+  perpSymbol String
+
+  /// Short size in units of the underlying, as a decimal string. Positive; the
+  /// direction is implied by this being the short leg of a basis trade.
+  perpSize String @default("0")
+
+  /// Average entry price of the short, 6dp.
+  perpEntryPrice String @default("0")
+
+  /// Leverage the user chose for the perp leg, in basis points. 10000 is 1x —
+  /// a fully collateralised short with no liquidation price at all.
+  leverageBps Int @default(10000)
+
+  /// Margin the user has committed to this position, 6dp.
+  ///
+  /// Recorded per position even though Pacifica holds one margin pool per
+  /// account, because the account is cross-margined and a user running two
+  /// positions needs to know which one is consuming the equity that is about to
+  /// be liquidated.
+  marginUsdc String @default("0")
+
+  /// How far the legs may drift apart before the position reads as DRIFTED, in
+  /// basis points of spot notional. Per position rather than global: an equity
+  /// basis has hours where one leg cannot trade at all, and a threshold tight
+  /// enough for BTC would flag every equity position every night.
+  rebalanceDriftBps Int @default(500)
+
+  // --- lifecycle ----------------------------------------------------------
+
+  /// When both legs were first on at once. Null for anything never fully hedged.
+  openedAt DateTime?
+
+  /// When both legs reached flat.
+  closedAt DateTime?
+
+  /// Realised P&L over the life of the position, 6dp, signed.
+  ///
+  /// Written at close rather than computed on read, because it is the one figure
+  /// that must not change afterwards: the venues stop reporting a closed
+  /// position's fills, and a number recomputed from data that has aged out would
+  /// quietly become zero.
+  realisedPnlUsdc String?
+
+  /// Funding collected on the short leg so far, 6dp, signed. The reason the
+  /// trade exists, and the one component of its return that is not a price move.
+  fundingUsdc String @default("0")
+
+  /// Why the position is in the state it is, when that needs saying — an
+  /// unhedged leg, a venue disagreement, a close that stopped half way. Shown
+  /// verbatim; this is the sentence the user reads when something is wrong.
+  statusReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events  SelfPositionEvent[]
+  actions SelfAction[]
+
+  /// The list a user opens: their positions, newest first.
+  @@index([userId, status])
+  /// Reconciliation reads every non-terminal position across all users.
+  @@index([status])
+  @@index([userId, ticker])
+}
+
+/// One thing that happened to a self-managed position.
+///
+/// The user-facing counterpart of the vault's on-chain `reportActivity`, and
+/// deliberately the same shape of promise: every leg that moves leaves a row
+/// naming the venue and its own transaction reference, so a user can check the
+/// claim against a public chain rather than take the app's word for it.
+///
+/// Append-only. Rows are never edited or removed — a corrected event is a new
+/// event, because a ledger that can be rewritten is not a ledger.
+model SelfPositionEvent {
+  id String @id @default(cuid())
+
+  positionId String
+  position   SelfPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  /// What happened: OPEN_SPOT, OPEN_PERP, REBALANCE, CLOSE_SPOT, CLOSE_PERP,
+  /// BRIDGE_OUT, BRIDGE_IN, DEPOSIT_MARGIN, WITHDRAW_MARGIN, FUNDING.
+  ///
+  /// A string rather than an enum: these are descriptions of things that
+  /// happened, and an event type that arrives after a deploy must be
+  /// recordable without a migration that blocks writing the history.
+  kind String
+
+  /// Which venue executed it — "kyber", "univ3", "pacifica", "relay".
+  venue String
+
+  /// Which chain it happened on. Null for Pacifica actions, which are matching
+  /// engine events with no chain of their own until they settle.
+  chainId Int?
+
+  /// The venue's own reference: a transaction hash, a Solana signature, an
+  /// order id. Kept as text because a Solana signature is 64 bytes and a form
+  /// truncated to fit an EVM hash links to nothing.
+  txRef String?
+
+  /// Underlying units moved, as a decimal string. Null where the event is not
+  /// about a size — a funding settlement, for instance.
+  amount String?
+
+  /// USD value moved, 6dp. The figure the user reads.
+  valueUsdc String?
+
+  /// Free text for anything the fields above cannot carry, including the reason
+  /// a step failed. Failures are recorded as events too: a close that did not
+  /// complete is exactly the history someone needs.
+  detail String?
+
+  createdAt DateTime @default(now())
+
+  @@index([positionId, createdAt])
+}
+
+/// What a self-managed action is doing, and who it is waiting on.
+///
+/// The states split on *who acts next*, because that is the only distinction
+/// that changes what the app should do. `AWAITING_USER` is a step the server
+/// cannot take — a swap from the user's own wallet — and it can sit there
+/// indefinitely without anything being wrong except that the position may be
+/// half-open while it does. `RUNNING` is ours and should never sit for long.
+enum SelfActionStatus {
+  /// Prepared, and waiting on a signature from the user's wallet. The only
+  /// state that legitimately lasts longer than a few minutes.
+  AWAITING_USER
+
+  /// The server is executing. A stalled one is a bug or an upstream outage.
+  RUNNING
+
+  DONE
+  FAILED
+
+  /// The user walked away and the app gave up waiting. Kept rather than
+  /// deleted: an abandoned open is exactly the history that explains why a
+  /// position is sitting with one leg on.
+  ABANDONED
+}
+
+/// One multi-step thing a user is doing to a position.
+///
+/// This model exists because of the custody split, and nothing else would need
+/// it. A vault's agent owns both legs and can drive an unwind from start to
+/// finish inside one tick; a self-managed open cannot, because the spot leg is
+/// a transaction only the user's wallet can sign. So an open is: the server
+/// prepares, the user signs, the server hedges — three turns across two
+/// parties, with the browser free to close in between.
+///
+/// Everything that makes this survivable is here. The step names where it got
+/// to, the prepared payload the browser needs to resume, and — most importantly
+/// — the fact that a position with an abandoned `OPEN` is a position that may be
+/// holding spot with nothing hedging it. That is not an error state the app can
+/// clear on its own; it is a fact about the world that somebody has to be told.
+///
+/// Deliberately close in shape to `OperatorAction`, which does the same job for
+/// vault unwinds. Not shared with it: that one is keyed to a vault and gated on
+/// an operator, this one to a position and a user, and merging them would put
+/// every user's action in a table the admin console reads as its own.
+model SelfAction {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Null for actions that are not about a position — funding the margin
+  /// wallet before there is anything to fund it for, most often.
+  positionId String?
+  position   SelfPosition? @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  /// OPEN, CLOSE, REBALANCE, BRIDGE_IN, BRIDGE_OUT, WITHDRAW_MARGIN.
+  ///
+  /// A string rather than an enum for the same reason `SelfPositionEvent.kind`
+  /// is: a new kind of action must be recordable without a migration that
+  /// blocks writing history.
+  kind String
+
+  status SelfActionStatus @default(RUNNING)
+
+  /// Which step of `kind` it reached. The resume point, and the sentence the
+  /// UI turns into "waiting for you to approve the swap".
+  step String
+
+  /// JSON the browser needs to finish the current step — an unsigned
+  /// transaction, a router to approve, the amount expected back.
+  ///
+  /// Text rather than a JSON column because it is opaque to the database and
+  /// only ever read by the code that wrote it. Never trusted on the way back
+  /// in: a payload names what the server intended, and what the user actually
+  /// signed is re-read from the chain.
+  payload String?
+
+  /// The chain this step's transaction belongs on, when it has one.
+  chainId Int?
+
+  /// What the user's wallet actually sent, once it has. The claim anyone can
+  /// check against a public chain.
+  txRef String?
+
+  /// Why it failed, in the words the user sees.
+  error String?
+
+  /// At most one live action per position.
+  ///
+  /// Set to the position id while the action is live and nulled when it
+  /// finishes, so the uniqueness is enforced by the database rather than by a
+  /// read-then-write that two tabs can both win. Two concurrent opens on one
+  /// position would double the spot leg and hedge it once.
+  runningKey String? @unique
+
+  startedAt   DateTime  @default(now())
+  /// Bumped by the server while it works, so a process that died mid-action is
+  /// distinguishable from one still going.
+  heartbeatAt DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([userId, status])
+  @@index([positionId, startedAt])
 }

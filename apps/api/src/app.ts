@@ -5,9 +5,14 @@ import { logger } from "./log";
 import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { marketRoutes } from "./routes/markets";
+import { NotSignedInError, selfRoutes } from "./routes/self";
 import { vaultRoutes } from "./routes/vaults";
 import { AdminError, seedAdmins } from "./services/admin";
 import { AuthError, AuthUnavailableError } from "./services/auth";
+import { BridgeUnavailableError } from "./services/self-bridge";
+import { ExecutionError } from "./services/self-execution";
+import { PerpUnavailableError } from "./services/self-perp";
+import { WalletUnavailableError } from "./services/user-wallet";
 
 /**
  * Anything thrown by Prisma.
@@ -110,6 +115,37 @@ export function createApiApp(prefix = "/api") {
 					return { error: error.message };
 				}
 
+				// A signed-out caller on a route that names someone's own funds. Not
+				// logged above debug: it is the ordinary first request of every
+				// anonymous visit, not a problem anyone has to look at.
+				if (error instanceof NotSignedInError) {
+					logger.debug(`${where}: 401 not signed in`);
+					set.status = 401;
+					return { error: error.message };
+				}
+
+				// Carries its own status because the distinctions matter to the
+				// browser: 409 is "something is already running on this position",
+				// 502 is "your leg went through and ours did not", and those two want
+				// very different things on screen.
+				if (error instanceof ExecutionError) {
+					logger.warn(`${where}: refused ${error.status} — ${error.message}`);
+					set.status = error.status;
+					return { error: error.message };
+				}
+
+				// Unconfigured rather than broken: the caller did nothing wrong and an
+				// operator has something specific to do about it.
+				if (
+					error instanceof WalletUnavailableError ||
+					error instanceof PerpUnavailableError ||
+					error instanceof BridgeUnavailableError
+				) {
+					logger.warn(`${where}: unavailable — ${error.message}`);
+					set.status = 503;
+					return { error: error.message };
+				}
+
 				// Pacifica answers a rejected order with a 200 and success:false, so
 				// its client raises rather than returning — but the failure is still
 				// upstream's, and a 500 would send the caller looking in the wrong
@@ -168,6 +204,7 @@ export function createApiApp(prefix = "/api") {
 			.get("/health", () => ({ ok: true, service: "lemon-api" }))
 			.use(authRoutes)
 			.use(marketRoutes)
+			.use(selfRoutes)
 			.use(vaultRoutes)
 			.use(adminRoutes)
 	);
